@@ -66,6 +66,7 @@ def ops():
 
 
 KERNEL_ONLY = True
+UMAX = 2  # round 16: --umax (32 / U trips must stay integral: U in 1, 2, 4)
 
 
 def mk():
@@ -78,22 +79,25 @@ def build(II=None, times=None, cp=None, max_ii=16):
     if times is not None:
         lp = mk()
         lp.place(times["II"], times["t"])
-        lp.allocate()
+        lp.allocate(times.get("U"))
         return lp
     sys.path.insert(0, str(HERE))
     import cpsched
     for ii in range(II or 10, (II or max_ii) + 1):
         lp = mk()
-        res = cpsched.solve(lp, ii, last_stage=["ST"], max_life=2 * ii, **(cp or {}))  # U <= 2 (32 vectors per call, text)
+        res = cpsched.solve(lp, ii, last_stage=["ST"], max_life=UMAX * ii, **(cp or {}))  # U <= UMAX (32 vectors per call, text)
         if res is None:
             print(f"II {ii}: CP-SAT found none", file=sys.stderr)
             continue
         lp.place(ii, res[0])
         try:
-            try:
-                lp.allocate(1)
-            except Infeasible:
-                lp.allocate(2)
+            for u in [x for x in (1, 2, 4) if x <= UMAX]:  # round 16: UMAX (default 2) from --umax; U divides 32
+                try:
+                    lp.allocate(u)
+                    break
+                except Infeasible:
+                    if u == max(x for x in (1, 2, 4) if x <= UMAX):
+                        raise
         except Infeasible as e:
             print(f"II {ii}: {e}", file=sys.stderr)
             continue
@@ -138,16 +142,19 @@ def main():
     ap.add_argument("--cp", default=None)
     ap.add_argument("--func", default="sigk")
     ap.add_argument("--prologue", action="store_true", help="debug: an explicit prologue instead of kernel-only")
+    ap.add_argument("--umax", type=int, default=2)
+    ap.add_argument("--time", type=float, default=120)
     o = ap.parse_args()
-    global KERNEL_ONLY
+    global KERNEL_ONLY, UMAX
+    UMAX = o.umax
     KERNEL_ONLY = not o.prologue
     times = json.loads(Path(o.times).read_text()) if o.times else None
-    lp = build(o.ii, times, cp=dict(time_limit=120))
+    lp = build(o.ii, times, cp=dict(time_limit=o.time))
     cyc, land = check(lp)
     print(f"II {lp.II} (bound {lp.res_mii()}), U {lp.U}, stages {lp.stages()}, maxlive {lp.maxlive()}, garbage stores "
           f"{lp.neg_steps.get('out', 0)}; check OK ({cyc} cycles, 32 vectors)")
     if o.cp:
-        Path(o.cp).write_text(json.dumps({"II": lp.II, "t": {x.name: x.t for x in lp.ops}}, indent=1, sort_keys=True) + "\n")
+        Path(o.cp).write_text(json.dumps({"II": lp.II, "U": lp.U, "t": {x.name: x.t for x in lp.ops}}, indent=1, sort_keys=True) + "\n")
     import asmfit
     render = lambda: "\t.text\n" + "\n".join(function(lp, o.func)) + "\n"  # noqa: E731
     if asmfit.available():  # compact body, last bundle still aligned (round 12: EW text)

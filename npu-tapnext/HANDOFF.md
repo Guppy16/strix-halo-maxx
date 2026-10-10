@@ -1,3 +1,25 @@
+# ROUND 16 IN PROGRESS (2026-10-10/11) - read this block first; the round-15 block below is the base
+## State: **full12r16e 40.25 ms** median at depth 12 (min 40.13; r15m re-timed 41.50), regress BIT-IDENTICAL vs full12r9a
+Build: `r16/try16.sh NAME [--ew-add ...]` (research tools/try.sh on r16e's flags: EW_DEFS = r15m's - -DSSX + -DSQK
+-DINPART_INLINE -DXONE -DGGK -DSSQ; kdefs = r15m's). Every experiment: a fresh NAME; the summary prints lint, text, regress, time.
+Commits (repo holding npu-tapnext/, local only): SQK 0250b26, P-IN fcb0325, XONE 0f21eca, GGK 451f962, SSQ d1db154.
+## Changes this round (r16/)
+- SQK (gen_sqk.py, sqkb): exact sqrt, II 13, exponent bias folded into the table (r9/ssm_lut.h takes SQK_TAB). 493 -> 321.
+- INPART_INLINE (research P-IN; the flag is not PIN: a header #undef-s PIN): part pointers inline, the straddling part by cpy64.
+- XONE (research X1b): x / x-1 / x-2 in one out_copy when contiguous. cp_x 432 -> 269.
+- GGK (gen_ggk.py, ggkb, ggkref): both gate GEMMs in one loop, II 24. gates 655 -> 365.
+- SSQ (gen_ssq.py, ssqb): ssx + sqk fused, II 30 U 2. 832 -> 715.
+- Tools: r16/nrun.sh (python in npu-iron-torch with the NPU), b16.sh (build on r15m flags + EWX), try16.sh, commit.sh,
+  popprobe.s + popb.py (FIFO pop probes), ggkref.py (host bfp reference / hypothesis tests).
+## EW PROF r16eP (cycles per chunk): in_wait 80, conv 440, gates 365, sigk 509, ssq 715, recur 313, z 264, rest 213,
+  par 26 + 125, cp_h_pan 192, cp_x 269 = 426 us per SSM op (r15m 532).
+## Rules found (to the skill at round end)
+- A dense 576-bit pop stream underflows at its 9th pop without a fill after every 8 pops (probes 6 / 7).
+- `#ifdef PIN` is false even with -DPIN (some header #undef-s it): check new flags change the elf.
+## Next
+1. N1 (norm pass 1 + stats in asm), FSX / sigk II (sigk 509 is now the largest SSM phase), X1 full rotation (cp_x 269 -> ~0),
+   S2 (attention, research rev 11: stack slots), round-end sweep + DAVIS.
+
 # ROUND 15 DONE (2026-10-11) - read this block first; the round-14 hand-off below is the base it builds on
 Read the skill (round 15 added: immediate ranges, non-const bank tables, vmov x <- bm ports, output-ring store stalls, direct
 pushes, rep4 by vshift, div768, reload streams, the jit cache key) and NOTES 20 / RESULTS 24 (every number of this round).

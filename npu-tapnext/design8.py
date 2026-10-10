@@ -141,7 +141,8 @@ def ew_object(flags):
             "-fstack-size-section", f"-I{HERE}"]
     objs, steps = [str(bd / "ew8cpp.o")], []
     if "-DSIGK" in flags:
-        steps += [["python3", str(HERE / "r12" / "gen_sig.py"), str(bd / "sigk.s"), "--times", str(HERE / "r12" / "sig.json")],
+        sig_json = HERE / "r16" / "sig10.json" if "-DSIG10" in flags else HERE / "r12" / "sig.json"  # round 16: II 10, U 4 (was II 12, U 2)
+        steps += [["python3", str(HERE / "r12" / "gen_sig.py"), str(bd / "sigk.s"), "--times", str(sig_json)],
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "sigk.s"), "-o", str(bd / "sigk.o")]]
         objs.append(str(bd / "sigk.o"))
     if "-DSSX" in flags:  # round 15 (P29b): the SSM log_a + exp + 1 - a^2 chain as one asm loop (r15/gen_ssx.py, schedule r15/ssx.json)
