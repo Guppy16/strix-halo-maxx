@@ -1,0 +1,3 @@
+{"trips": {"_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi": {"0x670": 18, "0x7f0": 12, "0xcc0": 12},
+           "_ZL7rowsum8N3aie5accumIu10__accfloatLj32EEE": {"0x1f90": 3}, "_ZL7rsqrt_iN3aie6vectorI8bfloat16Lj32EEES2_": {"0x23b0": 2},
+           "cpy64": {"0x3c30": 4}, "_ZL8copy_runPK8bfloat16PS_i": {"0x1c30": 0}}}

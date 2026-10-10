@@ -1,0 +1,43 @@
+root norm_rows_k              x25   per step: 145665..150633 cycles per call (glue 103815..108783) = 2.01..2.08 ms per step (static, no waits)
+root ew_ssm                   x12   per step: 559844..739940 cycles per call (glue 229580..373964) = 3.71..4.91 ms per step (static, no waits)
+
+top 18 call sites by static cycles per step (1.81 GHz). glue = outside ZOL bodies (call overhead in the wide sense)
+caller                   @ callee                 /caller    /step    cyc/call     ms/step     glue ms
+ew_ssm                14d8 ssq                        216     2592   674-674    0.97-0.97   0.28-0.28 
+norm_rows_k            d86 nrm_ln                     216     5400   177-177    0.53-0.53   0.22-0.22 
+ew_ssm                1480 sigk                       216     2592   365-365    0.52-0.52   0.06-0.06 
+ew_ssm                1454 ggk                        216     2592   282-282    0.40-0.40   0.13-0.13 
+norm_rows_k            8e0 n1k_ln_step                216     5400   134-134    0.40-0.40   0.14-0.14 
+ew_ssm                151c reck                       216     2592   263-263    0.38-0.38   0.12-0.12 
+ew_ssm                1322 convk                      216     2592   220-220    0.32-0.32   0.09-0.09 
+ew_ssm                12c0 in_copy                    216     2592    76-184    0.11-0.26   0.11-0.22 
+ew_ssm                1060 out_copy                   216     2592    75-183    0.11-0.26   0.11-0.22 
+ew_ssm                1080 out_copy                   216     2592    75-183    0.11-0.26   0.11-0.22 
+ew_ssm                16d6 out_copy                   216     2592    75-183    0.11-0.26   0.11-0.22 
+ew_ssm                16f0 out_copy                   216     2592    75-183    0.11-0.26   0.11-0.22 
+ew_ssm                1710 out_copy                   216     2592    75-183    0.11-0.26   0.11-0.22 
+ew_ssm                1030 ssm_tables                  12      144  2217-2217   0.18-0.18   0.18-0.18 
+norm_rows_k            7f0 in_need                    216     5400    22-35     0.07-0.10   0.07-0.10 
+out_copy              19a2 copy_run                     1     2592    33-71     0.05-0.10   0.05-0.08 
+out_copy              1a1a copy_run                     1     2592    33-71     0.05-0.10   0.05-0.08 
+out_copy              19a2 copy_run                     1     2592    33-71     0.05-0.10   0.05-0.08 
+root norm_rows_k              x24   per step: 123669..128637 cycles per call (glue 90459..95427) = 1.64..1.71 ms per step (static, no waits)
+
+top 18 call sites by static cycles per step (1.81 GHz). glue = outside ZOL bodies (call overhead in the wide sense)
+caller                   @ callee                 /caller    /step    cyc/call     ms/step     glue ms
+norm_rows_k            790 n1k_rms_step               216     5184   134-134    0.38-0.38   0.15-0.15 
+norm_rows_k            b90 nrm_rms                    216     5184   117-117    0.34-0.34   0.13-0.13 
+norm_rows_k            7f0 in_need                    216     5184    22-35     0.06-0.10   0.06-0.10 
+norm_rows_k            7a0 in_done                    216     5184    33-34     0.09-0.10   0.09-0.10 
+norm_rows_k            c80 out_end                    216     5184    31-32     0.09-0.09   0.09-0.09 
+norm_rows_k            cc0 out_begin                  216     5184    23-31     0.07-0.09   0.07-0.09 
+norm_rows_k            af0 rms_rstd                    18      432   263-263    0.06-0.06   0.06-0.06 
+norm_rows_k            b40 rms_rstd                    18      432   263-263    0.06-0.06   0.06-0.06 
+rms_rstd              206c rsqrt_i                      1      432   182-182    0.04-0.04   0.04-0.04 
+rms_rstd              206c rsqrt_i                      1      432   182-182    0.04-0.04   0.04-0.04 
+norm_rows_k            ace rowsum8                     18      432    63-63     0.02-0.02   0.02-0.02 
+norm_rows_k            b1c rowsum8                     18      432    63-63     0.02-0.02   0.02-0.02 
+rms_rstd              1ff2 mul3RK                       1      432    36-36     0.01-0.01   0.01-0.01 
+rms_rstd              1ff2 mul3RK                       1      432    36-36     0.01-0.01   0.01-0.01 
+norm_rows_k            760 n1k_rms_begin               18      432    23-23     0.01-0.01   0.01-0.01 
+norm_rows_k            a90 n1k_rms_end                 18      432    19-19     0.00-0.00   0.00-0.00 

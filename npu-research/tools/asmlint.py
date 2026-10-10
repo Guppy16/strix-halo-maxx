@@ -68,6 +68,7 @@ RULES = {
     "ACQ-EQUAL": ("warning", "measured r9 (lock semantics)", "`acq #id, rV` with rV >= 0 is acquire-EQUAL (a 'no-op' acq of 0 waits for 0: hang)"),
     "PUSH-P2": ("error", "measured r12", "bfp output-stream pushes / flushes must use [p2, sf, r26]"),
     "ASSEMBLE": ("error", "assembler", "the .s does not assemble (out-of-range immediates, a push not on p2, ...): the other checks did not run"),
+    "FIFO-POP9": ("error", "measured r16 (popprobe 6 / 7)", "more than 8 dense 576-bit pops from one FIFO (lf0 / lf1) without a fill on it: a pop consumes 72 B and refills 64, so pops 9-12 read zeros / half exponents; put a fill at the same position after every 8 pops (restarts of <= 8 pops are fine)"),
     "RAW-BYTES": ("error", "measured (hung the core twice)", "raw .byte / .word data in a .text section of a .s"),
 }
 NOT_STATIC = [
@@ -807,6 +808,35 @@ def check_stage(f, rep):
                         break
 
 
+POP_RE = re.compile(r"vld[ab]\.pop\.576(?:\.\w+)*$")
+
+
+def check_fifo(f, rep):
+    """FIFO-POP9 (round 16): at most 8 dense 576-bit pops per lf between fills. Walks the replay streams (each ZOL body 3x
+    after its prologue); the count restarts at a fill of that lf and at unknown points (branch targets, calls)."""
+    seen = set()
+    for seq, _ in streams(f):
+        cnt = {}
+        for x in seq:
+            if x is None or x == "CALL":
+                cnt = {}
+                continue
+            b = f.bundles[x]
+            for i in b.instrs:
+                m = re.search(r"\b(lf[01])\b", i.ops)
+                if not m:
+                    continue
+                lf = m.group(1)
+                if ".fill" in i.mn:
+                    cnt[lf] = 0
+                elif POP_RE.match(i.mn):
+                    cnt[lf] = cnt.get(lf, 0) + 1
+                    if cnt[lf] == 9 and (b.addr, lf) not in seen:
+                        seen.add((b.addr, lf))
+                        rep.add("FIFO-POP9", f.name, b.addr, f"'{i.text}' is the 9th 576-bit pop from {lf} since its last fill "
+                                f"(or since an unknown point): add a fill at the same position every 8 pops")
+
+
 def check_source(path, rep):
     """text-level rules on a .s"""
     sec = ".text"
@@ -863,6 +893,7 @@ def lint(funcs, labels, rep, only=None, asm_only=False, zstats=None, calib=None)
         check_abi(f, funcs, rep, callers_r0)
         check_misc(f, rep)
         check_stage(f, rep)
+        check_fifo(f, rep)
     return zstats, calib
 
 

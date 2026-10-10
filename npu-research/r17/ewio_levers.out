@@ -1,0 +1,28 @@
+norms at r16h/z, R_in 6.0 R_out 2.35: 4.74 ms per step (+ ~8 us fixed per op); static floor of the output port 3.98 ms
+  NPIPE (pass 2 of rb || pass 1 of rb+1)               -0.54 ms   (in_need 12 / out_begin 49 per unit)
+  NG1 pass-1 glue inline (-80 per unit)                -0.20 ms   (in_need 86 / out_begin 128 per unit)
+  NG2 pass-2 glue inline (-100 per unit)               -0.09 ms   (in_need 51 / out_begin 201 per unit)
+  NS stats in asm (LN -860 / RMS -570 per rb: -700 avg) -0.31 ms   (in_need 51 / out_begin 123 per unit)
+  NPIPE + NG1 + NG2                                    -0.57 ms   (in_need 17 / out_begin 218 per unit)
+  NPIPE + NG1 + NG2 + NS                               -0.59 ms   (in_need 20 / out_begin 271 per unit)
+norms at r16h/z, R_in 5.75 R_out 2.3: 4.83 ms per step (+ ~8 us fixed per op); static floor of the output port 4.07 ms
+  NPIPE (pass 2 of rb || pass 1 of rb+1)               -0.56 ms   (in_need 13 / out_begin 59 per unit)
+  NG1 pass-1 glue inline (-80 per unit)                -0.19 ms   (in_need 93 / out_begin 139 per unit)
+  NG2 pass-2 glue inline (-100 per unit)               -0.09 ms   (in_need 59 / out_begin 209 per unit)
+  NS stats in asm (LN -860 / RMS -570 per rb: -700 avg) -0.30 ms   (in_need 59 / out_begin 132 per unit)
+  NPIPE + NG1 + NG2                                    -0.57 ms   (in_need 19 / out_begin 232 per unit)
+  NPIPE + NG1 + NG2 + NS                               -0.59 ms   (in_need 22 / out_begin 284 per unit)
+norms at r16h/z, R_in 6.0 R_out 2.45: 4.65 ms per step (+ ~8 us fixed per op); static floor of the output port 3.82 ms
+  NPIPE (pass 2 of rb || pass 1 of rb+1)               -0.54 ms   (in_need 12 / out_begin 36 per unit)
+  NG1 pass-1 glue inline (-80 per unit)                -0.22 ms   (in_need 86 / out_begin 110 per unit)
+  NG2 pass-2 glue inline (-100 per unit)               -0.09 ms   (in_need 51 / out_begin 187 per unit)
+  NS stats in asm (LN -860 / RMS -570 per rb: -700 avg) -0.33 ms   (in_need 51 / out_begin 105 per unit)
+  NPIPE + NG1 + NG2                                    -0.65 ms   (in_need 17 / out_begin 191 per unit)
+  NPIPE + NG1 + NG2 + NS                               -0.67 ms   (in_need 20 / out_begin 243 per unit)
+norms at r16h/z, R_in 6.0 R_out 3.0: 4.27 ms per step (+ ~8 us fixed per op); static floor of the output port 3.12 ms
+  NPIPE (pass 2 of rb || pass 1 of rb+1)               -0.37 ms   (in_need 12 / out_begin 2 per unit)
+  NG1 pass-1 glue inline (-80 per unit)                -0.26 ms   (in_need 86 / out_begin 41 per unit)
+  NG2 pass-2 glue inline (-100 per unit)               -0.09 ms   (in_need 51 / out_begin 124 per unit)
+  NS stats in asm (LN -860 / RMS -570 per rb: -700 avg) -0.34 ms   (in_need 51 / out_begin 41 per unit)
+  NPIPE + NG1 + NG2                                    -0.96 ms   (in_need 24 / out_begin 68 per unit)
+  NPIPE + NG1 + NG2 + NS                               -0.98 ms   (in_need 40 / out_begin 107 per unit)

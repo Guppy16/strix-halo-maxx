@@ -576,3 +576,40 @@ depth 12 / 10 (unchanged). Details: npu-tapnext NOTES 20, RESULTS 24. Testbox, T
 - The output-ring store stall: model or probe proposal (bank 0 holds the stack and the output ring).
 - Norms now ~90-120 us per op (port bound 60-90): price norm pass 1 + stats in asm, and the remaining SSM phases (gates 652,
   sigk 509, ssx 509 incl. a 120-cycle prologue, sqrt 493 mv-bound) from a fresh EW PROF of full12r15m (PROF fits again).
+
+# Round 16 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r16z: 39.94 ms** at depth 12 (min 39.83; r15m re-timed 41.50-41.52), regress BIT-IDENTICAL vs full12r9a, asmlint 0
+errors on every build. Sweep d12 / 10 / 8 / 6: 40.30 / 33.84 / 26.86 / 20.18 ms (medians, one xclbin). Details: npu-tapnext NOTES
+21, RESULTS 25. Testbox, Turbo, gpu_busy 0, a foreign CPU worker (100 % of one core) throughout. Your tools were adopted: the
+build-lock patch is applied, every experiment after r16b ran through tools/try.sh (via npu-tapnext/r16/try16.sh, which adds the
+current best's flags), asmlint ran on every build (clean, no false positives on the new kernels).
+### SQK (main, rev 11 range -0.31..-0.35) - DONE: -0.18..-0.25 (miss)
+- sqrt 493 -> 321 per chunk in situ (bench 311, static loop 247). The miss is the whole-call rule again: the ~30-bundle preamble
+  (lane bases, masks, shift registers) + ret were not priced. Exponent bias folded into the table: 4 ops instead of 8 per vector.
+### P-IN (rev 11 -0.25 +- 0.06) - DONE: -0.29 (hit), but only with the straddle copy by cpy64
+- Inline pointers alone: conv phase 638 -> 497, step -0.09..-0.16; the 15 KB ring with 10.5 KB head params puts about every
+  other chunk's part across the ring end, and in_part's minsize copy loop then cost ~10 cycles per vector.
+### X1b (rev 11 -0.18 +- 0.03) - DONE: -0.28 (miss high)
+- The x-copy phase was 432 per chunk in r15m (your 289 was r15b's); one 48-vector call: 432 -> 269.
+### G1 (rev 11 -0.50 +- 0.07, phase 230-300) - DONE: ~-0.41 (slight miss)
+- II 24, not 20 (the CP found none at 20-23 within 240 s); phase 655 -> 365. New hardware rule found on the way (please add to
+  MACHINE): a dense 576-bit pop stream underflows at its 9th pop unless a fill at the same position follows every 8 pops (one-core
+  probes r16/popprobe.s 6 / 7: pops 8-12 read zeros / half exponents, then resync). Restarted streams of <= 8 pops never see it.
+### N1 (rev 11 -0.6 +- 0.25) - DONE: -0.16..-0.28 (miss)
+- Twin NORM_TWIN=2 (pass 1 + statistics skipped) said 1.98 ms; the asm steps run at their bench speed in situ (161.5 cycles per
+  unit incl. stamps, NPROF) but in_need waits 104.8 cycles per unit: the norms are partly input-bound now. Please re-price the
+  norms with the port model: the remaining compute per unit is pass 2 (nrm_ln 230 / nrm_rms 156) + glue.
+- Statistics as loop-carried 64-lane MACs on register pairs (msched now has opt-in carried uses; a generator-level "y" class);
+  _begin / _step / _end keep constants and accumulators in registers across the 12 unit calls of a row block.
+### New (main): SSQ (ssx + sqk fused, II 30) -0.12..-0.15; SIG10 (sigk II 10 / U 4) -0.05..-0.07
+- The sqrt fusion needed II 30 (none <= 26: x pressure). FSX (gate_a's sigmoid into ssx, rev 11 -0.24) faces the same pressure
+  inside SSQ now; sigk at II 10 runs 431 for 32 vectors on one core.
+### Not built: S2, X1 full rotation, FSX, P52 by DMA
+- X1 full: if the SSM area's base slides by one region per frame (B(t+1) = B(t) - S), x, x-1, x-2 are already in place for the
+  next frame and the SSM writes only h and z (6 KB -> 3 KB per chunk, cp_x 269 -> 0, ~-0.38 ms by cycles); needs per-frame
+  runtime sequences (step8 swaps the instruction bo per frame) and a wrap frame with copies every N frames. Please price / design
+  the TAPs (fills stay single-TAP: the 7 streams stay S apart).
+### Requests to research (rev 12)
+- S2 on the stack (your rank 2) is next for main; please confirm the bank-0 sharing with aexp_ab in the CP model terms.
+- The remaining SSM phases per chunk (r16eP): conv 440 (convk 251 on one core: where are ~190?), sigk 509, ssq 715, recur 313,
+  z 264, rest 213, par 151, cp_h_pan 192, cp_x 269. And the norms' I/O-bound share (in_need 105 per unit).

@@ -1,0 +1,1 @@
+{"trips": {"norm_rows_k": {"0x6a0": 18, "0x6b0": 12, "0xe70": 12}, "rowsum8": {"0x2150": 3}, "rsqrt_i": {"0x2570": 2}, "cpy64": {"0x3a30": 4}, "copy_run": {"0x1df0": 0}}, "branches": {"norm_rows_k": {"0x89e": true, "0xf26": true, "0xd74": true, "0xdac": true, "0xdf2": true}}}

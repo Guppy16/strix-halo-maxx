@@ -37,6 +37,8 @@ CASES = [
     ("attkb_r2_good.s", [], ["SCALAR-PLUS1"], "r14 attkb fixed (FA at FO + 2)"),
     ("zero2_v1.s", ["ZOL-SETUP"], [], "r14 zero2 with six 2-byte nops after add.nc lc: ran once (RECONSTRUCTED)"),
     ("zero2_v2_good.s", [], ["ZOL-SETUP", "ZOL-SETUP-MARGIN"], "r14 zero2 deployed (six full-form nop bundles)"),
+    ("ggk_r16_nofill.s", ["FIFO-POP9"], [], "r16 first ggk: the B stream popped 16 x per np after one fill (kk 4-6 terms lost)"),
+    ("ggk2_r16_good.s", [], ["FIFO-POP9"], "r16 deployed ggk: a fill before every 8th B pop"),
     ("nrm_ln_nosave.s", ["ABI-CALLEE-SAVED"], [], "r15 rule: p6 / p7 written without save / restore (RECONSTRUCTED from nrm_ln.s)"),
 ]
 
