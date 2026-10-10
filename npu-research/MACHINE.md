@@ -422,3 +422,34 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   (7 KB at 4 B/cycle).
 - **R10.6 [DOC]** Disassemble with `llvm-objdump -z`: runs of 2-byte nops are zero bytes and are elided otherwise.
 - **R10.7 [DOC ld script]** GEMM core L1: bank 3 has 2,688 B free (at 0x7F580, shared with the K objects); bank 1 has 192 B.
+
+
+## Revision 11 additions (2026-10-10, from research pass 11)
+- **R11.1 [MEAS pair + PEANO] Zero-overhead loop setup is measured in bytes to the loop END.** r14's bad zero2 (six 2-byte nops
+  after `add.nc lc`) and the deployed zero2 (six full-form bundles) have the same 10 bundles from the lc write to `le` and differ
+  only in bytes (52 vs 132). Peano writes lc 2 bundles (4–16 B) before `ls` when the body is long. Every deployed loop has
+  ≥ 80 B (cpy32; Peano ≥ 96) from the last lc/ls/le write to `le`. Bad ≤ 52 B, known safe ≥ 80 B, gap unmeasured (microbench:
+  zero2 with k full-form nops). Hypothesis: fetch runs ahead of issue.
+- **R11.2 [PEANO]** First loop body bundles may be compact (10/12 B in bias_pcs, gate_gemm, norm_rows_k, ew_ssm). All deployed
+  loops end with a 16 B, 16 B-aligned bundle.
+- **R11.3 [TD + assembler] Immediate types** (AIE2PGenInstrInfo.td; cNs_stepK = signed, N bits, multiples of K). Vector ld/st
+  offsets and padda #imm are c10s_step64: multiples of 64 in [−512, 448] (the assembler's "[−512, 511]" is only the containing
+  range; #511 is rejected). 256-bit (w) loads are c9s_step32 = [−256, 224]. sp-relative spills are cNn (negative). Every
+  violation is a fatal "error in backend".
+- **R11.4 [PEANO]** Peano relies on the mv→mv bypass (46 reads in r15m) and on scalar conveyor reads (reading r/p while a newer
+  `lda` is in flight). Both legal; generated code must not depend on them by accident (asmlint flags them there).
+- **R11.5 [PEANO]** Scalar `lda` has no itinerary in the `.td` (LDA_dms_* itin None). Peano consumes its result 4–6 cycles later
+  (pointer users 4–5, alu/mv 5–6). asmlint assumes 7 for generated code.
+- **R11.6 [MODEL, static] No output-ring store stall.** One out_copy of 16 vectors = 77 cycles in r15b: 16 stores + ~61 of call,
+  setup, prologue and delay slots; three of them + glue = the measured 289 per chunk. DMA reads of the ring at 4 B/cycle take
+  ≤ one bank access per 8–16 cycles. Round 15's ~3.5 cycles per vector is fixed per-call cost divided by vectors.
+- **R11.7 [DOC ld script + nm; corrects R10.7]** GEMM bank 3: the `.aie.bank3` linker region is 0xA80 (2,688 B) at 0x7F580, of
+  which sgelu_cd + serf_cd take 2,304: **384 B free**. Bank 1 has 192 B. The K object's tail has 384 B beyond the −m rows. Free
+  space = region length minus section contents (`llvm-nm -S`), never the region length.
+- **R11.8 [MEAS stackaudit r15m]** GEMM stack: deepest path 832 B + 128 margin of 2,560 (1,728 free). EW: 4,032 + 128 of 6,144
+  (2,112 free). stackaudit's ASM_FRAMES table lacks the r13–r15 kernels' frames (nrm_ln 64, attkb 64, …) and counts them as 0.
+- **R11.9 [DOC]** mm8.cc includes generated headers as `"build/<k>.h"`; a quoted include searches mm8.cc's directory first, so
+  per-build object directories would silently use a stale header. Parallel design builds must be serialised (lock).
+- **R11.10 [MEAS once, scope UNVERIFIED]** alu→alu at +1 inside a loop body read the old value (r14 attkb FO→FA). Peano does
+  alu→alu at +1 outside loop bodies 1,258 times in r15m; deployed generated loops do alu→mv at +1 inside loop bodies.
+- **R11.11 [MODEL]** In-situ rescale_rb after RESCK ≈ 270 cycles per flagged row block (sim18 fit to the measured −0.29 ms).

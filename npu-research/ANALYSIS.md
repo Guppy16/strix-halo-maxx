@@ -1,144 +1,126 @@
 # ANALYSIS.md — where the TAPNext++ step's time goes, what bounds it, and what is left
 
-Revision 10, 2026-10-10 (night). State analysed: round 14's deployed `full12r14f` (47.31 ms per depth-12 dispatch, Turbo,
-gpu_busy 0, BIT-IDENTICAL to full12r9a), the round-14 twins (incl. `full12r14cF128`, 46.15 ms) and one-core measurements
-(RESULTS_FROM_MAIN round 14). Revision 9 is in `rev9/`. Tools: `tools/attsim17.py`, `tools/sim17.py` (output
-`r15/sim17_r14f.out`), `r15/deal4.py`. Written by the coordinating session from research pass 10's hand-back (the harness
-refused the subagent's own write of this file).
+Revision 11, 2026-10-10 (late). State analysed: round 15's deployed `full12r15m` (41.52 ms per depth-12 dispatch, Turbo,
+gpu_busy 0, BIT-IDENTICAL to full12r9a), its elfs disassembled with `-z` (`r16/r15m_0_2.dis`, `r16/r15m_0_5.dis`), round 15's
+EW PROF (r15b) and one-core benches (RESULTS_FROM_MAIN round 15). Revision 10 is in `rev10/`. Tools: `tools/asmlint.py`,
+`tools/asmlint_hist.py`, `tools/try.sh`, `tools/sim18.py` (output `r16/sim18.out`). Written by the coordinating session from
+research pass 11's hand-back.
 
-## 0. Scorecard (rev 9 predictions vs round 14)
-- **P61**: measured −0.63 vs −0.33 predicted: hit; the extra is the chunk-0 rescale skip, which rev 9 did not price.
-- **P63**: miss. The loop was right; sim16 carried r13's slow-path costs. The batched driver's slow path costs 1,587 cycles
-  per flagged row block: first-pass rerun 393 + exact test 164 + rescale 578 + −m rows 59 + exact rerun 393.
-- **P50**: the step hit (−0.9). The bench pre-registration missed by scope, not by loop: loop 87 + row-sums asm pass 21 +
-  calls/glue 27 = 135 cycles per row block vs 136 measured.
-- **P60**: single-TAP round robin impossible as designed (main's deal.py / deal2.py). Replaced by P60g (§3).
-- **"Lockstep ×6"**: a re-read. sim16's map was too hot, and its fitted T 66 / R 300 compensated (T + 0.1R = 96 vs 222 measured).
+## 0. Scorecard (rev 10 vs round 15)
+- **P60g**: −1.06 vs −1.08 ± 0.22 (hit); per-block attention wall 610 vs 614 ± 18 µs (hit).
+- **P29b**: −0.79 vs −1.0 ± 0.07 (miss): the loop was priced, not the call (7 stages × II 20 of prologue + preamble).
+- **S1**: −0.29. Rev 10 priced S1+S2+S3 only together (−0.74); sim18 fits the in-situ rescale at R = 270 cycles (rev 10: 200).
+- **S2**: not built. Rev 10 read bank 3's linker REGION (0xA80 = 2,688 B, the space for `.aie.bank3` sections) as free space;
+  sgelu_cd + serf_cd fill 2,304, leaving 384 B. Fixed in §3.
+- **P29c** hit (−0.84 vs −0.9). **P29d** conv hit (−0.72). **P52** miss (−0.18 vs −0.71..−1.14): stale baseline, then §4.
+- **Unpriced**: main's div768 (−1.05 ms), minsize slot-count helpers called once per unit. Research had no tool that counts
+  calls per unit of work; T-CALL (PROPOSALS rank 9) is that tool.
 
 ### 0.1 Method changes
-- Every per-row-block cost is now a one-core measurement; the only fitted constant is κ (share of the CPU map's flags kept
-  in situ).
-- Error bars: κ 0.5–0.7 for flag-driven prices; for code rewrites only the target II carries a range. No ±100 % defaults.
-- Tooling trap: `llvm-objdump` without `-z` elides runs of 2-byte nops (zero bytes) as `...`; loga_p then shows 11 bundles
-  instead of 23. Always disassemble with `-z`.
+- Whole-call static counts only: function body + call/ret delay slots (5 each) + loop setup + prologue + drain + glue.
+- The deployed elf is the source of truth: every count here is from `llvm-objdump -d -z` of r15m.
+- Peano's own code is the calibration set for the instruction model (asmlint "calib"): where the `.td` model disagrees with
+  what the compiler schedules, the model is suspect, not the compiler.
 
-## 1. κ calibration (map thinned uniformly in chunks 1–21, 4 seeds)
+## 1. asmlint against history (`tools/asmlint_hist.py`: ALL PASS)
 
-| check | κ 0.5 | κ 0.6 | κ 0.7 | raw (1.0) | measured |
+| artefact (r16/hist/) | what happened | rule that fires |
+|---|---|---|
+| r11_g7.s, r11_p2.s | r11 GELU probes before the end-alignment rule | ZOL-END-ALIGN |
+| r11_t1.s | first GELU_MS attempts (c + r ≥ c' + w timing, then the mv bypass) | LAT-UNLANDED, LAT-MV-BYPASS |
+| cpy32_u2.s | r12 gen_copy U 2: 2-bundle body ran once | ZOL-MIN-BODY |
+| bgelu_bg11_pad.s | r12 bgelu II 11: `.p2align` pad shifted a prologue vlda's QEY_WA onto a body vfloor | PORT (QEY_WA_L0_PORT) |
+| bgelu_bg13.s / bg12 (fixed) | r12: x stored to its final place in an early stage / via a stack ring | STAGE-SIDE-EFFECT / none |
+| attk_b_p4push.s | r13: push on p4 (does not assemble) | PUSH-P2 (+ ASSEMBLE) |
+| attk_klda_exq.s | r13: Q held in ex0–7 beside x constants | EX-ALIAS (31 reads) |
+| attk_d_dmada.s / attk_e (fixed) | r13: `lda p0, [sp]` co-issued with vldb.4x64 | PORT (DM_ADA) / none |
+| attk_i_r0.s / attk r13f (fixed) | r13: value-returning attk read its trip count from r0 | ABI-R0 / none |
+| attkb_b3_fa1.s / r2 (fixed) | r14: flag OR read r4 one cycle on, inside the loop body | SCALAR-PLUS1 / none |
+| zero2_v1.s (reconstructed) / zero2 | r14: six 2-byte nops after `add.nc lc` | ZOL-SETUP (52 B to le) / none (132 B) |
+| nrm_ln_nosave.s (reconstructed) | r15 rule: p6/p7 written without save | ABI-CALLEE-SAVED |
+| full12r15m elfs | deployed | 0 errors, 0 warnings (469 calib findings in Peano code) |
+
+Known false positive (warning): STAGE-SIDE-EFFECT on attk/attkb score stores (garbage lands in the ring's slack by design).
+Not testable from artefacts: ACQ-EQUAL, IMM-RANGE (the assembler aborts on the latter itself).
+
+## 2. What the r15m elfs teach about the rules (calibration against Peano)
+- **Loop setup is measured in BYTES to the loop END.** The bad zero2 (six 2-byte nops) and the deployed one (six full-form
+  bundles) both have 10 bundles from the lc write to `le`; only the bytes differ (52 vs 132). Peano writes lc 2 bundles
+  (4–16 B) before `ls` when the body is long (ew_ssm, bias_pcs, sqrt_lut_n), so the distance to `ls` is not the rule. Smallest
+  deployed distance 80 B (cpy32); Peano's smallest 96 B. Fits instruction fetch running ahead of issue.
+- **Peano's loops start with compact bundles** (10/12 B first bundles in bias_pcs, gate_gemm, norm_rows_k, ew_ssm); every
+  deployed loop ends with a 16 B bundle. "First bundle in full form" is a convention, not a hardware rule.
+- **Peano reads mv-slot results in the bypass cycle** (46 cases in r15m): asmlint flags this only in generated code, where
+  msched forbids the window.
+- **Peano reads scalar registers while a newer load is in flight** (conveyor reads, e.g. `sel.nez` reading r0 one cycle after
+  `lda r0`): legal; flagged only in generated code.
+- **alu→alu at +1**: Peano does it 1,258 times in straight-line and branch-loop code; the deployed generated resc and reck do
+  alu→mv at +1 inside loop bodies. The one failure (attkb FO→FA) was alu→alu inside a loop body; the rule is kept narrow
+  (probe: PROPOSALS microbench 4).
+- **Scalar `lda` latency is not in the `.td`** (no itinerary); Peano consumes its result 4–6 cycles later (pointer users 4–5).
+
+## 3. S2 re-priced with the real bank map
+GEMM core memory (r15m, 0x70000–0x7FFFF):
+- **Bank 0:** stack 0x70000–0x709FF; sgelu_ab, serf_ab, aexp_ab (0x70A00–0x717FF); ks_tab; acc_hi from 0x718C0.
+- **Bank 1:** acc_hi to 0x778C0, globals, tbk/tbt/tbc, a00_0 from 0x77B80 (into bank 2). 192 B free (0x77AC0).
+- **Bank 2:** a00_1, a00_2, the C object from 0x78900.
+- **Bank 3:** C tail to 0x7D100 (4,352 B); B fifo 2 × 4,608 (0x7D100–0x7F500); tbn/tba; `.aie.bank3` = sgelu_cd + serf_cd
+  (0x7F580–0x7FE80). 384 B free, plus 384 B in the K object's tail beyond the −m rows.
+- **Stack:** deepest path 832 B + 128 margin of 2,560 (stackaudit r15m); attention path main 128 + attn_chunk_k 384 + k_rb 192
+  + attkb 64. 1,728 B free.
+
+Options for the 768 B: (a) split 384 K tail + 384 bank 3 with a 2D jump (fragile, the K tail moves with the object);
+(b) move serf_cd next to serf_ab (+8 cycles per 32 lanes on every erf GELU, r9); (c) **chosen: 768 B on attkb's own stack
+frame** (bank 0). Bank 0 also takes aexp_ab's 16 LUT loads per iteration (and Q if q_buf sits there): ≤ 26 of 34 cycles, a CP
+constraint, not a stall.
+
+sim18 (P60g + measured S1): S2 at II 35 −0.33 / −0.38 / −0.44 ms (κ 0.5 / 0.6 / 0.7); II 36 with T 100 −0.29; II 34 −0.45.
+Then S3 −0.06, V1 −0.21, K1 −0.27, K2 −0.19: attention stack −1.11 (−1.04..−1.17). No slow path at all: −0.93.
+
+## 4. The output-ring "store stall": refuted by a static whole-call count
+Round 15's claim: stores into the EW output ring (bank 0, read by MM2S) cost ~3.5 cycles per 64 B vector in situ vs 1 bench.
+Static count of one `out_copy(ring, off, src, 16)` in r15b: out_copy 20 bundles to the `jl` + 5 delay slots; cpy64 3 setup +
+7 full-form prologue + 4 trips × 4 + ret + 5 = 32; back in out_copy ge + jnz + 5, 7 restores + ret + 5 = 20. **Total 77 cycles
+for 16 stores.** The x-parts phase = 3 calls + loop glue (P[] from the stack) ≈ 290 = **the measured 289**. The h copy (32
+vectors, one call, sometimes a wrap split) 93–170 + glue = the measured 217. No room for a store stall: the 3.5 cycles per
+vector was ~60 cycles of fixed call cost divided by 16 vectors.
+Mechanisms checked: DMA arbitration (MM2S reads at 4 B/cycle: ≤ one bank access per 8–16 cycles, ≤ 0.1–0.2 cycles per stored
+vector); the stack in bank 0 (cpy64 touches no stack); lock timing (out_wait 31 per chunk). NRMK's +0.6 ms with copies was the
+same per-call cost (2 out_copy calls per unit). Consequence: fewer calls (X1, X1b, P-IN, G1), not other banks. Microbench 2 if
+doubted (predicted equal within 0.2 cycles per vector).
+
+## 5. EW re-rank (static counts of r15m per SSM chunk; 1 cycle = 1.43 µs per step)
+
+| pass | in situ (r15b PROF) | static now (r15m) | bound / target | lever | ms |
 |---|---|---|---|---|---|
-| r14c − F128 (ms) | +1.86 | +2.24 | +2.62 | +3.77 | +2.08 .. +2.53 |
-| per-block slope r14c (corr 0.95) | 1.19 | 0.98 | 0.84 | 0.59 | 1 |
-| per-block slope r14f (corr 0.95) | 1.26 | 1.05 | 0.90 | 0.64 | 1 |
-| in-situ slow units per core | 9.7 % | 9.9 % | 10.1 % | 10.8 % | 8.6–10.9 % |
+| gates: 8 xc pushes + 2 × gate_gemm | 652 | 2 × (24 + 4 × 57 + 12) + ~60 ≈ 590 | vec 20 per np: 8 × 20 + ~90 | G1 | −0.50 ± 0.07 |
+| sqrt_lut_n | 493 | 54 × 8 + 80 = 512 (mv 26 per trip) | II 13, U 2 | SQK (round 16) | −0.31..−0.35 |
+| sigmoid (sigk, gx + ga) | 509 | 16 × 24 + ~60 + call | ResMII 8 per vector, II 12 | FSX (ga into ssx) | −0.24 ± 0.09 |
+| ssx (log_a, exp, 1 − a²) | 509 | 16 × 20 + 120 prologue + ~50 | vec 20 | in FSX (fewer stages −0.08) | |
+| x-part copies | 289 | 3 × 77 + glue | 1 call | X1 / X1b | −0.28 / −0.18 |
+| in_part × 7 (PH 0) | ~245 | 7 × ~25–35 | inline | P-IN | −0.25 ± 0.06 |
+| conv (convk) / recurrence (reck) | 1,125 / 902 before | 54 + 8 × 20 / 81 + 4 × 44 | at their II | done | |
+| in_wait | 165 | | input port | stays | |
 
-- r13 twins rms (T free, R 578): 0.16 at κ 0.6, 0.30 raw.
-- In situ about 1.36 % of row blocks in chunks 1–21 move the max (the CPU map says 2.26 %).
-- r14a's per-block slope is 2.6: its in-situ slow path was ~1,000–1,100 cycles, not the bench's 426; this explains
-  F128 − r14a (model −2.23, measured −2.56).
-- The model sits a constant 38 µs per block below the timeline (663 vs 701).
+Norm ops (~58 per step, ~6.0 ms after NRMK). Per LN row block (18 per core): pass 1 ~2,690 (a 23-bundle loop with 15 alu ops of
+ring arithmetic per cb), stats ~900, pass 2 ~3,240 ⇒ ~68 µs compute per op vs ~140 measured (RMS ~56 vs ~100). The gap is I/O
+and waits: input 256 × n_in cycles per unit, output 1.6 KB per unit = 400 cycles, 9 KB rings. N1 (pass 1 + stats fused in asm,
+~10 cycles per cb) removes 17 µs of compute per op: −0.6 ± 0.25 ms depending on the port-bound share (an EW PROF decides).
 
-## 2. Lockstep decomposition (κ 0.6, r14f)
-- Own cycles of the flagged row blocks: 0.22 ms. Removing all of them: −2.30 ms.
-- Columns served independently: −1.29 ⇒ multicast lockstep ≈ 1.3 ms, head-group barrier ≈ 0.8 ms.
-- Hence dealing beats decoupling:
+## 6. Lockstep, FlashAttention, Q1: unchanged from rev 10 (§2–§5 there).
 
-| lever | ms |
-|---|---|
-| round robin, 1 / 2 / 3 / 6-rb pieces | −1.41 / −1.29 / −1.13 / −0.66 |
-| decoupled columns, D 8 / D 24 | −1.29 / −1.35 |
-| deal + decoupled | −1.66 |
-| floor (no slow path) | −2.30 |
+## 7. Program memory (r15m)
+- **GEMM** 16,192 / 16,384 (192 free): S2 needs ~40 B; S3 frees ~400 (k_rb); K1/K2 as rev 10.
+- **EW** 14,960 / 16,384 (1,424 free): G1 −480 B C++ for ~400 B asm; N1 −500 B C++ for ~350 B asm; P-IN saves ~200; X1b ~0.
 
-- Memtile depth still has no effect in the model: Q1 (the l2-depth 4→8 gain) stays open, low priority.
-
-## 3. Feasibility
-- The A slot is loaded in per-head 10,368 B chunks (A_RT BdIteration, one lock per chunk), so each gather must be one
-  head-major 4-dim TAP: [12 heads][n1][n2][1,728 B]. Multi-TAP or BD chains break the chunk locks.
-- Memtiles 0–2 use all 6 S2MM channels: per-column K/V queues are infeasible.
-
-| lever | κ 0.5 / 0.6 / 0.7 (ms) | note |
-|---|---|---|
-| P60g | −0.87 / −1.08 / −1.30 | −1.11 with the clustering moved |
-| other P60g variants (pair {0,7}, {1,6}, {3,4}) | −1.05 / −1.04 / −0.94 | κ 0.6 |
-| main's tile permutation (P60t) | −0.53 / −0.66 / −0.79 | fallback |
-| P60t + P60g composed | −0.76 | worse than P60g alone |
-| 3 / 4 L1 slots | −0.75 / −0.89 | no L1 |
-
-### 3.1 P60g algebra
-- Offsets in units of 1,728 B: natural piece (n, T, H) sits at 32n + 8T + H in QKV; dealt piece (c, p) at c·col + p·1728 in
-  APAN, with p = 2t + h.
-- Obstruction (main's sum-of-squares argument): if each slot position is a column permutation, the sums of c and c² force
-  the column coefficient of any size-3 dimension to zero.
-- Escape: G = {x + jd + Hs}. Dealt column (T, e) at x + Td + es takes pieces (x + jd + Hs, T, e) at position 2j + H.
-  - Attention side: offset = base + 32d·j + 32s·H, a [3][2] family with linear destination.
-  - out_proj side: offset = base + d·col·T + s·col·half, a [3][2] family with destination k = 2T + half.
-- Pair {a, b}: dealt a takes half 0 of every tile of a and b; dealt b takes the halves 1.
-- Valid (x, d, s) / pair: (0,3,1)+{2,5}; (1,1,3)+{0,7}; (1,2,1)+{0,7}; (0,1,5)+{3,4}; (0,2,3)+{1,6}. All verified
-  single-TAP on both sides by deal4.py. deal3.py found no "position = tile" deal that works on the out_proj side.
-
-### 3.2 TAPs (bytes; plan8 only; chosen variant (0,3,1)+{2,5})
-- Attention fill:
-  - c in G, (T, e) = divmod(c, 3): sizes `[12,3,2,1728]`, strides `[QKV_PER_H, 3·QKV_PER_HC, QKV_PER_HC, 1]`,
-    base qkv + 3T·OBJ + e·1728.
-  - c = 2 / 5: sizes `[12,2,3,1728]`, strides `[QKV_PER_H, 3·QKV_PER_HC, 3·OBJ, 1]`, base qkv + 2·QKV_PER_HC + (c==5)·1728.
-- out_proj fill:
-  - n in G, (j, H) = divmod(n, 3): sizes `[12,3,2,1728]`, strides `[ks, 3·col, col, 1]`, base O + (2j+H)·1728.
-  - n = 2 / 5: strides `[ks, 1728, 3·col, 1]`, base O + 2·col + 3(n==5)·1728.
-- Strides stay under 2^20 words; still one BD per column; expected BIT-IDENTICAL.
-
-## 4. Slow path, statically
-- Per flagged row block: FP 393 = the 6-trip rerun that rebuilds the scores the 7-slot ring overwrote; T 164 = minsize C++;
-  R 578 = minsize branch loop + exp32 61; XR 393 unavoidable.
-- S2 keeps the elementwise max of the 6 score blocks in 768 B in bank 3. Bank 3 has 2,688 B free but also holds the K
-  objects: the CP schedule must model the bank.
-- Prices after P60g (κ 0.5 / 0.6 / 0.7): S1 −0.31 / −0.36 / −0.40; S2 −0.32 / −0.38 / −0.43; S3 −0.05.
-  Without P60g: S1 −0.60, S1 + S2 −1.32.
-- Pre-registered attention wall per block, blocks 1–11 (µs):
-  - r14f measured: 717 663 853 750 662 649 799 736 838 531 514
-  - P60g: 572 589 727 637 599 574 676 629 712 525 514 (mean 614 ± 18)
-  - P60g + S1 + S2: 499 550 628 556 547 527 584 551 632 520 518 (mean 556 ± 25)
-
-## 5. FlashAttention-2/3/4 (arXiv 2307.08691, FA3, 2603.05451)
-- What the papers do:
-  - FA4: exp split between MUFU and a degree-3 polynomial on the FMA units for 10–25 % of a row (floor by adding
-    2^23 + 2^22 in round-down mode); rescale only when the max grows by > τ = log2 256 = 8, warp-wide; a correction
-    warpgroup does the O rescale off the critical path; ping-pong of two tiles between softmax and MMA; LPT scheduling.
-  - FA2: normalise once at the end, split Q across workers, skip masked blocks.
-  - FA3: warp-specialised producer/consumer, ping-pong, GEMM i+1 overlapped with softmax i.
-- Transfer to AIE2P:
-  - Conditional rescale: our lazy max is the same idea with a looser bound (8 nats = ×2,981 vs ×256), per row block.
-  - Correction warpgroup ↔ P60g + S1–S3. Ping-pong ↔ attkb's 3-stage modulo schedule. FA2's three points: deployed.
-  - F2 (attention exp split): attkb's resource bound is 29 (DM_ADA 29) but II 34 is register-bound; a polynomial needs
-    ~6 x-register constants for ≤ −0.1 ms and is not bit-identical. Parked.
-  - F1 (SSM exp split): the mirror case (vec-bound, LUT port idle); a 2^f int16 table for half the vectors gives
-    −0.05 .. −0.15 ms after P29b, not bit-identical. Parked.
-  - LPT as an adaptive deal (P60h): ≤ −0.33 beyond P60g. Parked.
-
-## 6. SSM (r14f EW loops identical to r12e; per-slot op counts from slots.py; savings transfer 1:1)
-
-| pass | deployed → target (cycles per chunk) | ms |
-|---|---|---|
-| P29b log_a + exp | 1,131 → 380–470 | −0.95 .. −1.08 |
-| P29c recurrence | 889 → 210–300 | −0.84 .. −0.97 |
-| P29d conv + z | 1,294 → 600–720 | −0.82 .. −0.99 |
-| sqrt | 512 → 180–345 | −0.24 .. −0.48 |
-| P52 outputs in place | 798 → 0–300 | −0.71 .. −1.14 |
-
-- The SSM wall runs ~1,100 cycles per chunk above these static passes; EW PROF stamps on r14f (`EW_DEFS=-DPROF`,
-  ewprof.py) decide whether that is ring waits or code.
-- Input-port floor 1,792 cycles per chunk (7 KB at 4 B/cycle), still below compute after all five.
-
-## 7. Program memory
-- GEMM: 64 B free. S1 frees ~360 B, T3f (mm_kstep) ~200 B, S3 (k_rb exact path in asm) ~400 B; P60g needs 0 B.
-- EW: 160 B free; P29b frees ~1.4 KB.
-
-## 8. Ceiling (sim17 deltas applied to the measured 47.31)
+## 8. Ceiling (deltas applied to the measured 41.52)
 
 | added | ms |
 |---|---|
-| attention stack (P60g, S1–S3, V1, K1, K2) | 44.77 |
-| + SSM | 40.66 |
-| + P55, P7-E, P35/P24b, P51, P57 | 35.56 |
-| + k-step to 1,600 | **31.21** |
+| G1 | 41.02 |
+| attention stack (S2, S3, V1, K1, K2) | 39.91 |
+| N1, SQK, X1, P-IN, FSX | 38.21 |
+| P55, P35 + P24b, P51, P57 (rev 8/9 prices) | 35.41 |
+| k-step 2,055 → 1,600 | **31.06** |
 
-Depth 10 ≈ 26.4 ms, depth 8 ≈ 21.6 ms.
+Depth scaling from the r15m sweep (41.52 / 35.03 / 27.86 / 20.96): ~3.43 ms per block + ~0.4; depth 10 ≈ 25.9, depth 8 ≈ 20.8.
