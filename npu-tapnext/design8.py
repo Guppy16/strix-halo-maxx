@@ -176,6 +176,10 @@ def ew_object(flags):
                   + (["--ring"] if "-DHRING" in flags else []),  # round 18: h straight into the output ring
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "reck.s"), "-o", str(bd / "reck.o")]]
         objs.append(str(bd / "reck.o"))
+    if "-DZK" in flags:  # round 18: the SSM z panels as one asm loop (r15/gen_zk.py, schedule r18/zk.json: II 5, U 2)
+        steps += [["python3", str(HERE / "r15" / "gen_zk.py"), str(bd / "zk.s"), "--times", str(HERE / "r18" / "zk.json"), "--fit"],
+                  [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "zk.s"), "-o", str(bd / "zk.o")]]
+        objs.append(str(bd / "zk.o"))
     if "-DNRMK" in flags:  # round 15: the norm pass-2 math (r15/gen_nrm.py, schedules r15/nrm_rms.json, nrm_ln.json)
         for md in ("rms", "ln"):
             steps += [["python3", str(HERE / "r15" / "gen_nrm.py"), str(bd / f"nrm_{md}.s"), "--mode", md, "--times", str(HERE / "r15" / f"nrm_{md}.json"), "--fit"],

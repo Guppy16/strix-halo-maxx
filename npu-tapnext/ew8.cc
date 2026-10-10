@@ -70,6 +70,11 @@ extern "C" void nrm_ln(bfloat16 *x, const bfloat16 *p0, bfp16ebs8 *panels, const
 #endif
 #ifdef RECK  // round 15 (P29c): r15/gen_rec.py -> build/reck.s / .h
 #include "build/reck.h"
+#ifdef ZK  // round 18: the z panels as one modulo-scheduled asm loop (r15/gen_zk.py, schedule r18/zk.json: II 5, U 2), bit-identical;
+// round 15 measured it at 100 cycles vs a one-core C++ bench of 97 and dropped it, but the deployed C++ z loop is serial (27 bundles
+// per block, ~220 static per chunk in r17d)
+extern "C" void zk(const bfloat16 *hb, const bfloat16 *y, bfp16ebs8 *dst);
+#endif
 #ifdef HRING  // round 18: h straight into the output ring; wrap_dc = 16 - h vectors before the ring end (0: no wrap)
 extern "C" void reck(const bfloat16 *e2, const float *h5, const float *h6, bfloat16 *hb, float *hout, int first_bits, int rest_bits,
                      int wrap_dc);
@@ -1190,15 +1195,22 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #ifndef HRING  // (HRING acquired them before reck)
         lacq(out_ring, L_OUT_FREE, o_slots);
 #endif
+#ifdef ZK
+        static_assert(o_z % 64 == 0);
+        zk(g_hb, P[0], (bfp16ebs8 *)out_at(out_ring, o_z));
+#else
         OutS zs((bfp16ebs8 *)out_at(out_ring, o_z));
+#endif
 #else
         OutS zs(g_panels);
 #endif
+#ifndef ZK
         for (int cb = 0; cb < 8; cb++) {  // z = bf16(hb * y) -> panels
           B64 y = aie::load_v<64>(P[0] + cb * 64);
           B64 z = BF(aie::mul(aie::load_v<64>(g_hb + cb * 64), y));
           zs.push(A64(z).template to_vector<bfp16ebs8>());
         }
+#endif
       }
       PH(7);
       // output (8 slots): x, x-1, x-2 (the conv cache shifts by one frame), h rows 0-3, h rows 4-7, z panels + pad

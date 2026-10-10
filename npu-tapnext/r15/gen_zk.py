@@ -105,9 +105,10 @@ def main():
     ap.add_argument("--cp", default=None)
     ap.add_argument("--time", type=float, default=60)
     ap.add_argument("--fit", action="store_true")
+    ap.add_argument("--workers", type=int, default=4)
     o = ap.parse_args()
     times = json.loads(Path(o.times).read_text()) if o.times else None
-    lp = build(times=times, cp=dict(time_limit=o.time))
+    lp = build(times=times, cp=dict(time_limit=o.time, workers=o.workers))
     cyc, land = check(lp)
     print(f"II {lp.II} (bound {lp.res_mii()}), U {lp.U}, stages {lp.stages()}, maxlive {lp.maxlive()}; check OK ({cyc} cycles)")
     if o.cp:
