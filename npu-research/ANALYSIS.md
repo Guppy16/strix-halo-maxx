@@ -67,6 +67,16 @@ model: k-step ~1,720 (−3.5 ms), with P35 ~1,670 (−3.9). Then: layout (B pref
 pieces −120: −1.9 ms if the core yields), B over two banks (−144: −1.2 ms), A port floor 1,304. Order: E1 CP feasibility of ROT
 (offline), E2 DMAB bench, E3 KS-P38 / A-only twin, E4 P35, E5 ROT, E6 layout, E7 B split. 1 cycle per k-step = 8.59 µs per step.
 
+### 5.1 Revision 14 addendum (2026-10-11, research pass 14): ROT built offline
+ROT built offline (r19/gen_rot.py). A job is one accumulator over 8 k-panels, B is repacked so it is popped in MAC order, and
+dm[cb % 4] rotates through the swap. Bound: the B bank, R = 72 + g per row block (g = restart gap), CP-optimal for g = 0 / 1 / 2.
+With identical job timings, any g > 0 is infeasible; per-job cycles fix it. g2f (deployed restart): mm_rot 1,384 static (mm_ks
+1,824), 0 bank stalls on r17d / r18h placements, −338 B text. In situ, DMA collisions are verified (main r18 DMAB: ~1 cycle per
+32 B write into the active bank; KS-P38: MEMORY 173.7, LOCK 13.3 = model x0.79). ROT predicted 1,610 ± 45 in mm_rot, k-step ~1,676:
+−3.84 ms (−3.46 uncalibrated). P35 done (−0.10, miss: the gap is mostly not IRON control code). E6 for B is void under ROT. Next: E5
+(bench → in situ), PWRAP / PADDA → g0f (−0.28), E7' (B over two banks, needs a re-solve), A slots into bank 0 (~−0.34). Ceiling
+from 38.40: ROT → ~34.5.
+
 ## 6. Attention
 Unchanged from rev 12 except S2 (done, −0.31). S3 −0.06, V1 −0.21, K1 −0.27, K2 −0.19 are rev 10/11 prices on r15m (±30 %; re-price
 with sim18 on r17d); they wait on GEMM text (KSC).

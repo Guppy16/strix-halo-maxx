@@ -514,3 +514,15 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   320 (frame + cache check 90, inlined ks_records 182, tail 48). EW text r17d 15,808, r18a 15,584, r18b 15,680.
 - **R13.11 [MODEL] SSM after X1 / HRING / PTRG / ZK:** chunk static ~1,854 (r18b), in situ ~+250–350; output 3 KB (<= 880 cycles at
   R_out >= 3.5) and input 7 KB (1,247 at 5.75) do not bind.
+
+## Revision 14 additions (2026-10-11, from research pass 14)
+- **R14.1 [CP + replay]** ROT: R = 72 + g per row block optimal (g = 0, 1, 2); binding is bank 3 (64 pops + 8 fills per row block)
+  plus the restart gap. Identical job timings at 9-cycle offsets are infeasible for g ≢ 0 (mod 9).
+- **R14.2 [DOC + MODEL]** mm_rot g2f: 1,384 static, 0 stalls (r17d + four r18h-like placements), text 1,486 B, 94 records. Per-bank
+  core busy: b0 0.24, b1 0.45, b2 0.37, b3 0.97.
+- **R14.3 [MEAS main r18]** DMA–core collisions verified: the core yields ~1 cycle per 32 B DMA write into its active bank; the
+  k-step model scales x0.79.
+- **R14.4 [DOC .td, UNVERIFIED]** `rel.cond` (alu, cond = r26) exists but is unused in deployed code. Also unverified: the pop.2d
+  pointer wrap with dn = 0, and `padda` → fill at +1.
+- **R14.5 [replay, UNVERIFIED on hardware]** A skewed pop stream's first row block needs a fresh stream at the last 576 B boundary
+  before its first pop.
