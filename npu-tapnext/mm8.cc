@@ -1251,14 +1251,30 @@ static __attribute__((noinline)) void chunk_k_fused(int t, const bfp16ebs8 *q, c
 
 #ifdef ATTV  // round 14 (research P50): O += P V as one generated asm loop per (tile, chunk) (r14/gen_attv.py), the row sums in C++
 }  // namespace at
+#ifdef V2T  // round 18: both tiles per call (r14/gen_attv.py --two): jump = 64 + tile 1's O rows - (tile 0's + 12,288 B)
+extern "C" void attv(const bfp16ebs8 *p, const bfp16ebs8 *v, float *o, int32_t trips, int32_t jump);
+#else
 extern "C" void attv(const bfp16ebs8 *p, const bfp16ebs8 *v, float *o, int32_t trips);
+#endif
 extern "C" void attvs(const bfp16ebs8 *p, const bfp16ebs8 *ones, float *osum, int32_t trips);  // the row sums, same loop form
 #include "build/attv.h"
 #include "build/attvs.h"
 namespace at {
 static_assert(ATTV_U == 1 && NB == 8 && RB % ATTVS_U == 0);
+#ifdef V2T
+// every tile of the pass in one attv and one attvs call: the P buffers and the row sums are contiguous across tiles, O jumps
+static_assert(19200 + 2688 == 19200 + RB * GV && RB * NB * 64 * 4 == 12288);
+static WRAP_FOLD void chunk_v2(int nt, const bfp16ebs8 *vc) {
+  attv(erb(0), vc, o_rows(0, 0), nt * RB * NB / 2, (int32_t)((uint8_t *)o_rows(1, 0) - ((uint8_t *)o_rows(0, 0) + 12288)) + 64);
+  attvs(erb(0), g_ones, g_osum, nt * RB / ATTVS_U);
+}
+#endif
 static WRAP_FOLD void chunk_v(int t, const bfp16ebs8 *vc) {
+#ifdef V2T
+  attv(erb(t), vc, o_rows(t, 0), RB * NB / 2, 0);
+#else
   attv(erb(t), vc, o_rows(t, 0), RB * NB / 2);
+#endif
   attvs(erb(t), g_ones, g_osum + t * RB * 64, RB / ATTVS_U);
 }
 #else
@@ -1432,7 +1448,9 @@ void attn_chunk_v(bfp16ebs8 *vobj) {
   ga_gap += tv0 - ga_last;
 #endif
   const int valid = NKEYS - g_chunk * KC;
-#ifdef ATTV  // straight calls (round 14, text: Peano kept 11 callee-saved registers across the tile loop)
+#if defined(ATTV) && defined(V2T)
+  if (valid > 0) chunk_v2(g_ntiles, vobj);
+#elif defined(ATTV)  // straight calls (round 14, text: Peano kept 11 callee-saved registers across the tile loop)
   if (valid > 0) {
     chunk_v(0, vobj);
     if (g_ntiles > 1) chunk_v(1, vobj);

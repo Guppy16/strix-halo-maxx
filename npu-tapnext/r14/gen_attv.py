@@ -47,6 +47,11 @@ DIMS = (0, 1)
 # tile 1 at acc_hi's start (banks 0-1): O is left untagged (it moves between tiles)
 BANKS = {"p": (1,), "v": (3,)}
 USE_BANKS = True
+# round 18 (V2T): one call per chunk for BOTH tiles: the O rows of tile 1 (acc_hi) are not contiguous with tile 0's (the C object),
+# so the last O load and the last O store of each iteration post-modify by a 2D modifier (d2 / d3: +64, after every 24th
+# iteration + 64 + jump, jump = o1 - (o0 + 12,288) from r1). P buffers (erb) and the V walker continue across the tiles unchanged.
+TWO = False
+NIT_T = 24
 
 
 def bk(name):
@@ -81,6 +86,9 @@ def ops():
     for d in DIMS:  # the dim blocks
         a, b = f"a{d}", f"b{d}"
         for q in QUARTERS:
+            if TWO and d == DIMS[-1] and q == QUARTERS[-1]:
+                o.append(Op(f"L{d}{q}", "lda", f"vlda.2d {{{a}.{q}}}, [p2], d2", defs=[(a, q, 7)], mem=("ld", "o"), instr="VLDA_2D_dmx_lda_bm"))
+                continue
             o.append(Op(f"L{d}{q}", "lda", f"vlda {{{a}.{q}}}, [p2], #64", defs=[(a, q, 7)], mem=("ld", "o"), instr=LDA_BM))
         for k in range(6):
             v = f"v{6 * d + k}"
@@ -96,6 +104,9 @@ def ops():
         o.append(Op(f"AD{d}", "vec", f"vadd.f {{c{d}.dm}}, {{{a}.dm}}, {{{b}.dm}}, {R_ADD}", defs=[(f"c{d}", "dm", 6)],
                     uses=[(a, "dm", 4), (b, "dm", 4)], instr=VADDF))
         for q in QUARTERS:
+            if TWO and d == DIMS[-1] and q == QUARTERS[-1]:
+                o.append(Op(f"S{d}{q}", "st", f"vst.2d {{c{d}.{q}}}, [p3], d3", uses=[(f"c{d}", q, 1)], mem=("st", "os"), instr="VST_2D_dmx_sts_bm"))
+                continue
             o.append(Op(f"S{d}{q}", "st", f"vst {{c{d}.{q}}}, [p3], #64", uses=[(f"c{d}", q, 1)], mem=("st", "os"), instr=ST_BM))
     return o
 
@@ -180,7 +191,16 @@ def build(II=None, times=None, cp=None, max_ii=24):
     raise Infeasible("none")
 
 
+JUMP = 0x3000  # checker: tile 1's rows 12 KB past tile 0's end
+
+
 def streams():
+    if TWO:
+        f = lambda i, k: 256 * len(DIMS) * i + 64 * k + (JUMP if i >= NIT_T else 0)  # noqa: E731
+        lo, so = (f"L{DIMS[-1]}{QUARTERS[-1]}", f"S{DIMS[-1]}{QUARTERS[-1]}")
+        mod = dict(dn=NIT_T - 1, dj=64, m=64 + JUMP)
+        return {"o": (f, dict(base=0x79000, dn=1 << 20, dj=64, m=64, ops={lo: mod})),
+                "os": (f, dict(base=0x79000, dn=1 << 20, dj=64, m=64, ops={so: mod}))}
     return {
         "o": (lambda i, k: 256 * len(DIMS) * i + 64 * k, dict(base=0x79000, dn=1 << 20, dj=64, m=64)),
         "os": (lambda i, k: 256 * len(DIMS) * i + 64 * k, dict(base=0x79000, dn=1 << 20, dj=64, m=64)),
@@ -205,7 +225,12 @@ def function(lp, name="attv"):
     for op, (d, dn, dj, m) in MODS.items():
         mods += [f"mova\tdn{d}, #{dn}", f"movxm\tdj{d}, #{dj}", f"movxm\tm{d}, #{m}", f"mova\tdc{d}, #{dcs[op]}"]
     neg = lp.neg_steps.get("o", 0)
-    pre = ["mov\tr7, r0", f"mova\t{R_MM}, #780", f"mova\t{R_ADD}, #60", "mova\tr24, #0", "mova\tr25, #0", "mov\tp3, p2",
+    two = []
+    if TWO:  # r1 = 64 + jump = m2 = m3 (the caller adds the 64: add takes a 7-bit signed immediate and #64 assembled as -64)
+        assert neg == 0
+        two = ["mov\tm2, r1", "mov\tm3, r1", f"mova\tdn2, #{NIT_T - 1}", f"mova\tdn3, #{NIT_T - 1}", "mova\tdj2, #64",
+               "mova\tdj3, #64", "mova\tdc2, #0", "mova\tdc3, #0"]
+    pre = two + ["mov\tr7, r0", f"mova\t{R_MM}, #780", f"mova\t{R_ADD}, #60", "mova\tr24, #0", "mova\tr25, #0", "mov\tp3, p2",
            "mov\tp4, p0", "mov\tp5, p1", f"padda\t[p4], #{-p_back}", f"padda\t[p5], #{v_start}", f"padda\t[p2], #{-64 * neg}"] + mods + [
         f"movxm\tls, #{name}_start", f"movxm\tle, #{name}_last", f"add.nc\tlc, r7, #{E}", "nop", "nop", "nop", "nop", "nop", "nop"]
     L = [f"\t.section\t.text.{name},\"ax\",@progbits", f"\t.globl\t{name}", "\t.p2align\t4", f"\t.type\t{name},@function", f"{name}:"]
@@ -234,7 +259,10 @@ def main():
     ap.add_argument("--fit", action="store_true")
     ap.add_argument("--nobanks", action="store_true")
     ap.add_argument("--sums", action="store_true", help="attvs: the row sums (P x ones), one row block per iteration")
+    ap.add_argument("--two", action="store_true", help="round 18 V2T: both tiles in one call (O jump by d2 / d3, r1 = jump)")
     o = ap.parse_args()
+    global TWO
+    TWO = o.two and not o.sums
     global USE_BANKS, SUMS, DIMS, MODS
     USE_BANKS = not o.nobanks
     if o.sums:
@@ -245,7 +273,7 @@ def main():
     times = json.loads(Path(o.times).read_text()) if o.times else None
     lp = build(o.ii, times, cp=dict(time_limit=o.time), max_ii=o.max_ii)
     report(lp)
-    for n in ((6, 1) if SUMS else (24, 4)):
+    for n in ((6, 1) if SUMS else ((48, 24, 4) if TWO else (24, 4))):
         cyc, land = check(lp, n)
         print(f"check OK ({n} iterations): {cyc} cycles, last write lands at {land}")
     if o.cp:
