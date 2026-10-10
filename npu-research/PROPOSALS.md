@@ -1,7 +1,7 @@
 # PROPOSALS.md — ranked experiments and tools for the TAPNext++ NPU port
 
 Revision 13, 2026-10-11, after round 17 (`full12r17d`, 39.16 ms at depth 12; RESULTS_FROM_MAIN round 17) and main's first
-round-18 build (`full12r18a`, HRING + PTRG, A/B -0.34 ms vs r17d: ~38.82). Revision 12 is in `rev12/`, older ones in
+round-18 builds (`full12r18a` HRING + PTRG, A/B −0.34 vs r17d; `full12r18b` + ZK, −0.44 vs r17d: **~38.72**). Revision 12 is in `rev12/`, older ones in
 `rev11/` .. `rev1/`. The analysis behind the numbers is ANALYSIS rev 13 (the coordinator writes it from research pass 13's
 hand-back). Prices are deltas at depth 12, Turbo, 1.81 GHz, whole-call (tcall static + ewio / ksplan for waits and stalls).
 
@@ -56,38 +56,37 @@ hand-back). Prices are deltas at depth 12, Turbo, 1.81 GHz, whole-call (tcall st
 
   The one-core DMAB bench decides it, and with it every layout lever.
 
-## Ranking (revision 13; base full12r18a ≈ 38.82 ms = r17d 39.16 − 0.34 A/B)
+## Ranking (revision 13; base full12r18b ≈ 38.72 ms = r17d 39.16 − 0.44 A/B)
 
 | rank | id | what | cost | risk | expected (depth 12) | pre-registered whole-call check |
 |---|---|---|---|---|---|---|
 | 1 | **KSC** (new) + S3, V1, K1, K2 | k-step records as build-time data: design8 computes the 58 `g_ks_tab` words from the placement (C object, A slots from input_with_addresses.mlir; `acc_hi` from llvm-nm of the link) and emits them as an initialised table; mm_kstep becomes `mm_ks(tab, pB, piece0)` (tail jump). A post-link check (nm + mlir addresses) rebuilds once if anything moved. Then S3 / V1 / K1 / K2 fit | S (+ M for S3..K2) | low | text **−270..−290 B** (mm_kstep 320 → 32-48); 0 ms itself; S3 + V1 + K1 + K2 **−0.73** (rev 10/11 prices on r15m; ±30 %: re-price with sim18 on r17d before building) | `llvm-size` GEMM .text 16,336 → ≤ 16,064; regress bit-identical |
 | 2 | **P35** (rev 8, re-priced) | B lock + k-loop inside mm_ks: the B ring with pinned locks (like the A ring's 4 / 5), one mm_ks call per tile running its k-steps; main's k-loop (0x310-0x39e, 144 B of i64 counters) and mm_kstep's per-call frame go | M | medium (hand-built B ring, A precedent) | **−0.44 ± 0.1** (gap 67 → ~16 per k-step x 15,552) ; text −80..−120 B | PROF: gap between mm_ks calls 67 → ≤ 20 (records `gkb`); k-step in mm_ks unchanged 2,055 |
 | 3 | **N-IO** (new; = NG1 + NG2 done in asm) | the norm unit's I/O and pointer glue into the asm steps: n1k_step takes the lock acquire / release and the ring pointers (2D-modifier wraps as in n1p) (N-IO1); nrm_* take out_begin / out_end and the ring-wrap logic (N-IO2). Per unit today: pass 1 ~117 cycles of glue around a 140-cycle n1k call, pass 2 ~170 around nrm | M each | low-medium | **N-IO1 −0.45..−0.55, N-IO2 −0.5..−0.7** (ewio levers13 at the fit, compute-bound) | NIO2 stamps first (below): pass-2 unit RMS ~325 / LN ~449 in situ; after N-IO1 a stamp around the whole pass-1 unit reads ~170 (today 256 static + 17 in situ + waits) |
-| 4 | **ZK** (new) | the SSM z panels pipelined: Peano compiles the in-situ z loop as a serial 27-bundle chain per 64 lanes (zol @0x1610 in r18a, x 8: ~216 + setup), the one-core bench of the same C++ ran 97 for all 8 (it pipelined there). Use r15/gen_zk.py's kernel (bench 100) or the C++ as a noinline function with restrict parameters (the bench's form) | S | low (bit-identical; zkb bench exists) | **−0.18..−0.21** (−130..−146 per chunk x 2,592) | ew_ssm chunk static 1,979 → ~1,840; CPROF rest 2,562 → ~2,420 |
+| done | **ZK** (main r18b: −0.17 A/B, hit; listed for the record) | the SSM z panels pipelined: Peano compiles the in-situ z loop as a serial 27-bundle chain per 64 lanes (zol @0x1610 in r18a, x 8: ~216 + setup), the one-core bench of the same C++ ran 97 for all 8 (it pipelined there). Use r15/gen_zk.py's kernel (bench 100) or the C++ as a noinline function with restrict parameters (the bench's form) | S | low (bit-identical; zkb bench exists) | **−0.18..−0.21** (−130..−146 per chunk x 2,592) | ew_ssm chunk static 1,979 → ~1,840; CPROF rest 2,562 → ~2,420 |
 | 5 | **ROT** (new; the k-step program, section K) | mm_ks with a 5th accumulator rotating through the C swap: jobs of 8 MACs (one column block of one row block), 2-3 interleaved chains, II 9 per job (bank-3 bound: 8 B pops + 1 fill), C load of job j+2 / store of job j-2 in the free lda / st slots (always opposite pieces = different banks), A refreshed in place over 16 cycles at each row-block change | L | high | **−3.5 (−2.5..−4.0)**, with P35 −3.9; static mm_ks 1,824 → ~1,356 | E1 (CP offline) first: II 9 allocates with ex ≤ 12, dm ≤ 5 and the bank rule on the deployed placement; one-core ksb.py bit-identical, ~1,360 + collisions |
 | m1 | **DMAB** (measurement, new) | one core, a loop with a known bank access per cycle (bank X), while a DMA streams into / out of bank X vs bank Y; 32 B vs 64 B DMA access granularity | S | none | decides every layout lever (GEMM ~−200 per k-step = −1.7 ms ceiling; EW pass 2 / SSM ~−0.3..−0.6) | pre-registered: slowdown ≈ (DMA bytes / 32) x core bank-busy fraction; 0 if the DMA yields |
 | m2 | **KS-P38** (rev 5 P38, still open) | core MEMORY_STALL / LOCK_STALL counters around mm_ks in the PROF build | S | none | splits the 231 in-situ cycles: A waits (LOCK) vs collisions (MEMORY) | pre-registered: LOCK ≤ 30, MEMORY 150-230 per k-step |
 | m3 | **NIO2** (measurement, new) | NPROF stamps around the nrm call, the whole pass-2 unit and the whole pass-1 unit (per mode) | S | none | locates the fitted pass-2 excess (+76 / +132 per unit) | pass-2 unit RMS 325 ± 40, LN 449 ± 60; nrm call RMS 136-193, LN 210-309 (bench 136 / 210) |
-| 6 | NS | norm statistics per row block in asm (ln_stats 317 x 2 + rowsum8 x 4 / rms_rstd 199 x 2 per rb) | M | low | −0.34 (levers13) | |
-| 7 | **CGF** (new) | convk pushes its xc output as bfp panels itself (the xc → bfp push loop + one call glue go) | M | low | −0.10..−0.13 (−70..−90 per chunk) | |
+| 4 | NS | norm statistics per row block in asm (ln_stats 317 x 2 + rowsum8 x 4 / rms_rstd 199 x 2 per rb) | M | low | −0.34 (levers13) | |
+| 6 | **CGF** (new) | convk pushes its xc output as bfp panels itself (the xc → bfp push loop + one call glue go) | M | low | −0.10..−0.13 (−70..−90 per chunk) | |
 | 8 | T2 / IV32 (new) | i32 loop counters in design8's worker loops (`scf.for` on i32 bounds instead of `index`) | S-M | low (control code only) | text −200..−300 B (GEMM), EW ~−40 B; ~0 ms | `grep -c "phi i64" opted_main_core_0_2.ll` 12 → ≤ 1 |
 | 9 | P55, P51, P57, P24b | as rev 8-10 (not re-derived this pass) | | | −0.36, −0.96, −0.5, −0.12 | |
 | parked | FSX (−0.07 now: sigk's glue is 45), FOLD (−0.03), NKEEP (~0), NPIPE G 2 (+0.08), OSLOT / EWO (R_out not binding), AL1 (done), K-pair (needs +4.6 KB L1; ROT dominates) | | | | | |
 
-Combined (cumulative from ~38.82):
+Combined (cumulative from ~38.72, r18b; ZK done):
 
 | step | change | ms |
 |---|---|---|
-| KSC + S3/V1/K1/K2 | −0.73 | 38.09 |
-| P35 | −0.44 | 37.65 |
-| ZK | −0.2 | 37.45 |
-| N-IO1 + N-IO2 | −1.0 | 36.45 |
-| NS | −0.34 | 36.1 |
-| CGF | −0.12 | 36.0 |
-| DMAB layout, EW only | −0.3 | ~35.7 |
-| P55 + P51 + P57 | −1.8 | ~33.9 |
-| ROT (on top of P35) | −3.5 | **~30.4** |
-| B split over two banks | −1.6 | ~28.8 |
+| KSC + S3/V1/K1/K2 | −0.73 | 37.99 |
+| P35 | −0.44 | 37.55 |
+| N-IO1 + N-IO2 | −1.0 | 36.55 |
+| NS | −0.34 | 36.2 |
+| CGF | −0.12 | 36.1 |
+| DMAB layout, EW only | −0.3 | ~35.8 |
+| P55 + P51 + P57 | −1.8 | ~34.0 |
+| ROT (on top of P35) | −3.5 | **~30.5** |
+| B split over two banks | −1.6 | ~28.9 |
 
 The A port floor (1,304 cycles per k-step) caps the k-step at ~1,450 without two-channel A (rev 5 §2.1).
 
@@ -156,7 +155,7 @@ HRING / PTRG). Per chunk (static): ssq 680 (glue 194), sigk 371 (glue 45), ggk 2
 
 | rank | lever | per chunk | ms |
 |---|---|---|---|
-| 1 | ZK (z pipelined) | −130..−146 | −0.18..−0.21 |
+| done | ZK (main r18b: chunk static 1,979 → 1,854; −0.17 A/B) | −125 | −0.17 |
 | 2 | CGF (convk writes bfp panels; one call and the push loop go) | −70..−90 | −0.10..−0.13 |
 | 3 | ssq two chunks per call (prologue / drain 150 once per two chunks; needs the g_ga / g_tsp double buffers) | −75 | −0.11 |
 | 4 | FSX (sigk inside ssq) | −50 | −0.07 |
