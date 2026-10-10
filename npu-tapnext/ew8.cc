@@ -909,7 +909,12 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       lacq(out_ring, L_OUT_FREE, 8);
 #endif
       PH(8);
-      for (int p = 0; p < 3; p++) out_copy(out_ring, p * KB, P[1 + p], KB / 64);
+#ifdef XONE  // round 16 (research X1b): x, x-1, x-2 are consecutive 1 KB parts of the input ring unless one straddles: one call
+      if (P[2] == P[1] + KB / 2 && P[3] == P[2] + KB / 2)
+        out_copy(out_ring, 0, P[1], 3 * KB / 64);
+      else
+#endif
+        for (int p = 0; p < 3; p++) out_copy(out_ring, p * KB, P[1 + p], KB / 64);
       PH(13);
       out_copy(out_ring, 3 * KB, (const bfloat16 *)g_hout, 2 * KB / 64);
 #ifndef ZRING
