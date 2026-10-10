@@ -6,4 +6,4 @@ name=$1; shift
 cd ~/git/app/.scratch/npu-tapnext || exit 1
 KS="--k-add -DKSC --k-add -DKS_ACC_HI=${KS_ACC_HI:-0x71900} --k-add -DKS_C=0x78900 --k-add -DKS_A0=0x77B80 --k-add -DKS_A1=0x78000 --k-add -DKS_A2=0x78480"
 BASE_MS=${BASE_MS:-38.72} exec r17/xtry.sh "$name" 4 --k-add -DATTKS2MAX --env AL1=1 --ew-add -DAL1 --ew-add -DNPIPE --ew-add -DNPIPE_G=6 \
-  --ew-add -DHRING --ew-add -DPTRG --ew-add -DZK $KS "$@"
+  --ew-add -DHRING --ew-add -DPTRG --ew-add -DZK --ew-add -DNIOC $KS "$@"

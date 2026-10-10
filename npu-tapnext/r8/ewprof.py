@@ -81,6 +81,12 @@ def report(ops, act):
     if ext is not None and ext[:, 1].max() > 0:
         best = ext[np.argmax(ext[:, 1])]
         print(f"norm n1k steps: {best[1]} calls, {best[0] / max(best[1], 1):.1f} cycles per call, in_need {best[2] / max(best[1], 1):.1f} per unit, out_begin {best[3] / max(best[1], 1):.1f} per unit")
+        ext2 = act[hits[:, None] + np.arange(20, 30)[None, :]].astype(np.int64)  # round 18 NIO2 (-DNIO2 builds)
+        e = ext2[np.argmax(ext[:, 1])].reshape(2, 5)
+        for md, nm in enumerate(("rms", "ln")):
+            n2, n1 = max(e[md, 3], 1), max(e[md, 4], 1)
+            print(f"NIO2 {nm}: pass-2 units {e[md, 3]}, nrm call {e[md, 0] / n2:.1f}, whole pass-2 unit {e[md, 1] / n2:.1f}; "
+                  f"pass-1 units {e[md, 4]}, whole pass-1 unit {e[md, 2] / n1:.1f} cycles (stamps included)")
     m = np.mean(allr, 0)
     print(f"{'mean':10s} " + " ".join(f"{v:10.0f}" for v in m) + f" {m.sum() * 216 / GHZ / 1e3:9.1f}")
     print("share     " + " ".join(f"{100 * v / m.sum():9.1f}%" for v in m))

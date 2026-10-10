@@ -131,6 +131,17 @@ static __attribute__((noinline)) void ph(int i) {
   g_tlast = t;
 }
 #define PH(i) ph(i)
+#elif defined(NIO2)  // round 18 (research rev 13 NIO2): only the norm-unit stamps below (NPROF does not fit beside N1K + ZK any more)
+static inline __attribute__((always_inline)) uint32_t stamp() {
+  __builtin_aie2p_sched_barrier();
+  const uint32_t v = read_tm(0x340F8);
+  __builtin_aie2p_sched_barrier();
+  return v;
+}
+static uint32_t g_nchunk;
+// per mode (0 RMS, 1 LN): the nrm call, the whole pass-2 unit, the whole pass-1 unit (cycles, stamps included), unit counts
+static uint32_t g_nio[2][5];
+#define PH(i) ((void)0)
 #elif defined(NPROF)  // round 16: the stamps and the record without the SSM phase stamps (PROF no longer fits beside N1K)
 static inline __attribute__((always_inline)) uint32_t stamp() {
   __builtin_aie2p_sched_barrier();
@@ -417,6 +428,11 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
   // stay busy. nrm_* clobber the n1k registers: the accumulators go through g_nacc around each group (_end / _begin). Same math
   // and accumulation order per unit: bit-identical.
   const int w1b = n_in > 1 ? 0x3F80 : 0, w2b = n_in > 2 ? 0x3F80 : 0;
+#ifdef NIOC  // round 18 (research rev 13 N-IO, in C++ first): the ring state in locals for the whole op and the four ring helpers
+  // inline (the asm steps never touch it; out_copy reads g_out_b, synced before it). NIO2 stamps (r18dM) put ~190 cycles of glue
+  // around every pass-2 nrm call and ~150 around every pass-1 n1k step.
+  int ob = g_out_b, osb = g_out_slot_b, ib = g_in_b, iav = g_in_avail, icn = g_in_consumed;
+#endif
   for (int rb = -1; rb < RBN; rb++) {
     const bool more = rb + 1 < RBN;
     if (more)
@@ -424,10 +440,22 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
     for (int q0 = 0; q0 < QS; q0 += NPIPE_G) {
       if (rb >= 0)
         for (int q = q0; q < q0 + NPIPE_G; q++) {
+#ifdef NIO2
+          const uint32_t tu0 = stamp();
+#endif
 #if defined(PROF) || defined(NPROF)
           const uint32_t to0 = stamp();
 #endif
+#ifdef NIOC
+          {
+            const int d = UNIT_B - (osb ? SLOT_B - osb : 0);
+            if (d > 0) lacq(out_ring, L_OUT_FREE, div768(d + SLOT_B - 1));
+          }
+          const int xp = ob;
+#else
           out_begin(out_ring, UNIT_B);
+          const int xp = g_out_b;
+#endif
 #if defined(PROF) || defined(NPROF)
           g_nout += stamp() - to0;
 #endif
@@ -435,35 +463,77 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
           // the kernels store X' and push the panels straight into the ring; a part that would wrap the ring end goes to scratch
           // (X': arena + 15872, 1 KB; panels: g_panels) and is copied (round 15: the flush after the 8 pushes writes nothing past
           // the 576 B, so a direct push never touches the next unit)
-          const int xp = g_out_b, xw = xp + KB > OUT_B;
+          const int xw = xp + KB > OUT_B;
           int pp = xp + KB;
           if (pp >= OUT_B) pp -= OUT_B;
           const int pw = pp + PANB > OUT_B;
           bfloat16 *xd = xw ? (bfloat16 *)(g_arena + 15872) : (bfloat16 *)((char *)out_ring + xp);
           bfp16ebs8 *pd = pw ? (bfp16ebs8 *)g_panels : (bfp16ebs8 *)((char *)out_ring + pp);
+#ifdef NIO2
+          const uint32_t tr0 = stamp();
+#endif
           if (ln)
             nrm_ln(sq, g_p0 + q * 64, pd, rr, g_p1 + q * 64, xd);
           else
             nrm_rms(sq, g_p0 + q * 64, pd, (const bfloat16 *)rr, xd);
+#ifdef NIO2
+          g_nio[ln][0] += stamp() - tr0;
+#endif
+#ifdef NIOC
+          if (xw | pw | to_x) {
+            g_out_b = ob;
+            if (xw) out_copy(out_ring, 0, xd, KB / 64);
+            if (pw) out_copy(out_ring, KB, (const bfloat16 *)g_panels, PANB / 64);
+            if (to_x) out_copy(out_ring, 0, sq, KB / 64);
+          }
+          ob += UNIT_B;
+          if (ob >= OUT_B) ob -= OUT_B;
+          {
+            const int t = osb + UNIT_B, n = div768(t);
+            osb = t - n * SLOT_B;
+            if (n) lrel(out_ring, L_OUT_FILL, n);
+          }
+#else
           if (xw) out_copy(out_ring, 0, xd, KB / 64);
           if (pw) out_copy(out_ring, KB, (const bfloat16 *)g_panels, PANB / 64);
           if (to_x) out_copy(out_ring, 0, sq, KB / 64);
           out_end(out_ring, UNIT_B);
+#endif
+#ifdef NIO2
+          g_nio[ln][1] += stamp() - tu0;
+          g_nio[ln][3]++;
+#endif
         }
       if (!more) continue;
       if (ln) n1k_ln_begin(g_nacc, w1b, w2b); else n1k_rms_begin(g_nacc, w1b, w2b);
       for (int q = q0; q < q0 + NPIPE_G; q++) {
+#ifdef NIO2
+        const uint32_t tp0 = stamp();
+#endif
 #if defined(PROF) || defined(NPROF)
         const uint32_t tn0 = stamp();
 #endif
+#ifdef NIOC
+        {
+          const int d = unit - iav;
+          if (d > 0) {
+            const int n = div768(d + SLOT_B - 1);
+            iav += n * SLOT_B;
+            lacq(in_ring, L_IN_FILL, n);
+          }
+        }
+        const int ib0 = ib;
+#else
         in_need(in_ring, unit);
+        const int ib0 = g_in_b;
+#endif
 #if defined(PROF) || defined(NPROF)
         g_nneed += stamp() - tn0;
 #endif
         const bfloat16 *p[3];
         int dc[3];
         for (int s = 0; s < 3; s++) {
-          int qq = g_in_b + (s == 0 ? 0 : s == 1 ? o1 : o2);
+          int qq = ib0 + (s == 0 ? 0 : s == 1 ? o1 : o2);
           if (qq >= IN_B) qq -= IN_B;
           p[s] = (const bfloat16 *)((const char *)in_ring + qq);
           const int n1 = (IN_B - qq) >> 7;  // 128 B pieces before the ring end
@@ -483,7 +553,23 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
         g_nst += stamp() - ts0;
         g_ncnt++;
 #endif
+#ifdef NIOC
+        iav -= unit;
+        ib += unit;
+        if (ib >= IN_B) ib -= IN_B;
+        icn += unit;
+        {
+          const int n = div768(icn);
+          icn -= n * SLOT_B;
+          if (n) lrel(in_ring, L_IN_FREE, n);
+        }
+#else
         in_done(in_ring, unit);
+#endif
+#ifdef NIO2
+        g_nio[ln][2] += stamp() - tp0;
+        g_nio[ln][4]++;
+#endif
         }
       if (ln) n1k_ln_end(g_nacc); else n1k_rms_end(g_nacc);
     }
@@ -504,6 +590,13 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
       aie::store_v((bfloat16 *)(rr + 64), rms_rstd(rowsum8(A32(aie::load_v<32>(g_nacc + 96))), eps));
     }
   }
+#ifdef NIOC
+  g_out_b = ob;
+  g_out_slot_b = osb;
+  g_in_b = ib;
+  g_in_avail = iav;
+  g_in_consumed = icn;
+#endif
 }
 #else
   for (int rb = 0; rb < RBN; rb++) {
@@ -1245,6 +1338,16 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
         rec[17] = g_ncnt;
         rec[18] = g_nneed;
         rec[19] = g_nout;  // round 17 (research NIO)
+      }
+#endif
+#ifdef NIO2  // round 18: the record in the SSM chunk's pad (r8/ewprof.py: words 17 = norm units, 20-29 = g_nio)
+      {
+        uint32_t *rec = (uint32_t *)out_at(out_ring, o_z + PANB);
+        rec[0] = 0x504D5353u;
+        rec[1] = ++g_nchunk;
+        for (int i = 2; i < 20; i++) rec[i] = 0;
+        rec[17] = g_nio[0][4] + g_nio[1][4];
+        for (int i = 0; i < 10; i++) rec[20 + i] = g_nio[i / 5][i % 5];
       }
 #endif
       lrel(out_ring, L_OUT_FILL, o_slots);
