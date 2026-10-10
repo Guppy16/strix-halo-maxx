@@ -172,7 +172,8 @@ def ew_object(flags):
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "convk.s"), "-o", str(bd / "convk.o")]]
         objs.append(str(bd / "convk.o"))
     if "-DRECK" in flags:  # round 15: the SSM recurrence as one asm loop (r15/gen_rec.py, schedule r15/reck4.json: U 4, II 11)
-        steps += [["python3", str(HERE / "r15" / "gen_rec.py"), str(bd / "reck.s"), "--times", str(HERE / "r15" / "reck4.json"), "--fit"],
+        steps += [["python3", str(HERE / "r15" / "gen_rec.py"), str(bd / "reck.s"), "--times", str(HERE / "r15" / "reck4.json"), "--fit"]
+                  + (["--ring"] if "-DHRING" in flags else []),  # round 18: h straight into the output ring
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "reck.s"), "-o", str(bd / "reck.o")]]
         objs.append(str(bd / "reck.o"))
     if "-DNRMK" in flags:  # round 15: the norm pass-2 math (r15/gen_nrm.py, schedules r15/nrm_rms.json, nrm_ln.json)

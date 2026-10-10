@@ -70,7 +70,12 @@ extern "C" void nrm_ln(bfloat16 *x, const bfloat16 *p0, bfp16ebs8 *panels, const
 #endif
 #ifdef RECK  // round 15 (P29c): r15/gen_rec.py -> build/reck.s / .h
 #include "build/reck.h"
+#ifdef HRING  // round 18: h straight into the output ring; wrap_dc = 16 - h vectors before the ring end (0: no wrap)
+extern "C" void reck(const bfloat16 *e2, const float *h5, const float *h6, bfloat16 *hb, float *hout, int first_bits, int rest_bits,
+                     int wrap_dc);
+#else
 extern "C" void reck(const bfloat16 *e2, const float *h5, const float *h6, bfloat16 *hb, float *hout, int first_bits, int rest_bits);
+#endif
 #if !defined(SSM_LUT) || !defined(SSM_EXP3)
 #error "RECK assumes the SSM_LUT / SSM_EXP3 arena layout (g_e2 at 10240, g_hb = g_gx)"
 #endif
@@ -1019,7 +1024,22 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       // round 8: contiguous views of the chunk's 7 input parts (a part the ring wrap splits is copied to g_ptmp once);
       // the loops below use plain pointers instead of a wrap check per vector (in_at)
       const bfloat16 *P[7];
-#ifdef INPART_INLINE  // round 16 (research rev 11 P-IN; the flag PIN is #undef-ed by a header): in_part's common path inline; only a part that straddles the ring end is copied
+#ifdef PTRG  // round 18: the parts by offset from g_in_b (1 KB aligned under AL1: no straddle), the taps straight from the rotation; no
+      // pointer array on the stack, no remap loop (CPROF: 101 cycles of pointer glue per chunk)
+      static_assert(IN_B % KB == 0);
+      {
+        const int b = g_in_b;
+        auto part = [&](int off) {
+          int q = b + off;
+          q = q >= IN_B ? q - IN_B : q;
+          return (const bfloat16 *)((const char *)in_ring + q);
+        };
+        P[0] = part(0);
+        for (int k = 0; k < 4; k++) P[1 + k] = part((1 + ((rot - 1 - k) & 3)) * KB);
+        P[5] = part(5 * KB);
+        P[6] = part(6 * KB);
+      }
+#elif defined(INPART_INLINE)  // round 16 (research rev 11 P-IN; the flag PIN is #undef-ed by a header): in_part's common path inline; only a part that straddles the ring end is copied
       {
         int strad = -1;
         for (int p = 0; p < 7; p++) {
@@ -1044,7 +1064,7 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #else
       for (int p = 0; p < 7; p++) P[p] = in_part(in_ring, p * KB);
 #endif
-#ifdef XROT
+#if defined(XROT) && !defined(PTRG)
       {  // parts 1-4 = R0..R3 -> x, x-1, x-2, x-3
         const bfloat16 *R[4] = {P[1], P[2], P[3], P[4]};
 #pragma clang loop unroll(disable)
@@ -1125,7 +1145,17 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #ifdef RECK  // round 15 (P29c): r15/gen_rec.py, the same MACs and roundings; the h state in VECTOR order ([cb][half], 128 B per
       // vector) on both sides (only the SSM reads it back: bit-identical tokens). g_hb = g_gx in place (SSM_LUT layout).
       static_assert(10240 + 1088 == 11328 && 10240 + 2112 == 12352 && 10240 + 3136 == 13376);
+#ifdef HRING  // round 18: h into the output ring (its 2 KB cross the ring end in one chunk of three: reck's 2D store wraps)
+      static_assert(o_h == 0 && OUT_B == 9216 && OUT_B % 128 == 0, "r15/gen_rec.py --ring: OUT_B, 128 B per h vector");
+      lacq(out_ring, L_OUT_FREE, o_slots);
+      {
+        const int n1 = (OUT_B - g_out_b) / 128;  // h vectors before the ring end
+        reck(g_e2, (const float *)P[5], (const float *)P[6], g_hb, (float *)out_at(out_ring, o_h), first ? 0x3F80 : 0, first ? 0 : 0x3F80,
+             n1 >= 16 ? 0 : 16 - n1);
+      }
+#else
       reck(g_e2, (const float *)P[5], (const float *)P[6], g_hb, g_hout, first ? 0x3F80 : 0, first ? 0 : 0x3F80);
+#endif
 #else
       AIE_LOOP_MIN_ITERATION_COUNT(8)
       for (int cb = 0; cb < 8; cb++) {
@@ -1157,7 +1187,9 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       {
 #ifdef ZRING  // round 15: the output slots first, then the z panels pushed straight into the ring's Z part (5 KB into the chunk's
         // 6 KB: chunks start on 1 KB boundaries of the 9 KB ring, so the part never wraps; its 448 B pad is never read)
+#ifndef HRING  // (HRING acquired them before reck)
         lacq(out_ring, L_OUT_FREE, o_slots);
+#endif
         OutS zs((bfp16ebs8 *)out_at(out_ring, o_z));
 #else
         OutS zs(g_panels);
@@ -1184,7 +1216,9 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #endif
         for (int p = 0; p < 3; p++) out_copy(out_ring, p * KB, P[1 + p], KB / 64);
       PH(13);
+#ifndef HRING
       out_copy(out_ring, o_h, (const bfloat16 *)g_hout, 2 * KB / 64);
+#endif
 #ifndef ZRING
       out_copy(out_ring, 5 * KB, (const bfloat16 *)g_panels, KB / 64);  // panels 576 B + g_panels' zero tail as the pad
 #endif

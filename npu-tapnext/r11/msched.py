@@ -544,6 +544,9 @@ class Loop:
             # round 14: per-op modifiers (an op with its own 2D modifier register, or a post-increment immediate), each with its
             # own counter: prm["ops"] = {op name: dict(dn, dj, m)}; ops of kind "pa" (padda.2d etc.) only move the pointer
             ptr[s_]["dcs"] = defaultdict(int)
+            for on, om in prm.get("ops", {}).items():  # round 18: a 2D counter that starts mid-period (a ring wrap inside the call)
+                if "dc0" in om:
+                    ptr[s_]["dcs"][on] = om["dc0"]
         # round 12: a stream with several ops per iteration: f(i, k) gets k = the op's index among the stream's ops (op order)
         kth = {}
         for o in self.ops:
