@@ -649,3 +649,36 @@ npu-tapnext NOTES 22, RESULTS 26. Dispatch times were bimodal (~0.17 ms clusters
   series; what is the input-side lever (n_in 3 ops: fold D1 + D2 / D3 + D4 partials upstream?).
 - GEMM program memory: where can 200-400 B come from so S3 / V1 / K1 / K2 fit (r17d elf, 48 B free)?
 - The SSM now outputs 3 KB per chunk: re-rank its compute levers (chunk ~2,943 cycles in situ: convk 280, pointers 101, rest 2,562).
+
+# Round 18 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r18m: 35.20 ms** at depth 12 (sweep median, min 34.80; r17d 39.16), d10 29.11, d8 23.30, d6 17.53; regress
+BIT-IDENTICAL vs full12r9a, asmlint 0; DAVIS d12 70.84 (OA 92.57), d10 69.90 (91.02), unchanged. Testbox, Turbo, gpu_busy 0, the
+foreign CPU worker throughout. Timing: r18/ab.py (both builds in one process, interleaved blocks, 300-600 kept each). Details:
+npu-tapnext NOTES 23, RESULTS 27. Timeouts: 1 (V2T: `add r1, r1, #64` assembled as #-64).
+### ROT (rev 14, g2f -3.84 +- 0.4) - DONE as g2a: -3.27 (median) / -3.34 (p10) / -3.35 (mean) vs r18j (slight miss; -3.46 uncalibrated)
+- Your bench passed for g2f (36/36, warm 1,431 vs pre-registered 1,390-1,405), but g2f in situ was DIFFERENT and varied run to run
+  (rms_rel 0.15-0.25, tracks <= 0.13 px). Replacing rel.cond by a plain `rel #52, r26` changed nothing. Cause: `acq.cond #53` sits
+  ONE bundle before the A fill (prologue line 31 -> 32; constraint ACQ in [AF-6, AF-1] in solve()); the bench pre-releases all nine
+  A slots so the acquire never blocks. Deployed mm_ks has 6 bundles. r18/gen_rot.py (your generator + env ROT_ACQ_GAP / ROT_REL_GAP)
+  re-solved with ACQ <= AF - 6 and REL >= A7 + 8 (g2a): OPTIMAL in 19 s, 1,383 static, 0 bank stalls on the r18 placement, bench
+  36/36, in situ BIT-IDENTICAL. rel.cond itself works (now deployed).
+- KS-P38 around mm_rot (per k-step, 6,240 tiles): TRUE 1,603 (pre-reg 1,610 +- 45, hit), MEMORY_STALL 167.5 (212 +- 40, low edge),
+  LOCK 13.4 (13). acc_hi moved to 0x71980 with rot_rec (ksc_check caught it). GEMM text 15,536.
+- Note for the bench: mm8_rot.inc includes "build/mm_rot.h", which -I npu-tapnext resolves to npu-tapnext/build/mm_rot.h (the last
+  design build's variant) before r19/build: a g2a bench first ran with g2f's border (0/36).
+### KSC (rev 13 -270..-290 B) - DONE: -288 B (hit), and -0.14 ms (the per-call check ~16 cycles per k-step; predicted ~0)
+### P35 (rev 13 -0.44 +- 0.1) - DONE: -0.10..-0.13 (miss); B locks by id (0 / 1), B buffers by address, even count per tile
+### N-IO (rev 13 -0.45..-0.55 / -0.5..-0.7) - C++ form only (NIOC: ring state in locals, helpers inline): -0.17..-0.23
+- tcall static -0.55; the miss is waits (pass 1 on input). NIO2 stamps (pre-registered pass-2 unit RMS 325 +- 40, LN 449 +- 60;
+  nrm RMS 136-193, LN 210-309): r18d RMS 341.8 / nrm 144.8, LN 428.4 / 229.5 (hit); pass-1 unit RMS 302.0, LN 287.5. After NIOC
+  (r18h, ZK off for text): pass-2 unit RMS 302.0, LN 390.7; pass-1 RMS 293.2, LN 248.6. The asm N-IO is not built.
+### ZK (rev 13 -0.18..-0.21) - DONE in r18b: -0.14..-0.19 (hit)
+### CGF (rev 13 -0.10..-0.13) - DONE: -0.05..-0.06 (miss; tcall static -42 per chunk said -0.06)
+### V1 - partly: V2T (attv / attvs once per chunk for both tiles, O jump by d2 / d3): -0.06..-0.08 (main pre-reg -0.06..-0.10, hit)
+### E2 DMAB - DONE (measured): same bank +58 (loads) / +59 (stores) per 256-access segment at 8.07 B/cycle; other bank 0
+### E3 KS-P38 - DONE (measured): mm_ks MEMORY 173.7, LOCK 13.3, TRUE 2,046.7 vs timer 2,056.7 per k-step
+### Not built: S3, K1 (a C++ two-chains prep: -28 per tile-chunk, +96 B: dropped), K2, NS, ssq two chunks, FSX, IV32, g0f / g1f
+### Requests to research (rev 15)
+- ROT g0f / g1f with the acquire gap (and the PWRAP / PADDA probes); a bench mode with a DMA-fed A ring that can see lock timing.
+- The B / A bank layout after ROT (168 MEMORY_STALL cycles per k-step left): which hand-built B ring placement, and its price.
+- N-IO in asm vs the measured NIO2 numbers after NIOC; a timeline of r18m to re-rank everything after ROT.
