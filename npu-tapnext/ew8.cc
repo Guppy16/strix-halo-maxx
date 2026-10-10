@@ -111,7 +111,9 @@ static inline __attribute__((always_inline)) uint32_t stamp() {
   __builtin_aie2p_sched_barrier();
   return v;
 }
-static uint32_t g_ph[14], g_tlast, g_nchunk;  // round 15: phase 13 = the x copies (input ring), 12 = h + panels, 9 = the rest
+static uint32_t g_ph[14], g_tlast, g_nchunk;
+// round 15: phase 13 = the x copies (input ring), 12 = h + panels, 9 = the rest
+static uint32_t g_nst, g_ncnt, g_nneed;  // round 16: cycles in the norms' n1k steps / their count / in_need cycles around them
 // a call, not inline code: sched barriers inside the pipelined chunk loop crashed Peano (AIE Region assertion)
 static __attribute__((noinline)) void ph(int i) {
   const uint32_t t = stamp();
@@ -119,6 +121,16 @@ static __attribute__((noinline)) void ph(int i) {
   g_tlast = t;
 }
 #define PH(i) ph(i)
+#elif defined(NPROF)  // round 16: the stamps and the record without the SSM phase stamps (PROF no longer fits beside N1K)
+static inline __attribute__((always_inline)) uint32_t stamp() {
+  __builtin_aie2p_sched_barrier();
+  const uint32_t v = read_tm(0x340F8);
+  __builtin_aie2p_sched_barrier();
+  return v;
+}
+static uint32_t g_ph[14], g_tlast, g_nchunk;
+static uint32_t g_nst, g_ncnt, g_nneed;
+#define PH(i) ((void)0)
 #else
 #define PH(i) ((void)0)
 #endif
@@ -374,7 +386,13 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
     const int w1b = n_in > 1 ? 0x3F80 : 0, w2b = n_in > 2 ? 0x3F80 : 0;
     if (ln) n1k_ln_begin(g_nacc, w1b, w2b); else n1k_rms_begin(g_nacc, w1b, w2b);
     for (int q = 0; q < QS; q++) {
+#if defined(PROF) || defined(NPROF)
+      const uint32_t tn0 = stamp();
+#endif
       in_need(in_ring, unit);
+#if defined(PROF) || defined(NPROF)
+      g_nneed += stamp() - tn0;
+#endif
       const bfloat16 *p[3];
       int dc[3];
       for (int s = 0; s < 3; s++) {
@@ -384,6 +402,9 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
         const int n1 = (IN_B - qq) >> 7;  // 128 B pieces before the ring end
         dc[s] = n1 >= 8 ? 0 : 8 - n1;
       }
+#if defined(PROF) || defined(NPROF)
+      const uint32_t ts0 = stamp();
+#endif
 #if defined(NORM_TWIN) && (NORM_TWIN & 4)  // round 16 timing twin (outputs wrong): the n1k step calls skipped
       if (q < 0)
 #endif
@@ -391,6 +412,10 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
         n1k_ln_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
       else
         n1k_rms_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
+#if defined(PROF) || defined(NPROF)
+      g_nst += stamp() - ts0;
+      g_ncnt++;
+#endif
       in_done(in_ring, unit);
     }
     if (ln) n1k_ln_end(g_nacc); else n1k_rms_end(g_nacc);
@@ -834,7 +859,7 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
   aie::set_rounding(aie::rounding_mode::conv_even);
   const nk8::ExpC kc;
   const B32 ones = aie::broadcast<bfloat16, 32>(1.0f);
-#ifdef PROF
+#if defined(PROF) || defined(NPROF)
   for (int i = 0; i < 14; i++) g_ph[i] = 0;
   g_nchunk = 0;
   g_tlast = stamp();
@@ -1012,12 +1037,15 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       out_copy(out_ring, 5 * KB, (const bfloat16 *)g_panels, KB / 64);  // panels 576 B + g_panels' zero tail as the pad
 #endif
       PH(12);
-#ifdef PROF  // record in the pad (unused bytes of the output): magic, chunks so far, phase totals (r8/ewprof.py)
+#if defined(PROF) || defined(NPROF)  // record in the pad (unused bytes of the output): magic, chunks so far, phase totals (r8/ewprof.py)
       {
         uint32_t *rec = (uint32_t *)out_at(out_ring, 5 * KB + PANB);
         rec[0] = 0x504D5353u;
         rec[1] = ++g_nchunk;
         for (int i = 0; i < 14; i++) rec[2 + i] = g_ph[i];
+        rec[16] = g_nst;  // round 16: the norm steps (all norm ops so far on this core)
+        rec[17] = g_ncnt;
+        rec[18] = g_nneed;
       }
 #endif
       lrel(out_ring, L_OUT_FILL, 8);

@@ -75,6 +75,12 @@ def report(ops, act):
         allr.append(ph)
         print(f"{name:10s} " + " ".join(f"{v:10.0f}" for v in ph) + f" {last[:, 1:1 + NPH].sum(1).mean() / GHZ / 1e3:9.1f}"
               + f"  (chunks {n:.0f}, cols {len(last)})")
+    # round 16: words 16-18 of a record = the norm n1k steps' cycles, their count, the in_need cycles around them (cumulative)
+    last_all = [max(r, key=lambda v: v[0]) for name in per for r in per[name].values()]
+    ext = act[hits[:, None] + np.arange(16, 19)[None, :]].astype(np.int64) if len(hits) else None
+    if ext is not None and ext[:, 1].max() > 0:
+        best = ext[np.argmax(ext[:, 1])]
+        print(f"norm n1k steps: {best[1]} calls, {best[0] / max(best[1], 1):.1f} cycles per call, in_need {best[2] / max(best[1], 1):.1f} per unit")
     m = np.mean(allr, 0)
     print(f"{'mean':10s} " + " ".join(f"{v:10.0f}" for v in m) + f" {m.sum() * 216 / GHZ / 1e3:9.1f}")
     print("share     " + " ".join(f"{100 * v / m.sum():9.1f}%" for v in m))
