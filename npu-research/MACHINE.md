@@ -482,3 +482,35 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
 - **R12.9 [MODEL] SSM DDR / port note:** 13 KB per chunk per column; output floor at R_out 2,614 cycles vs ~2,950 compute; X1
   halves it.
 - **R12.10 [DOC]** ZOL trip count = the value written to lc (Peano: n - 1 plus a peeled iteration; generated loops: n).
+
+
+## Revision 13 additions (2026-10-11, from research pass 13)
+- **R13.1 [MODEL refit + MEAS; supersedes R12.1 / R12.2] EW ring rates.** Input ring ≈ 5.75 B/cycle (5.5–6.0, fitted); output ring
+  not binding (≥ 3.5 B/cycle; MEASURED out_begin wait ≈ 5 cycles per unit net at r16z and with NPIPE G2). The norms are not
+  output-bound; after NPIPE G6 they are compute-bound (input waits ~12 per unit, model). Fitted in-situ excess above static: pass 2
+  +76 (RMS) / +132 (LN) per unit (s2 3–5), pass 1 +17 (NPROF n1k stamp 161.5 vs static 134 + call). `tools/ewio.py fit13`.
+- **R13.2 [MEAS + DOC] Stamp intervals contain the call.** NPROF in_need: in_need's 35-cycle path + jl / ret delay slots + stamp ≈
+  44; out_begin ≈ 40. r16z gross 101.5 / 45.0 -> net ~57.5 / ~5; NPIPE_G=2 61.0 / 46.6 -> ~17 / ~6.6.
+- **R13.3 [MEAS main, round 17] Per-kind norm walls (r16z timeline, 12 ops each):** RMS n2 83.8, RMS n3 103.1, LN n2 100.6, LN n3
+  115.4 µs (r17d: 87.0 / 101.8 / 98.3 / 106.5; medians 83.4 / 99.6 / 99.2 / 101.5).
+- **R13.4 [DOC r17d input_with_addresses.mlir] One placement for all 24 GEMM cores:** C object (C<c>_<r>_buff_0) 0x78900 (35,072),
+  A slots a<cr>_0/1/2 0x77B80 / 0x78000 / 0x78480 (31,616 / 32,768 / 33,920).
+- **R13.5 [DOC opted_main_core_0_2.ll] IRON lowers worker loop counters to i64** (12 `phi i64`, `icmp slt i64`; the endless loop
+  compares against 2^63 − 1): every loop increment is add / ltu / add-carry and every test ltu / lt / eq / sel, plus hi-word spills.
+- **R13.6 [DOC r17d disassembly, ksplan] mm_ks anatomy.** 9 trips (one A object = 2 row blocks x 8 k-panels) x 4 groups of 32 MACs
+  (1 row block x 4 column blocks, 8 k-panels). Per group: 32 MAC bundles + 12.75 swap bundles (16 vlda + 16 vst of bm quarters; the
+  stores read the old quarters inside the loads' latency window) + 3 ldb-only bundles (32 pops + 4 fills on ldb). B (4,608 B) is
+  re-popped for every row block (stream restart via mov p1, p5 / r25 = 0); A popped once. dm4 unused. Pieces: pair 0 of rb < 12 in
+  the C object (bank 2), pair 0 of rb >= 12 at acc_hi + (rb − 12) KB (bank 0), pair 1 at acc_hi + (6 + rb) KB (bank 0 for rb < 4,
+  bank 1 after): consecutive groups alternate banks.
+- **R13.7 [INF, UNVERIFIED] DMA–core bank collisions as the common in-situ excess.** Assuming 32 B DMA accesses and a core that
+  yields one cycle per DMA access to a bank it touches in that cycle: GEMM k-step model 221 vs measured +231; n1k ~20–30 vs +17; part of
+  the SSM chunk's ~+250–350 and of the norm pass-2 excess. Who yields is the decisive measurement (DMAB bench).
+- **R13.8 [DOC + MEAS main round 18] Peano's in-situ schedule can be serial where its bench pipelined:** the SSM z loop was 27
+  bundles per 64 lanes inside ew_ssm (zol @0x1610 in r18a) vs 97 cycles for all 8 in the one-core C++ bench; ZK (asm) −0.17 ms.
+- **R13.9 [MEAS main round 17] FIFO-POP9 on popprobes 2 / 3 is a true positive:** round 16's "correct" covered only lf0's 8 pops.
+- **R13.10 [DOC textmap r17d] GEMM text 16,336:** main 2,080 (204 nop bundles), mm_ks 1,824, acc_epilogue 1,456, attn_chunk_k
+  1,344, k_rb 944, attkb 768, attn_end 752 (-O2), bias_pcs 752, bgelu 688, attn_begin 608, attn_chunk_v 416, rescale_rb 416, mm_kstep
+  320 (frame + cache check 90, inlined ks_records 182, tail 48). EW text r17d 15,808, r18a 15,584, r18b 15,680.
+- **R13.11 [MODEL] SSM after X1 / HRING / PTRG / ZK:** chunk static ~1,854 (r18b), in situ ~+250–350; output 3 KB (<= 880 cycles at
+  R_out >= 3.5) and input 7 KB (1,247 at 5.75) do not bind.
