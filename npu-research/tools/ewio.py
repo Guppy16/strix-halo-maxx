@@ -242,6 +242,167 @@ def cmd_levers(o):
         print(f"  {name:52s} {v[0] - base:+.2f} ms   (in_need {v[1]:.0f} / out_begin {v[2]:.0f} per unit)")
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Revision 13 (research pass 13): the refit against round 17's NPROF stamps (in_need AND out_begin) and the timeline's
+# per-kind norm walls. Changes to the model:
+#   * in-situ per-unit costs: p1 += D1 (n1k step stamped 161.5 vs static 134 + call 6 + stamp ~4: +17), p2 += D2 (the
+#     one-core nrm bench excess, RMS +19 / LN +33 per unit, scaled by s2);
+#   * NPIPE with groups of G units (ew8.cc: n1k _end / _begin + g_nacc per group, GCOST cycles; one pair is already in
+#     the serial build's per-row-block rest);
+#   * the stamps measure the call too: net wait = stamped - (in_need 35 + jl 6 + stamp ~3 = 44) / (out_begin 31 + 6 + 3 = 40);
+#   * a fixed per-op latency F (us) for the timeline walls (prev op's last write -> this op's last write);
+#   * optional DDR coupling (--ddr D): while both DMAs of a column are busy they share D B/cycle (8 columns run in step,
+#     so a column's share of the DRAM peak is ~55-60 GB/s / 8 = 3.8-4.1 B/cycle).
+# Targets (round 17, MEASURED): NPROF r16z in_need 101.5 / out_begin 45.0 per unit (net ~57.5 / ~5), NPIPE_G=2 61.0 / 46.6
+# (net ~17 / ~6.6); r16z timeline walls RMS n2 83.8, RMS n3 103.1, LN n2 100.6, LN n3 115.4 us (12 ops each, +-3); deltas
+# r15i -0.53, NRMK -0.40, N1K -0.22, NPIPE G2 +0.07 (noisy), G6 ~-0.10 ms.
+C_IN, C_OUT = 44, 40           # static cycles inside the in_need / out_begin stamp intervals (call + stamp)
+D1 = 17                        # n1k step in situ above static (NPROF)
+D2 = dict(rms=19, ln=33)       # nrm_* one-core bench above static
+GCOST = 45                     # NPIPE: n1k _end + _begin (+ g_nacc) per group (main, round 17)
+PARAMS13 = dict(rms=3 * SLOT, ln=5 * SLOT)   # r16z param fills (AL1 made them 3 KB / 6 KB in r17d)
+OPS13 = [("rms", 2, 1), ("rms", 3, 11), ("rms", 2, 12), ("ln", 3, 12), ("ln", 2, 12), ("ln", 3, 1)]  # the n1 op as n2
+
+
+def norm_steps_g(nin, p1, p2, stats, params, G, gcost=GCOST, rbs=RBN):
+    """NPIPE as built in round 17 (ew8.cc -DNPIPE): rb = -1 runs pass 1 of row block 0; then for each row block, per
+    group of G units: G x pass 2 of rb, then (if a next row block exists) the group cost and G x pass 1 of rb + 1."""
+    st = [("need", params), ("cpu", 200), ("done", params)]
+    for rb in range(-1, rbs):
+        more = rb + 1 < rbs
+        for _q0 in range(0, QS, G):
+            if rb >= 0:
+                for _ in range(G):
+                    st += [("obegin", UNIT_OUT), ("cpu", p2), ("oend", UNIT_OUT)]
+            if not more:
+                continue
+            st.append(("cpu", gcost))
+            for _ in range(G):
+                st += [("need", nin * KB), ("cpu", p1), ("done", nin * KB)]
+        if more:
+            st.append(("cpu", stats - GCOST))  # the serial build's one _begin / _end pair is inside `stats`
+    return st
+
+
+def simulate_ddr(steps, rin, rout, ddr):
+    """simulate() with the two DMAs coupled: a slot transfer that overlaps the other direction's activity runs at the
+    shared rate. Approximation: iterate - first pass with independent rates, then rescale each DMA's slot time by
+    max(1, (rin_eff + rout_eff) / ddr) over the fraction of time both are busy."""
+    end, w = simulate(steps, rin, rout)
+    if not ddr or rin + rout <= ddr:
+        return end, w
+    # busy fractions from the first pass (bytes / rate / end)
+    bi = sum(v for k, v in steps if k == "need") / rin / end
+    bo = sum(v for k, v in steps if k == "oend") / rout / end
+    both = max(0.0, bi + bo - 1.0)  # lower bound of the overlap
+    f = (rin + rout) / ddr
+    ri = rin / (1 + both / max(bi, 1e-9) * (f - 1))
+    ro = rout / (1 + both / max(bo, 1e-9) * (f - 1))
+    return simulate(steps, ri, ro)
+
+
+def op13(b, mode, nin, rin, rout, s2=1.0, G=None, params=None, d1=D1, dp1=0, dp2=0, ds=0, gcost=GCOST, ddr=0.0):
+    c = BUILDS[b][mode]
+    insitu = b in ("r16f", "r16h")
+    p1 = c["p1"] + (d1 if b == "r16h" else 0) + dp1
+    p2 = c["p2"] + (s2 * D2[mode] if insitu else 0) + dp2
+    stats = c["rb"] - QS * (c["p1"] + c["p2"]) + ds
+    params = params or PARAMS13[mode]
+    steps = norm_steps_g(nin, p1, p2, stats, params, G, gcost) if G else norm_steps(nin, p1, p2, stats, params)
+    return simulate_ddr(steps, rin, rout, ddr)
+
+
+def step13(b, rin, rout, fold=False, **kw):
+    tot = wn = wo = 0.0
+    per = {}
+    for mode, nin, n in OPS13:
+        nn = 2 if (fold and nin == 3) else nin
+        e, w = op13(b, mode, nn, rin, rout, **kw)
+        tot += n * e
+        wn += n * w["in_need"]
+        wo += n * w["out_begin"]
+        per[(mode, nin)] = e
+    units = sum(n for *_, n in OPS13) * RBN * QS
+    return tot / GHZ / 1e6, wn / units, wo / units, per
+
+
+WALLS = {("rms", 2): 83.8, ("rms", 3): 103.1, ("ln", 2): 100.6, ("ln", 3): 115.4}  # r16z timeline (us, 12 ops each)
+
+
+def score13(rin, rout, s2, ddr=0.0):
+    kw = dict(s2=s2, ddr=ddr)
+    z = step13("r16h", rin, rout, **kw)
+    g2 = step13("r16h", rin, rout, G=2, **kw)
+    g6 = step13("r16h", rin, rout, G=6, **kw)
+    d = {b: step13(b, rin, rout, **kw)[0] for b in ("r15h", "r15i", "r16f")}
+    d_r15i, d_nrmk, d_n1k = d["r15i"] - d["r15h"], d["r16f"] - d["r15i"], z[0] - d["r16f"]
+    model = {k: z[3][k] / GHZ / 1e3 for k in WALLS}
+    F = sum(WALLS[k] - model[k] for k in WALLS) / len(WALLS)  # one per-op constant, least squares
+    wall_rms = (sum((WALLS[k] - model[k] - F) ** 2 for k in WALLS) / len(WALLS)) ** 0.5
+    n3n2 = (model[("rms", 3)] - model[("rms", 2)], model[("ln", 3)] - model[("ln", 2)])
+    terms = dict(
+        need=((z[1] - 57.5) / 8) ** 2, obeg=((z[2] - 5) / 8) ** 2,
+        need2=((g2[1] - 17) / 8) ** 2, obeg2=((g2[2] - 6.6) / 8) ** 2,
+        walls=(wall_rms / 3) ** 2,
+        r15i=((d_r15i + 0.53) / 0.06) ** 2, nrmk=((d_nrmk + 0.40) / 0.06) ** 2, n1k=((d_n1k + 0.22) / 0.06) ** 2,
+        g2=((g2[0] - z[0] - 0.07) / 0.10) ** 2, g6=((g6[0] - z[0] + 0.10) / 0.08) ** 2)
+    return dict(rin=rin, rout=rout, s2=s2, ddr=ddr, sc=sum(terms.values()), need=z[1], obeg=z[2], need2=g2[1], obeg2=g2[2],
+                F=F, wall_rms=wall_rms, n3n2=n3n2, r15i=d_r15i, nrmk=d_nrmk, n1k=d_n1k, g2=g2[0] - z[0], g6=g6[0] - z[0],
+                terms=terms, norms_ms=z[0])
+
+
+def fmt13(r):
+    return (f"{r['rin']:5.2f} {r['rout']:5.2f} {r['s2']:4.1f} {r['ddr']:4.1f} | {r['need']:5.0f} {r['obeg']:5.0f} | {r['need2']:5.0f} "
+            f"{r['obeg2']:5.0f} | {r['n3n2'][0]:6.1f} {r['n3n2'][1]:6.1f} {r['F']:5.1f} {r['wall_rms']:5.1f} | {r['r15i']:6.2f} "
+            f"{r['nrmk']:6.2f} {r['n1k']:6.2f} {r['g2']:+6.2f} {r['g6']:+6.2f} | {r['sc']:7.2f}")
+
+
+HDR13 = (f"{'R_in':>5s} {'R_out':>5s} {'s2':>4s} {'ddr':>4s} | {'need':>5s} {'obeg':>5s} | {'need2':>5s} {'obeg2':>5s} | "
+         f"{'n3-n2 RMS / LN us':>18s} {'F':>4s} {'wrms':>5s} | {'r15i':>6s} {'NRMK':>6s} {'N1K':>6s} {'G2':>6s} {'G6':>6s} | score")
+
+
+def cmd_fit13(o):
+    print("rev 13 refit. targets: NPROF r16z in_need net 57.5 / out_begin net 5 per unit; NPIPE_G=2 17 / 6.6; r16z walls RMS2 "
+          "83.8 RMS3 103.1 LN2 100.6 LN3 115.4 us (n3 - n2: RMS +19.3, LN +14.8); deltas r15i -0.53, NRMK -0.40, N1K -0.22, "
+          "NPIPE G2 +0.07, G6 -0.10 ms")
+    rows = [score13(ri, ro, s2, dd) for ri, ro, s2, dd in itertools.product(o.rins, o.routs, o.s2s, o.ddrs)]
+    rows.sort(key=lambda r: r["sc"])
+    print(HDR13)
+    for r in rows[:o.top]:
+        print(fmt13(r))
+    print("best terms:", {k: round(v, 2) for k, v in rows[0]["terms"].items()})
+    print("rev-12 point (R_in 6.0, R_out 2.35, s2 1):")
+    print(fmt13(score13(6.0, 2.35, 1.0)))
+    print("R_out 2.35 at its best R_in / s2:")
+    print(fmt13(min((r for r in rows if r["rout"] == 2.35), key=lambda r: r["sc"])) if any(r["rout"] == 2.35 for r in rows) else "-")
+
+
+LEVERS13 = [  # (name, kwargs on r16h; G = NPIPE group size) - deltas against the deployed r17d norm config (NPIPE G 6)
+    ("serial order (r16z)", dict()),
+    ("NPIPE G 2", dict(G=2)),
+    ("NPIPE G 12 (one group per row block)", dict(G=12)),
+    ("FOLD: n_in 3 -> 2 for the 24 n3 ops (D1+D2, D3+D4 upstream), G 6", dict(G=6, fold=True)),
+    ("FOLD on the serial order", dict(fold=True)),
+    ("NKEEP: n1k state kept across nrm (group cost 45 -> 8), G 1", dict(G=1, gcost=8)),
+    ("NKEEP, G 2", dict(G=2, gcost=8)),
+    ("NKEEP + FOLD, G 1", dict(G=1, gcost=8, fold=True)),
+    ("NG1 pass-1 glue -80 per unit (G 6)", dict(G=6, dp1=-80)),
+    ("NG2 pass-2 glue -100 per unit (G 6)", dict(G=6, dp2=-100)),
+    ("NS stats in asm -700 per row block (G 6)", dict(G=6, ds=-700)),
+    ("NG1 + NG2 + NS (G 6)", dict(G=6, dp1=-80, dp2=-100, ds=-700)),
+    ("FOLD + NG1 + NG2 + NS (G 6)", dict(G=6, fold=True, dp1=-80, dp2=-100, ds=-700)),
+]
+
+
+def cmd_levers13(o):
+    base = step13("r16h", o.rin, o.rout, s2=o.s2, G=6, ddr=o.ddr)
+    print(f"norm levers, rev-13 fit R_in {o.rin} R_out {o.rout} s2 {o.s2} ddr {o.ddr}: deployed r17d norms (NPIPE G 6) {base[0]:.2f} "
+          f"ms per step + fixed; in_need {base[1]:.0f} / out_begin {base[2]:.0f} per unit")
+    for name, kw in LEVERS13:
+        v = step13("r16h", o.rin, o.rout, s2=o.s2, ddr=o.ddr, **kw)
+        print(f"  {name:66s} {v[0] - base[0]:+.2f} ms   (in_need {v[1]:.0f} / out_begin {v[2]:.0f} per unit)")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -258,8 +419,20 @@ def main():
     lv = sub.add_parser("levers")
     lv.add_argument("--rin", type=float, default=6.0)
     lv.add_argument("--rout", type=float, default=2.35)
+    f13 = sub.add_parser("fit13")
+    f13.add_argument("--rins", type=float, nargs="+", default=[3.0, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.5, 6.0])
+    f13.add_argument("--routs", type=float, nargs="+", default=[2.35, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0])
+    f13.add_argument("--s2s", type=float, nargs="+", default=[0.0, 1.0, 2.0])
+    f13.add_argument("--ddrs", type=float, nargs="+", default=[0.0])
+    f13.add_argument("--top", type=int, default=15)
+    l13 = sub.add_parser("levers13")
+    l13.add_argument("--rin", type=float, default=4.25)
+    l13.add_argument("--rout", type=float, default=4.0)
+    l13.add_argument("--s2", type=float, default=1.0)
+    l13.add_argument("--ddr", type=float, default=0.0)
     o = ap.parse_args()
-    {"fit": cmd_fit, "norm": cmd_norm, "ssm": cmd_ssm, "levers": cmd_levers}[o.cmd](o)
+    {"fit": cmd_fit, "norm": cmd_norm, "ssm": cmd_ssm, "levers": cmd_levers, "fit13": cmd_fit13,
+     "levers13": cmd_levers13}[o.cmd](o)
     return 0
 
 

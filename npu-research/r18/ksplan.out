@@ -1,0 +1,23 @@
+deployed mm_ks per group of 32 MACs: 32 MAC bundles + 12.75 swap (C store / reload, MACs stopped) + 3.00 ldb-only (36 B ops per 32 MACs) = 47.75; static mm_ks 1815 (tcall 1,824)
+measured k-step 2,055 in mm_ks + 67 between calls = 2122; in-situ excess 231 (bank rule static 24; DMA-collision model 221 [UNVERIFIED])
+A port floor 1304 cycles (memtile -> core 7.95 B/cycle, one channel); B 580 (other channel)
+1 cycle per k-step = 8.59 us per step (15552 k-steps per core)
+
+variant                                                                  static  coll  gap k-step   d ms
+deployed (4 chains, swap per 32 MACs)                                      1824   231   67   2122  +0.00
+deployed (4 chains, swap per 32 MACs) + P35 (B lock + k-loop in mm_ks)     1824   231   16   2071  -0.44
+    r17d
+ROT: 5th accumulator rotates, 2-3 chains, II 9 per 8 MACs (bank-3 bound)   1356   296   67   1719  -3.46
+ROT: 5th accumulator rotates, 2-3 chains, II 9 per 8 MACs (bank-3 bound) + P35 (B lock + k-loop in mm_ks)   1356   296   16   1668  -3.90
+    B 8 pops + 1 fill per 8 MACs in one bank
+ROT + B split over two banks (II 8: MAC bound)                             1212   252   67   1531  -5.07
+ROT + B split over two banks (II 8: MAC bound) + P35 (B lock + k-loop in mm_ks)   1212   252   16   1480  -5.51
+    needs L1 moves
+2x2 blocking + ROT (B and A 0.56 access per MAC each)                      1222   275   67   1564  -4.79
+2x2 blocking + ROT (B and A 0.56 access per MAC each) + P35 (B lock + k-loop in mm_ks)   1222   275   16   1513  -5.23
+    A re-popped 4x from L1; dm 4+1
+K-pair (two k-steps per C swap, groups as today)                           1586   221   67   1874  -2.13
+K-pair (two k-steps per C swap, groups as today) + P35 (B lock + k-loop in mm_ks)   1586   221   16   1823  -2.57
+    needs a 3rd B buffer (+4.6 KB L1)
+
+layout levers on top of ROT (UNVERIFIED collision model): B prefetch buffer outside the bank the k-step pops (-101), A ring in a bank without C pieces (-120) cycles per k-step

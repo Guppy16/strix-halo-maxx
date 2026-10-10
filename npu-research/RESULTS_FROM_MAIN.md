@@ -613,3 +613,39 @@ current best's flags), asmlint ran on every build (clean, no false positives on 
 - S2 on the stack (your rank 2) is next for main; please confirm the bank-0 sharing with aexp_ab in the CP model terms.
 - The remaining SSM phases per chunk (r16eP): conv 440 (convk 251 on one core: where are ~190?), sigk 509, ssq 715, recur 313,
   z 264, rest 213, par 151, cp_h_pan 192, cp_x 269. And the norms' I/O-bound share (in_need 105 per unit).
+
+# Round 17 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r17d: 39.16 ms** at depth 12 (sweep median, min 39.13; time run 39.19; r16z re-timed 39.94-40.4 in the same
+sessions), regress BIT-IDENTICAL vs full12r9a, asmlint 0 errors. Sweep d12 / 10 / 8 / 6: 39.16 / 32.78 / 26.29 / 19.79 ms; DAVIS
+d12 70.84 (OA 92.57), d10 69.90 (91.02), unchanged. Testbox, Turbo, gpu_busy 0, the foreign CPU worker throughout. Details:
+npu-tapnext NOTES 22, RESULTS 26. Dispatch times were bimodal (~0.17 ms clusters) this round: verdicts use p10 / median / mean of
+200 interleaved iterations (step8 SPREAD) and the per-op timeline (r16z 40.07 -> r17d 39.28: attn -0.30, ssm -0.47, norms -0.06).
+### S2 (rev 11/12 -0.38, -0.29..-0.45) - DONE: -0.31 (hit)
+- On the caller's stack (the attkb frame would be overwritten by k_rb's), loads by offset + stores with post-modify (one pointer
+  freed by dropping the per-iteration flag stores: the call returns the OR, a flagged row block's own flag comes from its max slot,
+  exactly). II 36 (34: none; 35: two pad-replay failures); the max reads the ring-reloaded scores (x pressure). One-core: warm
+  +76 cycles per call, flagged calls -777..-1,248, chunk 0 -453, last chunk -813. GEMM text 16,336 / 16,384.
+- Your bank-0 pairing constraint was not needed: the CP model already carries the banks (slot loads / stores bank 0 with the LUT
+  loads) and found II 36 with them.
+### AL1 (rev 12 -0.21 +- 0.05) - DONE: -0.05..-0.15 (miss)
+- 1 KB padding HUNG the step (1 timeout): the shim -> core packet BD completes per 768 B slot, so a fill group must stay a slot
+  multiple. Built with 3 KB multiples (SSM 12,288 B per head, RMS 3,072, LN 6,144) and the straddle path compiled out.
+- CPROF (conv split, r17d config): convk 280 in situ incl. stamps (bench 251), pointers + mapping 101: the conv gap was the straddle.
+### NPIPE (rev 12 -0.55, -0.54..-0.56) - DONE: G 2 +0.07, G 4 / 6 -0.05..-0.15 (miss)
+- NPROF with out_begin stamped (your NIO request): r16z in_need 101.5, **out_begin 45.0** per unit (ewio: 147 RMS / 90 LN);
+  NPIPE_G=2: in_need 61.0, out_begin 46.6. The norms are not output-bound at the measured waits; R_out 2.35 does not fit these
+  stamps. Each group pays n1k _end / _begin (~45 cycles; nrm_* use every dm and x register).
+### X1 (rev 12 mod 4: -0.34 alone, -0.26 after AL1) - DONE: rotating frames -0.33 (hit); deployed as your mod-4 design
+- Built first as a sliding area (N phases + a wrap frame with copies; -0.33 per rotating frame, wrap = r16z, ACT +232 MB at N 8),
+  then replaced by your mod-4 layout: the yx drain splits y | x in one TAP ([2, 12, RB, XB], under P23 the C objects arrive in
+  k-step order), header word 2 = 1 + r, four params copies, output [h lo, h hi, z] 3 KB. EW text needed the XROT / AL1 builds to
+  compile the copy and straddle paths out (16,384 overflow by 64-80 B otherwise).
+### Your popprobe question (FIFO-POP9 on probes 2 / 3)
+- Probes 2 and 3 dumped only the lf0 (A) stream's 8 pops; the lf1 (B) stream's 16 dense pops were never stored or checked. So
+  "correct" in round 16 was about lf0; FIFO-POP9 firing on lf1 there is a true positive, not a false one.
+### Not built: S3, V1, K1, K2 (GEMM text 48 B free after S2), FSX, EWO bench, P35 / P24b
+### Requests to research (rev 13)
+- Re-fit ewio with the NPROF stamps above (in_need 101.5 / out_begin 45.0 at r16z; 61.0 / 46.6 with NPIPE_G=2) and the NPIPE G
+  series; what is the input-side lever (n_in 3 ops: fold D1 + D2 / D3 + D4 partials upstream?).
+- GEMM program memory: where can 200-400 B come from so S3 / V1 / K1 / K2 fit (r17d elf, 48 B free)?
+- The SSM now outputs 3 KB per chunk: re-rank its compute levers (chunk ~2,943 cycles in situ: convk 280, pointers 101, rest 2,562).
