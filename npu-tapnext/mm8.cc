@@ -207,6 +207,25 @@ static void ks_records(bfp16ebs8 *const slot[3], bfloat16 *c_out) {
 }
 #endif
 #endif
+#if defined(P35) && defined(KSC)
+// round 18 (research P35): a tile's k-steps in one call. The B objects are taken here by lock id (KS_BCONS / KS_BPROD, +48 = this
+// tile) and address (KS_B0 / KS_B1, checked after the link by design8 ksc_check). The count per tile (K / 64) is even, so IRON's
+// own B index (bias objects, attention) is where it was; acc_epilogue records which buffer the bias came from: the next k-step
+// starts at the other one.
+static const bfp16ebs8 *g_bnext = (const bfp16ebs8 *)KS_B0;
+extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *c_out, int32_t nks) {
+  (void)a0, (void)a1, (void)a2;
+  const bfp16ebs8 *b = g_bnext;
+  float *pc = piece(c_out, 0, 0);
+#pragma clang loop unroll(disable)
+  for (int k = 0; k < nks; k++) {
+    acquire_greater_equal((void *)b, 48 + KS_BCONS, 1);
+    mm_ks(ks_rec.r, b, pc);
+    release((void *)b, 48 + KS_BPROD, 1);
+    b = (const bfp16ebs8 *)((uintptr_t)b ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
+  }
+}
+#endif
 void mm_kstep(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfp16ebs8 *__restrict pB_in, bfloat16 *c_out) {
 #ifdef PROF
   const uint32_t tp = stamp();
@@ -727,6 +746,9 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
   const uint32_t te = stamp();
 #endif
   acc_epi(c_out, bias);
+#if defined(P35) && defined(KSC)
+  g_bnext = (const bfp16ebs8 *)((uintptr_t)bias ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
+#endif
 #ifdef KSP38  // timing build: over the tile's first output words (magic 'KS38')
   {
     uint32_t *w = (uint32_t *)c_out;

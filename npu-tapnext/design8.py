@@ -293,6 +293,10 @@ def step8(
     zero = mm.object_file.bind("acc_zero", [C_l1])
     kstep = "-DMM_KSTEP" in flags
     mmk = mm.object_file.bind("mm_kstep", [A_l1, A_l1, A_l1, B_l1, C_l1]) if kstep else None
+    # round 18 (research P35): -DP35 runs a tile's k-steps in one call (mm_ktile: the B locks by id, the buffers by address; the
+    # count per tile is even, so IRON's own B index - bias objects, attention - stays right)
+    p35 = "-DP35" in flags
+    mmt = mm.object_file.bind("mm_ktile", [A_l1, A_l1, A_l1, C_l1, np.int32]) if p35 else None
     epi = mm.object_file.bind("acc_epilogue", [C_l1, B_l1])
     at_begin = mm.object_file.bind("attn_begin", [C_l1, np.int32])
     at_qcopy = mm.object_file.bind("attn_qcopy", [A_l1, A_l1, A_l1, np.int32, np.int32, np.int32, np.int32])
@@ -514,6 +518,7 @@ def step8(
             abufs = rest[:a_ring]
             in_b, out_c, mm, zero, epi, at_begin, at_qcopy, at_chunk_k, at_chunk_v, at_end, bk, bn, bt, ba, bc = rest[a_ring:a_ring + 15]
             mmk = rest[a_ring + 15] if kstep else None
+            mmt = rest[a_ring + 16] if p35 else None
 
             def gemm_seg(i0, n):
                 for i in range_(i0, i0 + n):
@@ -522,7 +527,9 @@ def step8(
                         cbuf = out_c.acquire(1)
                         for _ in range_(tpo):
                             zero(cbuf)
-                            for _ in range_(ksteps):
+                            if mmt is not None:
+                                mmt(abufs[0], abufs[1], abufs[2], cbuf, bk[i])
+                            for _ in range(0) if mmt is not None else range_(ksteps):
                                 b = in_b.acquire(1)
                                 for _ in range_(rho // a_ring) if rho > a_ring else range(1):
                                     for j in range(a_ring):
@@ -575,7 +582,9 @@ def step8(
                         cbuf = out_c.acquire(1)
                         for _ in range_(tpo):
                             zero(cbuf)
-                            for _ in range_(ksteps):
+                            if mmt is not None:
+                                mmt(abufs[0], abufs[1], abufs[2], cbuf, bk[i])
+                            for _ in range(0) if mmt is not None else range_(ksteps):
                                 b = in_b.acquire(1)
                                 if mmk is not None:  # round 9: the A ring's locks inside the kernel, one call per k-step
                                     mmk(abufs[0], abufs[1], abufs[2], b, cbuf)
@@ -611,7 +620,7 @@ def step8(
             tabs = [Buffer(tile=t, initial_value=a, name=f"tb{n}{r}{c}") for n, a in (("k", tbl_k), ("n", tbl_n), ("t", tbl_t), ("a", tbl_a), ("c", tbl_c))]
             workers.append(Worker(make_core_fn(r), [free, fill, *bufs, b_l1[r].cons(), c_l1[r][c].prod(), mm, zero, epi,
                                                     at_begin, at_qcopy, at_chunk_k, at_chunk_v, at_end, *tabs]
-                                  + ([mmk] if kstep else []),
+                                  + ([mmk] if kstep else []) + ([mmt] if p35 else []),
                                   tile=t, stack_size=(0xA00 if "-DGELU_FLAT" in flags else 0xB00) if ks_core else 0xC00,
                                   data_size=28160 + (256 if ks_core else 0) + (256 if "-DGELU_FLAT" in flags else 0)))
             # round 12: the flat-edge tables' ab copies (+256 B) from the stack (stackaudit: 1,664 of 2,816 B used)  # stack: deepest chain 2.24 KB measured (r7); data: +2 KB the GELU tables' ab copies (cd: bank 3), +1.25 KB the exp table (r7)
@@ -865,8 +874,9 @@ def ksc_check(out, kdefs):
     import re
     import subprocess
 
-    want = {k: int(v, 0) for k, v in re.findall(r"-D(KS_ACC_HI|KS_C|KS_A[012])=(0x[0-9a-fA-F]+|\d+)", kdefs.replace(",", " "))}
-    assert len(want) == 5, f"KSC needs KS_ACC_HI, KS_C, KS_A0..2: {want}"
+    want = {k: int(v, 0) for k, v in re.findall(r"-D(KS_ACC_HI|KS_C|KS_A[012]|KS_B[01]|KS_BPROD|KS_BCONS)=(0x[0-9a-fA-F]+|\d+)",
+                                                 kdefs.replace(",", " "))}
+    assert len(want) in (5, 9), f"KSC needs KS_ACC_HI, KS_C, KS_A0..2 (P35: + KS_B0, KS_B1, KS_BPROD, KS_BCONS): {want}"
     prj = Path(out + ".prj")
     mlir = (prj / "input_with_addresses.mlir").read_text()
     bad = []
@@ -877,6 +887,15 @@ def ksc_check(out, kdefs):
                 m_ = re.search(rf"%a{r}{c}_{i} = aie.buffer\(%{tile}\) {{address = (\d+)", mlir)
                 if not m_ or 0x70000 + int(m_.group(1)) != want[f"KS_A{i}"]:
                     bad.append(f"{tile} a slot {i}: {m_ and hex(0x70000 + int(m_.group(1)))}")
+            if "KS_B0" in want:  # round 18 P35: the B fifo's L1 buffers and locks
+                for i in range(2):
+                    m_ = re.search(rf"%B{r}L1_{c}_cons_buff_{i} = aie.buffer\(%{tile}\) {{address = (\d+)", mlir)
+                    if not m_ or 0x70000 + int(m_.group(1)) != want[f"KS_B{i}"]:
+                        bad.append(f"{tile} B buffer {i}: {m_ and hex(0x70000 + int(m_.group(1)))}")
+                for nm, key in (("prod", "KS_BPROD"), ("cons", "KS_BCONS")):
+                    m_ = re.search(rf"%B{r}L1_{c}_cons_{nm}_lock_0 = aie.lock\(%{tile}, (\d+)\)", mlir)
+                    if not m_ or int(m_.group(1)) != want[key]:
+                        bad.append(f"{tile} B {nm} lock: {m_ and m_.group(1)}")
             m_ = re.search(rf"%C{c}_{r}_buff_0 = aie.buffer\(%{tile}\) {{address = (\d+)", mlir)
             if not m_ or 0x70000 + int(m_.group(1)) != want["KS_C"]:
                 bad.append(f"{tile} C: {m_ and hex(0x70000 + int(m_.group(1)))}")
