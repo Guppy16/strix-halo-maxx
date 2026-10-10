@@ -1,24 +1,33 @@
-# ROUND 16 IN PROGRESS (2026-10-10/11) - read this block first; the round-15 block below is the base
-## State: **full12r16e 40.25 ms** median at depth 12 (min 40.13; r15m re-timed 41.50), regress BIT-IDENTICAL vs full12r9a
-Build: `r16/try16.sh NAME [--ew-add ...]` (research tools/try.sh on r16e's flags: EW_DEFS = r15m's - -DSSX + -DSQK
--DINPART_INLINE -DXONE -DGGK -DSSQ; kdefs = r15m's). Every experiment: a fresh NAME; the summary prints lint, text, regress, time.
-Commits (repo holding npu-tapnext/, local only): SQK 0250b26, P-IN fcb0325, XONE 0f21eca, GGK 451f962, SSQ d1db154.
-## Changes this round (r16/)
-- SQK (gen_sqk.py, sqkb): exact sqrt, II 13, exponent bias folded into the table (r9/ssm_lut.h takes SQK_TAB). 493 -> 321.
-- INPART_INLINE (research P-IN; the flag is not PIN: a header #undef-s PIN): part pointers inline, the straddling part by cpy64.
-- XONE (research X1b): x / x-1 / x-2 in one out_copy when contiguous. cp_x 432 -> 269.
-- GGK (gen_ggk.py, ggkb, ggkref): both gate GEMMs in one loop, II 24. gates 655 -> 365.
-- SSQ (gen_ssq.py, ssqb): ssx + sqk fused, II 30 U 2. 832 -> 715.
-- Tools: r16/nrun.sh (python in npu-iron-torch with the NPU), b16.sh (build on r15m flags + EWX), try16.sh, commit.sh,
-  popprobe.s + popb.py (FIFO pop probes), ggkref.py (host bfp reference / hypothesis tests).
-## EW PROF r16eP (cycles per chunk): in_wait 80, conv 440, gates 365, sigk 509, ssq 715, recur 313, z 264, rest 213,
-  par 26 + 125, cp_h_pan 192, cp_x 269 = 426 us per SSM op (r15m 532).
-## Rules found (to the skill at round end)
-- A dense 576-bit pop stream underflows at its 9th pop without a fill after every 8 pops (probes 6 / 7).
-- `#ifdef PIN` is false even with -DPIN (some header #undef-s it): check new flags change the elf.
-## Next
-1. N1 (norm pass 1 + stats in asm), FSX / sigk II (sigk 509 is now the largest SSM phase), X1 full rotation (cp_x 269 -> ~0),
-   S2 (attention, research rev 11: stack slots), round-end sweep + DAVIS.
+# ROUND 16 DONE (2026-10-11) - read this block first; the round-15 block below is the base it builds on
+Read the skill (round 16 added: the 576-bit pop-stream underflow and its fill rule, periodic 2D modifiers, #undef-ed flags, 64-lane
+y-pair MACs, msched loop-carried uses, register-resident state across C++ calls, per-call overhead, twins vs I/O bound) and NOTES 21 /
+RESULTS 25 (every number of this round). Research rev 11 tools are in use (try.sh via r16/try16.sh, asmlint, the build lock).
+## State: **full12r16z 39.94 ms** at depth 12 (min 39.83; r15m re-timed 41.50), any depth from one xclbin, regress BIT-IDENTICAL vs full12r9a
+| depth | dispatch ms (sweep median) | ms per frame (sweep whole step) | fps | DAVIS AJ (OA) (CPU bf16) |
+|---|---|---|---|---|
+| 12 | 39.94 (time) / 40.30 (sweep) | 43.6 (DAVIS loop 42.3) | 23.0 | 70.84 (92.57) (70.98) |
+| 10 | 33.84 | 37.1 (DAVIS loop 36.3) | 27.0 | 69.90 (91.02) (70.07) |
+| 8 | 26.86 | 29.1 | 34.3 | not run (68.22) |
+| 6 | 20.18 | 22.5 | 44.4 | not run (64.77) |
+Build: `r16/try16.sh NAME [--ew-add ...] [--sweep]` = r15m's flags with EW_DEFS - -DSSX + -DSQK -DINPART_INLINE -DXONE -DGGK -DSSQ
+-DSIG10 -DN1K (kdefs and design args = r15m's). Commits this round (local repo holding npu-tapnext/): SQK, P-IN, XONE, GGK, SSQ, SIG10,
+N1K, NPROF, round end. Timeouts this round: 0. Text: GEMM 16,192 / 16,384; EW 15,600 / 16,384 (NPROF adds ~460; PROF no longer fits).
+## Where the time goes now (EW, cycles per SSM chunk, r16eP + SIG10): conv 440, gates 365, sigk ~440, ssq 715, recur 313, z 264,
+rest 213, par 151, cp_h_pan 192, cp_x 269 (SSM ~420 us per op x 12). Norms: n1k step 161.5 per unit (in situ = bench), in_need 105
+per unit (partly input-bound now).
+## Next concrete actions
+1. **S2** (research rank 2: the attention running max on attkb's stack, -0.38): the biggest priced item left; then S3 / V1 / K1 / K2.
+2. **X1 full rotation** (cp_x 269 -> 0 and 3 KB less SSM output per chunk, ~-0.4): slide the SSM area's base by one region per frame
+   (x, x-1, x-2 then already sit where the next frame reads them); per-frame runtime sequences + a copy frame at the wrap. NOTES 21.4.
+3. Norms: they are partly input-bound (in_need 105 per unit): price pass 2 + glue vs the port before more asm; N1K at II 8 (vec
+   bound) if the y pairs allow.
+4. SSM: conv 440 vs convk 251 on one core (where are ~190?), sigk / FSX inside SSQ (x pressure), recur + z.
+5. Research rev 12 (requested in RESULTS_FROM_MAIN round 16).
+## Rules that bit us this round (also in the skill)
+- A long 576-bit pop stream needs a fill every 8 pops (it silently underflows at the 9th pop).
+- A 2D modifier repeats: one jump inside k steps = dn k - 1 with the counter started at k - n1.
+- -DPIN did nothing (a header #undef-s PIN): check the elf changed after adding a flag.
+- Timing twins overstate once the op is near its I/O bound: stamp the waits first.
 
 # ROUND 15 DONE (2026-10-11) - read this block first; the round-14 hand-off below is the base it builds on
 Read the skill (round 15 added: immediate ranges, non-const bank tables, vmov x <- bm ports, output-ring store stalls, direct

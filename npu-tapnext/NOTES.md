@@ -686,3 +686,52 @@ Best: **full12r15m** = r14f + P60G=1, kdefs + -DRESCK, EW_DEFS + "-DSSX -DCPY64 
 - in_copy by cpy64: -0.15..-0.2 ms for +400 B of EW text (kept).
 - S2 (running row-block max in attkb): not built; bank 3 has 384 B free in this map (+384 B in the K object's tail), not 2,688.
 - SSM sqrt in asm: mv-bound (~14 mv ops per vector after v = b - 16256, k7 = srs(v, 1) & 0xFF80): ~-0.29 ms, not built.
+
+## 21. Round 16 (2026-10-10/11): 41.52 -> ~40.0 ms, the SSM's sqrt / gates / input glue and the norm pass 1 in asm
+### 21.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 25; one commit each in the repo holding npu-tapnext/)
+1. **SQK** (r16/gen_sqk.py, sqk.json, sqkb): exact bf16 sqrt, II 13 (the mv bound), U 2. Peano's LUT index path (band, ups by
+   2, two vmov out of the accumulator, + lane bases, 8 vldb.4x16, three shuffles) with the exponent bias folded into the table:
+   t' = t - ((64 - p) << 7), r = t' + ((b & 0xFF00) >> 1) (band + ups + srs + add instead of three ups / srs pairs). r9/ssm_lut.h
+   takes SQK_TAB under -DSQK (r9/ssmlut.py regenerates it identically). Bit-exact on all 32,768 non-negative bf16. 493 -> 321.
+2. **INPART_INLINE** (research P-IN): the 7 part pointers inline, one straddle test per chunk, the straddling part by in_copy /
+   cpy64. The first try used the flag PIN, which some header #undef-s: the build silently compiled the old path (same elf md5).
+3. **XONE** (research X1b): x / x-1 / x-2 by one 48-vector out_copy when consecutive in the ring. cp_x 432 -> 269.
+4. **GGK** (r16/gen_ggk.py, ggk2.json, ggkb, ggkref): both gate GEMMs as one loop over the 8 (gate, np) pairs, II 24 (vec 20),
+   A (xc's panels, now a bank-2 static g_xcpb) restarted per np, B (Wx | Wa) one pop stream WITH A FILL BEFORE EVERY 8TH POP
+   (21.3), the epilogue as vlda.conv bias + vmac bf16(acc) 1 (the same rounded sum as mul + mac). gates 655 -> 365.
+5. **SSQ** (r16/gen_ssq.py, ssq.json, ssqb): ssx + sqk in one loop: no schedule up to II 26 (x pressure), II 30 / U 2 / 6
+   stages; 15-row constant table (the lane-base row written by the preamble). 832 -> 715.
+6. **SIG10** (r12/gen_sig.py --umax, r16/sig10.json): sigk at II 10 / U 4 (round 12 had capped U at 2 -> II 12). 499 -> 431 (bench).
+7. **N1K** (r16/gen_n1k.py, n1k_ln.json / n1k_rms.json, n1kb; research N1): norm pass 1 + statistics per unit; the statistics
+   are loop-carried 64-lane MACs on register pairs (y4 = x8:x9, y5 = 1.0 = x10:x11; a generator-level "y" class); _begin / _step
+   / _end entries keep constants and accumulators in registers across a row block's 12 steps. LN II 11, RMS II 10.
+Tools: r16/nrun.sh, b16.sh, try16.sh (research tools/try.sh on the current best), commit.sh, popprobe.s + popb.py (FIFO probes),
+NPROF (norm-step stamps without the SSM phase stamps), timing twins NORM_TWIN=2 / 4. Research's build-lock patch applied.
+msched / cpsched: loop-carried uses (Op cuses, U 1, initial value from the preamble; opt-in, every deployed generator replays
+byte-identical); gen_sig --umax.
+### 21.2 What the numbers say
+- EW PROF (cycles per SSM chunk) r15m -> r16eP: conv 638 -> 440, gates 651 -> 365, ssx + sqrt 1,001 -> 745, cp_x 432 -> 269,
+  SSM op 532 -> 426 us (sigk 509 -> ~440 with SIG10, not stamped).
+- The norms: twin NORM_TWIN=2 (pass 1 + statistics skipped) 40.18 -> 38.20 ms, but N1K gained only ~0.2: in situ the n1k step
+  costs 161.5 cycles per unit (= its bench) and in_need waits 104.8 per unit: the norms are partly input-bound now, so removing
+  compute in a twin overstates what faster compute buys.
+- One-core benches matched in situ for every generated loop this round (sqk 311 / 321, ggk 310 / 365 incl. the push loop,
+  ssq 701 / 715, n1k 139 / 141 without stamps).
+### 21.3 Measured facts / rules (also in the skill)
+- **A dense 576-bit FIFO pop stream underflows at its 9th pop** (r16/popprobe.s probes 6 / 7): a pop brings one 64 B line and
+  consumes 72 B, so without an extra `vldb.fill.512 [p, lf, r]` at the same position (no pointer / position reset) after every 8
+  pops, pops 8-12 read zeros / half exponents, then the stream resyncs. Peano's gate_gemm inserts that fill; restarts every <= 8
+  pops (attv, attkb, the ggk A stream) never hit it. The first ggk lost the kk 4-6 terms in every np: four schedules (slack,
+  pop exclusion, no bias, no epilogue MACs) failed identically; taps of ex1 / ex4 at the MAC's cycle and the probes found it.
+- A 2D modifier is PERIODIC (dn steps of dj, then m, then again): for one ring-end jump inside k pieces, set dn = k - 1 (here 7)
+  and start the counter dc at k - n1, not dn = n1 - 1 (which jumps every n1 pieces).
+- `#ifdef PIN` was false with -DPIN on the command line: some included header #undef-s PIN. After a new flag, check that the elf
+  changed (md5 / llvm-nm sizes) before timing it.
+- 64-lane bf16 MACs (`vmac.f dm, dm, yA, yB, r` with y_n = x_2n : x_2n+1) halve the dm registers of per-lane fp32 accumulations
+  (bit-identical per lane); a 32-lane MAC writes a whole dm.
+- vconv to x_n landing in the same cycle as a pop's lda result is a QEY_WA port collision (modeled; probe 1 reproduces it).
+### 21.4 Dead ends / not done
+- sqrt fused into ssx at U 1 / 2 below II 27 (x pressure); II 30 kept (SSQ).
+- The first ggk debugging hypotheses (pop register windows, 2D bias modifier, A / B co-issue, epilogue MACs): all refuted by
+  probes; a pop-window allocation guard was added to msched and reverted (never isolated as a cause).
+- Not built: X1 full rotation (cp_x 269 -> 0: the sliding SSM area base needs per-frame runtime sequences), S2, FSX, P52 by DMA.

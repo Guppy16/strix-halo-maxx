@@ -774,3 +774,56 @@ zk (z panels, r15/gen_zk.py): 100 cycles against the C++ 97 on one core (not use
 | 6 | 20.96 (20.90) | 23.27 | 43.0 | not run | 64.77 |
 DAVIS loop on full12r15m: 44.3 ms per frame (dispatch 41.96) at depth 12, 37.0 (35.07) at depth 10.
 full12r15i: 42.06 / 35.26 / 28.24 / 21.24; full12r15k3: 41.83 / 34.97 / 27.93 / 21.01 (AJ the same: bit-identical numerics).
+
+## 25. Round 16 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), cycles at 1.81 GHz, step8 time median of 60 after 20
+warm-up; a foreign CPU job (another project's python worker, 100 % of one core) ran throughout; baselines re-timed in-session)
+### 25.1 Step at depth 12 (every build BIT-IDENTICAL to full12r9a; lint = research tools/asmlint.py, 0 errors each)
+| build | change | dispatch ms (min) | predicted | verdict |
+|---|---|---|---|---|
+| full12r15m (re-timed x3) | round 15 best | 41.52 / 41.50 (41.38-41.40) | | |
+| full12r16a | + SQK | 41.32 (41.13) | -0.33 +- 0.05 (research -0.31..-0.35) | miss: -0.18..-0.25 (priced the loop, not the ~30-bundle preamble + call) |
+| full12r16b | + PIN (flag #undef-ed by a header: no change) | 41.38 (41.18) | | dead build (same elf) |
+| full12r16b2 | + INPART_INLINE, straddle by in_part | 41.23 (40.97) | research P-IN -0.25 +- 0.06 | miss alone (-0.09..-0.16) |
+| full12r16b3 | + straddle by cpy64 | 41.03 (40.94) | | P-IN hit (-0.29) |
+| full12r16c | + XONE | 40.75 (40.64); re-timed 40.85 / 41.18 | research X1b -0.18 +- 0.03 | miss high (-0.28: the phase was 432, not 289) |
+| full12r16d | + GGK | 40.84 noisy; re-timed 40.61 / 40.37 (40.28 / 40.27) | main -0.32 +- 0.05; research G1 -0.50 +- 0.07 | ~-0.41 by cycles: main miss (better), research slight miss |
+| full12r16e | + SSQ (-SSX) | 40.25 (40.13); re-timed 40.23 | -0.17 +- 0.04 (phase ~715 +- 20) | phase hit (715), step slight miss (-0.125 by cycles) |
+| full12r16f | + SIG10 | 40.18 (40.08); re-timed 40.20 (40.10) | -0.10 +- 0.03 | miss (-0.05..-0.07) |
+| full12r16g | + N1K, one call per unit | 40.13 (39.96) | research N1 -0.6 +- 0.25 | miss (-0.05..-0.12) |
+| full12r16h | + N1K _begin / _step / _end | 39.96 (39.85); re-timed 40.04 (39.82) | | -0.16..-0.28 vs r16f: N1 miss |
+| **full12r16z** | r16h's configuration, fresh build (the round's final) | **39.94 (39.83)** | | |
+Twins (outputs wrong): r16tw2 NORM_TWIN=2 (pass 1 + statistics skipped) 38.20; r16tw4 NORM_TWIN=4 (the n1k steps skipped) 38.43.
+### 25.2 EW PROF (cycles per SSM chunk, mean of 8 columns, 216 chunks per op)
+| phase | r15m (r16p0) | r16a | r16b | r16d | r16e |
+|---|---|---|---|---|---|
+| in_wait | 80 | 79 | 79 | 79 | 80 |
+| conv (+ part pointers) | 638 | 638 | 497 | 440 | 440 |
+| gates | 651 | 651 | 655 | 365 | 365 |
+| sigmoid | 509 | 509 | 509 | 509 | 509 |
+| log_a + exp (ssx / ssq) | 508 | 508 | 508 | 511 | 715 |
+| sqrt | 493 | 321 | 321 | 321 | 30 (empty, stamps) |
+| recurrence | 304 | 304 | 309 | 313 | 313 |
+| z panels | 259 | 259 | 258 | 264 | 264 |
+| rest / out_wait | 212 / 30 | 212 / 30 | 213 / 30 | 213 / 30 | 213 / 30 |
+| par wait / copy | 26 / 125 | 26 / 125 | 26 / 125 | 26 / 125 | 26 / 125 |
+| cp_h_pan / cp_x | 192 / 432 | 192 / 432 | 192 / 432 | 192 / 269 | 192 / 269 |
+| SSM op us | 532.1 | 511.5 | 495.6 | 436.5 | 426.1 |
+Norms (NPROF, full12r16hN): n1k step 161.5 cycles per unit call (incl. ~20 of stamps), in_need 104.8 cycles per unit.
+### 25.3 One-core benches (cycles per call incl. ~20 of stamps; bit-exact vs verbatim C++, guards clean)
+| kernel | asm | C++ (same bench) | notes |
+|---|---|---|---|
+| sqk (16 vectors) | 311 | 609 (tables in one bank; in situ 493) | all 32,768 non-negative bf16 |
+| ggk (both gates) | 310 | 533 (2 x gate_gemm) | 4 seeds + per-panel isolation |
+| ssq (16 vectors) | 701 | 1,648 (loga_exp_a2 + sqrt_lut_n) | ssx 497 + sqk 311 = 808 separately |
+| sigk II 10 / U 4 (32 vectors) | 431 | 898 | II 12 / U 2 (deployed before): 499 |
+| n1p (pass 1, one unit) | 133 (call alone) | 211-217 | superseded by n1k |
+| n1k (12 units, LN / RMS) | 2,449 / 2,427 | 2,545 / 2,451 | n_in 1-3, wrap offsets; stage + fp32 accumulators |
+FIFO probes (r16/popprobe.s, popb.py): fill + 8 pops, restarted (probe 3), interleaved with a second FIFO (2): correct; ggk's B
+timing (4): pops 8-12 wrong; dense 24 pops without (6) / with (7) a fill every 8: pops 8-12 wrong / all correct.
+### 25.4 Depth sweep and DAVIS (full12r16z, one xclbin, full{10,8,6}r16z sequences; `step8.py sweep`)
+| depth | dispatch median (min) | whole step | fps (whole step) | DAVIS AJ (OA), 10 videos | CPU bf16 AJ |
+|---|---|---|---|---|---|
+| 12 | 40.30 (39.86); time run 39.94 (39.83) | 43.55 (time run 41.98) | 23.0 | 70.84 (92.57); loop 42.3 ms per frame (dispatch 40.25) | 70.98 |
+| 10 | 33.84 (33.43) | 37.06 | 27.0 | 69.90 (91.02); loop 36.3 ms per frame (dispatch 33.96) | 70.07 |
+| 8 | 26.86 (26.74) | 29.12 | 34.3 | not run | 68.22 |
+| 6 | 20.18 (20.11) | 22.53 | 44.4 | not run | 64.77 |

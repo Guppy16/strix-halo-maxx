@@ -396,13 +396,17 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   tile loops in wrappers (Peano kept 11 callee-saved registers: 416 B for 2 calls); static addresses instead of pointer
   globals; rows8 = `aie::transpose(concat(v16 x4), 8, 8)` (vshuffle modes 52 / 53); a V^T epilogue in asm (-496 B C++ for
   278 B). minsize does not shrink vector-heavy code (the V^T epilogue at minsize was larger). Measure with r14/csize.sh.
-- **Round 15 (npu-tapnext r15/)**: vld / vst immediate offsets are 4 bits x 64 B (-512 .. 448; padda -512 .. 511): point the base at
+- **Round 15 (npu-tapnext r15/)**: vld / vst immediate offsets are 4 bits x 64 B (-512 .. 448; padda #imm the same: c10s_step64,
+  multiples of 64 in [-512, 448] - the assembler's "[-512, 511]" message is only the containing range): point the base at
   table + 512 to reach 16 rows. A table in `.aie.bankN` must be non-const (a const one is a section type conflict with the LUT
   tables). `vmov x, bmLL` has its own itinerary (DM_RM_L0_PORT, latency 2): set Op.ports by hand (aie2p_lat.json's generic
   VMOV_alu_mv_mv_x has none). More bf16 constants than x registers: keep the most-used one resident and reload the others per
   use from a 64 B-row table (spare ldb slots; fp32 1.0 for an accumulator input by vlda.conv.fp32.bf16 from the bf16 1.0 row).
-- **Stores into the EW output ring (bank 0, read by MM2S) cost ~3.5 cycles per 64 B vector in situ** (1 on the bench): never add a
-  pass over the output ring; store / push results straight into it (scratch + copy only where a part would wrap the ring end).
+- **Extra copy passes into the EW output ring cost ~60 cycles PER CALL** (research rev 11, static whole-call count; corrects round
+  15's "~3.5 cycles per stored vector"): one out_copy(16 vectors) = 77 cycles in r15b of which 16 are the stores (out_copy glue,
+  cpy64 setup + 7-bundle prologue + drain, jl / ret delay slots); 3 calls + glue = the measured 289. No bank-0 store stall is left
+  to explain [model; one-core DMA-drain bench named in research PROPOSALS rev 11]. Still: store / push results straight into the
+  ring, and make copies few and long.
   8 bfp pushes of 72 B (576 B, a 32 B multiple) + one flush write nothing past the 576 B (bench-checked).
 - rep4 (8 bf16 x 4) = `vldb.128 w.wl, [p], #16` + 4 x `vshift d, prev, w, r(=16)` (any register as the first source); bit-exact.
 - minsize subtraction loops that count ring slots (in_need / in_done / out_begin / out_end) cost ~1 ms per step: x / 768 =
@@ -413,6 +417,48 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - **IRON's jit cache key does not include source files**: after editing mm8.cc / ew8.cc / a generator, build under a NEW name.
 - An internal state layout only the kernel itself reads back (the SSM's h) may be changed freely: the DMA moves it opaquely.
 - A C++ loop with 4 fp32 accumulator chains (-O2) spills every iteration: a 32-lane bf16 MAC writes a whole dm (5 dm registers).
+- **Lint every generated / hand asm kernel before building** (research rev 11): `npu-research/tools/asmlint.py` (in npu-iron, CPU
+  only; `--prj build/X.prj` for a build's GEMM + EW elfs, or the generator's `.s`; `--rules` lists the 22 rules and what cannot be
+  checked statically). It flags all 18 historic bugs kept in `npu-research/r16/hist/` (`tools/asmlint_hist.py`) and is clean on
+  full12r15m. `npu-research/tools/try.sh NAME --ew-add .. --k-add .. --env K=V [--sweep]` = build (fresh name) + lint + regress +
+  time in one command (`--print-only` shows the commands).
+- **ZOL setup distance is in BYTES to the loop END** (rev 11: the bad and the good zero2 both have 10 bundles from the lc write to
+  le, 52 vs 132 B). Peano writes lc 2 bundles before ls when the body is long. Keep >= 80 B from the last lc / ls / le write to le
+  (every deployed loop; <= 52 B ran once; the gap is unmeasured). Peano's loops start with compact 10 / 12 B bundles: only the
+  LAST body bundle must be full form and 16 B aligned.
+- Immediate ranges come from the .td operand types (cNs_stepK: signed N bits, multiples of K; 256-bit w loads c9s_step32 =
+  [-256, 224]); the assembler aborts with a crash-looking "error in backend" on any violation.
+- Peano itself relies on the mv -> mv bypass and on scalar conveyor reads (reading r / p while a newer lda is in flight): do it
+  in generated code only on purpose. Scalar `lda` has no itinerary in the .td; Peano uses its result 4-6 cycles later.
+- [UNVERIFIED scope] the r14 "scalar result read 2 cycles on" failure was alu -> alu INSIDE a ZOL body; Peano does alu -> alu at +1
+  outside ZOL bodies everywhere, and deployed loops do alu -> mv at +1 inside them. Keep alu -> alu >= 2 apart in ZOL bodies.
+- Linker-script `bankN` regions are the space for `.aie.bankN` sections, not free space: free = LENGTH minus the sections there
+  (`llvm-nm -S`). Per-call scratch fits on the stack (`paddxm [sp], #N` in a leaf asm kernel): the GEMM cores' deepest path uses
+  832 of 2,560 B (stackaudit; its ASM_FRAMES table lacks the r13-r15 kernels' own frames).
+- Parallel design8 builds: serialise them (`npu-research/tools/asmfit_tmp.patch`: a flock on build/.design8.lock). Per-build
+  object dirs are NOT a fix: mm8.cc includes the generated headers as "build/<k>.h", which resolves next to mm8.cc first.
+- **A dense 576-bit FIFO pop stream underflows at its 9th pop (round 16, npu-tapnext r16/popprobe.s probes 6 / 7)**: each pop
+  brings one 64 B line but consumes 72 B; without an extra `vldb.fill.512 [p, lf, r]` (or vlda.fill) at the SAME position (no
+  pointer / position reset) after every 8 pops, pops 8-12 read zeros / half exponents and the stream then resyncs. Peano inserts
+  that fill (gate_gemm); streams restarted every <= 8 pops (attv, attkb) never hit it. A generated loop with one long pop stream
+  needs the fill as a scheduled op (r16/gen_ggk.py FB0 / FB1). Symptom: whole k-terms missing in EVERY block, identical across
+  schedules; find it by tapping the operand register at the MAC's cycle (a vst into a free st slot of the emitted body).
+- **2D modifiers are periodic** (dn steps of dj, then m, then again): for exactly one jump inside k steps set dn = k - 1 and start
+  the counter dc at k - n1 (round 16 ring wrap in r16/gen_n1p.py); dn = n1 - 1 jumps every n1 steps.
+- **A flag can be #undef-ed by an included header** (round 16: -DPIN compiled the old path, same elf md5): after adding a flag,
+  check the elf changed (md5 / llvm-nm sizes) before timing; prefer long, specific flag names.
+- 64-lane bf16 MACs read register PAIRS (`vmac.f dm, dm, y4, y5, r` with y_n = x_2n : x_2n+1): per-lane fp32 accumulation in ONE
+  dm instead of two 32-lane MACs writing two whole dm (round 16 n1k statistics; msched: a generator-level "y" class, gen_n1k.py).
+- **msched loop-carried uses (round 16)**: Op(cuses=[(v, part, stage)]) reads the previous iteration's value (an accumulator);
+  U = 1, the accumulating op in the LAST stage (drain iterations must not add), the initial value loaded into the allocated
+  register by the preamble, stored after the loop (+7 cycles). cpsched takes the carried edges and lifetimes.
+- **Register-resident state across C++ calls (round 16 n1k _begin / _step / _end)**: if the C++ between the calls is scalar only
+  (check the elf: in_need / in_done use r0-r4, p0, a lock), vector constants, dm accumulators and dn / dj survive; m and r
+  registers do not (Peano steps pointers with m0): set those per call.
+- Per-call overhead decides short loops: preamble + (stages - 1) x II + ret ~ 70 cycles bought little for an 8-iteration loop
+  (n1p 133 vs 211 C++); fold more work per call or keep state across calls.
+- Timing twins overstate once an op nears its I/O bound (round 16 norms: twin -1.98 ms, real asm -0.2; in_need waits 105 cycles
+  per unit by NPROF stamps): stamp the waits before pricing a compute cut.
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
   timeouts per phase; stop if the device does not recover. Never loop retries on a failing design.
@@ -599,6 +645,12 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   direct ring stores), gen_zk; one-core benches ssxb / cpyb / convb / recb / rescb / nrmb / zkb (.py + .cc vs verbatim C++);
   endrun.sh (depth builds + sweep + DAVIS for a suffix). Flags: EW_DEFS SSX, CPY64, CONVK, RECK, NRMK, ZRING (+ twin NORM_TWIN);
   kdefs RESCK; plan P60G=1 (query half-tile deal in the gathers, research rev 10 P60g). r8/ewprof.py has 14 phases.
+- `npu-tapnext/r16/` (round 16): generators gen_sqk (exact sqrt, exponent folded into the table), gen_ggk (both SSM gate GEMMs,
+  B fills every 8 pops), gen_ssq (ssx + sqk fused), gen_n1p / gen_n1k (norm pass 1 + loop-carried statistics, _begin / _step /
+  _end), sig10.json (r12/gen_sig.py --umax 4); benches sqkb / ggkb (+ ggkref.py host bfp reference) / ssqb / n1pb / n1kb;
+  popprobe.s + popb.py (FIFO pop probes); nrun.sh (python + NPU in npu-iron-torch), b16.sh, try16.sh (research try.sh + the
+  current best's flags), commit.sh (commit with a message file). Flags: EW_DEFS SQK INPART_INLINE XONE GGK SSQ (replaces SSX)
+  SIG10 N1K, NPROF (norm-step stamps; PROF no longer fits), twins NORM_TWIN=2 / 4.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);
@@ -615,6 +667,8 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   `r14/lazymap.py` (lazy-max flag map on the NPU layout, CPU container), `r14/attcal.py` / `attblk.py` (twin fit, per-block check).
   Rev 10: `tools/attsim17.py` + `tools/sim17.py` (r14f, kappa 0.6), `r15/deal4.py` (P60g gather deal, checks single-TAP both
   sides), `r15/slots.py` (per-slot op counts of the zero-overhead loops in a -z disassembly), `r15/prereg17.py`.
+  Rev 11: `tools/asmlint.py` (+ `--zolstats`, `--calib`), `tools/asmlint_hist.py` + `r16/hist/` (historic bad / fixed kernels),
+  `tools/try.sh` (one-command experiment), `tools/asmfit_tmp.patch` (build lock), `tools/sim18.py` (attention levers on r15m).
 - `npu-tapnext/` design8 (round 3, the fused step): `plan8.py` (memory plan + op list: Q16 / APAN / QKV layouts,
   deps), `design8.py` (the frame: table-driven GEMM cores, attention op, EW ops, BD accounting), `mm8.cc` (GEMM +
   flag-driven epilogues + attention), `ew8.cc` (norm / patch / ssm on the row-3 cores), `nk8.h` (exp32, recip,
