@@ -80,8 +80,13 @@ extern "C" __attribute__((minsize)) void apb(int32_t *x, int32_t *y) {  // progr
     setup(0, 4.0f, 2);
     g_chunk = x[1];
     for (int i = 0; i < RB * 16; i++) g_maxb[i] = (bfloat16)(x[1] ? -64.0f : NEG);  // every row's max moves (scores ~ +-10)
+#ifdef ATTKS2MAX  // round 17: the first pass fills the row block's max slot (force = false: it runs inside k_rb)
+    alignas(64) bfloat16 sl[64];
+    k_rb(0, 0, q_buf(1), (const bfp16ebs8 *)g_k, CB, sl, false);
+#else
     alignas(32) int32_t fl[CB + 1];
     k_rb(0, 0, q_buf(1), (const bfp16ebs8 *)g_k, CB, fl, true);
+#endif
     for (int i = 0; i < 4; i++) y[i] = (int32_t)(g_krb[i + 1] - g_krb[i]);
     return;
   }

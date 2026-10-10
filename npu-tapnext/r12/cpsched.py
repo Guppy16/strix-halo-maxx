@@ -24,8 +24,8 @@ times as JSON next to themselves, so builds on testbox (npu-iron, no OR-tools) r
 from collections import defaultdict
 
 
-def solve(lp, II, H=None, budgets=None, reserve=None, slack=0, max_len=None, time_limit=60.0, workers=8, verbose=False,
-          w_len=1, w_life=0, fix=None, maxdist=(), last_stage=(), max_life=None, min_t=None, hint=None):
+def solve(lp, II, H=None, budgets=None, reserve=None, slack=0, max_len=None, time_limit=60.0, workers=4, verbose=False,
+          w_len=1, w_life=0, fix=None, maxdist=(), last_stage=(), max_life=None, min_t=None, hint=None, forbid=()):
     """lp: an msched.Loop (ops with .slot / .ports / defs / uses, lp.preds edges). budgets: class -> registers usable
     (default: len(lp.classes[c])). reserve: class -> registers kept free in the pressure bound. Returns {op: t} or None."""
     from ortools.sat.python import cp_model
@@ -47,6 +47,8 @@ def solve(lp, II, H=None, budgets=None, reserve=None, slack=0, max_len=None, tim
         m.Add(T[b] - T[a] <= d)
     for n, v in (min_t or {}).items():  # round 13: an op no earlier than v (e.g. a store out of the first stage)
         m.Add(T[n] >= v)
+    for n, v in forbid:  # round 17: (op, t) pairs a previous solution failed msched.check with (the .p2align pad)
+        m.Add(x[n, v] == 0)
     for n, v in (hint or {}).items():  # round 13: a warm start (e.g. msched's schedule)
         m.AddHint(T[n], v)
     for n, ps in lp.preds.items():  # dependences (all intra-iteration in these loops)

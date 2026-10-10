@@ -25,6 +25,7 @@ def main():
     ap.add_argument("--nkb", default="6,4")
     ap.add_argument("--warm", default="0,2")
     ap.add_argument("--skip", default="0", help="asm skip masks (timing only): 1 attqk, 2 glue, 4 aexpk")
+    ap.add_argument("--hashes", action="store_true", help="run: print the new path's P / maxima hashes (round 17)")
     ap.add_argument("--detail", action="store_true", help="run: per-block equality of scores / P / maxima")
     ap.add_argument("--dump", type=int, default=0, help="run: dump score block N (1-based) and P panel --panel of both paths")
     ap.add_argument("--panel", type=int, default=0)
@@ -92,6 +93,8 @@ def main():
                         print("   C++ s:", h(y[16:48])); print("   asm s:", h(y[48:80])); print("   C++ P:", h(y[80:98])); print("   asm P:", h(y[98:116]))
                     ok = "OK" if y[2] == 0 and y[6] == 0 and y[7] == 0 and y[8] == 0 and y[9] == 0 and y[10] == 0 else \
                         f"BAD P {y[2]} maxima {y[6]} scores {y[7]} O {y[8]} sums {y[9]} tail {y[10]}"
+                    if o.hashes:  # round 17: the new path's own outputs (compare two builds of the fused driver)
+                        print("   hashes P", " ".join(f"{int(v) & 0xFFFFFFFF:08x}" for v in y[40:46]), "max", " ".join(f"{int(v) & 0xFFFFFFFF:08x}" for v in y[56:62]))
                     if o.detail:
                         print("   scores C++/asm equal per block:", "".join("=" if y[16 + c] == y[24 + c] else "X" for c in range(6)),
                               " P per row block:", "".join("=" if y[32 + r] == y[40 + r] else "X" for r in range(6)),

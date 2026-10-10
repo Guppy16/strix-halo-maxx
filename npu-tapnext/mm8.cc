@@ -995,9 +995,17 @@ static __attribute__((noinline, minsize)) void slow_rb(int t, int rb, bfp16ebs8 
 }
 #ifdef ATTKB  // round 14 (research P63): r14/gen_attkb.py, the fused loop over all row blocks of a (tile, chunk) in one call
 }  // namespace at
+#ifdef ATTKS2MAX  // round 17 (research rev 11 S2): the loop keeps a running max per row block in `slots` and returns its flags' OR
+extern "C" int32_t attkb(const bfp16ebs8 *q, const bfp16ebs8 *kt, bfp16ebs8 *dst, const bfloat16 *mrows, bfloat16 *srb, bfloat16 *slots,
+                         int32_t trips, int32_t hi);
+#else
 extern "C" void attkb(const bfp16ebs8 *q, const bfp16ebs8 *kt, bfp16ebs8 *dst, const bfloat16 *mrows, bfloat16 *srb, int32_t *flags,
                       int32_t trips, int32_t hi);  // hi: bf16 bits of the clamp / flag bound
+#endif
 #include "build/attkb.h"
+#if defined(ATTKS2MAX) != defined(ATTKB_S2)
+#error "build/attkb.h does not match -DATTKS2MAX (r14/gen_attkb.py --s2)"
+#endif
 namespace at {
 static_assert(ATTKB_U == 1 && 896 == CB * 128 + 128, "attkb finds the exp table copy at srb + 896");
 // One row block: the fast pass over its nkb key blocks (clamp and flag bound 63.75 SU); if it flagged (or `force`: chunk 0, the
@@ -1011,6 +1019,83 @@ uint32_t g_krb[8];
 #else
 #define KRB_T(i) ((void)0)
 #endif
+#ifdef ATTKS2MAX
+// One row block with its running-max slot `sl` (64 bf16): unless `force` (a batched call has filled the slot and flagged this row
+// block), the fast pass first (the slot initialised to -inf); then, if flagged, today's exact test on the slot's maximum (the same
+// scores and max operand order as the ring-based test: bit-identical), the lazy rescale and the exact rerun (clamp 71.5 SU).
+static __attribute__((noinline, minsize)) void k_rb(int t, int rb, const bfp16ebs8 *q, const bfp16ebs8 *kt, int nkb, bfloat16 *sl, bool force) {
+  bfp16ebs8 *dst = (bfp16ebs8 *)((uint8_t *)erb(t) + rb * GV);
+  const bfp16ebs8 *qr = (const bfp16ebs8 *)((const uint8_t *)q + rb * GQ);
+  bfloat16 *mr = (bfloat16 *)((uint8_t *)kt + 3456) + 64 * rb;
+  KRB_T(0);
+  int32_t f = 1;
+  if (!force) {
+    aie::store_v(sl, aie::broadcast<bfloat16, 64>(-__builtin_inff()));
+    if (!ATTK_SKIP(1)) f = attkb(qr, kt, dst, mr, g_srb, sl, nkb, HI_FAST);
+  }
+  KRB_T(1);
+  if (ATTK_SKIP(2)) return;
+  if (f || ATTK_SKIP(8) || ATTK_SKIP(32)) {
+    bfloat16 *mb = g_maxb + (t * RB + rb) * 16;
+    const B16 m_old = aie::load_v<16>(mb);
+    B64 mx = aie::load_v<64>(sl);
+    if (nkb < CB) mx = aie::max(mx, aie::broadcast<bfloat16, 64>(-1024.0f * SU));  // today's invalid key blocks
+    const B16 m_new = aie::max(rowmax8(mx), m_old);
+    KRB_T(2);
+    if (!aie::lt(aie::add(m_old, aie::broadcast<bfloat16, 16>(TAU)), m_new).empty()) {  // today's test: the max moves
+      aie::store_v(mb, m_new);
+      if (g_chunk != 0)  // chunk 0: O and the row sums are +0 (attn_begin), the rescale a no-op
+        rescale_rb(t, rb, BF(aie::mul(BF(aie::mac(aie::accum<accfloat, 16>(m_old), m_new, (bfloat16)-1.0f)), (bfloat16)(1.0f / SU))));
+      const B16 nm = aie::neg(m_new);
+      aie::store_v(mr, aie::transpose(aie::concat(nm, nm, nm, nm), 8, 8));
+    }
+    KRB_T(3);
+#ifdef ATTK_COUNT
+    g_attk_slow++;
+#endif
+    if (!ATTK_SKIP(16)) attkb(qr, kt, dst, mr, g_srb, sl, nkb, HI_EXACT);
+    KRB_T(4);
+  }
+  constexpr int NKB_LAST = (NKEYS % KC) / 8;  // nkb < CB only in the last chunk
+  static_assert(NKB_LAST > 0 && PB * NKB_LAST % 16 == 0);
+  static_assert(PB * NKB_LAST % 32 == 16 && PB * CB % 32 == 16, "one 16 B store at each end, 32 B stores between");
+  if (nkb < CB) {  // straight stores: a loop costs ~15 bundles per trip under minsize
+    uint8_t *z = (uint8_t *)dst + PB * NKB_LAST;
+    aie::store_v((int32_t *)z, aie::zeros<int32, 4>());
+#pragma unroll
+    for (int i = 16; i < PB * (CB - NKB_LAST) - 16; i += 32) aie::store_v((int32_t *)(z + i), aie::zeros<int32, 8>());
+    aie::store_v((int32_t *)(z + PB * (CB - NKB_LAST) - 16), aie::zeros<int32, 4>());
+  }
+}
+static WRAP_FOLD void chunk_k_fused(int t, const bfp16ebs8 *q, const bfp16ebs8 *kt, int nkb) {
+  // rows8 of -m_old per row block in the K object's junk tail (as below) and the row blocks' max slots at -inf
+  bfloat16 *mr = (bfloat16 *)((uint8_t *)kt + 3456);
+  const bfloat16 *mx = g_maxb + t * RB * 16;
+  alignas(64) bfloat16 sl[RB * 64];
+#pragma clang loop unroll(disable)
+  for (int rb = 0; rb < RB; rb++) {
+    const B16 nm = aie::neg(aie::load_v<16>(mx + 16 * rb));
+    aie::store_v(mr + 64 * rb, aie::transpose(aie::concat(nm, nm, nm, nm), 8, 8));
+    aie::store_v(sl + 64 * rb, aie::broadcast<bfloat16, 64>(-__builtin_inff()));
+  }
+  if (nkb == CB && g_chunk != 0) {  // chunk 0 (every row block flags) and the last chunk go row block by row block
+    int32_t f = 1;
+    if (!ATTK_SKIP(1)) f = attkb(q, kt, erb(t), mr, g_srb, sl, RB * CB, HI_FAST);
+    if ((!f && !ATTK_SKIP(8) && !ATTK_SKIP(32)) || ATTK_SKIP(128)) return;  // the common case: nothing flagged
+#pragma clang loop unroll(disable)
+    for (int rb = 0; rb < RB; rb++) {
+      // the row block's flag from its maximum: bf16(max s + (-m_old)) > the bound in some lane, the loop's own test per score
+      // (s + (-m) in fp32 then bf16 is monotone in s)
+      const B64 d = BF(aie::add(A64(aie::load_v<64>(sl + 64 * rb)), A64(aie::load_v<64>(mr + 64 * rb))));
+      if (!aie::lt(aie::broadcast<bfloat16, 64>(63.75f), d).empty() || ATTK_SKIP(8) || ATTK_SKIP(32))
+        k_rb(t, rb, q, kt, CB, sl + 64 * rb, true);
+    }
+    return;
+  }
+#pragma clang loop unroll(disable)
+  for (int rb = 0; rb < RB; rb++) k_rb(t, rb, q, kt, nkb, sl + 64 * rb, false);
+}
+#else
 static __attribute__((noinline, minsize)) void k_rb(int t, int rb, const bfp16ebs8 *q, const bfp16ebs8 *kt, int nkb, int32_t *fl, bool force) {
   bfp16ebs8 *dst = (bfp16ebs8 *)((uint8_t *)erb(t) + rb * GV);
   const bfp16ebs8 *qr = (const bfp16ebs8 *)((const uint8_t *)q + rb * GQ);
@@ -1083,6 +1168,7 @@ static WRAP_FOLD void chunk_k_fused(int t, const bfp16ebs8 *q, const bfp16ebs8 *
 #pragma clang loop unroll(disable)
   for (int rb = 0; rb < RB; rb++) k_rb(t, rb, q, kt, nkb, fl, false);
 }
+#endif  // ATTKS2MAX
 #else
 static __attribute__((noinline)) void chunk_k_fused(int t, const bfp16ebs8 *q, const bfp16ebs8 *kt, int nkb) {
   for (int rb = 0; rb < RB; rb++) {

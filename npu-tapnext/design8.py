@@ -99,7 +99,8 @@ def asm_object(flags):
     ab = "-DATTKB" in flags  # round 14: the batched fused K loop (r14/gen_attkb.py, schedule r14/attkb.json) replaces attk
     af = "-DATTKF" in flags and not ab  # round 13: the fused K loop (r13/gen_attk.py, schedule r13/attk.json)
     if ab:
-        extra += [["python3", str(HERE / "r14" / "gen_attkb.py"), str(bd / "attkb.s"), "--times", str(HERE / "r14" / "attkb.json")] + fit,
+        s2 = ["--s2", "--times", str(HERE / "r17" / "attks.json")] if "-DATTKS2MAX" in flags else ["--times", str(HERE / "r14" / "attkb.json")]
+        extra += [["python3", str(HERE / "r14" / "gen_attkb.py"), str(bd / "attkb.s")] + s2 + fit,  # round 17: --s2 = the running max
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "attkb.s"), "-o", str(bd / "attkb.o")]]
     av = "-DATTV" in flags  # round 14: the V phase in asm (r14/gen_attv.py, schedule r14/attv.json)
     if av:
@@ -196,7 +197,7 @@ L1_WORDS = 288
 EW_ROW = 5
 SLOT_W = 192
 EW_IN_SLOTS, EW_OUT_SLOTS = 20, 12
-PATCH_PARAM_B, SSM_PARAM_B = 19 * 768, 14 * 768
+PATCH_PARAM_B, SSM_PARAM_B = 19 * 768, (12288 if os.environ.get("AL1") == "1" else 14 * 768)  # round 17 AL1: 3 KB multiple
 EW_MODE = dict(none=0, rms=1, ln=2, ln_out=3)
 
 
@@ -251,7 +252,10 @@ def step8(
     totals = dict(w=w_words, act=act_words)
     for op in ops:  # a stale schedule (plan changed, sched not regenerated) hangs the EW core: check the param sizes
         if op["kind"] == "ew" and op["fn"] == "norm":
-            assert op["fills"][0][0]["sizes"][3] == (5 if op["mode"] in ("ln", "ln_out") else 3) * 768, ("stale sched: norm params", op["name"])
+            want = (5 if op["mode"] in ("ln", "ln_out") else 3) * 768
+            if os.environ.get("AL1") == "1":  # round 17: 1 KB multiples
+                want = (want + 3071) // 3072 * 3072
+            assert op["fills"][0][0]["sizes"][3] == want, ("stale sched: norm params", op["name"])
     # the GEMM cores run: pre gemm/attn ops, then `reps` x the body's gemm/attn ops, then post's
     core_pre = [o for o in pre if o["kind"] in ("gemm", "attn")]
     core_body = [o for o in body if o["kind"] in ("gemm", "attn")]
@@ -872,7 +876,7 @@ def main():
         raise
     Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT,
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
-                                                     p43=os.environ.get("P43") == "1")))
+                                                     p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1")))
 
 
 if __name__ == "__main__":

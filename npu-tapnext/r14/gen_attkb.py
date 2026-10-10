@@ -24,7 +24,16 @@ block's P slot (slots 448 B apart); mrows: rows8 of -m_old per row block (128 B 
 table's second copy is at srb + 896: mm8.cc attn_begin's layout); flags: one word per iteration, then their OR (flags[trips]). trips: 6 x row blocks
 (full chunks) or the chunk's valid key blocks for one row block (2 in the last chunk).
 
-    python3 r14/gen_attkb.py OUT.s [--ii N] [--cp F.json | --times F.json] [--fit] [--nobanks]
+    python3 r14/gen_attkb.py OUT.s [--ii N] [--cp F.json | --times F.json] [--fit] [--nobanks] [--s2]
+
+Round 17 (--s2, research rev 11 S2): the running row-block max. Every iteration loads its row block's max slot (2 x 64 B,
+[p6, #0] / [p6, #64]), takes vmax_lt(slot, s) (the C++ exact test's operand order: running max first) and stores it back
+(vst [p6], #64 then vst.2d d7: the slot pointer advances 128 B per row block like the -m rows). The per-iteration flag stores
+are gone: the call returns the OR of the flags in r0, and a flagged row block's own flag is recomputed by the driver from its
+slot (bf16(max s - m) > bound for some lane <=> some s of the row block flagged: the rounding is monotone). So a flagged row
+block needs no first-pass rerun to get its maximum back (k_rb's 393 cycles).
+    extern "C" int32_t attkb(q p0, kt p1, dst p2, mrows p3, srb p4, bfloat16 *slots /*p5: 6 x 128 B*/, int32_t trips /*r1*/,
+                             int32_t hi /*r2*/)      (r0 is the return value's: the scalar arguments move up by one)
 """
 
 import argparse
@@ -67,10 +76,14 @@ HI_BITS, LO_BITS, SHIFT, BIAS_B = 17023, -15696, 3, 44 * 16  # bf16 63.75 (= TAU
 # modifier register sets: (dn, dj, m) per op that steps its pointer by a 2D modifier
 MODS = {"PQ": (0, 5, -576, 0), "PK": (1, 5, 0, -3456), "MA1": (2, 5, -64, 64), "MB1": (3, 5, -64, 64),
         "W1": (4, 6, 64, -832), "R1": (5, 6, 64, -832), "FL": (6, 5, 0, 16)}
+MODS_S2 = {"XS1": (7, 5, -64, 64)}  # round 17: the max slots (0 five times, then the next row block's 128 B)
 # L1 banks of the in-situ layout (full12r14a core 0_2: acc_hi 0x718c0 -> Q copies + P buffers in bank 1; B objects at 53504 /
 # 58112 -> bank 3 incl. their tails; the C object at 35072 -> ring + exp table copy in bank 2; aexp_ab 0x71300 + stack: bank 0)
-BANKS = {"q": (1,), "k": (3,), "m": (3,), "lut": (0, 2), "srb": (2,), "p": (1,), "fl": (0,)}
+BANKS = {"q": (1,), "k": (3,), "m": (3,), "lut": (0, 2), "srb": (2,), "p": (1,), "fl": (0,), "mx": (0,)}
+MAXSRC = "s"  # round 17: the max takes the scores as computed ("s") or as reloaded from the ring ("sr")
 USE_BANKS = True
+FORBID_TRIES = [6]
+S2 = False  # round 17: the running max (see the module doc)
 STAGES = 3  # schedule length bound in IIs (round 14: 2 = a 34-bundle-shorter prologue, for text)
 
 
@@ -155,9 +168,20 @@ def ops():
         Op("FL", "st", "vst.flush.512.conv.2d [p2, sf, r26, d6]", after=[("PU", 1)], banks=bk("p"), instr=FLUSH2),
         # the iteration's flag: both halves' compare masks OR-ed, stored (last stage: the drain's garbage iterations never store)
         Op("FO", "alu", "or r4, r18, r19", after=[("CM0", 2), ("CM1", 2)]),
-        Op("FS", "st", "st r4, [p6], #4", after=[("FO", 2)], mem=("st", "fl"), banks=bk("fl"), instr=ST_FLAG),
+    ] + ([] if S2 else [Op("FS", "st", "st r4, [p6], #4", after=[("FO", 2)], mem=("st", "fl"), banks=bk("fl"), instr=ST_FLAG)]) + [
         Op("FA", "alu", "or r17, r17, r4", after=[("FO", 2)]),  # a scalar result is read 2 cycles on (round 14: at +1 FA saw the previous iteration's r4)  # and OR-ed over the call: stored after the loop as flags[trips]
     ]
+    if S2:  # round 17: the running max per row block through its stack slot (bank 0); loads by offset, stores step the pointer
+        src = MAXSRC
+        for h in (0, 1):
+            o += [Op(f"XL{h}", "lda", f"vlda {{mo{h}.x}}, [p6, #{64 * h}]", defs=[(f"mo{h}", "x", 7)], mem=("ld", "mx"), banks=bk("mx"),
+                     instr=LDA_X),
+                  Op(f"XM{h}", "mv", f"vmax_lt.bf16 {{mn{h}.x}}, r16, {{mo{h}.x}}, {{{src}{h}.x}}", defs=[(f"mn{h}", "x", 2)],
+                     uses=[(f"mo{h}", "x", 1), (f"{src}{h}", "x", 1)], instr=MX)]
+        o += [Op("XS0", "st", "vst {mn0.x}, [p6], #64", uses=[("mn0", "x", 1)], mem=("st", "mx"), banks=bk("mx"), instr=ST_X,
+                 after=[("XL0", 1), ("XL1", 1)]),
+              Op("XS1", "st", "vst.2d {mn1.x}, [p6], d7", uses=[("mn1", "x", 1)], mem=("st", "mx"), banks=bk("mx"), instr=ST_X2,
+                 after=[("XS0", 1)])]
     return o
 
 
@@ -171,11 +195,14 @@ def maxdist(II):
     The flag OR reads r18 / r19 before the next iteration's compares land."""
     return [("QF", "PQ", II - 3), ("F", "PK", II - 3), ("QF", "Q7", II - 1), ("F", "K7", II - 1),
             ("W0", "W1", II - 1), ("R0", "R1", II - 1), ("MA0", "MA1", II - 1), ("MB0", "MB1", II - 1), ("PU", "FL", II - 1),
-            ("CM0", "FO", II + 1), ("CM1", "FO", II + 1), ("FO", "FA", II - 1)]
+            ("CM0", "FO", II + 1), ("CM1", "FO", II + 1), ("FO", "FA", II - 1)] + (
+        # round 17: the next iteration's slot loads read what this one stored (data land 4 cycles after the store, the post-
+        # modified pointer needs ~3 cycles: round 14's fill-after-step margin)
+        [("XL0", "XS1", II - 4), ("XL1", "XS1", II - 4)] if S2 else [])
 
 
 def last_ops():
-    return ["PU", "FL", "FO", "FS", "FA"]
+    return ["PU", "FL", "FO", "FA"] + (["XS0", "XS1"] if S2 else ["FS"])
 
 
 def stages_ok(lp):
@@ -206,8 +233,19 @@ def build(II=None, times=None, cp=None, max_ii=40):
         try:
             lp.allocate()
             stages_ok(lp)
+            for n in (36, 6, 2):  # round 17: the pad replays inside the search (a schedule can fail only with the pad)
+                check(lp, n)
         except (Infeasible, AssertionError) as e:
             print(f"II {ii}: {e}", file=sys.stderr)
+            import re
+            m = re.search(r"cycle \d+ (\w+) it \d+: port \S+ at \d+ taken by (\w+) it", str(e))
+            if m and FORBID_TRIES[0] > 0:  # round 17: forbid the colliding op's time and re-solve at the same II
+                FORBID_TRIES[0] -= 1
+                cp = dict(cp or {})
+                cp["forbid"] = list(cp.get("forbid", [])) + [(m.group(2), res[0][m.group(2)])]
+                cp["hint"] = res[0]
+                print(f"II {ii}: forbid {cp['forbid'][-1]}, re-solve", file=sys.stderr)
+                return build(ii, None, cp, max_ii)
             continue
         lp.times = {"II": ii, "t": res[0]}
         print(f"II {ii}: {res[1]}", file=sys.stderr)
@@ -217,7 +255,7 @@ def build(II=None, times=None, cp=None, max_ii=40):
 
 def streams():
     def mod(name):
-        _, dn, dj, m = MODS[name]
+        _, dn, dj, m = (MODS | MODS_S2)[name]
         return dict(dn=dn, dj=dj, m=m)
 
     inc = lambda b: dict(dn=1 << 20, dj=b, m=b)  # noqa: E731  (a post-increment immediate)
@@ -228,12 +266,18 @@ def streams():
         "sr": (lambda i, k: (i % 7) * 128 + 64 * k, dict(base=0x78900, dn=1 << 20, dj=0, m=0, ops={"R0": inc(64), "R1": mod("R1")})),
         "ma": (lambda i, k: (i // 6) * 128 + 64 * k, dict(base=0x7DD80, dn=1 << 20, dj=0, m=0, ops={"MA0": inc(64), "MA1": mod("MA1")})),
         "mb": (lambda i, k: (i // 6) * 128 + 64 * k, dict(base=0x7DD80, dn=1 << 20, dj=0, m=0, ops={"MB0": inc(64), "MB1": mod("MB1")})),
-        "fl": (lambda i: 4 * i, dict(base=0x70100, dn=1 << 20, dj=4, m=4)),
-    }
+    } | ({"mx": (lambda i, k: (i // 6) * 128 + (64 if k == 3 else 0), dict(base=0x70100, dn=1 << 20, dj=0, m=0, ops={
+        "XL0": dict(dn=1 << 20, dj=0, m=0), "XL1": dict(dn=1 << 20, dj=0, m=0), "XS0": inc(64), "XS1": mod("XS1")}))} if S2 else
+        {"fl": (lambda i: 4 * i, dict(base=0x70100, dn=1 << 20, dj=4, m=4))})
 
 
 def check(lp, n=36):
     n -= n % lp.U
+    if S2:  # round 17: the slot round trip (not in msched's memory model: a load reads the PREVIOUS iteration's store)
+        t = lp.by_name
+        for h in (0, 1):
+            assert t[f"XL{h}"].t + lp.II + MEM_R >= t[f"XS{h}"].t + MEM_W, "slot load before the previous store landed"
+            assert t[f"XL{h}"].t + lp.II >= t["XS1"].t + 3, "slot load before the pointer step"
     return lp.check(n, streams())
 
 
@@ -244,11 +288,12 @@ def function(lp, name="attkb", drain=None):
     drain = DRAIN if drain is None else drain
     L = [f"\t.section\t.text.{name},\"ax\",@progbits", f"\t.globl\t{name}", "\t.p2align\t4", f"\t.type\t{name},@function", f"{name}:"]
     mods = []
-    for op, (d, dn, dj, m) in MODS.items():
+    for op, (d, dn, dj, m) in (MODS | (MODS_S2 if S2 else {})).items():
         mods += [f"mova\tdn{d}, #{dn}", f"movxm\tdj{d}, #{dj}", f"movxm\tm{d}, #{m}", f"mova\tdc{d}, #0"]
     pre = [
         # void function: the trip count arrives in r0 (copied: r0 is free for the loop's use of nothing, but keep the habit)
-        "mov\tr7, r0", f"vbcst.16\tx{C_HI}, r1",  # the clamp / flag bound arrives in r1 (bf16 bits; read before r1 = 828)
+        # (S2: int32_t function: r0 is the result's, trips / hi arrive in r1 / r2)
+        "mov\tr7, r1" if S2 else "mov\tr7, r0", f"vbcst.16\tx{C_HI}, r2" if S2 else f"vbcst.16\tx{C_HI}, r1",  # the clamp / flag bound arrives in r1 (bf16 bits; read before r1 = 828)
         "paddxm\t[sp], #64", "st\tp6, [sp, #-64]", "st\tp7, [sp, #-60]",  # callee-saved pointers this loop uses
         "mov\tp6, p5", "mov\tp7, p3", "mov\tp5, p4",  # flags; the second -m pointer (line); the ring reload pointer
         f"mova\t{R_MM}, #780", f"mova\t{R_ADD}, #60", "mova\tr24, #0", "mova\tr25, #0",
@@ -263,7 +308,7 @@ def function(lp, name="attkb", drain=None):
     L += ["\t" + x for x in pre]
     L += lp.emit_loop(name, drain=0)
     # the callee-saved pointers come back during the drain (the stores / pushes of the last iterations land meanwhile)
-    L += ["\tst\tr17, [p6, #0]", "\tlda\tp6, [sp, #-64]", "\tlda\tp7, [sp, #-60]"] + ["\tnop"] * max(drain - 3, 6) + [
+    L += ["\tmov\tr0, r17" if S2 else "\tst\tr17, [p6, #0]", "\tlda\tp6, [sp, #-64]", "\tlda\tp7, [sp, #-60]"] + ["\tnop"] * max(drain - 3, 6) + [
           "\tret\tlr", "\tnop", "\tnop", "\tnop", "\tpaddxm\t[sp], #-64", "\tnop", f".Lfunc_end_{name}:", f"\t.size\t{name}, .Lfunc_end_{name}-{name}"]
     return L
 
@@ -288,21 +333,30 @@ def main():
     ap.add_argument("--nobanks", action="store_true")
     ap.add_argument("--drain", type=int, default=8)
     ap.add_argument("--stages", type=int, default=3)
+    ap.add_argument("--s2", action="store_true", help="round 17: the running max per row block (module doc)")
+    ap.add_argument("--maxsrc", default="s", choices=["s", "sr"])
+    ap.add_argument("--workers", type=int, default=4, help="round 17: CP-SAT workers (the laptop stays usable)")
+    ap.add_argument("--reserve-x", type=int, default=0, help="round 17: x registers kept free in the CP pressure bound (allocation slack)")
     o = ap.parse_args()
-    global USE_BANKS, DRAIN, STAGES
+    global USE_BANKS, DRAIN, STAGES, S2, MAXSRC
+    S2, MAXSRC = o.s2, o.maxsrc
     STAGES = o.stages
     USE_BANKS, DRAIN = not o.nobanks, o.drain
     times = json.loads(Path(o.times).read_text()) if o.times else None
-    lp = build(o.ii, times, cp=dict(time_limit=o.time), max_ii=o.max_ii)
+    if times and "maxsrc" in times:  # round 17: the S2 schedule records which score copy its max reads
+        MAXSRC = times["maxsrc"]
+    cp = dict(time_limit=o.time, workers=o.workers) | ({"reserve": {"x": o.reserve_x}} if o.reserve_x else {})
+    lp = build(o.ii, times, cp=cp, max_ii=o.max_ii)
     report(lp)
     for n in (36, 6, 2):
         cyc, land = check(lp, n)
         print(f"check OK ({n} iterations): {cyc} cycles, last write lands at {land}")
     if o.cp:
-        Path(o.cp).write_text(json.dumps(lp.times, indent=1, sort_keys=True) + "\n")
+        Path(o.cp).write_text(json.dumps(lp.times | ({"maxsrc": MAXSRC} if S2 else {}), indent=1, sort_keys=True) + "\n")
     import asmfit
     asmfit.emit(lp, lambda: "\t.text\n" + "\n".join(function(lp, o.func)) + "\n", o.func, o.out, o.fit)
-    Path(o.out).with_suffix(".h").write_text(f"// generated by r14/gen_attkb.py\n#define ATTKB_U {lp.U}\n#define ATTKB_II {lp.II}\n")
+    Path(o.out).with_suffix(".h").write_text(f"// generated by r14/gen_attkb.py\n#define ATTKB_U {lp.U}\n#define ATTKB_II {lp.II}\n"
+                                       + ("#define ATTKB_S2 1\n" if S2 else ""))
     print("wrote", o.out)
 
 
