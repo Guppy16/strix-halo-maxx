@@ -12,7 +12,7 @@ import gen_rot as G  # noqa: E402
 import ksplan as K  # noqa: E402
 
 TCALL = dict(g0f=1351, g1f=1368, g2f=1384, g0u=1366)  # tools/tcall.py r19/mm_rot_<v>.dis --func mm_rot
-DEPLOYED_MEAS, DEPLOYED_STATIC, GAP_MEAS, GAP_P35 = 2122, 1824, 67, 16
+DEPLOYED_MEAS, DEPLOYED_STATIC, GAP_MEAS, GAP_P35 = 2122, 1824, 67, 55  # P35 (r18j) saved ~12 of the 67 (measured)
 # round 18 KS-P38 (in situ, per k-step): MEMORY_STALL 173.7 vs the model's 221 for the deployed mm_ks -> scale 0.79; LOCK_STALL
 # 13.3 (A waits) kept; DMAB (one core): +58-59 vs the model's 65 (0.9)
 CAL, LOCK = 173.7 / 221, 13.3

@@ -1,7 +1,8 @@
 # PROPOSALS.md — ranked experiments and tools for the TAPNext++ NPU port
 
 Revision 14, 2026-10-11, research pass 14 (one job: E1, make ROT buildable), during main's round 18 (best **full12r18h**:
-r17d + HRING PTRG ZK KSC NIOC V2T CGF, median **38.40 ms** at depth 12, BIT-IDENTICAL; GEMM text 15,968 / 16,384). Revision 13
+r17d + HRING PTRG ZK KSC NIOC V2T CGF, median **38.40 ms** at depth 12, BIT-IDENTICAL; then r18j = + P35, A/B −0.10 median over
+30 rounds; GEMM text 15,904 / 16,384). Revision 13
 is in `rev13/` (its sections T, S, the norm and attention items stand unless named here), older ones in `rev12/` .. `rev1/`.
 Prices: deltas at depth 12, Turbo, 1.81 GHz, whole-call (tcall static + the DMA-collision model, now calibrated on main's
 round-18 KS-P38 counters). 1 cycle per GEMM k-step = 8.59 µs per step.
@@ -34,12 +35,12 @@ round-18 KS-P38 counters). 1 cycle per GEMM k-step = 8.59 µs per step.
   - mm_rot whole call: 1,384 static (tcall).
   - Text: 1,486 B (mm_ks is 1,824, so −338 B).
   - Records: 94 words (+36, +144 B of L1 as KSC constexpr data).
-  - k-step price:
+  - k-step price (Δ against the r18h k-step; P35 does not change it, it only touches the gap between calls):
 
-    | model | k-step | Δ step | Δ with P35 |
-    |---|---|---|---|
-    | calibrated (KS-P38) | 1,676 | **−3.84 ms** | −4.27 |
-    | uncalibrated collision model | 1,720 | −3.46 ms | −3.89 |
+    | model | k-step | Δ step |
+    |---|---|---|
+    | calibrated (KS-P38) | 1,676 | **−3.84 ms** |
+    | uncalibrated collision model | 1,720 | −3.46 ms |
 
   - Pre-registered in situ: mm_rot ≈ 1,610 ± 45 per k-step under KS-P38 (MEMORY ~212, LOCK ~13). g0f would be −0.27 ms
     more once its probe passes (g1f −0.14).
@@ -79,9 +80,11 @@ Steps:
    - ks: about 1,824 + glue + its own stalls (B sits in bank 1 in this bench), so it is not a deployment number.
    - Optional `-DROTB_LOCKS` reads both lock values after the calls (expect 0 / 0; the register offsets are unverified).
 2. **mm8.cc**: `#ifdef MM_ROT #include "build/mm_rot.inc"`. Put it after `piece()` and `acc_hi`, i.e. after the KSC block.
-   - In mm_kstep: `#ifdef MM_ROT  rot_kstep(a0, a1, a2, pB_in, c_out); #else` (the MM_KS / KSC path) `#endif`.
+   - **With P35 (r18j)**, the only call site is mm_ktile's loop: `mm_ks(ks_rec.r, b, pc);` → `mm_rot(rot_rec.r, b, pc);`. Both
+     B buffers are in bank 3 as the schedule assumes, and mm_rot takes B by pointer, so P35's alternation works unchanged.
+   - Without P35: in mm_kstep, `#ifdef MM_ROT  rot_kstep(a0, a1, a2, pB_in, c_out); #else` (the MM_KS / KSC path) `#endif`.
    - Keep `-DMM_PIECES` (pieces unchanged) and `-DKSC` (records become .rodata).
-   - mm_ks and its records drop out: text ≈ 15,968 − 1,824 + 1,486 + ~10 ≈ **15,640**.
+   - mm_ks and its records drop out: text ≈ 15,904 − 1,824 + 1,486 ≈ **15,566**.
    - L1 data: rot_rec 376 B vs ks_rec 232 B, so **+144 B**. Check that the KSC post-link check also covers rot_rec.
 3. **design8**: `rot = "-DMM_ROT" in flags`. Copy `mm_rot_g2f.s / .h / mm8_rot.inc` into `build/` as `mm_rot.s / .h` and
    `mm_rot.inc` (or run `gen_rot.py fit` there: no ortools needed, Peano only). Then assemble, and merge the object like
@@ -126,16 +129,16 @@ Steps:
 | rank | id | what | cost | risk | expected (depth 12) | pre-registered check |
 |---|---|---|---|---|---|---|
 | 1 | **ROT (E5, g2f)** | the recipe above | M (all files exist) | medium (rel.cond, new B order) | **−3.84 ± 0.4** (−3.46 uncalibrated) | bench 36/36 identical, rot 1,390–1,405 per warm call; regress BIT-IDENTICAL; KS-P38 TRUE in mm_rot ~1,610 ± 45 |
-| 2 | P35 on ROT | B lock + k-loop inside the asm: one mm_rot call per tile; the B acquire / release join the record stream (two more alu ops per k-step, a per-tile trip count) | M | medium | −0.43 (gap 67 → ~16) | gap between k-steps ≤ 20 (PROF gkb) |
+| done | P35 (main r18j) | mm_ktile: a tile's k-steps in one call, B locks by id | | | measured −0.10 (priced −0.44: miss, the gap is mostly not IRON's control code) | ROT plugs into mm_ktile (step 2) |
 | 3 | PWRAP / PADDA probes, then g0f / g1f | probes above, then `--v g0f` | S | low | −0.28 / −0.14 on top of g2f | probe pass 2 = pass 1 |
 | 4 | E7' (B over two banks, ROT) | split each B object over two banks (half the pops each): bank bound 36 + g per row block, so the MAC bound (64) decides; re-solve gen_rot with a second B stream | L | high (L1: 4.6 KB more in another bank) | static −10..−15 % of mm_rot (~−1.2 ms) + fewer B collisions | gen_rot solve with the split first (research) |
 | 5 | A slots into ROT's least-busy bank (E6') | ROT bank busy: b0 0.24, b1 0.45, b2 0.37; A DMA collisions ~0.79 × 324 × 0.40 = 102 per k-step; slots in bank 0 → ~62 | M (L1 moves) | medium | ~−0.34 | re-solve with `--place`; KS-P38 MEMORY −40 |
 | — | rev 13 items not touched here | N-IO rest (NIOC done), NS, attention S3 / V1 / K1 / K2 (text: ROT frees 338 B more), ssq two chunks, P55 / P51 / P57 | | | as rev 13 | |
 
-Ceiling from 38.40: ROT −3.84 → ~34.6; P35 −0.43 → ~34.1; g0f −0.28 → ~33.9; rev 13's remaining compute levers (attention
+Ceiling from 38.40: P35 −0.10 (done) → ~38.3; ROT −3.84 → ~34.5; g0f −0.28 → ~34.2; rev 13's remaining compute levers (attention
 ~−0.5, NS −0.34, ssq −0.11, P55 / P51 / P57 ~−1.8 at rev 8-10 prices) → ~31.1; E7' and the A layout ~−1.5 more → ~29.6. The A port
 floor (1,304 per k-step at 7.95 B/cycle, ~1,420 at the 7.3 B/cycle DMAB measured under collisions) is then ~200 cycles away
-from mm_rot's in-situ ~1,610.
+from mm_rot's in-situ ~1,610. (Totals below 34 are rev 8-13 prices stacked: ±1 ms.)
 
 ## Status of the revision-13 k-step plan
 
@@ -144,7 +147,7 @@ from mm_rot's in-situ ~1,610.
 | E1 | ROT CP feasibility (research) | **done** (this pass): II 9 with g = 0, R = 74 optimal with the deployed restart; kernels, bench, recipe |
 | E2 | DMAB bench | **done** (main r18): the core yields ~1 cycle per 32 B DMA write in its bank (+58–59 vs 65) |
 | E3 | KS-P38 counters | **done** (main r18): MEMORY 173.7, LOCK 13.3 per k-step (hit) |
-| E4 | P35 | open; now best done on mm_rot (rank 2) |
+| E4 | P35 | **done** (main r18j): −0.10 (miss, −0.44 priced) |
 | E5 | ROT | **ready** (rank 1) |
 | E6 | layout: B prefetch out of the popped bank | **void under ROT** (B is popped every cycle and no bank is idle); A slots: rank 5 |
 | E7 | B over two banks | rank 4, needs a gen_rot re-solve with two B streams first |

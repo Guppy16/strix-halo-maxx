@@ -45,6 +45,8 @@ static constexpr RotRec rot_rec = [] {
 static inline void rot_kstep(bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *pB, bfloat16 *c_out) {
   mm_rot(rot_rec.r, pB, piece(c_out, 0, 0));
 }
+// with P35 (round 18 mm_ktile): replace `mm_ks(ks_rec.r, b, pc);` in mm_ktile's loop by `mm_rot(rot_rec.r, b, pc);` (both B
+// buffers sit in bank 3 as the schedule assumes; mm_rot takes B by pointer)
 #else
 static int32_t g_rot_tab[MM_ROT_NREC] __attribute__((section(".data.g_rot_tab")));  // .data: the data region's start, never B's bank
 static const bfloat16 *g_rot_for = nullptr;
