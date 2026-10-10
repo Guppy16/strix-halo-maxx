@@ -61,6 +61,9 @@ static int32_t g_ks_tab[MM_KS_NREC];
 static const bfloat16 *g_ks_for = nullptr;
 #endif
 #endif
+#ifdef KSP38
+static uint32_t g_kc[5];  // round 18: counters 0-2, timer, k-steps (summed over a tile's mm_ks calls; acc_epilogue writes them)
+#endif
 #ifdef PROF  // timing build (round 7, npu-research P15): core-timer stamps per tile, written over the tile's first words
 // (the runtime sequence enables each core's processor bus first: read_tm hangs the core without it)
 static inline __attribute__((always_inline)) uint32_t stamp() {
@@ -216,7 +219,21 @@ void mm_kstep(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfp16ebs8 *__restrict
   bfp16ebs8 *const slot[3] = {a0, a1, a2};
 #if defined(MM_KS) && defined(KSC)
   (void)slot;
+#ifdef KSP38  // round 18 (research rev 13 E3 / KS-P38): core performance counters 0-2 and the timer around mm_ks (design8 sets the events)
+  __builtin_aie2p_sched_barrier();
+  const uint32_t c0 = read_tm(0x31520), c1 = read_tm(0x31524), c2 = read_tm(0x31528), c3 = read_tm(0x340F8);
+  __builtin_aie2p_sched_barrier();
+#endif
   mm_ks(ks_rec.r, pB_in, piece(c_out, 0, 0));
+#ifdef KSP38
+  __builtin_aie2p_sched_barrier();
+  g_kc[0] += read_tm(0x31520) - c0;
+  g_kc[1] += read_tm(0x31524) - c1;
+  g_kc[2] += read_tm(0x31528) - c2;
+  g_kc[3] += read_tm(0x340F8) - c3;
+  g_kc[4]++;
+  __builtin_aie2p_sched_barrier();
+#endif
 #elif defined(MM_KS)
   if (c_out != g_ks_for) ks_records(slot, c_out);  // once per C object address (round 13: a cold function, program memory)
   mm_ks(g_ks_tab, pB_in, piece(c_out, 0, 0));
@@ -710,6 +727,16 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
   const uint32_t te = stamp();
 #endif
   acc_epi(c_out, bias);
+#ifdef KSP38  // timing build: over the tile's first output words (magic 'KS38')
+  {
+    uint32_t *w = (uint32_t *)c_out;
+    w[0] = 0x3833534Bu;
+    for (int i = 0; i < 5; i++) {
+      w[1 + i] = g_kc[i];
+      g_kc[i] = 0;
+    }
+  }
+#endif
 #ifdef PROF  // record: magic, cycles in mm_acc, calls, cycles acc_zero -> epilogue (k loop incl. waits), epilogue cycles
   const uint32_t t1 = stamp();
   uint32_t *w = (uint32_t *)c_out;

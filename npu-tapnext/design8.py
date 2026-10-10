@@ -620,6 +620,15 @@ def step8(
 
     def sequence(w, act, B_prods, C_conses):
         bufs = dict(w=w, act=act)
+        if "-DKSP38" in kdefs.replace(",", " ").split():  # round 18 (research rev 13 KS-P38): the bus + core events counted per cycle
+            from aie.dialects.aiex import npu_maskwrite32, npu_write32  # Performance_Control0 / 1: start = stop = the event
+
+            ev = [int(v) for v in os.environ.get("KSP38_EV", "23,26,1").split(",")]
+            for c in range(COLS):
+                for r in range(ROWS_G):
+                    npu_maskwrite32(address=0x32038, value=1, mask=1, column=c, row=2 + r)
+                    npu_write32(address=0x31500, value=ev[0] | ev[0] << 8 | ev[1] << 16 | ev[1] << 24, column=c, row=2 + r)
+                    npu_write32(address=0x31504, value=ev[2] | ev[2] << 8, column=c, row=2 + r)
         if "-DPROF" in kdefs.replace(",", " ").split():  # round 7 timing build: enable every GEMM core's processor bus
             from aie.dialects.aiex import npu_maskwrite32  # (Core_Processor_Bus 0x32038 bit 0) so read_tm does not hang
 
