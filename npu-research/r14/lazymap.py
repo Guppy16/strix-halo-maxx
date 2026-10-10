@@ -9,7 +9,7 @@ max on the CPU bf16 model's scores for the NPU's 1152 rows (column c = rows 144c
   move[rb]  = some row's max passed m_old + TAU (today's rescale; m moves to that row max).
 Chunk 22 (16 valid keys) always takes the slow path in the deployed driver (nkb < CB); chunk 23 has no keys (no K work).
 
-    docker run --rm -v ~/git/app/.scratch:/work npu-iron-torch /opt/ironenv/bin/python /work/npu-research/r14/lazymap.py 3
+    docker run --rm -v ~/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron-torch /opt/ironenv/bin/python /work/npu-research/r14/lazymap.py 3
 writes r14/lazymap.npz: flag, move (today) and pflag / pmove (policies x ..) [frames, 12 blocks, 12 heads, 8 cols, 3 tiles, 6 rb, 23 chunks] (uint8). CPU only, 4 threads.
 """
 import sys

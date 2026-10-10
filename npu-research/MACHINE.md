@@ -453,3 +453,31 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
 - **R11.10 [MEAS once, scope UNVERIFIED]** alu→alu at +1 inside a loop body read the old value (r14 attkb FO→FA). Peano does
   alu→alu at +1 outside loop bodies 1,258 times in r15m; deployed generated loops do alu→mv at +1 inside loop bodies.
 - **R11.11 [MODEL]** In-situ rescale_rb after RESCK ≈ 270 cycles per flagged row block (sim18 fit to the measured −0.29 ms).
+
+
+## Revision 12 additions (2026-10-10, from research pass 12)
+- **R12.1 [MODEL, fitted] EW ring port rates.** Input ring (shim → core packet flow, 768 B slots) ≈ **6.0 B/cycle** (5.75–6.25).
+  Output ring (core MM2S → shim S2MM → DDR, 768 B slots) ≈ **2.35 B/cycle** (2.3–2.45) = 4.3 GB/s per column. Fitted by
+  `tools/ewio.py` to four independent measurements (r15i, NRMK, N1K deltas; r15h n_in invariance; NPROF in_need 51 per unit). Not
+  yet measured directly: the EWO bench (slot size, drain TAP shape) decides whether the output rate is per-slot overhead
+  (~135 cycles per slot fits) or the shim / DDR write path.
+- **R12.2 [MODEL] Norm ops are output-port bound since NRMK.** Output floor 216 × 1,600 B / R_out = 81 µs per op; RMS ops
+  ~89–99 µs, LN ~94–105 µs; passes serialise against the 15 KB / 9 KB rings (pass 1 input only, pass 2 output only). Predicted
+  waits per unit at r16z: in_need 97 (n_in 3) / 7 (n_in 2); out_begin 147 (RMS) / 90 (LN).
+- **R12.3 [DOC tcall + MEAS] Static whole-call counts reproduce the EW ops.** r15h norm row blocks within 3 % of the timeline;
+  r15h → r15i −0.54 static vs −0.53; every SSM phase within one PROF stamp (~30). Per-op fixed cost ≈ 8 µs.
+- **R12.4 [DOC] EW L1 (r16z):** ewi0 0x7C000–0x7FBFF (bank 3); ewo0 0x71800–0x73BFF (bank 0, beside the stack 0x70000–0x717FF);
+  g_arena 0x74A00 (+0x5600), g_ptmp 0x7A040, g_nacc 0x7A480, g_panels 0x7A680, ssig_cd 0x7AC00, ssq_tab 0x7B880, ssqrt_ab
+  0x73C00, ssqrt_cd 0x7FC00. GEMM bank 0: stack, sgelu_ab 0x70A00, serf_ab 0x70E80, aexp_ab 0x71300, ks_tab 0x71800, acc_hi from
+  0x718C0; q_buf(t) = 0x748C0 + 3,456 t (bank 1).
+- **R12.5 [INF] Ring straddles:** the EW input ring is 15 × 1 KB; 1 KB unit streams straddle its end only when the op params
+  leave g_in_b off a 1 KB boundary (SSM 10,752 B per head → ~47 % of chunks copy one part, ~250 cycles).
+- **R12.6 [MEAS r16, linted] Dense 576-bit FIFO pops:** at most 8 per lf between fills (asmlint FIFO-POP9; fires on the first
+  ggk and popprobe 6; also on popprobes 2 / 3, whose round-16 verdict "correct" needs checking).
+- **R12.7 [INF, unverified] Twins with wrong outputs change downstream data-dependent work** (twin-4 saved 0.5 ms more than its
+  static compute): compare per-op walls, not the step.
+- **R12.8 [DOC] Per-call overheads in the deployed EW code (tcall, r16z):** out_copy 75 (16 vectors, no wrap) .. 247 (48,
+  wrapped); in_copy 76–248; cpy64 17 + 4 per 4 vectors; in_need 22–35, in_done 33–34, out_begin 23–31, out_end 31–32 (+ 6 for jl
+  + delay slots each); ln_stats 381, rms_rstd 263, rowsum8 63 per row-block call.
+- **R12.9 [MODEL] SSM DDR / port note:** 13 KB per chunk per column; output floor at R_out 2,614 cycles vs ~2,950 compute; X1
+  halves it.
