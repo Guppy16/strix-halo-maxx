@@ -75,7 +75,7 @@ fi
 # 1. builds (sequential), the same steps as bb.sh with the mount root in one variable
 for d in $DEPTHS; do
   n=full$d$NAME
-  run "docker run --rm --name try-build-$n $(envflags) -v $ROOT:/work npu-iron bash -c \"cd /work/$WS && python3 run8.py sched $n && DESIGN=design8 bash b.sh $n --sched /work/$WS/build/$n.sched $ARGS --kdefs=$K && python3 r11/stackaudit.py build/$n.prj\""
+  run "docker run --rm --name try-build-$n $(envflags) -v $ROOT:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron bash -c \"cd /work/$WS && python3 run8.py sched $n && DESIGN=design8 bash b.sh $n --sched /work/$WS/build/$n.sched $ARGS --kdefs=$K && python3 r11/stackaudit.py build/$n.prj\""
   if [ $PRINT = 0 ] && ! tail -1 "$B/$n.log" 2>/dev/null | grep -q "rc=0"; then
     echo "$NAME: BUILD FAILED ($n: $(tail -1 "$B/$n.log" 2>/dev/null)); see build/$n.log"; exit 1
   fi
@@ -84,14 +84,14 @@ done
 # 2. lint + program memory (CPU container, no device)
 SUM_LINT="lint skipped"
 if [ $LINT = 1 ]; then
-  run "docker run --rm --network none --name try-lint-$NAME -v $ROOT:/work npu-iron bash -c \"python3 /work/npu-research/tools/asmlint.py --prj /work/$WS/build/full12$NAME.prj --json > /work/$WS/build/$NAME.lint.json; P=/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin; for c in 0_2 0_5; do \\\$P/llvm-size -A /work/$WS/build/full12$NAME.prj/elfs_main_core_\\\$c/elfs_main_core_\\\$c.elf | awk '/^.text/{print \\\"text_\\\" \\\"'\\\$c'\\\" \\\" \\\" \\\$2}'; done > /work/$WS/build/$NAME.size\""
+  run "docker run --rm --network none --name try-lint-$NAME -v $ROOT:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron bash -c \"python3 /work/npu-research/tools/asmlint.py --prj /work/$WS/build/full12$NAME.prj --json > /work/$WS/build/$NAME.lint.json; P=/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin; for c in 0_2 0_5; do \\\$P/llvm-size -A /work/$WS/build/full12$NAME.prj/elfs_main_core_\\\$c/elfs_main_core_\\\$c.elf | awk '/^.text/{print \\\"text_\\\" \\\"'\\\$c'\\\" \\\" \\\" \\\$2}'; done > /work/$WS/build/$NAME.size\""
   if [ $PRINT = 0 ]; then
     SUM_LINT=$(python3 -c "import json,sys; j=json.load(open('$B/$NAME.lint.json')); c=j['counts']; f=[x for x in j['findings'] if x['severity']=='error'][:2]; print(f\"lint {c.get('error',0)} error / {c.get('warning',0)} warning\" + ''.join(f\"; {x['rule']} {x['func']}@{x['addr']:#x}\" for x in f))" 2>&1)
     SUM_LINT="$SUM_LINT; text $(tr '\n' ' ' < "$B/$NAME.size" | sed 's/text_0_2/GEMM/; s/text_0_5/EW/')(of 16384)"
   fi
 fi
 
-S8="docker run --rm --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $ROOT:/work -v $HOME/git/app:/repo:ro npu-iron-torch bash -c"
+S8="docker run --rm --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $ROOT:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx -v $HOME/git/app:/repo:ro npu-iron-torch bash -c"
 # 3. numerics: bit-level regress vs the round-9 reference (4 frames of clip30)
 SUM_REG="regress skipped"
 if [ $REGRESS = 1 ]; then

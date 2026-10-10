@@ -13,7 +13,7 @@ merged objects, generated .s files or `llvm-objdump -d -z` text. Nothing runs on
     asmlint.py --rules               the rule table: id, severity, status (verified / from the .td / unverified), source
 
 Needs Peano (llvm-objdump, clang, ld.lld) for .elf / .o / .s inputs: run it in the npu-iron container (CPU only):
-    docker run --rm --network none -v $HOME/git/app/.scratch:/work npu-iron python3 /work/npu-research/tools/asmlint.py ...
+    docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron python3 /work/npu-research/tools/asmlint.py ...
 A .dis input needs no toolchain (made with `llvm-objdump -d -z --no-show-raw-insn`; -z matters: without it runs of
 2-byte nops print as `...` and every distance is wrong).
 
