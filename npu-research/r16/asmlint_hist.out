@@ -1,0 +1,20 @@
+PASS  r11_g7.s               fires ['LAT-MV-BYPASS', 'PORT', 'STAGE-SIDE-EFFECT', 'ZOL-END-ALIGN']  | r11 GELU probe before the end-alignment rule (bodies ran ~once)
+PASS  r11_p2.s               fires ['LAT-MV-BYPASS', 'LAT-UNLANDED', 'PORT', 'STAGE-SIDE-EFFECT', 'ZOL-END-ALIGN']  | r11 GELU probe, same
+PASS  r11_t1.s               fires ['LAT-MV-BYPASS', 'LAT-UNLANDED', 'PORT', 'STAGE-SIDE-EFFECT']  | r11 first GELU_MS attempts: c + r >= c' + w timing (1 cycle optimistic), then the mv bypass
+PASS  cpy32_u2.s             fires ['ZOL-MIN-BODY', 'ZOL-SETUP-MARGIN']  | r12 gen_copy U 2: a 2-bundle body ran once
+PASS  bgelu_bg11_pad.s       fires ['PORT']  | r12 bgelu II 11: the .p2align pad shifted a prologue vlda's QEY_WA onto a body vfloor
+PASS  bgelu_bg13.s           fires ['STAGE-SIDE-EFFECT']  | r12 bgelu: x stored to its final place in an early stage (corrupted 4 vectors after every run)
+PASS  bgelu_bg12_good.s      fires -  | r12 bgelu fixed: x through a stack ring
+PASS  attk_b_p4push.s        fires ['ASSEMBLE', 'PUSH-P2']  | r13 fused K loop pushing on p4 (does not assemble)
+PASS  attk_klda_exq.s        fires ['EX-ALIAS', 'STAGE-SIDE-EFFECT']  | r13 fused K loop holding Q in ex0-7 beside x constants (garbage)
+PASS  attk_d_dmada.s         fires ['PORT', 'STAGE-SIDE-EFFECT']  | r13: lda p0, [sp] co-issued with vldb.4x64 (DM_ADA): Q pointer garbage from iteration 2
+PASS  attk_e_good.s          fires ['STAGE-SIDE-EFFECT']  | r13: the same loop with the scalar load moved
+PASS  attk_i_r0.s            fires ['ABI-R0', 'STAGE-SIDE-EFFECT']  | r13: int32_t attk(...) read its trip count from r0 (5 trips, or a hang)
+PASS  attk_r13f_good.s       fires ['STAGE-SIDE-EFFECT']  | r13 deployed attk (trip count copied from r1)
+PASS  attkb_b3_fa1.s         fires ['SCALAR-PLUS1']  | r14 attkb: the flag OR read r4 one cycle after it was written (missed the last iteration)
+PASS  attkb_r2_good.s        fires -  | r14 attkb fixed (FA at FO + 2)
+PASS  zero2_v1.s             fires ['ZOL-SETUP']  | r14 zero2 with six 2-byte nops after add.nc lc: ran once (RECONSTRUCTED)
+PASS  zero2_v2_good.s        fires -  | r14 zero2 deployed (six full-form nop bundles)
+PASS  nrm_ln_nosave.s        fires ['ABI-CALLEE-SAVED']  | r15 rule: p6 / p7 written without save / restore (RECONSTRUCTED from nrm_ln.s)
+PASS  full12r15m.prj: 0 error / warning findings (deployed: must be 0); 469 calib findings in Peano functions
+asmlint_hist: ALL PASS

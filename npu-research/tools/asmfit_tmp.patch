@@ -1,0 +1,59 @@
+diff -ru a/design8.py b/design8.py
+--- a/design8.py	2026-10-10 20:29:08.160095141 +0100
++++ b/design8.py	2026-10-10 20:30:07.524657157 +0100
+@@ -11,6 +11,7 @@
+ """
+ 
+ import argparse
++import fcntl
+ import json
+ import os
+ from pathlib import Path
+@@ -836,6 +837,11 @@
+     p.add_argument("--attn-keys", type=int, default=1072)
+     p.add_argument("--out", required=True)
+     o = p.parse_args()
++    # One design build at a time per build dir (held until exit): asm_object / ew_object write fixed names (build/mm8asm.o,
++    # ew8cpp.o, the generated <k>.s / <k>.h that mm8.cc includes as "build/<k>.h", asmfit's <k>_fit.s) that aiecc links
++    # later in this process; two builds in parallel raced on them ("the last body bundle is not 16 B aligned", round 13).
++    lock = open(HERE / "build" / ".design8.lock", "w")
++    fcntl.flock(lock, fcntl.LOCK_EX)
+     meta = json.loads(Path(o.sched + ".meta").read_text())
+     iron.set_current_device(NPU2())
+     kw = dict(sched_path=o.sched, w_words=meta["w_words"], act_words=meta["act_words"], pre_n=meta["pre_n"], body_n=meta["body_n"],
+diff -ru a/r12/asmfit.py b/r12/asmfit.py
+--- a/r12/asmfit.py	2026-10-10 20:29:08.161082284 +0100
++++ b/r12/asmfit.py	2026-10-10 20:30:07.524775240 +0100
+@@ -11,7 +11,9 @@
+ """
+ 
+ import re
++import shutil
+ import subprocess
++import tempfile
+ from pathlib import Path
+ 
+ B = "/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin"
+@@ -22,11 +24,17 @@
+ 
+ 
+ def body_offsets(text, name, work):
+-    s, o = Path(work) / f"{name}_fit.s", Path(work) / f"{name}_fit.o"
+-    s.write_text(text)
+-    subprocess.run([f"{B}/clang", "--target=aie2p-none-unknown-elf", "-c", str(s), "-o", str(o)], check=True)
+-    dis = subprocess.run([f"{B}/llvm-objdump", "-d", str(o)], capture_output=True, text=True, check=True).stdout
+-    syms = subprocess.run([f"{B}/llvm-objdump", "-t", str(o)], capture_output=True, text=True, check=True).stdout
++    # a private temp dir per call (benches and generators that run outside design8's build lock share work dirs too)
++    tmp = Path(tempfile.mkdtemp(prefix=f".{name}_fit_", dir=work))
++    try:
++        s, o = tmp / f"{name}_fit.s", tmp / f"{name}_fit.o"
++        s.write_text(text)
++        subprocess.run([f"{B}/clang", "--target=aie2p-none-unknown-elf", "-c", str(s), "-o", str(o)], check=True)
++        # -z: without it runs of 2-byte nops print as "..." and their bundle offsets are missing
++        dis = subprocess.run([f"{B}/llvm-objdump", "-d", "-z", str(o)], capture_output=True, text=True, check=True).stdout
++        syms = subprocess.run([f"{B}/llvm-objdump", "-t", str(o)], capture_output=True, text=True, check=True).stdout
++    finally:
++        shutil.rmtree(tmp, ignore_errors=True)
+     addr = {m.group(2): int(m.group(1), 16) for m in re.finditer(r"^([0-9a-f]+)\s.*\s(\S+)$", syms, re.M)}
+     start, last = addr[f"{name}_start"], addr[f"{name}_last"]
+     offs = [int(m.group(1), 16) for m in re.finditer(r"^\s*([0-9a-f]+):", dis, re.M)]

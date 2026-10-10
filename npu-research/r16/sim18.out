@@ -1,0 +1,11 @@
+S1 calibration: R = 270 cycles in situ reproduces the measured -0.29 ms (rev 10 assumed 200)
+ms per step vs r15m (P60g + S1 measured); kappa 0.5 / 0.6 / 0.7
+   -0.33 /  -0.38 /  -0.44  S2: running max on the stack, II 35 (B 268)
+   -0.24 /  -0.29 /  -0.34  S2 pessimistic: II 36 (B 275), T 100
+   -0.39 /  -0.45 /  -0.50  S2 optimistic: II 34 kept (B 261)
+   -0.37 /  -0.44 /  -0.50  + S3 test + rescale as one asm call (after S2 II 35)
+   -0.59 /  -0.65 /  -0.71  + V1 row sums folded into attv
+   -0.86 /  -0.92 /  -0.98  + K1 batched prep / flag scan in asm
+   -1.04 /  -1.11 /  -1.17  + K2 chunk 0 QK-only + test
+   -0.79 /  -0.93 /  -1.06  floor: no slow path at all (flags ignored), r15m costs
+rc=0

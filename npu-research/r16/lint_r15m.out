@@ -1,0 +1,544 @@
+ZOL mm_ks                        body 192 b 1520 B edges 16/16 | setup->ls  64 b  172 B | lc->ls  64 b  172 B | setup->le 255 b 1676 B peano
+ZOL attn_chunk_k                 body  17 b   96 B edges 16/16 | setup->ls   2 b   16 B | lc->ls   2 b   16 B | setup->le  18 b   96 B peano
+ZOL attn_chunk_k                 body  10 b   96 B edges 16/16 | setup->ls   2 b   16 B | lc->ls   4 b   38 B | setup->le  11 b   96 B peano
+ZOL attn_end                     body  32 b  128 B edges 16/16 | setup->ls   1 b    0 B | lc->ls   3 b   22 B | setup->le  32 b  112 B peano
+ZOL _ZL8bias_pcsPKfP8bfloat16PKS body  52 b  336 B edges 10/16 | setup->ls   1 b    0 B | lc->ls   1 b    0 B | setup->le  52 b  320 B peano
+ZOL gup                          body   6 b   80 B edges 16/16 | setup->ls  38 b  218 B | lc->ls  38 b  218 B | setup->le  43 b  282 B asm
+ZOL cpy32                        body   3 b   48 B edges 16/16 | setup->ls  15 b   48 B | lc->ls  15 b   48 B | setup->le  17 b   80 B asm
+ZOL pan                          body  16 b  128 B edges 16/16 | setup->ls  24 b   72 B | lc->ls  24 b   72 B | setup->le  39 b  184 B asm
+ZOL bgelu                        body  12 b  128 B edges 16/16 | setup->ls  80 b  448 B | lc->ls  80 b  448 B | setup->le  91 b  560 B asm
+ZOL attkb                        body  34 b  336 B edges 16/16 | setup->ls  76 b  376 B | lc->ls  76 b  376 B | setup->le 109 b  696 B asm
+ZOL attv                         body  21 b  224 B edges 16/16 | setup->ls  29 b  156 B | lc->ls  29 b  156 B | setup->le  49 b  364 B asm
+ZOL attvs                        body  18 b  144 B edges 16/16 | setup->ls  26 b  112 B | lc->ls  26 b  112 B | setup->le  43 b  240 B asm
+ZOL vtk                          body  13 b   96 B edges 16/16 | setup->ls  20 b   54 B | lc->ls  20 b   54 B | setup->le  32 b  134 B asm
+ZOL zero2                        body   3 b   48 B edges 16/16 | setup->ls   8 b  100 B | lc->ls   8 b  100 B | setup->le  10 b  132 B asm
+ZOL resc                         body   8 b   96 B edges 16/16 | setup->ls  25 b  108 B | lc->ls  25 b  108 B | setup->le  32 b  188 B asm
+ZOL _ZL11norm_rows_kPjS_iiN3aie6 body  23 b  160 B edges 12/16 | setup->ls   1 b    0 B | lc->ls  14 b  100 B | setup->le  23 b  144 B peano
+ZOL _ZL11norm_rows_kPjS_iiN3aie6 body   5 b   80 B edges 16/16 | setup->ls   3 b   32 B | lc->ls   3 b   32 B | setup->le   7 b   96 B peano
+ZOL _ZL11norm_rows_kPjS_iiN3aie6 body   4 b   64 B edges 16/16 | setup->ls   4 b   48 B | lc->ls   4 b   48 B | setup->le   7 b   96 B peano
+ZOL ew_ssm                       body  13 b  112 B edges 16/16 | setup->ls   1 b    0 B | lc->ls   1 b    0 B | setup->le  13 b   96 B peano
+ZOL ew_ssm                       body  27 b  112 B edges 12/16 | setup->ls   4 b   14 B | lc->ls  22 b  100 B | setup->le  30 b  110 B peano
+ZOL _ZL9gate_gemmPK9bfp16ebs8S1_ body  57 b  304 B edges 10/16 | setup->ls   2 b   14 B | lc->ls   2 b   14 B | setup->le  58 b  302 B peano
+ZOL _ZN4ssm9L10sqrt_lut_nEP8bflo body  54 b  320 B edges 16/16 | setup->ls   2 b    4 B | lc->ls  67 b  400 B | setup->le  55 b  308 B peano
+ZOL sigk                         body  24 b  192 B edges 16/16 | setup->ls   8 b   26 B | lc->ls   8 b   26 B | setup->le  31 b  202 B asm
+ZOL ssx                          body  20 b  208 B edges 16/16 | setup->ls 128 b  694 B | lc->ls 128 b  694 B | setup->le 147 b  886 B asm
+ZOL convk                        body  20 b  192 B edges 16/16 | setup->ls  48 b  286 B | lc->ls  48 b  286 B | setup->le  67 b  462 B asm
+ZOL reck                         body  44 b  384 B edges 16/16 | setup->ls  56 b  328 B | lc->ls  56 b  328 B | setup->le  99 b  696 B asm
+ZOL nrm_rms                      body  18 b  176 B edges 16/16 | setup->ls  28 b  110 B | lc->ls  28 b  110 B | setup->le  45 b  270 B asm
+ZOL nrm_ln                       body  26 b  304 B edges 16/16 | setup->ls  41 b  272 B | lc->ls  41 b  272 B | setup->le  66 b  560 B asm
+ZOL cpy64                        body   4 b   64 B edges 16/16 | setup->ls   8 b  112 B | lc->ls   8 b  112 B | setup->le  11 b  160 B asm
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:_ZL6bgelu3P8bfloat16PKS_bS0_S0_@0x2436  'movs	p1, r10' reads r10 6 cycle(s) after 'lda' (0x2418, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:_ZL6bgelu3P8bfloat16PKS_bS0_S0_@0x2440  'mov	p3, r9' reads r9 6 cycle(s) after 'lda' (0x241c, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:_ZL6bgelu3P8bfloat16PKS_bS0_S0_@0x2444  'mov	p2, r8' reads r8 6 cycle(s) after 'lda' (0x2420, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:_ZL6bgelu3P8bfloat16PKS_bS0_S0_@0x2448  'padda	 [p7], m1' reads p7 5 cycle(s) after 'lda' (0x2428, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:_ZL6bgelu3P8bfloat16PKS_bS0_S0_@0x244e  'paddb	 [p6], m0' reads p6 5 cycle(s) after 'lda' (0x242c, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2502  'vst	 bmll0, [sp, #-0x100]' reads bmll0 2 cycle(s) after 'vmac.f' (0x24f4, latency 6): it sees the older 0x24da ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2506  'vst	 bmlh0, [sp, #-0xc0]' reads bmlh0 3 cycle(s) after 'vmac.f' (0x24f4, latency 6): it sees the older 0x24da ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2510  'vst	 bmhl0, [sp, #-0x80]' reads bmhl0 4 cycle(s) after 'vmac.f' (0x24f4, latency 6): it sees the older 0x24da ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2516  'vst	 bmhh0, [sp, #-0x40]' reads bmhh0 5 cycle(s) after 'vmac.f' (0x24f4, latency 6): it sees the older 0x24da ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x253a  'vst.conv.bf16.fp32	 cml0, [p1], m1' reads cml0 1 cycle(s) after 'vmac.f' (0x2530, latency 6): it sees the older 0x24f4 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2540  'vst.conv.bf16.fp32	 cml2, [p1], m0' reads cml2 2 cycle(s) after 'vlda' (0x2530, latency 7): it sees the older 0x24ec ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2546  'vst.conv.bf16.fp32	 cml3, [p1], m1' reads cml3 1 cycle(s) after 'vlda' (0x2540, latency 7): it sees the older 0x24f8 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x254c  'vst.conv.bf16.fp32	 cml1, [p1], m0' reads cml1 6 cycle(s) after 'vlda' (0x2528, latency 7): it sees the older 0x2506 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x255e  'vst	 bmll0, [sp, #-0x100]' reads bmll0 2 cycle(s) after 'vmac.f' (0x254c, latency 6): it sees the older 0x2530 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2562  'vst	 bmlh0, [sp, #-0xc0]' reads bmlh0 3 cycle(s) after 'vmac.f' (0x254c, latency 6): it sees the older 0x2530 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x256c  'vst	 bmhl0, [sp, #-0x80]' reads bmhl0 4 cycle(s) after 'vmac.f' (0x254c, latency 6): it sees the older 0x2530 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2574  'vst	 bmhh0, [sp, #-0x40]' reads bmhh0 5 cycle(s) after 'vmac.f' (0x254c, latency 6): it sees the older 0x2530 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2574  'vmac.f	dm1, dm4, x4, x5, r0' reads dm4 2 cycle(s) after 'vlda' (0x2562, latency 7): it sees the older 0x254c ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x259e  'vst.conv.bf16.fp32	 cml0, [p1], m0' reads cml0 1 cycle(s) after 'vmac.f' (0x2594, latency 6): it sees the older 0x254c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x25a4  'vst.conv.bf16.fp32	 cml2, [p1], m1' reads cml2 2 cycle(s) after 'vlda' (0x2594, latency 7): it sees the older 0x2556 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x25ac  'vst.conv.bf16.fp32	 cml3, [p1], m0' reads cml3 1 cycle(s) after 'vlda' (0x25a4, latency 7): it sees the older 0x2562 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x25b6  'vst.conv.bf16.fp32	 cml1, [p1], m1' reads cml1 1 cycle(s) after 'vmac.f' (0x25ac, latency 6): it sees the older 0x2574 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x25da  'vst	 bmll1, [sp, #-0x200]' reads bmll1 2 cycle(s) after 'vlda' (0x25ca, latency 7): it sees the older 0x25ac ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x25e4  'vst	 bmlh1, [sp, #-0x1c0]' reads bmlh1 2 cycle(s) after 'vlda' (0x25d4, latency 7): it sees the older 0x25ac ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2606  'vst.conv.bf16.fp32	 cml1, [p1], m0' reads cml1 5 cycle(s) after 'vlda' (0x25e4, latency 7): it sees the older 0x25ca ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2620  'vst.conv.bf16.fp32	 cml1, [p1], m1' reads cml1 1 cycle(s) after 'vlda' (0x261a, latency 7): it sees the older 0x25e4 ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2638  'vst.conv.bf16.fp32	 cml0, [p1], m3' reads cml0 6 cycle(s) after 'vlda' (0x2610, latency 7): it sees the older 0x25f4 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x265a  'vst	 bmll0, [sp, #-0x100]' reads bmll0 2 cycle(s) after 'vmac.f' (0x2652, latency 6): it sees the older 0x2638 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x265e  'vst	 bmlh0, [sp, #-0xc0]' reads bmlh0 3 cycle(s) after 'vmac.f' (0x2652, latency 6): it sees the older 0x2638 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2668  'vst	 bmhl0, [sp, #-0x80]' reads bmhl0 4 cycle(s) after 'vmac.f' (0x2652, latency 6): it sees the older 0x2638 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x266e  'vst	 bmhh0, [sp, #-0x40]' reads bmhh0 5 cycle(s) after 'vmac.f' (0x2652, latency 6): it sees the older 0x2638 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2692  'vst.conv.bf16.fp32	 cml0, [p1], m1' reads cml0 1 cycle(s) after 'vmac.f' (0x2688, latency 6): it sees the older 0x2652 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2698  'vst.conv.bf16.fp32	 cml2, [p1], m0' reads cml2 2 cycle(s) after 'vlda' (0x2688, latency 7): it sees the older 0x264a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x269e  'vst.conv.bf16.fp32	 cml3, [p1], m1' reads cml3 1 cycle(s) after 'vlda' (0x2698, latency 7): it sees the older 0x2656 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26a4  'vst.conv.bf16.fp32	 cml1, [p1], m0' reads cml1 6 cycle(s) after 'vlda' (0x2680, latency 7): it sees the older 0x265e ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26b6  'vst	 bmll0, [sp, #-0x100]' reads bmll0 2 cycle(s) after 'vmac.f' (0x26a4, latency 6): it sees the older 0x2688 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26ba  'vst	 bmlh0, [sp, #-0xc0]' reads bmlh0 3 cycle(s) after 'vmac.f' (0x26a4, latency 6): it sees the older 0x2688 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26c4  'vst	 bmhl0, [sp, #-0x80]' reads bmhl0 4 cycle(s) after 'vmac.f' (0x26a4, latency 6): it sees the older 0x2688 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26ca  'vst	 bmhh0, [sp, #-0x40]' reads bmhh0 5 cycle(s) after 'vmac.f' (0x26a4, latency 6): it sees the older 0x2688 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26ca  'vmac.f	dm1, dm4, x4, x5, r0' reads dm4 2 cycle(s) after 'vlda' (0x26ba, latency 7): it sees the older 0x26a4 ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26f2  'vst.conv.bf16.fp32	 cml0, [p1], m0' reads cml0 1 cycle(s) after 'vmac.f' (0x26e8, latency 6): it sees the older 0x26a4 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26f8  'vst.conv.bf16.fp32	 cml2, [p1], m1' reads cml2 2 cycle(s) after 'vlda' (0x26e8, latency 7): it sees the older 0x26ae ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x26fe  'vst.conv.bf16.fp32	 cml3, [p1], m0' reads cml3 1 cycle(s) after 'vlda' (0x26f8, latency 7): it sees the older 0x26ba ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2708  'vst.conv.bf16.fp32	 cml1, [p1], m1' reads cml1 1 cycle(s) after 'vmac.f' (0x26fe, latency 6): it sees the older 0x26ca ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x272c  'vst	 bmll1, [sp, #-0x200]' reads bmll1 2 cycle(s) after 'vlda' (0x271c, latency 7): it sees the older 0x26fe ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2736  'vst	 bmlh1, [sp, #-0x1c0]' reads bmlh1 2 cycle(s) after 'vlda' (0x2726, latency 7): it sees the older 0x26fe ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:_ZL8bias_pcsPKfP8bfloat16PKS1_ii@0x2750  'vst.conv.bf16.fp32	 cml1, [p1], m0' reads cml1 5 cycle(s) after 'vlda' (0x2736, latency 7): it sees the older 0x271c ('vlda')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:_ZN2atL10rescale_rbEiiN3aie6vectorI8bfloat16Lj16EEE@0x2d08  'lshl	 r2, r1, r2' reads r1 1 cycle(s) after 'mac' (0x2d02, latency 2): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x27b2  'mov	r9, r1' reads r1 1 cycle(s) after 'mul' (0x27ac, latency 2): no write to it has landed yet
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x29da  'vmax_lt.bf16	 x8, r16, x10, x4' reads x4 one cycle before 'vmov' (0x29d6) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x29e2  'vmax_lt.bf16	 x6, r16, x6, x4' reads x4 one cycle before 'vmov' (0x29de) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x29f2  'vmov	wh8, wl6' reads wl6 one cycle before 'vmax_lt.bf16' (0x29ee) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x29fa  'vshift	x8, x8, x0, r1' reads x8 one cycle before 'vmov' (0x29f6) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x29fe  'vmax_lt.bf16	 x6, r16, x6, x8' reads x8 one cycle before 'vshift' (0x29fa) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x2a06  'vmax_lt.bf16	 x4, r16, x6, x4' reads x6 one cycle before 'vmax_lt.bf16' (0x29fe) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x2a0a  'vlt.bf16	 r16, x8, x4' reads x4 one cycle before 'vmax_lt.bf16' (0x2a06) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x2ac2  'vbor	 x0, x2, x0' reads x2 one cycle before 'vband' (0x2abe) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib@0x2ac6  'vmov	wh0, wl0' reads wl0 one cycle before 'vbor' (0x2ac2) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:__start@0x148  'st	 r2, [sp, #-60]' reads r2 6 cycle(s) after 'lda' (0x13a, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_2.elf:__start@0x148  'st	 r2, [sp, #-60]' reads r2 6 cycle(s) after 'lda' (0x13a, latency 7): it sees the older 0x10e ('add')
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_2.elf:__start@0x28e  'sel.nez	 r4, r8, r0, r27' reads r0 1 cycle(s) after 'lda' (0x288, latency 7): it sees the older 0x284 ('add')
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_2.elf:__start@0x7bc  'lt	 r27, r14, r0' reads r0 1 cycle(s) after 'lda' (0x7b6, latency 7): it sees the older 0x7b0 ('add')
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_2.elf:__start@0x7c2  'sel.nez	 r2, r11, r0, r27' reads r0 2 cycle(s) after 'lda' (0x7b6, latency 7): it sees the older 0x7b0 ('add')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x13d2  'padda	 [p7], m0' reads p7 5 cycle(s) after 'lda' (0x13ba, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x13d2  'paddb	 [p6], m0' reads p6 4 cycle(s) after 'lda' (0x13be, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_2.elf:acc_epilogue@0x13d2  'padda	 [p7], m0' reads p7 5 cycle(s) after 'lda' (0x13ba, latency 7): it sees the older 0x1356 ('mov')
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_2.elf:acc_epilogue@0x13d2  'paddb	 [p6], m0' reads p6 4 cycle(s) after 'lda' (0x13be, latency 7): it sees the older 0x134e ('movs')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x150c  'mov	p0, r14' reads r14 6 cycle(s) after 'lda' (0x14f4, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x1528  'paddb	 [p7], m0' reads p7 5 cycle(s) after 'lda' (0x1516, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x1688  'mov	m1, r9' reads r9 6 cycle(s) after 'lda' (0x1668, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x168c  'mov	r1, r8' reads r8 6 cycle(s) after 'lda' (0x166c, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x1690  'padda	 [p7], m0' reads p7 5 cycle(s) after 'lda' (0x1674, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_epilogue@0x169a  'paddb	 [p6], m1' reads p6 5 cycle(s) after 'lda' (0x1678, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_zero@0xfb4  'st	 r8, [p6, #0]' reads r8 5 cycle(s) after 'lda' (0xfa6, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:acc_zero@0xfb4  'st	 r8, [p6, #0]' reads p6 6 cycle(s) after 'lda' (0xfa2, latency 7): no write to it has landed yet
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:attn_chunk_k@0x1c16  'vband	 x0, x0, x4' reads x0 one cycle before 'vbneg_ltz.s32' (0x1c12) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:attn_chunk_k@0x1c1a  'vbor	 x0, x0, x2' reads x0 one cycle before 'vband' (0x1c16) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:attn_chunk_k@0x1c1e  'vmov	wh0, wl0' reads wl0 one cycle before 'vbor' (0x1c1a) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:attn_chunk_k@0x1c80  'vband	 x11, x9, x4' reads x9 one cycle before 'vbneg_ltz.s32' (0x1c7c) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:attn_chunk_k@0x1c84  'vbor	 x0, x11, x7' reads x11 one cycle before 'vband' (0x1c80) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_2.elf:attn_chunk_k@0x1c88  'vmov	wh0, wl0' reads wl0 one cycle before 'vbor' (0x1c84) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:attn_chunk_v@0x205c  'eq	 r27, r0, r9' reads r9 5 cycle(s) after 'lda' (0x2048, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:attn_chunk_v@0x2060  'sel.nez	 r0, r8, r0, r27' reads r8 5 cycle(s) after 'lda' (0x204c, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:attn_chunk_v@0x2064  'st	 r0, [p6, #0]' reads p6 5 cycle(s) after 'lda' (0x2050, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:attn_end@0x217a  'vconv.bf16.fp32	 x1, cml2' reads cml2 1 cycle(s) after 'vmsc.f' (0x2172, latency 6): it sees the older 0x2164 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:attn_end@0x2192  'vconv.bf16.fp32	 x9, cml1' reads cml1 1 cycle(s) after 'vmsc.f' (0x218e, latency 6): it sees the older 0x217e ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:attn_end@0x219e  'vmsc.f	dm3, dm1, x9, x5, r2' reads dm1 2 cycle(s) after 'vmul.f' (0x2192, latency 6): it sees the older 0x218e ('vmsc.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:attn_end@0x21b8  'vmac.f	dm2, dm2, x5, x3, r2' reads x3 1 cycle(s) after 'vconv.bf16.fp32' (0x21b4, latency 2): it sees the older 0x21b0 ('vconv.bf16.fp32')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:attn_end@0x21fe  'vconv.bf16.fp32	 x8, cml3' reads cml3 1 cycle(s) after 'vmsc.f' (0x21f4, latency 6): it sees the older 0x21dc ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:attn_end@0x2212  'vmsc.f	dm3, dm3, x10, x8, r2' reads x8 1 cycle(s) after 'vconv.bf16.fp32' (0x2208, latency 2): it sees the older 0x21fe ('vconv.bf16.fp32')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:attn_end@0x2244  'vmac.f	dm2, dm2, x5, x10, r2' reads x10 1 cycle(s) after 'vconv.bf16.fp32' (0x2240, latency 2): it sees the older 0x223c ('vconv.bf16.fp32')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x920  'vst	 bmhl0, [p4], #0x40' reads bmhl0 6 cycle(s) after 'vlda' (0x908, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x920  'vst	 bmhl0, [p4], #0x40' reads bmhl0 5 cycle(s) after 'vlda' (0xeea, latency 7): it sees the older 0xed2 ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x930  'vst	 bmhh0, [p4], #0x40' reads bmhh0 6 cycle(s) after 'vlda' (0x90c, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x930  'vst	 bmhh0, [p4], #0x40' reads bmhh0 5 cycle(s) after 'vlda' (0xef2, latency 7): it sees the older 0xed2 ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x938  'vst	 bmll1, [p4], #0x40' reads bmll1 6 cycle(s) after 'vlda' (0x910, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x938  'vst	 bmll1, [p4], #0x40' reads bmll1 5 cycle(s) after 'vlda' (0xef6, latency 7): it sees the older 0xeda ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x940  'vst	 bmlh1, [p4], #0x40' reads bmlh1 6 cycle(s) after 'vlda' (0x914, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x940  'vst	 bmlh1, [p4], #0x40' reads bmlh1 5 cycle(s) after 'vlda' (0xefa, latency 7): it sees the older 0xeda ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x948  'vst	 bmhl1, [p4], #0x40' reads bmhl1 6 cycle(s) after 'vlda' (0x918, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x948  'vst	 bmhl1, [p4], #0x40' reads bmhl1 5 cycle(s) after 'vlda' (0xf00, latency 7): it sees the older 0xeda ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x950  'vst	 bmhh1, [p4], #0x40' reads bmhh1 5 cycle(s) after 'vlda' (0x920, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x950  'vst	 bmhh1, [p4], #0x40' reads bmhh1 5 cycle(s) after 'vlda' (0x920, latency 7): it sees the older 0xeda ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x958  'vst	 bmll2, [p4], #0x40' reads bmll2 5 cycle(s) after 'vlda' (0x930, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x958  'vst	 bmll2, [p4], #0x40' reads bmll2 5 cycle(s) after 'vlda' (0x930, latency 7): it sees the older 0xee2 ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x960  'vst	 bmlh2, [p4], #0x40' reads bmlh2 5 cycle(s) after 'vlda' (0x938, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x960  'vst	 bmlh2, [p4], #0x40' reads bmlh2 5 cycle(s) after 'vlda' (0x938, latency 7): it sees the older 0xee2 ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x968  'vst	 bmhl2, [p4], #0x40' reads bmhl2 5 cycle(s) after 'vlda' (0x940, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x968  'vst	 bmhl2, [p4], #0x40' reads bmhl2 5 cycle(s) after 'vlda' (0x940, latency 7): it sees the older 0xee2 ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x970  'vst	 bmhh2, [p4], #0x40' reads bmhh2 5 cycle(s) after 'vlda' (0x948, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x970  'vmac.f	dm0, dm0, ex0, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0x950, latency 8): it sees the older 0x930 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x970  'vst	 bmhh2, [p4], #0x40' reads bmhh2 5 cycle(s) after 'vlda' (0x948, latency 7): it sees the older 0xee2 ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x97a  'vst	 bmll3, [p4], #0x40' reads bmll3 5 cycle(s) after 'vlda' (0x950, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x97a  'vmac.f	dm1, dm1, ex0, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0x958, latency 8): it sees the older 0x938 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x97a  'vst	 bmll3, [p4], #0x40' reads bmll3 5 cycle(s) after 'vlda' (0x950, latency 7): it sees the older 0xeea ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x984  'vst	 bmlh3, [p4], #0x40' reads bmlh3 5 cycle(s) after 'vlda' (0x958, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x984  'vmac.f	dm2, dm2, ex0, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0x960, latency 8): it sees the older 0x940 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x984  'vst	 bmlh3, [p4], #0x40' reads bmlh3 5 cycle(s) after 'vlda' (0x958, latency 7): it sees the older 0xeea ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x98e  'vst	 bmhl3, [p4], #0x40' reads bmhl3 5 cycle(s) after 'vlda' (0x960, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x98e  'vmac.f	dm3, dm3, ex0, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0x968, latency 8): it sees the older 0x948 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x98e  'vst	 bmhl3, [p4], #0x40' reads bmhl3 5 cycle(s) after 'vlda' (0x960, latency 7): it sees the older 0xeea ('vmac.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_2.elf:mm_ks@0x998  'vst	 bmhh3, [p4], #0x40' reads bmhh3 1 cycle(s) after 'vmac.f' (0x98e, latency 6): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x998  'vmac.f	dm0, dm0, ex1, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0x97a, latency 8): it sees the older 0x950 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x998  'vst	 bmhh3, [p4], #0x40' reads bmhh3 1 cycle(s) after 'vmac.f' (0x98e, latency 6): it sees the older 0xeea ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9a2  'vmac.f	dm1, dm1, ex1, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0x984, latency 8): it sees the older 0x958 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9ac  'vmac.f	dm2, dm2, ex1, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0x98e, latency 8): it sees the older 0x960 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9b6  'vmac.f	dm3, dm3, ex1, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0x998, latency 8): it sees the older 0x968 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9c2  'vmac.f	dm0, dm0, ex2, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0x9a2, latency 8): it sees the older 0x97a ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9ca  'vmac.f	dm1, dm1, ex2, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0x9ac, latency 8): it sees the older 0x984 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9d2  'vmac.f	dm2, dm2, ex2, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0x9b6, latency 8): it sees the older 0x98e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9da  'vmac.f	dm3, dm3, ex2, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0x9be, latency 8): it sees the older 0x998 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9e2  'vmac.f	dm0, dm0, ex3, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0x9ca, latency 8): it sees the older 0x9a2 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9ea  'vmac.f	dm1, dm1, ex3, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0x9d2, latency 8): it sees the older 0x9ac ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9f2  'vmac.f	dm2, dm2, ex3, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0x9da, latency 8): it sees the older 0x9b6 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0x9fa  'vmac.f	dm3, dm3, ex3, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0x9e2, latency 8): it sees the older 0x9be ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa06  'vmac.f	dm0, dm0, ex4, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0x9ea, latency 8): it sees the older 0x9ca ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa0e  'vmac.f	dm1, dm1, ex4, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0x9f2, latency 8): it sees the older 0x9d2 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa16  'vmac.f	dm2, dm2, ex4, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0x9fa, latency 8): it sees the older 0x9da ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa1e  'vmac.f	dm3, dm3, ex4, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xa02, latency 8): it sees the older 0x9e2 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa26  'vmac.f	dm0, dm0, ex6, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xa0e, latency 8): it sees the older 0x9ea ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa2e  'vmac.f	dm1, dm1, ex6, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xa16, latency 8): it sees the older 0x9f2 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa36  'vmac.f	dm2, dm2, ex6, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xa1e, latency 8): it sees the older 0x9fa ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa3e  'vmac.f	dm3, dm3, ex6, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xa26, latency 8): it sees the older 0xa02 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa4a  'vmac.f	dm0, dm0, ex8, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xa2e, latency 8): it sees the older 0xa0e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa4e  'vmac.f	dm1, dm1, ex8, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xa36, latency 8): it sees the older 0xa16 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa52  'vmac.f	dm2, dm2, ex8, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xa3e, latency 8): it sees the older 0xa1e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa56  'vmac.f	dm3, dm3, ex8, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xa46, latency 8): it sees the older 0xa26 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa82  'vst	 bmll0, [p4], #0x40' reads bmll0 5 cycle(s) after 'vlda' (0xa62, latency 7): it sees the older 0xa5a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa88  'vst	 bmlh0, [p4], #0x40' reads bmlh0 5 cycle(s) after 'vlda' (0xa6a, latency 7): it sees the older 0xa5a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa8e  'vst	 bmhl0, [p4], #0x40' reads bmhl0 5 cycle(s) after 'vlda' (0xa72, latency 7): it sees the older 0xa5a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa96  'vst	 bmhh0, [p4], #0x40' reads bmhh0 5 cycle(s) after 'vlda' (0xa7a, latency 7): it sees the older 0xa5a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xa9e  'vst	 bmll1, [p4], #0x40' reads bmll1 5 cycle(s) after 'vlda' (0xa7e, latency 7): it sees the older 0xa62 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xaa6  'vst	 bmlh1, [p4], #0x40' reads bmlh1 5 cycle(s) after 'vlda' (0xa82, latency 7): it sees the older 0xa62 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xaae  'vst	 bmhl1, [p4], #0x40' reads bmhl1 5 cycle(s) after 'vlda' (0xa88, latency 7): it sees the older 0xa62 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xab6  'vst	 bmhh1, [p4], #0x40' reads bmhh1 5 cycle(s) after 'vlda' (0xa8e, latency 7): it sees the older 0xa62 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xabe  'vst	 bmll2, [p4], #0x40' reads bmll2 5 cycle(s) after 'vlda' (0xa96, latency 7): it sees the older 0xa6a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xac6  'vst	 bmlh2, [p4], #0x40' reads bmlh2 5 cycle(s) after 'vlda' (0xa9e, latency 7): it sees the older 0xa6a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xace  'vst	 bmhl2, [p4], #0x40' reads bmhl2 5 cycle(s) after 'vlda' (0xaa6, latency 7): it sees the older 0xa6a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xada  'vst	 bmhh2, [p4], #0x40' reads bmhh2 5 cycle(s) after 'vlda' (0xaae, latency 7): it sees the older 0xa6a ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xada  'vmac.f	dm0, dm0, ex0, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xab6, latency 8): it sees the older 0xa96 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xae6  'vst	 bmll3, [p4], #0x40' reads bmll3 5 cycle(s) after 'vlda' (0xab6, latency 7): it sees the older 0xa72 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xae6  'vmac.f	dm1, dm1, ex0, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xabe, latency 8): it sees the older 0xa9e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xaf2  'vst	 bmlh3, [p4], #0x40' reads bmlh3 5 cycle(s) after 'vlda' (0xabe, latency 7): it sees the older 0xa72 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xaf2  'vmac.f	dm2, dm2, ex0, ex9, r3' reads ex0 1 cycle(s) after 'vlda.pop.576' (0xae6, latency 8): it sees the older 0x8b0 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xaf2  'vmac.f	dm2, dm2, ex0, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xac6, latency 8): it sees the older 0xaa6 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xafe  'vst	 bmhl3, [p4], #0x40' reads bmhl3 5 cycle(s) after 'vlda' (0xac6, latency 7): it sees the older 0xa72 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xafe  'vmac.f	dm3, dm3, ex0, ex11, r3' reads ex0 2 cycle(s) after 'vlda.pop.576' (0xae6, latency 8): it sees the older 0x8b0 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xafe  'vmac.f	dm3, dm3, ex0, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xace, latency 8): it sees the older 0xaae ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb08  'vst	 bmhh3, [p4], #0x40' reads bmhh3 1 cycle(s) after 'vmac.f' (0xafe, latency 6): it sees the older 0xa72 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb08  'vmac.f	dm0, dm0, ex1, ex5, r3' reads ex1 2 cycle(s) after 'vlda.pop.576' (0xaf2, latency 8): it sees the older 0x8b4 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb08  'vmac.f	dm0, dm0, ex1, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xae6, latency 8): it sees the older 0xab6 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb12  'vmac.f	dm1, dm1, ex1, ex7, r3' reads ex1 3 cycle(s) after 'vlda.pop.576' (0xaf2, latency 8): it sees the older 0x8b4 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb12  'vmac.f	dm1, dm1, ex1, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xaf2, latency 8): it sees the older 0xabe ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb1e  'vmac.f	dm2, dm2, ex1, ex9, r3' reads ex1 4 cycle(s) after 'vlda.pop.576' (0xaf2, latency 8): it sees the older 0x8b4 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb1e  'vmac.f	dm2, dm2, ex1, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xafe, latency 8): it sees the older 0xac6 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb28  'vmac.f	dm3, dm3, ex1, ex11, r3' reads ex1 5 cycle(s) after 'vlda.pop.576' (0xaf2, latency 8): it sees the older 0x8b4 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb28  'vmac.f	dm3, dm3, ex1, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xb08, latency 8): it sees the older 0xace ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb34  'vmac.f	dm0, dm0, ex2, ex5, r3' reads ex2 4 cycle(s) after 'vlda.pop.576' (0xb12, latency 8): it sees the older 0x8bc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb34  'vmac.f	dm0, dm0, ex2, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xb12, latency 8): it sees the older 0xae6 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb3e  'vmac.f	dm1, dm1, ex2, ex7, r3' reads ex2 5 cycle(s) after 'vlda.pop.576' (0xb12, latency 8): it sees the older 0x8bc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb3e  'vmac.f	dm1, dm1, ex2, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xb1e, latency 8): it sees the older 0xaf2 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb46  'vmac.f	dm2, dm2, ex2, ex9, r3' reads ex2 6 cycle(s) after 'vlda.pop.576' (0xb12, latency 8): it sees the older 0x8bc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb46  'vmac.f	dm2, dm2, ex2, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xb28, latency 8): it sees the older 0xafe ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb4e  'vmac.f	dm3, dm3, ex2, ex11, r3' reads ex2 7 cycle(s) after 'vlda.pop.576' (0xb12, latency 8): it sees the older 0x8bc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb4e  'vmac.f	dm3, dm3, ex2, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xb30, latency 8): it sees the older 0xb08 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb56  'vmac.f	dm0, dm0, ex3, ex5, r3' reads ex3 4 cycle(s) after 'vlda.pop.576' (0xb34, latency 8): it sees the older 0x8c6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb56  'vmac.f	dm0, dm0, ex3, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xb3e, latency 8): it sees the older 0xb12 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb5e  'vmac.f	dm1, dm1, ex3, ex7, r3' reads ex3 5 cycle(s) after 'vlda.pop.576' (0xb34, latency 8): it sees the older 0x8c6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb5e  'vmac.f	dm1, dm1, ex3, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xb46, latency 8): it sees the older 0xb1e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb68  'vmac.f	dm2, dm2, ex3, ex9, r3' reads ex3 6 cycle(s) after 'vlda.pop.576' (0xb34, latency 8): it sees the older 0x8c6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb68  'vmac.f	dm2, dm2, ex3, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xb4e, latency 8): it sees the older 0xb28 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb70  'vmac.f	dm3, dm3, ex3, ex11, r3' reads ex3 7 cycle(s) after 'vlda.pop.576' (0xb34, latency 8): it sees the older 0x8c6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb70  'vmac.f	dm3, dm3, ex3, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xb56, latency 8): it sees the older 0xb30 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb7c  'vmac.f	dm0, dm0, ex4, ex5, r3' reads ex4 4 cycle(s) after 'vlda.pop.576' (0xb5e, latency 8): it sees the older 0x8d2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb7c  'vmac.f	dm0, dm0, ex4, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xb5e, latency 8): it sees the older 0xb3e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb86  'vmac.f	dm1, dm1, ex4, ex7, r3' reads ex4 5 cycle(s) after 'vlda.pop.576' (0xb5e, latency 8): it sees the older 0x8d2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb86  'vmac.f	dm1, dm1, ex4, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xb68, latency 8): it sees the older 0xb46 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb8e  'vmac.f	dm2, dm2, ex4, ex9, r3' reads ex4 6 cycle(s) after 'vlda.pop.576' (0xb5e, latency 8): it sees the older 0x8d2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb8e  'vmac.f	dm2, dm2, ex4, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xb70, latency 8): it sees the older 0xb4e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb96  'vmac.f	dm3, dm3, ex4, ex11, r3' reads ex4 7 cycle(s) after 'vlda.pop.576' (0xb5e, latency 8): it sees the older 0x8d2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb96  'vmac.f	dm3, dm3, ex4, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xb78, latency 8): it sees the older 0xb56 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb9e  'vmac.f	dm0, dm0, ex6, ex5, r3' reads ex6 4 cycle(s) after 'vlda.pop.576' (0xb7c, latency 8): it sees the older 0x8dc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xb9e  'vmac.f	dm0, dm0, ex6, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xb86, latency 8): it sees the older 0xb5e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xba6  'vmac.f	dm1, dm1, ex6, ex7, r3' reads ex6 5 cycle(s) after 'vlda.pop.576' (0xb7c, latency 8): it sees the older 0x8dc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xba6  'vmac.f	dm1, dm1, ex6, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xb8e, latency 8): it sees the older 0xb68 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbb0  'vmac.f	dm2, dm2, ex6, ex9, r3' reads ex6 6 cycle(s) after 'vlda.pop.576' (0xb7c, latency 8): it sees the older 0x8dc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbb0  'vmac.f	dm2, dm2, ex6, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xb96, latency 8): it sees the older 0xb70 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbb8  'vmac.f	dm3, dm3, ex6, ex11, r3' reads ex6 7 cycle(s) after 'vlda.pop.576' (0xb7c, latency 8): it sees the older 0x8dc ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbb8  'vmac.f	dm3, dm3, ex6, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xb9e, latency 8): it sees the older 0xb78 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbc6  'vmac.f	dm0, dm0, ex8, ex5, r3' reads ex8 4 cycle(s) after 'vlda.pop.576' (0xba6, latency 8): it sees the older 0x8e8 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbc6  'vmac.f	dm0, dm0, ex8, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xba6, latency 8): it sees the older 0xb86 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbd0  'vmac.f	dm1, dm1, ex8, ex7, r3' reads ex8 5 cycle(s) after 'vlda.pop.576' (0xba6, latency 8): it sees the older 0x8e8 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbd0  'vmac.f	dm1, dm1, ex8, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xbb0, latency 8): it sees the older 0xb8e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbd4  'vmac.f	dm2, dm2, ex8, ex9, r3' reads ex8 6 cycle(s) after 'vlda.pop.576' (0xba6, latency 8): it sees the older 0x8e8 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbd4  'vmac.f	dm2, dm2, ex8, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xbb8, latency 8): it sees the older 0xb96 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbd8  'vmac.f	dm3, dm3, ex8, ex11, r3' reads ex8 7 cycle(s) after 'vlda.pop.576' (0xba6, latency 8): it sees the older 0x8e8 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbd8  'vmac.f	dm3, dm3, ex8, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xbc0, latency 8): it sees the older 0xb9e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbdc  'vmac.f	dm0, dm0, ex10, ex5, r3' reads ex10 4 cycle(s) after 'vlda.pop.576' (0xbc6, latency 8): it sees the older 0x8f2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbe4  'vmac.f	dm1, dm1, ex10, ex7, r3' reads ex10 5 cycle(s) after 'vlda.pop.576' (0xbc6, latency 8): it sees the older 0x8f2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbec  'vmac.f	dm2, dm2, ex10, ex9, r3' reads ex10 6 cycle(s) after 'vlda.pop.576' (0xbc6, latency 8): it sees the older 0x8f2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xbf6  'vmac.f	dm3, dm3, ex10, ex11, r3' reads ex10 7 cycle(s) after 'vlda.pop.576' (0xbc6, latency 8): it sees the older 0x8f2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc06  'vst	 bmll0, [p4], #0x40' reads bmll0 5 cycle(s) after 'vlda' (0xbe4, latency 7): it sees the older 0xbdc ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc0c  'vst	 bmlh0, [p4], #0x40' reads bmlh0 5 cycle(s) after 'vlda' (0xbec, latency 7): it sees the older 0xbdc ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc12  'vst	 bmhl0, [p4], #0x40' reads bmhl0 5 cycle(s) after 'vlda' (0xbf6, latency 7): it sees the older 0xbdc ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc1a  'vst	 bmhh0, [p4], #0x40' reads bmhh0 5 cycle(s) after 'vlda' (0xbfe, latency 7): it sees the older 0xbdc ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc22  'vst	 bmll1, [p4], #0x40' reads bmll1 5 cycle(s) after 'vlda' (0xc02, latency 7): it sees the older 0xbe4 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc2a  'vst	 bmlh1, [p4], #0x40' reads bmlh1 5 cycle(s) after 'vlda' (0xc06, latency 7): it sees the older 0xbe4 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc32  'vst	 bmhl1, [p4], #0x40' reads bmhl1 5 cycle(s) after 'vlda' (0xc0c, latency 7): it sees the older 0xbe4 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc3a  'vst	 bmhh1, [p4], #0x40' reads bmhh1 5 cycle(s) after 'vlda' (0xc12, latency 7): it sees the older 0xbe4 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc42  'vst	 bmll2, [p4], #0x40' reads bmll2 5 cycle(s) after 'vlda' (0xc1a, latency 7): it sees the older 0xbec ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc4a  'vst	 bmlh2, [p4], #0x40' reads bmlh2 5 cycle(s) after 'vlda' (0xc22, latency 7): it sees the older 0xbec ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc52  'vst	 bmhl2, [p4], #0x40' reads bmhl2 5 cycle(s) after 'vlda' (0xc2a, latency 7): it sees the older 0xbec ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc5a  'vst	 bmhh2, [p4], #0x40' reads bmhh2 5 cycle(s) after 'vlda' (0xc32, latency 7): it sees the older 0xbec ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc5a  'vmac.f	dm0, dm0, ex0, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xc3a, latency 8): it sees the older 0xc1a ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc64  'vst	 bmll3, [p4], #0x40' reads bmll3 5 cycle(s) after 'vlda' (0xc3a, latency 7): it sees the older 0xbf6 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc64  'vmac.f	dm1, dm1, ex0, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xc42, latency 8): it sees the older 0xc22 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc6e  'vst	 bmlh3, [p4], #0x40' reads bmlh3 5 cycle(s) after 'vlda' (0xc42, latency 7): it sees the older 0xbf6 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc6e  'vmac.f	dm2, dm2, ex0, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xc4a, latency 8): it sees the older 0xc2a ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc78  'vst	 bmhl3, [p4], #0x40' reads bmhl3 5 cycle(s) after 'vlda' (0xc4a, latency 7): it sees the older 0xbf6 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc78  'vmac.f	dm3, dm3, ex0, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xc52, latency 8): it sees the older 0xc32 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc82  'vst	 bmhh3, [p4], #0x40' reads bmhh3 1 cycle(s) after 'vmac.f' (0xc78, latency 6): it sees the older 0xbf6 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc82  'vmac.f	dm0, dm0, ex1, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xc64, latency 8): it sees the older 0xc3a ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc8c  'vmac.f	dm1, dm1, ex1, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xc6e, latency 8): it sees the older 0xc42 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xc96  'vmac.f	dm2, dm2, ex1, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xc78, latency 8): it sees the older 0xc4a ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xca0  'vmac.f	dm3, dm3, ex1, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xc82, latency 8): it sees the older 0xc52 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcac  'vmac.f	dm0, dm0, ex2, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xc8c, latency 8): it sees the older 0xc64 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcb4  'vmac.f	dm1, dm1, ex2, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xc96, latency 8): it sees the older 0xc6e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcbc  'vmac.f	dm2, dm2, ex2, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xca0, latency 8): it sees the older 0xc78 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcc4  'vmac.f	dm3, dm3, ex2, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xca8, latency 8): it sees the older 0xc82 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xccc  'vmac.f	dm0, dm0, ex3, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xcb4, latency 8): it sees the older 0xc8c ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcd4  'vmac.f	dm1, dm1, ex3, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xcbc, latency 8): it sees the older 0xc96 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcdc  'vmac.f	dm2, dm2, ex3, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xcc4, latency 8): it sees the older 0xca0 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xce4  'vmac.f	dm3, dm3, ex3, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xccc, latency 8): it sees the older 0xca8 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcf0  'vmac.f	dm0, dm0, ex4, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xcd4, latency 8): it sees the older 0xcb4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xcf8  'vmac.f	dm1, dm1, ex4, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xcdc, latency 8): it sees the older 0xcbc ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd00  'vmac.f	dm2, dm2, ex4, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xce4, latency 8): it sees the older 0xcc4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd08  'vmac.f	dm3, dm3, ex4, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xcec, latency 8): it sees the older 0xccc ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd10  'vmac.f	dm0, dm0, ex6, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xcf8, latency 8): it sees the older 0xcd4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd18  'vmac.f	dm1, dm1, ex6, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xd00, latency 8): it sees the older 0xcdc ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd20  'vmac.f	dm2, dm2, ex6, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xd08, latency 8): it sees the older 0xce4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd28  'vmac.f	dm3, dm3, ex6, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xd10, latency 8): it sees the older 0xcec ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd34  'vmac.f	dm0, dm0, ex8, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xd18, latency 8): it sees the older 0xcf8 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd38  'vmac.f	dm1, dm1, ex8, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xd20, latency 8): it sees the older 0xd00 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd3c  'vmac.f	dm2, dm2, ex8, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xd28, latency 8): it sees the older 0xd08 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd44  'vmac.f	dm3, dm3, ex8, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xd30, latency 8): it sees the older 0xd10 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd74  'vst	 bmll0, [p4], #0x40' reads bmll0 5 cycle(s) after 'vlda' (0xd54, latency 7): it sees the older 0xd4c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd7a  'vst	 bmlh0, [p4], #0x40' reads bmlh0 5 cycle(s) after 'vlda' (0xd5c, latency 7): it sees the older 0xd4c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd80  'vst	 bmhl0, [p4], #0x40' reads bmhl0 5 cycle(s) after 'vlda' (0xd64, latency 7): it sees the older 0xd4c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd88  'vst	 bmhh0, [p4], #0x40' reads bmhh0 5 cycle(s) after 'vlda' (0xd6c, latency 7): it sees the older 0xd4c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd90  'vst	 bmll1, [p4], #0x40' reads bmll1 5 cycle(s) after 'vlda' (0xd70, latency 7): it sees the older 0xd54 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xd98  'vst	 bmlh1, [p4], #0x40' reads bmlh1 5 cycle(s) after 'vlda' (0xd74, latency 7): it sees the older 0xd54 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xda4  'vst	 bmhl1, [p4], #0x40' reads bmhl1 5 cycle(s) after 'vlda' (0xd7a, latency 7): it sees the older 0xd54 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdac  'vst	 bmhh1, [p4], #0x40' reads bmhh1 5 cycle(s) after 'vlda' (0xd80, latency 7): it sees the older 0xd54 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdb4  'vst	 bmll2, [p4], #0x40' reads bmll2 5 cycle(s) after 'vlda' (0xd88, latency 7): it sees the older 0xd5c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdbc  'vst	 bmlh2, [p4], #0x40' reads bmlh2 5 cycle(s) after 'vlda' (0xd90, latency 7): it sees the older 0xd5c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdc4  'vst	 bmhl2, [p4], #0x40' reads bmhl2 5 cycle(s) after 'vlda' (0xd98, latency 7): it sees the older 0xd5c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdd0  'vst	 bmhh2, [p4], #0x40' reads bmhh2 5 cycle(s) after 'vlda' (0xda4, latency 7): it sees the older 0xd5c ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdd0  'vmac.f	dm0, dm0, ex0, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xdac, latency 8): it sees the older 0xd88 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xddc  'vst	 bmll3, [p4], #0x40' reads bmll3 5 cycle(s) after 'vlda' (0xdac, latency 7): it sees the older 0xd64 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xddc  'vmac.f	dm1, dm1, ex0, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xdb4, latency 8): it sees the older 0xd90 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xde8  'vst	 bmlh3, [p4], #0x40' reads bmlh3 5 cycle(s) after 'vlda' (0xdb4, latency 7): it sees the older 0xd64 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xde8  'vmac.f	dm2, dm2, ex0, ex9, r3' reads ex0 1 cycle(s) after 'vlda.pop.576' (0xddc, latency 8): it sees the older 0xae6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xde8  'vmac.f	dm2, dm2, ex0, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xdbc, latency 8): it sees the older 0xd98 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdf4  'vst	 bmhl3, [p4], #0x40' reads bmhl3 5 cycle(s) after 'vlda' (0xdbc, latency 7): it sees the older 0xd64 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdf4  'vmac.f	dm3, dm3, ex0, ex11, r3' reads ex0 2 cycle(s) after 'vlda.pop.576' (0xddc, latency 8): it sees the older 0xae6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdf4  'vmac.f	dm3, dm3, ex0, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xdc4, latency 8): it sees the older 0xda4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdfe  'vst	 bmhh3, [p4], #0x40' reads bmhh3 1 cycle(s) after 'vmac.f' (0xdf4, latency 6): it sees the older 0xd64 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdfe  'vmac.f	dm0, dm0, ex1, ex5, r3' reads ex1 2 cycle(s) after 'vlda.pop.576' (0xde8, latency 8): it sees the older 0xaf2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xdfe  'vmac.f	dm0, dm0, ex1, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xddc, latency 8): it sees the older 0xdac ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe08  'vmac.f	dm1, dm1, ex1, ex7, r3' reads ex1 3 cycle(s) after 'vlda.pop.576' (0xde8, latency 8): it sees the older 0xaf2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe08  'vmac.f	dm1, dm1, ex1, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xde8, latency 8): it sees the older 0xdb4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe14  'vmac.f	dm2, dm2, ex1, ex9, r3' reads ex1 4 cycle(s) after 'vlda.pop.576' (0xde8, latency 8): it sees the older 0xaf2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe14  'vmac.f	dm2, dm2, ex1, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xdf4, latency 8): it sees the older 0xdbc ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe1e  'vmac.f	dm3, dm3, ex1, ex11, r3' reads ex1 5 cycle(s) after 'vlda.pop.576' (0xde8, latency 8): it sees the older 0xaf2 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe1e  'vmac.f	dm3, dm3, ex1, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xdfe, latency 8): it sees the older 0xdc4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe2a  'vmac.f	dm0, dm0, ex2, ex5, r3' reads ex2 4 cycle(s) after 'vlda.pop.576' (0xe08, latency 8): it sees the older 0xb12 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe2a  'vmac.f	dm0, dm0, ex2, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xe08, latency 8): it sees the older 0xddc ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe34  'vmac.f	dm1, dm1, ex2, ex7, r3' reads ex2 5 cycle(s) after 'vlda.pop.576' (0xe08, latency 8): it sees the older 0xb12 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe34  'vmac.f	dm1, dm1, ex2, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xe14, latency 8): it sees the older 0xde8 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe3c  'vmac.f	dm2, dm2, ex2, ex9, r3' reads ex2 6 cycle(s) after 'vlda.pop.576' (0xe08, latency 8): it sees the older 0xb12 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe3c  'vmac.f	dm2, dm2, ex2, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xe1e, latency 8): it sees the older 0xdf4 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe44  'vmac.f	dm3, dm3, ex2, ex11, r3' reads ex2 7 cycle(s) after 'vlda.pop.576' (0xe08, latency 8): it sees the older 0xb12 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe44  'vmac.f	dm3, dm3, ex2, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xe26, latency 8): it sees the older 0xdfe ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe4c  'vmac.f	dm0, dm0, ex3, ex5, r3' reads ex3 4 cycle(s) after 'vlda.pop.576' (0xe2a, latency 8): it sees the older 0xb34 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe4c  'vmac.f	dm0, dm0, ex3, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xe34, latency 8): it sees the older 0xe08 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe54  'vmac.f	dm1, dm1, ex3, ex7, r3' reads ex3 5 cycle(s) after 'vlda.pop.576' (0xe2a, latency 8): it sees the older 0xb34 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe54  'vmac.f	dm1, dm1, ex3, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xe3c, latency 8): it sees the older 0xe14 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe5e  'vmac.f	dm2, dm2, ex3, ex9, r3' reads ex3 6 cycle(s) after 'vlda.pop.576' (0xe2a, latency 8): it sees the older 0xb34 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe5e  'vmac.f	dm2, dm2, ex3, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xe44, latency 8): it sees the older 0xe1e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe66  'vmac.f	dm3, dm3, ex3, ex11, r3' reads ex3 7 cycle(s) after 'vlda.pop.576' (0xe2a, latency 8): it sees the older 0xb34 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe66  'vmac.f	dm3, dm3, ex3, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xe4c, latency 8): it sees the older 0xe26 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe72  'vmac.f	dm0, dm0, ex4, ex5, r3' reads ex4 4 cycle(s) after 'vlda.pop.576' (0xe54, latency 8): it sees the older 0xb5e ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe72  'vmac.f	dm0, dm0, ex4, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xe54, latency 8): it sees the older 0xe34 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe7c  'vmac.f	dm1, dm1, ex4, ex7, r3' reads ex4 5 cycle(s) after 'vlda.pop.576' (0xe54, latency 8): it sees the older 0xb5e ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe7c  'vmac.f	dm1, dm1, ex4, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xe5e, latency 8): it sees the older 0xe3c ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe84  'vmac.f	dm2, dm2, ex4, ex9, r3' reads ex4 6 cycle(s) after 'vlda.pop.576' (0xe54, latency 8): it sees the older 0xb5e ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe84  'vmac.f	dm2, dm2, ex4, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xe66, latency 8): it sees the older 0xe44 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe8c  'vmac.f	dm3, dm3, ex4, ex11, r3' reads ex4 7 cycle(s) after 'vlda.pop.576' (0xe54, latency 8): it sees the older 0xb5e ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe8c  'vmac.f	dm3, dm3, ex4, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xe6e, latency 8): it sees the older 0xe4c ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe94  'vmac.f	dm0, dm0, ex6, ex5, r3' reads ex6 4 cycle(s) after 'vlda.pop.576' (0xe72, latency 8): it sees the older 0xb7c ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe94  'vmac.f	dm0, dm0, ex6, ex5, r3' reads ex5 3 cycle(s) after 'vldb.pop.576' (0xe7c, latency 8): it sees the older 0xe54 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe9c  'vmac.f	dm1, dm1, ex6, ex7, r3' reads ex6 5 cycle(s) after 'vlda.pop.576' (0xe72, latency 8): it sees the older 0xb7c ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xe9c  'vmac.f	dm1, dm1, ex6, ex7, r3' reads ex7 3 cycle(s) after 'vldb.pop.576' (0xe84, latency 8): it sees the older 0xe5e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xea6  'vmac.f	dm2, dm2, ex6, ex9, r3' reads ex6 6 cycle(s) after 'vlda.pop.576' (0xe72, latency 8): it sees the older 0xb7c ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xea6  'vmac.f	dm2, dm2, ex6, ex9, r3' reads ex9 3 cycle(s) after 'vldb.pop.576' (0xe8c, latency 8): it sees the older 0xe66 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xeae  'vmac.f	dm3, dm3, ex6, ex11, r3' reads ex6 7 cycle(s) after 'vlda.pop.576' (0xe72, latency 8): it sees the older 0xb7c ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xeae  'vmac.f	dm3, dm3, ex6, ex11, r3' reads ex11 3 cycle(s) after 'vldb.pop.576' (0xe94, latency 8): it sees the older 0xe6e ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xebc  'vmac.f	dm0, dm0, ex8, ex5, r3' reads ex8 4 cycle(s) after 'vlda.pop.576' (0xe9c, latency 8): it sees the older 0xba6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xebc  'vmac.f	dm0, dm0, ex8, ex5, r3' reads ex5 4 cycle(s) after 'vldb.pop.576' (0xe9c, latency 8): it sees the older 0xe7c ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xec6  'vmac.f	dm1, dm1, ex8, ex7, r3' reads ex8 5 cycle(s) after 'vlda.pop.576' (0xe9c, latency 8): it sees the older 0xba6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xec6  'vmac.f	dm1, dm1, ex8, ex7, r3' reads ex7 4 cycle(s) after 'vldb.pop.576' (0xea6, latency 8): it sees the older 0xe84 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xeca  'vmac.f	dm2, dm2, ex8, ex9, r3' reads ex8 6 cycle(s) after 'vlda.pop.576' (0xe9c, latency 8): it sees the older 0xba6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xeca  'vmac.f	dm2, dm2, ex8, ex9, r3' reads ex9 4 cycle(s) after 'vldb.pop.576' (0xeae, latency 8): it sees the older 0xe8c ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xece  'vmac.f	dm3, dm3, ex8, ex11, r3' reads ex8 7 cycle(s) after 'vlda.pop.576' (0xe9c, latency 8): it sees the older 0xba6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xece  'vmac.f	dm3, dm3, ex8, ex11, r3' reads ex11 4 cycle(s) after 'vldb.pop.576' (0xeb6, latency 8): it sees the older 0xe94 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xed2  'vmac.f	dm0, dm0, ex10, ex5, r3' reads ex10 4 cycle(s) after 'vlda.pop.576' (0xebc, latency 8): it sees the older 0xbc6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xeda  'vmac.f	dm1, dm1, ex10, ex7, r3' reads ex10 5 cycle(s) after 'vlda.pop.576' (0xebc, latency 8): it sees the older 0xbc6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xee2  'vmac.f	dm2, dm2, ex10, ex9, r3' reads ex10 6 cycle(s) after 'vlda.pop.576' (0xebc, latency 8): it sees the older 0xbc6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xeea  'vmac.f	dm3, dm3, ex10, ex11, r3' reads ex10 7 cycle(s) after 'vlda.pop.576' (0xebc, latency 8): it sees the older 0xbc6 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xefa  'vst	 bmll0, [p4], #0x40' reads bmll0 5 cycle(s) after 'vlda' (0xeda, latency 7): it sees the older 0xed2 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xf00  'vst	 bmlh0, [p4], #0x40' reads bmlh0 5 cycle(s) after 'vlda' (0xee2, latency 7): it sees the older 0xed2 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xf10  'vst	 bmhl0, [p4], #0x40' reads bmhl0 5 cycle(s) after 'vlda' (0xeea, latency 7): it sees the older 0xed2 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xf14  'vst	 bmhh0, [p4], #0x40' reads bmhh0 5 cycle(s) after 'vlda' (0xef2, latency 7): it sees the older 0xed2 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xf18  'vst	 bmll1, [p4], #0x40' reads bmll1 5 cycle(s) after 'vlda' (0xef6, latency 7): it sees the older 0xeda ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xf1c  'vst	 bmlh1, [p4], #0x40' reads bmlh1 5 cycle(s) after 'vlda' (0xefa, latency 7): it sees the older 0xeda ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_2.elf:mm_ks@0xf20  'vst	 bmhl1, [p4], #0x40' reads bmhl1 5 cycle(s) after 'vlda' (0xf00, latency 7): it sees the older 0xeda ('vmac.f')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x1836  'vshift	x2, x2, x0, r3' reads x2 one cycle before 'vshift' (0x1832) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x183a  'vshift	x2, x2, x0, r3' reads x2 one cycle before 'vshift' (0x1836) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x183e  'vshift	x0, x2, x0, r3' reads x2 one cycle before 'vshift' (0x183a) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x1888  'vshift	x2, x2, x0, r3' reads x2 one cycle before 'vshift' (0x1884) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x188c  'vshift	x2, x2, x0, r3' reads x2 one cycle before 'vshift' (0x1888) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x1892  'vshift	x0, x2, x0, r3' reads x2 one cycle before 'vshift' (0x188c) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x18c0  'vshift	x2, x2, x0, r3' reads x2 one cycle before 'vshift' (0x18bc) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x18c4  'vshift	x2, x2, x0, r3' reads x2 one cycle before 'vshift' (0x18c0) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x18ca  'vshift	x0, x2, x0, r3' reads x2 one cycle before 'vshift' (0x18c4) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL10ssm_tablesv@0x1970  'paddb	 [p6], m1' reads p6 5 cycle(s) after 'lda' (0x1954, latency 7): no write to it has landed yet
+CALIB   SCALAR-PLUS1       elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x7ac  'add	 r6, r5, r14' reads r5 one cycle after 'add' (0x7a0) inside a zero-overhead loop body
+CALIB   SCALAR-PLUS1       elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x7b4  'sel.nez	 r5, r6, r5, r27' reads r27 one cycle after 'lt' (0x7b0) inside a zero-overhead loop body
+CALIB   SCALAR-PLUS1       elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x7be  'lt	 r27, r12, r6' reads r6 one cycle after 'add' (0x7b8) inside a zero-overhead loop body
+CALIB   SCALAR-PLUS1       elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x7ca  'sel.nez	 r5, r7, r6, r27' reads r7 one cycle after 'add' (0x7c4) inside a zero-overhead loop body
+CALIB   SCALAR-PLUS1       elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x7da  'add	 r5, r6, r14' reads r6 one cycle after 'add' (0x7d0) inside a zero-overhead loop body
+CALIB   SCALAR-PLUS1       elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x7ea  'sel.nez	 r5, r5, r6, r27' reads r27 one cycle after 'lt' (0x7e0) inside a zero-overhead loop body
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x930  'vmov	x8, x3' reads x3 2 cycle(s) after 'vldb' (0x910, latency 7): it sees the older 0x8ca ('vldb')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0x940  'vmov	x0, x1' reads x1 2 cycle(s) after 'vldb' (0x920, latency 7): it sees the older 0x8d4 ('vldb')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xb64  'vmul.f	dm1, x5, x5, r15' reads x5 3 cycle(s) after 'vldb' (0xb5a, latency 7): it sees the older 0xb4a ('vldb')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xb6c  'vmul.f	dm0, x3, x3, r15' reads x3 3 cycle(s) after 'vlda' (0xb5e, latency 7): it sees the older 0xb4e ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xb82  'vmov	cml4, cml1' reads cml1 3 cycle(s) after 'vmul.f' (0xb64, latency 6): it sees the older 0xb52 ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xb86  'vmov	cml2, cml1' reads cml1 4 cycle(s) after 'vmul.f' (0xb64, latency 6): it sees the older 0xb52 ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xb86  'vmul.f	dm1, x5, x5, r15' reads x5 3 cycle(s) after 'vldb' (0xb6c, latency 7): it sees the older 0xb5a ('vldb')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xb90  'vmul.f	dm0, x3, x3, r15' reads x3 3 cycle(s) after 'vlda' (0xb78, latency 7): it sees the older 0xb5e ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xba0  'vconv.bf16.fp32	 x1, cml1' reads cml1 2 cycle(s) after 'vmul.f' (0xb86, latency 6): it sees the older 0xb64 ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xbc0  'vconv.bf16.fp32	 x10, cml0' reads cml0 3 cycle(s) after 'vmul.f' (0xb90, latency 6): it sees the older 0xb6c ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xbc0  'vmul.f	dm1, x5, x5, r15' reads x5 3 cycle(s) after 'vldb' (0xb90, latency 7): it sees the older 0xb6c ('vldb')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xbd0  'vmul.f	dm0, x3, x3, r15' reads x3 3 cycle(s) after 'vlda' (0xba0, latency 7): it sees the older 0xb78 ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xbd0  'vmul.f	dm0, x3, x3, r15' reads x3 3 cycle(s) after 'vlda' (0xbe0, latency 7): it sees the older 0xba0 ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xbe0  'vconv.bf16.fp32	 x1, cml1' reads cml1 2 cycle(s) after 'vmul.f' (0xbc0, latency 6): it sees the older 0xb86 ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xbe0  'vconv.bf16.fp32	 x1, cml1' reads cml1 2 cycle(s) after 'vmul.f' (0xc00, latency 6): it sees the older 0xbc0 ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xc00  'vconv.bf16.fp32	 x10, cml0' reads cml0 3 cycle(s) after 'vmul.f' (0xbd0, latency 6): it sees the older 0xb90 ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xc00  'vmul.f	dm1, x5, x5, r15' reads x5 3 cycle(s) after 'vldb' (0xbd0, latency 7): it sees the older 0xb90 ('vldb')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xc10  'vmul.f	dm0, x3, x3, r15' reads x3 3 cycle(s) after 'vlda' (0xbe0, latency 7): it sees the older 0xba0 ('vlda')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xc1a  'vconv.bf16.fp32	 x1, cml1' reads cml1 2 cycle(s) after 'vmul.f' (0xc00, latency 6): it sees the older 0xbc0 ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xc26  'vconv.bf16.fp32	 x10, cml0' reads cml0 3 cycle(s) after 'vmul.f' (0xc10, latency 6): it sees the older 0xbd0 ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xc32  'vconv.bf16.fp32	 x1, cml1' reads cml1 2 cycle(s) after 'vmul.f' (0xc26, latency 6): it sees the older 0xc00 ('vmul.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xc3e  'vconv.bf16.fp32	 x10, cml0' reads cml0 3 cycle(s) after 'vmul.f' (0xc2e, latency 6): it sees the older 0xc10 ('vmul.f')
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_5.elf:_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEi@0xf08  'lshl	 r2, r8, r3' reads r3 3 cycle(s) after 'lda' (0xef4, latency 7): it sees the older 0xeee ('mova')
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL7in_copyPKjPvii@0x3ba  'movs	p0, p6' reads p6 6 cycle(s) after 'lda' (0x3a2, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL7in_copyPKjPvii@0x3c8  'lshl	 r0, r8, r0' reads r8 4 cycle(s) after 'lda' (0x3b2, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL7in_copyPKjPvii@0x3cc  'sub	 r0, r9, r8' reads r9 6 cycle(s) after 'lda' (0x3ae, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL7in_copyPKjPvii@0x3cc  'sub	 r0, r9, r8' reads r8 5 cycle(s) after 'lda' (0x3b2, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL7in_copyPKjPvii@0x3d2  'paddb	 [p7], m0' reads p7 5 cycle(s) after 'lda' (0x3b6, latency 7): no write to it has landed yet
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL7rowsum8N3aie5accumIu10__accfloatLj32EEE@0x25dc  'vshuffle	x4, x2, x0, r7' reads x2 one cycle before 'vmov' (0x25d6) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL7rowsum8N3aie5accumIu10__accfloatLj32EEE@0x25e8  'vshuffle	bmlh1, x4, x0, r7' reads x0 one cycle before 'vshuffle' (0x25e2) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL7rsqrt_iN3aie6vectorI8bfloat16Lj32EEES2_@0x294a  'vmul.f	dm0, x8, x10, r0' reads x8 1 cycle(s) after 'vbcst.16' (0x2946, latency 2): it sees the older 0x28fe ('vsub.16')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL8bias_tabPK8bfloat16PN3aie6vectorIS_Lj64EEE@0x100a  'vshift	x2, x2, x0, r2' reads x2 one cycle before 'vshift' (0x1006) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL8bias_tabPK8bfloat16PN3aie6vectorIS_Lj64EEE@0x100e  'vshift	x2, x2, x0, r2' reads x2 one cycle before 'vshift' (0x100a) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZL8bias_tabPK8bfloat16PN3aie6vectorIS_Lj64EEE@0x1018  'vshift	x0, x2, x0, r2' reads x2 one cycle before 'vshift' (0x100e) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_@0x2326  'vmov	bmll0, x6' reads x6 1 cycle(s) after 'vconv.bf16.fp32' (0x231e, latency 2): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_@0x2386  'vconv.bf16.fp32	 x4, cml1' reads cml1 1 cycle(s) after 'vmul.f' (0x237e, latency 6): it sees the older 0x2368 ('vmac.f')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_@0x238a  'vmac.f	dm0, dm2, x4, x8, r8' reads x4 1 cycle(s) after 'vconv.bf16.fp32' (0x2386, latency 2): it sees the older 0x237e ('vconv.bf16.fp32')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_@0x2398  'vconv.bf16.fp32	 x8, cml1' reads cml1 3 cycle(s) after 'vmul.f' (0x238e, latency 6): it sees the older 0x237e ('vmul.f')
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_@0x23e8  'vst	 x0, [sp, #-0xc0]' reads x0 1 cycle(s) after 'vbcst.16' (0x23e0, latency 2): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_@0x257c  'mov	p0, r10' reads r10 5 cycle(s) after 'lda' (0x2566, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8out_copyPjiPK8bfloat16i@0x208a  'movs	p1, p6' reads p6 6 cycle(s) after 'lda' (0x2072, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8out_copyPjiPK8bfloat16i@0x2098  'lshl	 r0, r9, r0' reads r9 5 cycle(s) after 'lda' (0x207e, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8out_copyPjiPK8bfloat16i@0x209c  'sub	 r0, r8, r9' reads r8 5 cycle(s) after 'lda' (0x2082, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8out_copyPjiPK8bfloat16i@0x209c  'sub	 r0, r8, r9' reads r9 6 cycle(s) after 'lda' (0x207e, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8out_copyPjiPK8bfloat16i@0x20a2  'paddb	 [p7], m0' reads p7 5 cycle(s) after 'lda' (0x2086, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:_ZL8rms_rstdN3aie5accumIu10__accfloatLj32EEENS_6vectorI8bfloat16Lj32EEE@0x2714  'vst.conv.bf16.fp32	 cml0, [p6, #0x0]' reads p6 5 cycle(s) after 'lda' (0x2706, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b0c  'vst	 x0, [sp, #-0x100]' reads x0 5 cycle(s) after 'vldb.pop.576' (0x1af8, latency 8): it sees the older 0x1af0 ('vldb.pop.576')
+CALIB   EX-ALIAS           elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b0c  'vst	 x0, [sp, #-0x100]' reads x0, but the value there is the pop into ex0 (0x1af0)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b1a  'st	 el0, [sp, #-192]' reads el0 1 cycle(s) after 'vldb.pop.576' (0x1b0c, latency 8): it sees the older 0x1af0 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b28  'st	 eh0, [sp, #-188]' reads eh0 2 cycle(s) after 'vldb.pop.576' (0x1b0c, latency 8): it sees the older 0x1af0 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b36  'vst	 x0, [sp, #-0x80]' reads x0 3 cycle(s) after 'vldb.pop.576' (0x1b0c, latency 8): it sees the older 0x1af8 ('vldb.pop.576')
+CALIB   EX-ALIAS           elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b36  'vst	 x0, [sp, #-0x80]' reads x0, but the value there is the pop into ex0 (0x1af8)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b44  'st	 el0, [sp, #-64]' reads el0 4 cycle(s) after 'vldb.pop.576' (0x1b0c, latency 8): it sees the older 0x1af8 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1b52  'st	 eh0, [sp, #-60]' reads eh0 5 cycle(s) after 'vldb.pop.576' (0x1b0c, latency 8): it sees the older 0x1af8 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1ba2  'vmul.f	dm0, ex8, ex9, r0' reads ex8 1 cycle(s) after 'vlda.pop.576' (0x1b9e, latency 8): it sees the older 0x1b6a ('vlda')
+CALIB   EX-ALIAS           elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1ba2  'vmul.f	dm0, ex8, ex9, r0' reads ex8, but the value there is 'vlda x8' (0x1b6a): ex8 aliases x8
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1ba2  'vmul.f	dm0, ex8, ex9, r0' reads ex9 2 cycle(s) after 'vldb.pop.576' (0x1b9a, latency 8): it sees the older 0x1b80 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1ba6  'vmul.f	dm1, ex8, ex6, r0' reads ex8 2 cycle(s) after 'vlda.pop.576' (0x1b9e, latency 8): it sees the older 0x1b6a ('vlda')
+CALIB   EX-ALIAS           elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1ba6  'vmul.f	dm1, ex8, ex6, r0' reads ex8, but the value there is 'vlda x8' (0x1b6a): ex8 aliases x8
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bb6  'vmac.f	dm2, dm0, ex8, ex7, r0' reads ex8 5 cycle(s) after 'vlda.pop.576' (0x1b9e, latency 8): it sees the older 0x1b8e ('vlda')
+CALIB   EX-ALIAS           elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bb6  'vmac.f	dm2, dm0, ex8, ex7, r0' reads ex8, but the value there is 'vlda x8' (0x1b8e): ex8 aliases x8
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bb6  'vmac.f	dm2, dm0, ex8, ex7, r0' reads ex7 2 cycle(s) after 'vlda.pop.576' (0x1bae, latency 8): it sees the older 0x1b88 ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bc2  'vmac.f	dm3, dm1, ex8, ex9, r0' reads ex8 1 cycle(s) after 'vlda.pop.576' (0x1bbe, latency 8): it sees the older 0x1b8e ('vlda')
+CALIB   EX-ALIAS           elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bc2  'vmac.f	dm3, dm1, ex8, ex9, r0' reads ex8, but the value there is 'vlda x8' (0x1b8e): ex8 aliases x8
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bc2  'vmac.f	dm3, dm1, ex8, ex9, r0' reads ex9 3 cycle(s) after 'vldb.pop.576' (0x1bb2, latency 8): it sees the older 0x1b9a ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bc6  'vmac.f	dm4, dm2, ex0, ex8, r0' reads ex8 2 cycle(s) after 'vlda.pop.576' (0x1bbe, latency 8): it sees the older 0x1b9e ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bd2  'vmac.f	dm3, dm3, ex0, ex6, r0' reads ex6 2 cycle(s) after 'vldb.pop.576' (0x1bc6, latency 8): it sees the older 0x1ba6 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bd6  'vmac.f	dm4, dm4, ex11, ex7, r0' reads ex7 2 cycle(s) after 'vldb.pop.576' (0x1bce, latency 8): it sees the older 0x1bae ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1be2  'vmac.f	dm3, dm3, ex11, ex9, r0' reads ex9 2 cycle(s) after 'vlda.pop.576' (0x1bd6, latency 8): it sees the older 0x1bb2 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1be6  'vmac.f	dm4, dm4, ex2, ex8, r0' reads ex8 2 cycle(s) after 'vlda.pop.576' (0x1bde, latency 8): it sees the older 0x1bbe ('vlda.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bf2  'vmac.f	dm3, dm3, ex2, ex6, r0' reads ex6 2 cycle(s) after 'vldb.pop.576' (0x1be6, latency 8): it sees the older 0x1bc6 ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1bf6  'vmac.f	dm4, dm4, ex10, ex7, r0' reads ex7 2 cycle(s) after 'vldb.pop.576' (0x1bee, latency 8): it sees the older 0x1bce ('vldb.pop.576')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_@0x1c00  'vmac.f	dm3, dm3, ex10, ex9, r0' reads ex9 2 cycle(s) after 'vldb.pop.576' (0x1bf6, latency 8): it sees the older 0x1bd6 ('vlda.pop.576')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1d02  'vmov	bmlh4, x0' reads x0 one cycle before 'vbcst.16' (0x1cfe) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1d0a  'vmov	bmhl0, x0' reads x0 one cycle before 'vbcst.16' (0x1d06) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1d18  'vmov	bmhl3, x0' reads x0 one cycle before 'vsel.32' (0x1d0e) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1d6c  'vmul.f	dm1, x10, x2, r7' reads x2 1 cycle(s) after 'vmov' (0x1d62, latency 2): it sees the older 0x1d52 ('vmov')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1d82  'vsrs.2x	x8, cmh1, s0, srssign1' reads cmh1 3 cycle(s) after 'vmul.f' (0x1d6c, latency 6): it sees the older 0x1d6c ('vups.2x')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1dc6  'vups.2x	cml0, x1, s0, upssign1' reads x1 one cycle before 'vband' (0x1dc0) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1de0  'vldb.4x16.lo	 wl9, wl5' reads wl5 1 cycle(s) after 'vldb.4x16.lo' (0x1dd6, latency 7): it sees the older 0x1dbc ('vadd.32')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1dea  'vldb.4x16.hi	 wh9, wl5' reads wl5 2 cycle(s) after 'vldb.4x16.lo' (0x1dd6, latency 7): it sees the older 0x1dbc ('vadd.32')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1df0  'vadd.32	 x0, x0, x2' reads x0 one cycle before 'vmov' (0x1dea) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1dfa  'vadd.16	 x9, x9, x4' reads x9 4 cycle(s) after 'vldb.4x16.lo' (0x1de0, latency 7): it sees the older 0x1de0 ('vsrs.2x')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1e24  'vshuffle	x3, x3, x5, r4' reads x5 one cycle before 'vshuffle' (0x1e18) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1e34  'vups.2x	cml0, x6, s0, upssign1' reads x6 one cycle before 'vmov' (0x1e30) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1e40  'vmin_ge.bf16	 x8, r16, x8, x10' reads x8 one cycle before 'vadd.16' (0x1e38) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1e5a  'vshuffle	x0, x0, x2, r4' reads x2 one cycle before 'vshuffle' (0x1e56) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1e5e  'vadd.16	 x0, x10, x0' reads x0 one cycle before 'vshuffle' (0x1e5a) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   SCALAR-PLUS1       elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1e80  'add	 r18, r18, r17' reads r18 one cycle after 'lshl' (0x1e70) inside a zero-overhead loop body
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1eb8  'vmul.f	dm1, x10, x2, r7' reads x2 1 cycle(s) after 'vmov' (0x1eb4, latency 2): it sees the older 0x1eaa ('vmov')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1ec8  'vsrs.2x	x8, cmh1, s0, srssign1' reads cmh1 3 cycle(s) after 'vmul.f' (0x1eb8, latency 6): it sees the older 0x1eb8 ('vups.2x')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f0a  'vups.2x	cml0, x1, s0, upssign1' reads x1 one cycle before 'vband' (0x1f04) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f24  'vldb.4x16.lo	 wl9, wl5' reads wl5 1 cycle(s) after 'vldb.4x16.lo' (0x1f1a, latency 7): it sees the older 0x1f00 ('vadd.32')
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f2e  'vldb.4x16.hi	 wh9, wl5' reads wl5 2 cycle(s) after 'vldb.4x16.lo' (0x1f1a, latency 7): it sees the older 0x1f00 ('vadd.32')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f34  'vadd.32	 x0, x0, x2' reads x0 one cycle before 'vmov' (0x1f2e) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-OLD-VECTOR     elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f3e  'vadd.16	 x9, x9, x4' reads x9 4 cycle(s) after 'vldb.4x16.lo' (0x1f24, latency 7): it sees the older 0x1f24 ('vsrs.2x')
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f62  'vshuffle	x3, x3, x5, r4' reads x5 one cycle before 'vshuffle' (0x1f58) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f72  'vups.2x	cml0, x6, s0, upssign1' reads x6 one cycle before 'vmov' (0x1f6e) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f7e  'vmin_ge.bf16	 x8, r16, x8, x10' reads x8 one cycle before 'vadd.16' (0x1f76) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f92  'vshuffle	x0, x0, x2, r4' reads x2 one cycle before 'vshuffle' (0x1f8e) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-MV-BYPASS      elfs_main_core_0_5.elf:_ZN4ssm9L10sqrt_lut_nEP8bfloat16i@0x1f96  'vadd.16	 x0, x10, x0' reads x0 one cycle before 'vshuffle' (0x1f92) lands: the mv bypass gives its NEW value (the .td says the old one)
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:ew_norm@0x23e  'movs	p0, p7' reads p7 6 cycle(s) after 'lda' (0x226, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:ew_norm@0x250  'mov	r2, r13' reads r13 6 cycle(s) after 'lda' (0x236, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:ew_norm@0x262  'eq	 r1, r8, r0' reads r8 4 cycle(s) after 'lda' (0x250, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:ew_norm@0x262  'mov	r0, r10' reads r10 5 cycle(s) after 'lda' (0x24c, latency 7): no write to it has landed yet
+CALIB   LAT-UNLANDED       elfs_main_core_0_5.elf:ew_ssm@0x1672  'movs	p1, p6' reads p6 6 cycle(s) after 'lda' (0x1650, latency 7): no write to it has landed yet
+CALIB   LAT-OLD-SCALAR     elfs_main_core_0_5.elf:ew_ssm@0x1672  'movs	p1, p6' reads p6 6 cycle(s) after 'lda' (0x1650, latency 7): it sees the older 0x12e8 ('mov')
+calib: Peano reads that the model calls early: producer (dst class) -> consumer (reg class): latency, read stage, distances used [count]
+  vldb.pop.576           e -> vmac.f                 e: lat 8 stage 1: min 2 [2, 3, 4] [472]
+  vlda.pop.576           e -> vmac.f                 e: lat 8 stage 1: min 1 [1, 2, 3, 4, 5, 6] [264]
+  vlda                   b -> vst                    b: lat 7 stage 1: min 2 [2, 5, 6] [262]
+  vmac.f                 d -> vst                    b: lat 6 stage 1: min 1 [1, 2, 3, 4, 5] [64]
+  vlda                   b -> vst.conv.bf16.fp32     c: lat 7 stage 1: min 1 [1, 2, 5, 6] [44]
+  vmul.f                 d -> vconv.bf16.fp32        c: lat 6 stage 1: min 1 [1, 2, 3] [38]
+  vldb                   x -> vmul.f                 x: lat 7 stage 1: min 3 [3] [36]
+  vlda                   x -> vmul.f                 x: lat 7 stage 1: min 3 [3] [36]
+  vmsc.f                 d -> vconv.bf16.fp32        c: lat 6 stage 1: min 1 [1] [18]
+  vmac.f                 d -> vst.conv.bf16.fp32     c: lat 6 stage 1: min 1 [1] [18]
+  lda                    r -> sel.nez                r: lat 7 stage 1: min 1 [1, 2, 5] [17]
+  vconv.bf16.fp32        x -> vmac.f                 x: lat 2 stage 1: min 1 [1] [13]
+  vldb                   x -> vmov                   x: lat 7 stage 1: min 2 [2] [12]
+  lda                    p -> paddb                  p: lat 7 stage 1: min 4 [4, 5] [9]
+  lda                    p -> movs                   p: lat 7 stage 1: min 6 [6] [9]
+  lda                    r -> mov                    r: lat 7 stage 1: min 5 [5, 6] [8]
+  vmul.f                 d -> vmov                   c: lat 6 stage 1: min 3 [3, 4] [8]
+  vldb.pop.576           e -> st                     e: lat 8 stage 1: min 1 [1, 2, 4, 5] [8]
+  vlda.pop.576           e -> vmul.f                 e: lat 8 stage 1: min 1 [1, 2] [8]
+  lda                    r -> lshl                   r: lat 7 stage 1: min 3 [3, 4, 5] [7]
+  lda                    r -> st                     r: lat 7 stage 1: min 5 [5, 6] [6]
+  vmul.f                 d -> vmsc.f                 d: lat 6 stage 4: min 2 [2] [6]
+  vconv.bf16.fp32        x -> vmsc.f                 x: lat 2 stage 1: min 1 [1] [6]
+  vlda                   b -> vmac.f                 d: lat 7 stage 4: min 2 [2] [6]
+  vmov                   x -> vmul.f                 x: lat 2 stage 1: min 1 [1] [6]
+  vmul.f                 d -> vsrs.2x                c: lat 6 stage 1: min 3 [3] [6]
+  vldb.4x16.lo           w -> vldb.4x16.lo           w: lat 7 stage 1: min 1 [1] [6]
+  vldb.4x16.lo           w -> vldb.4x16.hi           w: lat 7 stage 1: min 2 [2] [6]
+  vldb.4x16.lo           w -> vadd.16                x: lat 7 stage 1: min 4 [4] [6]
+  lda                    r -> lt                     r: lat 7 stage 1: min 1 [1] [5]
+  lda                    p -> padda                  p: lat 7 stage 1: min 5 [5] [5]
+  lda                    r -> sub                    r: lat 7 stage 1: min 5 [5, 6] [4]
+  vldb.pop.576           e -> vst                    x: lat 8 stage 1: min 3 [3, 5] [4]
+  vldb.pop.576           e -> vmul.f                 e: lat 8 stage 1: min 2 [2] [4]
+  lda                    p -> st                     p: lat 7 stage 1: min 5 [5, 6] [2]
+  lda                    r -> eq                     r: lat 7 stage 1: min 4 [4, 5] [2]
+  lda                    r -> movs                   r: lat 7 stage 1: min 6 [6] [1]
+  mul                    r -> mov                    r: lat 2 stage 1: min 1 [1] [1]
+  mac                    r -> lshl                   r: lat 2 stage 1: min 1 [1] [1]
+  vconv.bf16.fp32        x -> vmov                   x: lat 2 stage 1: min 1 [1] [1]
+  vbcst.16               x -> vst                    x: lat 2 stage 1: min 1 [1] [1]
+  lda                    p -> vst.conv.bf16.fp32     p: lat 7 stage 1: min 5 [5] [1]
+  vbcst.16               x -> vmul.f                 x: lat 2 stage 1: min 1 [1] [1]
+asmlint: 2 input(s): 0 error(s), 0 warning(s), 560 info, 469 calib (Peano functions)
+  unmatched mnemonics (latency 1 / no ports assumed): {'nop': 1}

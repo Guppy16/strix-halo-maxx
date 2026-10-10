@@ -1,0 +1,3376 @@
+
+/work/npu-tapnext/build/full12r15m.prj/elfs_main_core_0_2/elfs_main_core_0_2.elf:	file format elf32-aie
+
+Disassembly of section .text:
+
+00000000 <__start>:
+       0:      	jl	#0x3ed0
+       6:      	movxm	sp, #0x70000
+       c:      	nop	
+       e:      	nop	
+      10:      	nop	
+      12:      	nop	
+      14:      	nopa	;		nopb	;		nopm	;		nopv	
+
+00000020 <main>:
+      20:      	nopa	;		nopb	;		nops	;		paddxm	 [sp], #0x80;		nopv	
+      30:      	st	 r11, [sp, #-32];		nopb	;		nopx	
+      38:      	st	 r13, [sp, #-24]
+      3c:      	st	 r14, [sp, #-20]
+      40:      	st	 p6, [sp, #-12]
+      44:      	st	 p7, [sp, #-8]
+      48:      	st	 lr, [sp, #-48];		j	#0xc0
+      52:      	st	 r8, [sp, #-44]
+      56:      	mova	r4, #0x0;		st	 r9, [sp, #-40]
+      5c:      	mova	r11, #0x0;		st	 r10, [sp, #-36];		movx	r3, #0x0;		mov	r2, #0x0
+      68:      	mova	r13, #-0x1;		st	 r12, [sp, #-28];		movxm	p6, #0x7e300
+      74:      	mova	r14, #0x1;		st	 r15, [sp, #-16];		movxm	p7, #0x7d100
+
+00000080 <.LBB0_1>:
+      80:      	lda	 r2, [sp, #-56];		nopx	
+      86:      	nop	
+      88:      	lda	 r3, [sp, #-52]
+      8c:      	nop	
+      8e:      	nop	
+      90:      	nop	
+      92:      	movxm	r1, #0x7fffffff
+      98:      	add	r2, r2, #0x1
+      9c:      	ltu	 r0, r2, r14
+      a0:      	add	 r3, r3, r0
+      a4:      	xor	 r0, r2, r13
+      a8:      	xor	 r1, r3, r1
+      ac:      	or	 r0, r0, r1
+      b0:      	jz	 r0, #0x800
+      b6:      	nop	
+      b8:      	nop	
+      ba:      	nop	
+      bc:      	nop	
+      be:      	nop	
+
+000000c0 <.LBB0_2>:
+      c0:      	nopa	;		nopb	;		j	#0x120
+      cc:      	nop	
+      ce:      	nop	
+      d0:      	st	 r2, [sp, #-56]
+      d4:      	mova	r0, #0x0;		st	 r3, [sp, #-52]
+      da:      	mova	r2, #0x0;		st	 r0, [sp, #-64]
+
+000000e0 <.LBB0_3>:
+      e0:      	lda	 r2, [sp, #-60];		nopb	;		nopxm	;		nops	
+      ee:      	lda	 r27, [sp, #-64]
+      f2:      	nop	
+      f4:      	nop	
+      f6:      	nop	
+      f8:      	nop	
+      fa:      	movx	r0, #0xb
+      fe:      	ltu	 r0, r2, r0
+     102:      	sel.eqz	 r0, r0, r11, r27
+     106:      	jz	 r0, #0x80
+     10c:      	nop	
+     10e:      	add	r2, r2, #0x1
+     112:      	ltu	 r1, r2, r14
+     116:      	add	 r27, r27, r1
+     11a:      	lda	 r4, [sp, #-124];		st	 r27, [sp, #-64]
+
+00000120 <.LBB0_4>:
+     120:      	mova	r0, #0x2;		nopb	;		nops	;		movxm	p0, #0x7f500;		nopv	
+     130:      	nopa	;		lshl	 r0, r2, r0
+     136:      	mov	dj0, r0
+     13a:      	lda	 r2, [p0, dj0]
+     13e:      	nop	
+     140:      	nop	
+     142:      	nop	
+     144:      	nop	
+     146:      	nop	
+     148:      	st	 r2, [sp, #-60]
+     14c:      	st	 r0, [sp, #-92];		ge	 r0, r11, r2
+     152:      	jnz	 r0, #0x3a0
+     158:      	nop	
+     15a:      	nop	
+     15c:      	nop	
+     15e:      	nop	
+     160:      	nop	
+     162:      	movxm	p0, #0x77a00
+     168:      	lda	 r10, [p0, dj0];		movxm	p0, #0x77a40
+     172:      	lda	 r1, [p0, dj0]
+     176:      	nop	
+     178:      	nop	
+     17a:      	j	#0x1f0
+     180:      	mova	r0, #-0x1f
+     184:      	st	 r2, [sp, #-100];		ashl	 r3, r2, r0
+     18a:      	st	 r3, [sp, #-96];		ashl	 r12, r10, r0
+     190:      	st	 r1, [sp, #-116];		ashl	 r0, r1, r0
+     196:      	mova	r6, #0x0;		st	 r0, [sp, #-112];		movx	r5, #0x0
+
+000001a0 <.LBB0_6>:
+     1a0:      	lda	 r5, [sp, #-108];		nopb	;		nopxm	;		nops	
+     1ae:      	nop	
+     1b0:      	lda	 r6, [sp, #-104]
+     1b4:      	lda	 r2, [sp, #-100]
+     1b8:      	lda	 r3, [sp, #-96]
+     1bc:      	nop	
+     1be:      	nop	
+     1c0:      	add	r5, r5, #0x1
+     1c4:      	ltu	 r0, r5, r14
+     1c8:      	add	 r6, r6, r0
+     1cc:      	ltu	 r0, r5, r2
+     1d0:      	lt	 r1, r6, r3
+     1d4:      	eq	 r27, r6, r3
+     1d8:      	sel.nez	 r0, r0, r1, r27
+     1dc:      	jz	 r0, #0x3a0
+     1e2:      	nop	
+     1e4:      	rel	#0x33, r14
+     1e8:      	nop	
+     1ea:      	nop	
+     1ec:      	mova	r11, #0x0
+
+000001f0 <.LBB0_7>:
+     1f0:      	lda	 r0, [sp, #-116];		nopb	;		nops	;		nopxm	;		nopv	
+     200:      	nopx	
+     204:      	nop	
+     206:      	nop	
+     208:      	nop	
+     20a:      	st	 r6, [sp, #-104]
+     20e:      	st	 r5, [sp, #-108]
+     212:      	ge	 r0, r11, r0
+     216:      	jnz	 r0, #0x1a0
+     21c:      	nop	
+     21e:      	acq	#0x32, r13
+     222:      	nop	
+     224:      	nop	
+     226:      	nop	
+     228:      	j	#0x2c0
+     22e:      	nop	
+     230:      	nop	
+     232:      	nop	
+     234:      	nop	
+     236:      	mova	r8, #0x0;		movx	r5, #0x0;		mov	r3, #0x0
+
+00000240 <.LBB0_9>:
+     240:      	lda	 r11, [sp, #-124]
+     244:      	nop	
+     246:      	nop	
+     248:      	nop	
+     24a:      	nop	
+     24c:      	mova	r8, #0x0
+
+00000250 <.LBB0_10>:
+     250:      	jl	#0x1100
+     256:      	eq	 r27, r11, r14;		mov	r0, p6
+     25c:      	acq	#0x31, r13;		mov	r1, p7
+     262:      	movxm	p0, #0x78900
+     268:      	sel.nez	 r0, r0, r1, r27
+     26c:      	mov	p1, r0
+     270:      	lda	 r3, [sp, #-128];		nopxm	
+     27a:      	nop	
+     27c:      	lda	 r5, [sp, #-120]
+     280:      	lda	 r2, [sp, #-112]
+     284:      	add	r0, r11, #0x1
+     288:      	lda	 r0, [sp, #-116];		lt	 r27, r14, r0
+     28e:      	sel.nez	 r4, r8, r0, r27
+     292:      	add	r3, r3, #0x1
+     296:      	ltu	 r0, r3, r14
+     29a:      	add	 r5, r5, r0
+     29e:      	lt	 r1, r5, r2
+     2a2:      	eq	 r27, r5, r2
+     2a6:      	ltu	 r0, r3, r0
+     2aa:      	sel.nez	 r0, r0, r1, r27
+     2ae:      	jz	 r0, #0x1a0
+     2b4:      	nop	
+     2b6:      	rel	#0x30, r14
+     2ba:      	nop	
+     2bc:      	nop	
+     2be:      	nop	
+
+000002c0 <.LBB0_11>:
+     2c0:      	nopa	;		jl	#0xf60
+     2ca:      	nop	
+     2cc:      	st	 r5, [sp, #-120]
+     2d0:      	st	 r3, [sp, #-128]
+     2d4:      	st	 r4, [sp, #-124];		ge	 r9, r8, r10
+     2da:      	movxm	p0, #0x78900
+     2e0:      	nopa	;		nopb	;		nops	;		jnz	 r9, #0x240;		nopv	
+     2f0:      	nop	
+     2f2:      	nop	
+     2f4:      	nop	
+     2f6:      	nop	
+     2f8:      	nop	
+     2fa:      	lda	 r11, [sp, #-124]
+     2fe:      	nop	
+     300:      	nop	
+     302:      	nop	
+     304:      	nop	
+     306:      	mova	r15, #0x0
+     30a:      	movx	r8, #0x0;		mov	r9, #0x0
+
+00000310 <.LBB0_13>:
+     310:      	nopa	;		nopb	;		nops	;		eq	 r27, r11, r14;		mov	r0, p6;		nopv	
+     320:      	nopa	;		movxm	p0, #0x77b80
+     32a:      	movxm	p1, #0x78000
+     330:      	jl	#0xfc0
+     336:      	movxm	p2, #0x78480
+     33c:      	acq	#0x31, r13;		mov	r1, p7
+     342:      	movxm	p4, #0x78900
+     348:      	sel.nez	 r0, r0, r1, r27
+     34c:      	mov	p3, r0
+     350:      	nopa	;		add	r0, r11, #0x1;		nopm	
+     35a:      	add	r15, r15, #0x1
+     35e:      	lt	 r27, r14, r0
+     362:      	sel.nez	 r11, r8, r0, r27
+     366:      	ltu	 r0, r15, r14
+     36a:      	add	 r9, r9, r0
+     36e:      	ltu	 r0, r15, r10
+     372:      	lt	 r1, r9, r12
+     376:      	eq	 r27, r9, r12
+     37a:      	sel.nez	 r0, r0, r1, r27
+     37e:      	jnz	 r0, #0x310
+     384:      	nop	
+     386:      	rel	#0x30, r14
+     38a:      	nop	
+     38c:      	nop	
+     38e:      	nop	
+     390:      	j	#0x250
+     396:      	nop	
+     398:      	nop	
+     39a:      	nop	
+     39c:      	nop	
+     39e:      	nop	
+
+000003a0 <.LBB0_14>:
+     3a0:      	lda	 dj0, [sp, #-92];		nopx	
+     3a6:      	nop	
+     3a8:      	nop	
+     3aa:      	nop	
+     3ac:      	nop	
+     3ae:      	nop	
+     3b0:      	movxm	p0, #0x7f540
+     3b6:      	lda	 r2, [p0, dj0]
+     3ba:      	nop	
+     3bc:      	nop	
+     3be:      	nop	
+     3c0:      	nop	
+     3c2:      	nop	
+     3c4:      	nop	
+     3c6:      	ge	 r0, r11, r2
+     3ca:      	jnz	 r0, #0xe0
+     3d0:      	nop	
+     3d2:      	nop	
+     3d4:      	nop	
+     3d6:      	nop	
+     3d8:      	st	 r4, [sp, #-124]
+     3dc:      	j	#0x450
+     3e2:      	nop	
+     3e4:      	nop	
+     3e6:      	mova	r0, #-0x1f
+     3ea:      	mova	r4, #0x0;		st	 r2, [sp, #-72];		ashl	 r0, r2, r0
+     3f4:      	mova	r5, #0x0;		st	 r0, [sp, #-68];		movxm	p0, #0x77a80
+
+00000400 <.LBB0_16>:
+     400:      	lda	 r4, [sp, #-80];		nopb	;		nops	;		nopxm	;		nopv	
+     410:      	nopx	
+     414:      	lda	 r5, [sp, #-76]
+     418:      	lda	 r2, [sp, #-72]
+     41c:      	lda	 r3, [sp, #-68]
+     420:      	nop	
+     422:      	nop	
+     424:      	add	r4, r4, #0x1
+     428:      	ltu	 r0, r4, r14
+     42c:      	add	 r5, r5, r0
+     430:      	ltu	 r0, r4, r2
+     434:      	lt	 r1, r5, r3
+     438:      	eq	 r27, r5, r3
+     43c:      	sel.nez	 r0, r0, r1, r27
+     440:      	jz	 r0, #0xe0
+     446:      	nop	
+     448:      	nop	
+     44a:      	nop	
+     44c:      	nop	
+     44e:      	nop	
+
+00000450 <.LBB0_17>:
+     450:      	lda	 r2, [p0, #12];		nopb	;		nops	;		nopxm	;		nopv	
+     460:      	nopx	
+     464:      	nop	
+     466:      	nop	
+     468:      	nop	
+     46a:      	nop	
+     46c:      	nop	
+     46e:      	ge	 r0, r11, r2
+     472:      	jnz	 r0, #0x400
+     478:      	nop	
+     47a:      	nop	
+     47c:      	nop	
+     47e:      	st	 r5, [sp, #-76]
+     482:      	st	 r4, [sp, #-80]
+     486:      	lda	 r9, [p0, #0]
+     48a:      	nop	
+     48c:      	nop	
+     48e:      	nop	
+     490:      	j	#0x4f0
+     496:      	nop	
+     498:      	movx	r0, #-0x1f
+     49c:      	ashl	 r12, r9, r0
+     4a0:      	st	 r2, [sp, #-88];		ashl	 r0, r2, r0
+     4a6:      	mova	r4, #0x0;		st	 r0, [sp, #-84];		movx	r8, #0x0
+
+000004b0 <.LBB0_19>:
+     4b0:      	lda	 r4, [sp, #-92]
+     4b4:      	lda	 r2, [sp, #-88]
+     4b8:      	lda	 r3, [sp, #-84]
+     4bc:      	nop	
+     4be:      	nop	
+     4c0:      	add	r8, r8, #0x1
+     4c4:      	ltu	 r0, r8, r14
+     4c8:      	add	 r4, r4, r0
+     4cc:      	ltu	 r0, r8, r2
+     4d0:      	lt	 r1, r4, r3
+     4d4:      	eq	 r27, r4, r3
+     4d8:      	sel.nez	 r0, r0, r1, r27
+     4dc:      	jz	 r0, #0x400
+     4e2:      	nop	
+     4e4:      	nop	
+     4e6:      	nop	
+     4e8:      	nop	
+     4ea:      	movxm	p0, #0x77a80
+
+000004f0 <.LBB0_20>:
+     4f0:      	lda	 r2, [p0, #4];		nopxm	
+     4fa:      	nop	
+     4fc:      	nop	
+     4fe:      	nop	
+     500:      	nop	
+     502:      	nop	
+     504:      	nop	
+     506:      	ge	 r0, r11, r2
+     50a:      	jnz	 r0, #0x4b0
+     510:      	nop	
+     512:      	nop	
+     514:      	nop	
+     516:      	nop	
+     518:      	st	 r4, [sp, #-92]
+     51c:      	j	#0x5c0
+     522:      	mova	r0, #0x2
+     526:      	sub	 r0, r0, r8
+     52a:      	mova	r0, #-0x1f;		st	 r0, [sp, #-100]
+     530:      	st	 r2, [sp, #-104];		ashl	 r0, r2, r0
+     536:      	mova	r5, #0x0;		st	 r0, [sp, #-96];		movx	r4, #0x0
+
+00000540 <.LBB0_22>:
+     540:      	lda	 r2, [sp, #-124];		nopb	;		nopxm	
+     54c:      	nop	
+     54e:      	nop	
+
+00000550 <.LBB0_23>:
+     550:      	nopa	;		nopb	;		nops	;		jl	#0x2070;		nopv	
+     560:      	nop	
+     562:      	nop	
+     564:      	nop	
+     566:      	st	 r2, [sp, #-124]
+     56a:      	movxm	p0, #0x78900
+     570:      	lda	 r4, [sp, #-112];		nopb	;		nops	;		nopxm	;		nopv	
+     580:      	nop	
+     582:      	lda	 r5, [sp, #-108]
+     586:      	lda	 r2, [sp, #-104]
+     58a:      	lda	 r3, [sp, #-96]
+     58e:      	nop	
+     590:      	nop	
+     592:      	add	r4, r4, #0x1
+     596:      	ltu	 r0, r4, r14
+     59a:      	add	 r5, r5, r0
+     59e:      	ltu	 r0, r4, r2
+     5a2:      	lt	 r1, r5, r3
+     5a6:      	eq	 r27, r5, r3
+     5aa:      	sel.nez	 r0, r0, r1, r27
+     5ae:      	jz	 r0, #0x4b0
+     5b4:      	nop	
+     5b6:      	rel	#0x33, r14
+     5ba:      	nop	
+     5bc:      	nop	
+     5be:      	nop	
+
+000005c0 <.LBB0_24>:
+     5c0:      	nopa	;		ge	 r0, r11, r9
+     5c6:      	jnz	 r0, #0x6b0
+     5cc:      	st	 r5, [sp, #-108]
+     5d0:      	st	 r4, [sp, #-112]
+     5d4:      	nop	
+     5d6:      	nop	
+     5d8:      	nop	
+     5da:      	mova	r2, #0x0;		movx	r10, #0x0
+
+000005e0 <.LBB0_26>:
+     5e0:      	st	 r2, [sp, #-128];		nopx	
+     5e6:      	nop	
+     5e8:      	nop	
+     5ea:      	mova	r15, #0x0;		movx	r11, #0x0
+
+000005f0 <.LBB0_27>:
+     5f0:      	nopa	;		nopb	;		acq	#0x35, r13;		nopm	
+     5fc:      	nop	
+     5fe:      	nop	
+     600:      	nop	
+     602:      	acq	#0x35, r13
+     606:      	movxm	p0, #0x77b80
+     60c:      	jl	#0x1910
+     612:      	movxm	p1, #0x78000
+     618:      	acq	#0x35, r13
+     61c:      	movxm	p2, #0x78480
+     622:      	mov	r0, r10
+     626:      	mova	r3, #0x0;		or	 r1, r11, r11;		mov	r2, r8
+     630:      	nopa	;		nopb	;		nops	;		rel	#0x34, r14;		nopm	;		nopv	
+     640:      	nop	
+     642:      	nop	
+     644:      	nop	
+     646:      	rel	#0x34, r14
+     64a:      	add	r11, r11, #0x1
+     64e:      	ltu	 r0, r11, r14
+     652:      	add	 r15, r15, r0
+     656:      	ltu	 r0, r11, r9
+     65a:      	lt	 r1, r15, r12
+     65e:      	eq	 r27, r15, r12
+     662:      	sel.nez	 r0, r0, r1, r27
+     666:      	jnz	 r0, #0x5f0
+     66c:      	nop	
+     66e:      	rel	#0x34, r14
+     672:      	nop	
+     674:      	nop	
+     676:      	nop	
+     678:      	lda	 r2, [sp, #-128]
+     67c:      	nop	
+     67e:      	nop	
+     680:      	nop	
+     682:      	nop	
+     684:      	add	r10, r10, #0x1
+     688:      	ltu	 r0, r10, r14
+     68c:      	add	 r2, r2, r0
+     690:      	ltu	 r0, r10, r9
+     694:      	lt	 r1, r2, r12
+     698:      	eq	 r27, r2, r12
+     69c:      	sel.nez	 r0, r0, r1, r27
+     6a0:      	jnz	 r0, #0x5e0
+     6a6:      	nop	
+     6a8:      	nop	
+     6aa:      	nop	
+     6ac:      	nop	
+     6ae:      	nop	
+
+000006b0 <.LBB0_29>:
+     6b0:      	nopa	;		nopb	;		nops	;		acq	#0x32, r13;		nopm	;		nopv	
+     6c0:      	nopx	
+     6c4:      	nop	
+     6c6:      	nop	
+     6c8:      	lda	 r0, [sp, #-100]
+     6cc:      	jl	#0x16b0
+     6d2:      	nop	
+     6d4:      	nop	
+     6d6:      	nop	
+     6d8:      	nop	
+     6da:      	movxm	p0, #0x78900
+     6e0:      	movxm	p0, #0x77a80
+     6e6:      	lda	 r0, [p0, #8]
+     6ea:      	nop	
+     6ec:      	nop	
+     6ee:      	nop	
+     6f0:      	nop	
+     6f2:      	nop	
+     6f4:      	movx	r11, #0x0
+     6f8:      	st	 r0, [sp, #-120];		ge	 r0, r11, r0
+     6fe:      	jnz	 r0, #0x540
+     704:      	nop	
+     706:      	nop	
+     708:      	nop	
+     70a:      	nop	
+     70c:      	nop	
+     70e:      	lda	 r1, [sp, #-120]
+     712:      	nop	
+     714:      	nop	
+     716:      	nop	
+     718:      	nop	
+     71a:      	nop	
+     71c:      	movx	r0, #-0x1f
+     720:      	ashl	 r0, r1, r0
+     724:      	lda	 r2, [sp, #-124];		st	 r0, [sp, #-116];		movx	r10, #0x0;		mov	r15, #0x0
+
+00000730 <.LBB0_31>:
+     730:      	nopa	;		nopb	;		nopx	;		st	 p6, [sp, #-124]
+     73c:      	st	 p7, [sp, #-128]
+     740:      	nop	
+     742:      	jl	#0x1a30
+     748:      	nop	
+     74a:      	acq	#0x31, r13;		mov	r1, p6
+     750:      	eq	 r27, r2, r14;		mov	r0, p7
+     756:      	sel.nez	 r0, r1, r0, r27
+     75a:      	or	 r11, r2, r2;		mov	p0, r0
+     760:      	nopa	;		nopb	;		rel	#0x30, r14;		nopm	
+     76c:      	nop	
+     76e:      	nop	
+     770:      	nop	
+     772:      	lda	 r0, [sp, #-128]
+     776:      	lda	 r1, [sp, #-124]
+     77a:      	add	r0, r11, #0x1
+     77e:      	lt	 r27, r14, r0
+     782:      	mova	r1, #0x0;		jl	#0x1ed0
+     78c:      	sel.nez	 r11, r1, r0, r27
+     790:      	acq	#0x31, r13
+     794:      	eq	 r27, r11, r14
+     798:      	sel.nez	 r0, r1, r0, r27
+     79c:      	mov	p0, r0
+     7a0:      	lda	 r3, [sp, #-116];		nopb	;		nops	;		nopxm	;		nopv	
+     7b0:      	nopa	;		add	r0, r11, #0x1
+     7b6:      	lda	 r0, [sp, #-120];		add	r15, r15, #0x1
+     7bc:      	mova	r11, #0x0;		lt	 r27, r14, r0
+     7c2:      	sel.nez	 r2, r11, r0, r27
+     7c6:      	ltu	 r0, r15, r14
+     7ca:      	add	 r10, r10, r0
+     7ce:      	lt	 r1, r10, r3
+     7d2:      	eq	 r27, r10, r3
+     7d6:      	ltu	 r0, r15, r0
+     7da:      	sel.nez	 r0, r0, r1, r27
+     7de:      	jnz	 r0, #0x730
+     7e4:      	nop	
+     7e6:      	rel	#0x30, r14
+     7ea:      	nop	
+     7ec:      	nop	
+     7ee:      	nop	
+     7f0:      	j	#0x550
+     7f6:      	nop	
+     7f8:      	nop	
+     7fa:      	nop	
+     7fc:      	nop	
+     7fe:      	nop	
+
+00000800 <.LBB0_32>:
+     800:      	lda	 p7, [sp, #-8];		nopx	
+     806:      	lda	 p6, [sp, #-12]
+     80a:      	lda	 r15, [sp, #-16]
+     80e:      	lda	 r14, [sp, #-20]
+     812:      	lda	 lr, [sp, #-48]
+     816:      	lda	 r13, [sp, #-24]
+     81a:      	lda	 r12, [sp, #-28]
+     81e:      	lda	 r11, [sp, #-32]
+     822:      	lda	 r10, [sp, #-36]
+     826:      	lda	 r9, [sp, #-40]
+     82a:      	lda	 r8, [sp, #-44]
+     82e:      	ret	lr
+     832:      	nop	
+     834:      	nop	
+     836:      	nop	
+     838:      	paddxm	 [sp], #-0x80
+     83e:      	nop	
+
+00000840 <mm_ks>:
+     840:      	movs	p3, p2
+     844:      	movs	p4, p2
+     848:      	movs	p5, p1
+     84c:      	mova	r3, #0x30c
+     850:      	mova	r25, #0x0
+     854:      	mova	r4, #-0x1
+     858:      	mova	r5, #0x1
+     85c:      	movs	p2, p0
+     860:      	movxm	ls, #0x920
+     866:      	movxm	le, #0xf00
+     86c:      	mova	r0, #0x9
+     870:      	add.nc	lc, r0, #0x0
+     874:      	nop	
+     876:      	nop	
+     878:      	nop	
+     87a:      	nop	
+     87c:      	lda	 m0, [p2], #4
+     880:      	lda	 r26, [p2], #4
+     884:      	lda	 p0, [p2], #4
+     888:      	nop	
+     88a:      	nop	
+     88c:      	nop	
+     88e:      	nop	
+     890:      	nop	
+     892:      	nop	
+     894:      	nop	
+     896:      	nop	
+     898:      	nop	
+     89a:      	nop	
+     89c:      	acq.cond	#0x35, r4, r26
+     8a0:      	nop	
+     8a2:      	nop	
+     8a4:      	nop	
+     8a6:      	nop	
+     8a8:      	mov	r24, #0x0
+     8ac:      	vlda.fill.512	 [p0, lf0, r24]
+     8b0:      	vlda.pop.576	 ex0, [p0, lf0, r24]
+     8b4:      	vlda.pop.576	 ex1, [p0, lf0, r24]
+     8b8:      	nop	
+     8ba:      	nop	
+     8bc:      	vlda.pop.576	 ex2, [p0, lf0, r24]
+     8c0:      	nop	
+     8c2:      	nop	
+     8c4:      	nop	
+     8c6:      	vlda.pop.576	 ex3, [p0, lf0, r24]
+     8ca:      	nop	
+     8cc:      	nop	
+     8ce:      	nop	
+     8d0:      	nop	
+     8d2:      	vlda.pop.576	 ex4, [p0, lf0, r24]
+     8d6:      	nop	
+     8d8:      	nop	
+     8da:      	nop	
+     8dc:      	vlda.pop.576	 ex6, [p0, lf0, r24]
+     8e0:      	nop	
+     8e2:      	nop	
+     8e4:      	nop	
+     8e6:      	nop	
+     8e8:      	vlda.pop.576	 ex8, [p0, lf0, r24]
+     8ec:      	nop	
+     8ee:      	nop	
+     8f0:      	nop	
+     8f2:      	vlda.pop.576	 ex10, [p0, lf0, r24]
+     8f6:      	nop	
+     8f8:      	nop	
+     8fa:      	nop	
+     8fc:      	lda	 m1, [p2], #4
+     900:      	vlda	 bmll0, [p3], #0x40
+     904:      	vlda	 bmlh0, [p3], #0x40
+     908:      	vlda	 bmhl0, [p3], #0x40
+     90c:      	vlda	 bmhh0, [p3], #0x40
+     910:      	vlda	 bmll1, [p3], #0x40
+     914:      	vlda	 bmlh1, [p3], #0x40
+     918:      	vlda	 bmhl1, [p3], #0x40
+     91c:      	nopx	
+
+00000920 <.Lks_body>:
+     920:      	vlda	 bmhh1, [p3], #0x40;		vldb.fill.512	 [p1, lf1, r25];		vst	 bmhl0, [p4], #0x40;		nopx	;		nopm	;		nopv	
+     930:      	vlda	 bmll2, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh0, [p4], #0x40
+     938:      	vlda	 bmlh2, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll1, [p4], #0x40
+     940:      	vlda	 bmhl2, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vst	 bmlh1, [p4], #0x40
+     948:      	vlda	 bmhh2, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl1, [p4], #0x40
+     950:      	vlda	 bmll3, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh1, [p4], #0x40
+     958:      	vlda	 bmlh3, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll2, [p4], #0x40
+     960:      	vlda	 bmhl3, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vst	 bmlh2, [p4], #0x40
+     968:      	vlda	 bmhh3, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl2, [p4], #0x40
+     970:      	vst	 bmhh2, [p4], #0x40;		vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex0, ex5, r3
+     97a:      	vst	 bmll3, [p4], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex0, ex7, r3
+     984:      	vst	 bmlh3, [p4], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex0, ex9, r3
+     98e:      	vst	 bmhl3, [p4], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex0, ex11, r3
+     998:      	vst	 bmhh3, [p4], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex1, ex5, r3
+     9a2:      	padds	 [p4], m0;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex1, ex7, r3
+     9ac:      	padds	 [p3], m1;		vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex1, ex9, r3
+     9b6:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex1, ex11, r3
+     9be:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     9c2:      	vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex2, ex5, r3
+     9ca:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex2, ex7, r3
+     9d2:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex2, ex9, r3
+     9da:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex2, ex11, r3
+     9e2:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex3, ex5, r3
+     9ea:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex3, ex7, r3
+     9f2:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex3, ex9, r3
+     9fa:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex3, ex11, r3
+     a02:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     a06:      	vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex4, ex5, r3
+     a0e:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex4, ex7, r3
+     a16:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex4, ex9, r3
+     a1e:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex4, ex11, r3
+     a26:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex6, ex5, r3
+     a2e:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex6, ex7, r3
+     a36:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex6, ex9, r3
+     a3e:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex6, ex11, r3
+     a46:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     a4a:      	vmac.f	dm0, dm0, ex8, ex5, r3
+     a4e:      	vmac.f	dm1, dm1, ex8, ex7, r3
+     a52:      	vmac.f	dm2, dm2, ex8, ex9, r3
+     a56:      	vmac.f	dm3, dm3, ex8, ex11, r3
+     a5a:      	lda	 m2, [p2], #4;		vmac.f	dm0, dm0, ex10, ex5, r3
+     a62:      	vlda	 bmll0, [p3], #0x40;		vmac.f	dm1, dm1, ex10, ex7, r3
+     a6a:      	vlda	 bmlh0, [p3], #0x40;		vmac.f	dm2, dm2, ex10, ex9, r3
+     a72:      	vlda	 bmhl0, [p3], #0x40;		vmac.f	dm3, dm3, ex10, ex11, r3
+     a7a:      	vlda	 bmhh0, [p3], #0x40
+     a7e:      	vlda	 bmll1, [p3], #0x40
+     a82:      	vlda	 bmlh1, [p3], #0x40;		vst	 bmll0, [p4], #0x40
+     a88:      	vlda	 bmhl1, [p3], #0x40;		vst	 bmlh0, [p4], #0x40
+     a8e:      	vlda	 bmhh1, [p3], #0x40;		vldb.fill.512	 [p1, lf1, r25];		vst	 bmhl0, [p4], #0x40
+     a96:      	vlda	 bmll2, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh0, [p4], #0x40
+     a9e:      	vlda	 bmlh2, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll1, [p4], #0x40
+     aa6:      	vlda	 bmhl2, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vst	 bmlh1, [p4], #0x40
+     aae:      	vlda	 bmhh2, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl1, [p4], #0x40
+     ab6:      	vlda	 bmll3, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh1, [p4], #0x40
+     abe:      	vlda	 bmlh3, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll2, [p4], #0x40
+     ac6:      	vlda	 bmhl3, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vst	 bmlh2, [p4], #0x40
+     ace:      	vlda	 bmhh3, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl2, [p4], #0x40;		mov	r24, #0x0
+     ada:      	vlda.fill.512	 [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vst	 bmhh2, [p4], #0x40;		vmac.f	dm0, dm0, ex0, ex5, r3
+     ae6:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmll3, [p4], #0x40;		vmac.f	dm1, dm1, ex0, ex7, r3
+     af2:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmlh3, [p4], #0x40;		vmac.f	dm2, dm2, ex0, ex9, r3
+     afe:      	vst	 bmhl3, [p4], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex0, ex11, r3
+     b08:      	vst	 bmhh3, [p4], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex1, ex5, r3
+     b12:      	vlda.pop.576	 ex2, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		padds	 [p4], m1;		vmac.f	dm1, dm1, ex1, ex7, r3
+     b1e:      	padds	 [p3], m2;		vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex1, ex9, r3
+     b28:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex1, ex11, r3
+     b30:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     b34:      	vlda.pop.576	 ex3, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex2, ex5, r3
+     b3e:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex2, ex7, r3
+     b46:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex2, ex9, r3
+     b4e:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex2, ex11, r3
+     b56:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex3, ex5, r3
+     b5e:      	vlda.pop.576	 ex4, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex3, ex7, r3
+     b68:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex3, ex9, r3
+     b70:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex3, ex11, r3
+     b78:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     b7c:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex4, ex5, r3
+     b86:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex4, ex7, r3
+     b8e:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex4, ex9, r3
+     b96:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex4, ex11, r3
+     b9e:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex6, ex5, r3
+     ba6:      	vlda.pop.576	 ex8, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex6, ex7, r3
+     bb0:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex6, ex9, r3
+     bb8:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex6, ex11, r3
+     bc0:      	vldb.pop.576	 ex11, [p1, lf1, r25];		mov	r25, #0x0
+     bc6:      	vlda.pop.576	 ex10, [p0, lf0, r24];		mov	p1, p5;		vmac.f	dm0, dm0, ex8, ex5, r3
+     bd0:      	vmac.f	dm1, dm1, ex8, ex7, r3
+     bd4:      	vmac.f	dm2, dm2, ex8, ex9, r3
+     bd8:      	vmac.f	dm3, dm3, ex8, ex11, r3
+     bdc:      	lda	 m3, [p2], #4;		vmac.f	dm0, dm0, ex10, ex5, r3
+     be4:      	vlda	 bmll0, [p3], #0x40;		vmac.f	dm1, dm1, ex10, ex7, r3
+     bec:      	vlda	 bmlh0, [p3], #0x40;		rel	#0x34, r5;		vmac.f	dm2, dm2, ex10, ex9, r3
+     bf6:      	vlda	 bmhl0, [p3], #0x40;		vmac.f	dm3, dm3, ex10, ex11, r3
+     bfe:      	vlda	 bmhh0, [p3], #0x40
+     c02:      	vlda	 bmll1, [p3], #0x40
+     c06:      	vlda	 bmlh1, [p3], #0x40;		vst	 bmll0, [p4], #0x40
+     c0c:      	vlda	 bmhl1, [p3], #0x40;		vst	 bmlh0, [p4], #0x40
+     c12:      	vlda	 bmhh1, [p3], #0x40;		vldb.fill.512	 [p1, lf1, r25];		vst	 bmhl0, [p4], #0x40
+     c1a:      	vlda	 bmll2, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh0, [p4], #0x40
+     c22:      	vlda	 bmlh2, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll1, [p4], #0x40
+     c2a:      	vlda	 bmhl2, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vst	 bmlh1, [p4], #0x40
+     c32:      	vlda	 bmhh2, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl1, [p4], #0x40
+     c3a:      	vlda	 bmll3, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh1, [p4], #0x40
+     c42:      	vlda	 bmlh3, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll2, [p4], #0x40
+     c4a:      	vlda	 bmhl3, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vst	 bmlh2, [p4], #0x40
+     c52:      	vlda	 bmhh3, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl2, [p4], #0x40
+     c5a:      	vst	 bmhh2, [p4], #0x40;		vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex0, ex5, r3
+     c64:      	vst	 bmll3, [p4], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex0, ex7, r3
+     c6e:      	vst	 bmlh3, [p4], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex0, ex9, r3
+     c78:      	vst	 bmhl3, [p4], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex0, ex11, r3
+     c82:      	vst	 bmhh3, [p4], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex1, ex5, r3
+     c8c:      	padds	 [p4], m2;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex1, ex7, r3
+     c96:      	padds	 [p3], m3;		vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex1, ex9, r3
+     ca0:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex1, ex11, r3
+     ca8:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     cac:      	vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex2, ex5, r3
+     cb4:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex2, ex7, r3
+     cbc:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex2, ex9, r3
+     cc4:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex2, ex11, r3
+     ccc:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex3, ex5, r3
+     cd4:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex3, ex7, r3
+     cdc:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex3, ex9, r3
+     ce4:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex3, ex11, r3
+     cec:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     cf0:      	vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex4, ex5, r3
+     cf8:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex4, ex7, r3
+     d00:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex4, ex9, r3
+     d08:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex4, ex11, r3
+     d10:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex6, ex5, r3
+     d18:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex6, ex7, r3
+     d20:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex6, ex9, r3
+     d28:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex6, ex11, r3
+     d30:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     d34:      	vmac.f	dm0, dm0, ex8, ex5, r3
+     d38:      	vmac.f	dm1, dm1, ex8, ex7, r3
+     d3c:      	lda	 m0, [p2], #4;		vmac.f	dm2, dm2, ex8, ex9, r3
+     d44:      	lda	 r26, [p2], #4;		vmac.f	dm3, dm3, ex8, ex11, r3
+     d4c:      	lda	 p0, [p2], #4;		vmac.f	dm0, dm0, ex10, ex5, r3
+     d54:      	vlda	 bmll0, [p3], #0x40;		vmac.f	dm1, dm1, ex10, ex7, r3
+     d5c:      	vlda	 bmlh0, [p3], #0x40;		vmac.f	dm2, dm2, ex10, ex9, r3
+     d64:      	vlda	 bmhl0, [p3], #0x40;		vmac.f	dm3, dm3, ex10, ex11, r3
+     d6c:      	vlda	 bmhh0, [p3], #0x40
+     d70:      	vlda	 bmll1, [p3], #0x40
+     d74:      	vlda	 bmlh1, [p3], #0x40;		vst	 bmll0, [p4], #0x40
+     d7a:      	vlda	 bmhl1, [p3], #0x40;		vst	 bmlh0, [p4], #0x40
+     d80:      	vlda	 bmhh1, [p3], #0x40;		vldb.fill.512	 [p1, lf1, r25];		vst	 bmhl0, [p4], #0x40
+     d88:      	vlda	 bmll2, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh0, [p4], #0x40
+     d90:      	vlda	 bmlh2, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll1, [p4], #0x40
+     d98:      	vlda	 bmhl2, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		acq.cond	#0x35, r4, r26;		vst	 bmlh1, [p4], #0x40
+     da4:      	vlda	 bmhh2, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl1, [p4], #0x40
+     dac:      	vlda	 bmll3, [p3], #0x40;		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmhh1, [p4], #0x40
+     db4:      	vlda	 bmlh3, [p3], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmll2, [p4], #0x40
+     dbc:      	vlda	 bmhl3, [p3], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vst	 bmlh2, [p4], #0x40
+     dc4:      	vlda	 bmhh3, [p3], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vst	 bmhl2, [p4], #0x40;		mov	r24, #0x0
+     dd0:      	vlda.fill.512	 [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vst	 bmhh2, [p4], #0x40;		vmac.f	dm0, dm0, ex0, ex5, r3
+     ddc:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		vst	 bmll3, [p4], #0x40;		vmac.f	dm1, dm1, ex0, ex7, r3
+     de8:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25];		vst	 bmlh3, [p4], #0x40;		vmac.f	dm2, dm2, ex0, ex9, r3
+     df4:      	vst	 bmhl3, [p4], #0x40;		vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex0, ex11, r3
+     dfe:      	vst	 bmhh3, [p4], #0x40;		vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex1, ex5, r3
+     e08:      	vlda.pop.576	 ex2, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		padds	 [p4], m3;		vmac.f	dm1, dm1, ex1, ex7, r3
+     e14:      	padds	 [p3], m0;		vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex1, ex9, r3
+     e1e:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex1, ex11, r3
+     e26:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     e2a:      	vlda.pop.576	 ex3, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex2, ex5, r3
+     e34:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex2, ex7, r3
+     e3c:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex2, ex9, r3
+     e44:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex2, ex11, r3
+     e4c:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex3, ex5, r3
+     e54:      	vlda.pop.576	 ex4, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex3, ex7, r3
+     e5e:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex3, ex9, r3
+     e66:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex3, ex11, r3
+     e6e:      	vldb.pop.576	 ex11, [p1, lf1, r25]
+     e72:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm0, dm0, ex4, ex5, r3
+     e7c:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex4, ex7, r3
+     e84:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex4, ex9, r3
+     e8c:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex4, ex11, r3
+     e94:      	vldb.pop.576	 ex11, [p1, lf1, r25];		vmac.f	dm0, dm0, ex6, ex5, r3
+     e9c:      	vlda.pop.576	 ex8, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex6, ex7, r3
+     ea6:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmac.f	dm2, dm2, ex6, ex9, r3
+     eae:      	vldb.pop.576	 ex9, [p1, lf1, r25];		vmac.f	dm3, dm3, ex6, ex11, r3
+     eb6:      	vldb.pop.576	 ex11, [p1, lf1, r25];		mov	r25, #0x0
+     ebc:      	vlda.pop.576	 ex10, [p0, lf0, r24];		mov	p1, p5;		vmac.f	dm0, dm0, ex8, ex5, r3
+     ec6:      	vmac.f	dm1, dm1, ex8, ex7, r3
+     eca:      	vmac.f	dm2, dm2, ex8, ex9, r3
+     ece:      	vmac.f	dm3, dm3, ex8, ex11, r3
+     ed2:      	lda	 m1, [p2], #4;		vmac.f	dm0, dm0, ex10, ex5, r3
+     eda:      	vlda	 bmll0, [p3], #0x40;		vmac.f	dm1, dm1, ex10, ex7, r3
+     ee2:      	vlda	 bmlh0, [p3], #0x40;		vmac.f	dm2, dm2, ex10, ex9, r3
+     eea:      	vlda	 bmhl0, [p3], #0x40;		vmac.f	dm3, dm3, ex10, ex11, r3
+     ef2:      	vlda	 bmhh0, [p3], #0x40
+     ef6:      	vlda	 bmll1, [p3], #0x40
+     efa:      	vlda	 bmlh1, [p3], #0x40;		vst	 bmll0, [p4], #0x40
+
+00000f00 <.Lks_end>:
+     f00:      	vlda	 bmhl1, [p3], #0x40;		nopb	;		vst	 bmlh0, [p4], #0x40;		nopx	;		nopm	;		nopv	
+     f10:      	vst	 bmhl0, [p4], #0x40
+     f14:      	vst	 bmhh0, [p4], #0x40
+     f18:      	vst	 bmll1, [p4], #0x40
+     f1c:      	vst	 bmlh1, [p4], #0x40
+     f20:      	vst	 bmhl1, [p4], #0x40
+     f24:      	vst	 bmhh1, [p4], #0x40
+     f28:      	vst	 bmll2, [p4], #0x40
+     f2c:      	vst	 bmlh2, [p4], #0x40
+     f30:      	vst	 bmhl2, [p4], #0x40
+     f34:      	vst	 bmhh2, [p4], #0x40
+     f38:      	vst	 bmll3, [p4], #0x40
+     f3c:      	vst	 bmlh3, [p4], #0x40
+     f40:      	vst	 bmhl3, [p4], #0x40
+     f44:      	vst	 bmhh3, [p4], #0x40
+     f48:      	padds	 [p4], m0
+     f4c:      	ret	lr
+     f50:      	nop	
+     f52:      	nop	
+     f54:      	nop	
+     f56:      	nop	
+     f58:      	nop	
+     f5a:      	nopxm	
+
+00000f60 <acc_zero>:
+     f60:      	nopa	;		nopb	;		jl	#0x3cd0
+     f6c:      	paddxm	 [sp], #0x40
+     f72:      	st	 r8, [sp, #-60]
+     f76:      	st	 lr, [sp, #-64]
+     f7a:      	mova	r0, #0xc0;		st	 p6, [sp, #-56];		movxm	p1, #0x718c0
+     f86:      	mova	r8, #0x0;		movxm	p6, #0x778c0
+     f90:      	lda	 lr, [sp, #-64];		nopxm	
+     f9a:      	nop	
+     f9c:      	nop	
+     f9e:      	nop	
+     fa0:      	nop	
+     fa2:      	lda	 p6, [sp, #-56]
+     fa6:      	lda	 r8, [sp, #-60]
+     faa:      	ret	lr
+     fae:      	nop	
+     fb0:      	nop	
+     fb2:      	nop	
+     fb4:      	st	 r8, [p6, #0];		paddxm	 [sp], #-0x40
+     fbe:      	nop	
+
+00000fc0 <mm_kstep>:
+     fc0:      	nopa	;		paddxm	 [sp], #0x40
+     fca:      	mov	p5, sp
+     fce:      	padda	 [p5], #-0x40;		st	 p6, [sp, #-52]
+     fd4:      	mov	p6, p5
+     fd8:      	st	 p0, [p6], #4;		movxm	p0, #0x778c4
+     fe2:      	lda	 r0, [p0, #0]
+     fe6:      	nop	
+     fe8:      	nop	
+     fea:      	nop	
+     fec:      	nop	
+     fee:      	nop	
+     ff0:      	mov	r1, p4
+     ff4:      	eq	 r0, r1, r0
+     ff8:      	jnz	 r0, #0x10e0
+     ffe:      	nop	
+    1000:      	nop	
+    1002:      	st	 p1, [p6, #0]
+    1006:      	mov	p1, p3
+    100a:      	st	 p2, [p6, #4];		movxm	p2, #0x778c8
+    1014:      	j	#0x1080
+    101a:      	nop	
+    101c:      	movxm	r3, #0x718c0
+    1022:      	mova	r0, #0x2;		movxm	p3, #0x71800
+    102c:      	mova	r2, #0x0;		movx	r1, #0x3a;		mov	r4, p4
+    1036:      	mova	r4, #0x1;		sub	 r3, r4, r3;		mov	dj0, #0x74
+
+00001040 <.LBB1_2>:
+    1040:      	lda.s16	 r5, [p3, dj1];		nopb	;		nopx	
+    1048:      	nop	
+    104a:      	nop	
+    104c:      	nop	
+    104e:      	nop	
+    1050:      	nop	
+    1052:      	nop	
+    1054:      	lshl	 r5, r5, r0
+    1058:      	mov	dj1, r5
+    105c:      	lda	 r5, [p5, dj1]
+
+00001060 <.LBB1_3>:
+    1060:      	lshl	 r6, r2, r0
+    1064:      	add	r2, r2, #0x1
+    1068:      	ne	 r7, r2, r1
+    106c:      	jz	 r7, #0x10d0
+    1072:      	nop	
+    1074:      	nop	
+    1076:      	nop	
+    1078:      	mov	dj1, r6
+    107c:      	st	 r5, [p2, dj1]
+
+00001080 <.LBB1_4>:
+    1080:      	movxm	p6, #0x71800
+    1086:      	mov	m0, r2
+    108a:      	padda	 [p6], m0
+    108e:      	lda.s8	 r6, [p6, dj0]
+    1092:      	nop	
+    1094:      	nop	
+    1096:      	nop	
+    1098:      	nop	
+    109a:      	nop	
+    109c:      	nop	
+    109e:      	extend.u8	 r5, r6
+    10a2:      	ne	 r7, r5, r0
+    10a6:      	jz	 r7, #0x1040
+    10ac:      	nop	
+    10ae:      	nop	
+    10b0:      	nop	
+    10b2:      	lshl	 r5, r2, r4
+    10b6:      	mov	dj1, r5
+    10ba:      	lda.s16	 r5, [p3, dj1]
+    10be:      	j	#0x1060
+    10c4:      	nop	
+    10c6:      	nop	
+    10c8:      	nop	
+    10ca:      	nop	
+    10cc:      	mac	r5, r5, r3, r6
+
+000010d0 <.LBB1_6>:
+    10d0:      	nopa	;		nopb	;		st	 p4, [p0, #0];		nopxm	;		nopv	
+
+000010e0 <.LBB1_7>:
+    10e0:      	lda	 p6, [sp, #-52];		nopx	
+    10e6:      	j	#0x840
+    10ec:      	nop	
+    10ee:      	nop	
+    10f0:      	movxm	p0, #0x778c8
+    10f6:      	paddxm	 [sp], #-0x40
+    10fc:      	movs	p2, p4
+
+00001100 <acc_epilogue>:
+    1100:      	nopa	;		nopb	;		nops	;		movxm	dj0, #0x400;		nopv	
+    1110:      	lda	 r1, [p1, dj0]
+    1114:      	nop	
+    1116:      	paddxm	 [sp], #0x40
+    111c:      	st	 p7, [sp, #-24]
+    1120:      	st	 r9, [sp, #-56]
+    1124:      	st	 lr, [sp, #-64]
+    1128:      	st	 r8, [sp, #-60];		movx	r2, #0x2
+    112e:      	st	 r10, [sp, #-52];		ge	 r0, r1, r2
+    1134:      	st	 r11, [sp, #-48];		jnz	 r0, #0x11d0
+    113e:      	st	 r12, [sp, #-44]
+    1142:      	st	 r13, [sp, #-40]
+    1146:      	st	 r14, [sp, #-36];		mov	p4, p1
+    114e:      	st	 r15, [sp, #-32];		mov	crrnd, #0xc
+    1156:      	mova	r9, #0xc;		st	 p6, [sp, #-28];		movxm	p7, #0x718c0
+    1162:      	mova	r0, #0x1
+    1166:      	ne	 r0, r1, r0
+    116a:      	jnz	 r0, #0x1340
+    1170:      	nop	
+    1172:      	nop	
+    1174:      	nop	
+    1176:      	nop	
+    1178:      	nop	
+    117a:      	lda	 p7, [sp, #-24]
+    117e:      	lda	 p6, [sp, #-28]
+    1182:      	lda	 r15, [sp, #-32]
+    1186:      	lda	 r14, [sp, #-36]
+    118a:      	lda	 r13, [sp, #-40]
+    118e:      	lda	 r12, [sp, #-44]
+    1192:      	lda	 r11, [sp, #-48]
+    1196:      	lda	 r10, [sp, #-52]
+    119a:      	lda	 r9, [sp, #-56]
+    119e:      	lda	 r8, [sp, #-60]
+    11a2:      	lda	 lr, [sp, #-64]
+    11a6:      	j	#0x2360
+    11ac:      	nop	
+    11ae:      	movs	p2, p0;		movxm	m0, #0x3000
+    11b8:      	mova	m1, #0x200;		movs	p3, p0;		paddxm	 [sp], #-0x40
+    11c4:      	padda	 [p3], m1;		paddb	 [p2], m0
+    11ca:      	mova	r0, #0x0;		mov	p1, p4
+
+000011d0 <.LBB3_3>:
+    11d0:      	mova	r0, #0x7;		nopb	;		nopx	
+    11d8:      	ne	 r0, r1, r0
+    11dc:      	jnz	 r0, #0x13f0
+    11e2:      	nop	
+    11e4:      	nop	
+    11e6:      	nop	
+    11e8:      	nop	
+    11ea:      	mova	r8, #0x0
+    11ee:      	movxm	m0, #0x3a00
+    11f4:      	mova	m2, #0x200;		movx	r15, #0x2;		mov	p1, p4
+    11fe:      	padda	 [p1], m2;		movs	p6, p0;		movxm	m1, #0x4100
+    120a:      	padda	 [p0], m1;		movs	p7, p0;		movx	r9, #0x1;		mov	r13, p1
+    1216:      	padda	 [p6], m0;		movx	r10, #0x0;		mov	r14, p0
+
+00001220 <.LBB3_5>:
+    1220:      	nopa	;		nopb	;		lshl	 r11, r8, r15
+    1228:      	movxm	r0, #0x3fd000
+    122e:      	movxm	p0, #0x718c0
+    1234:      	add	 r0, r11, r0;		mov	p1, p7
+    123a:      	movs	m0, r11;		jl	#0x3bb0
+    1244:      	padda	 [p1], m0;		movs	m0, r0;		movxm	r0, #0xc00
+    1250:      	padda	 [p0], m0;		mov	r1, p1
+    1256:      	eq	 r27, r8, r0;		mov	r0, p0
+    125c:      	movs	p2, p6;		sel.nez	 r1, r0, r1, r27;		mov	r12, p4
+    1266:      	mova	r0, #0x18;		movs	p1, p4;		mov	p0, r1
+    1270:      	nopa	;		nopb	;		movxm	r0, #0x1800;		nops	
+    127e:      	jl	#0x3bb0
+    1284:      	movxm	p0, #0x718c0
+    128a:      	add	 r0, r11, r0
+    128e:      	mov	m0, r0
+    1292:      	padda	 [p0], m0
+    1296:      	mova	r0, #0x18;		movs	p1, r13;		mov	p2, r14
+    12a0:      	nopa	;		nopb	;		jl	#0x2ef0;		nops	
+    12ae:      	nop	
+    12b0:      	lshl	 r1, r10, r9
+    12b4:      	movs	p1, p7;		mov	m0, r1
+    12bc:      	padda	 [p1], m0;		movx	r2, #0x20;		mov	r0, #0x26
+    12c6:      	mova	r1, #0x20;		movx	r3, #0x71;		mov	p0, p6
+    12d0:      	nopa	;		movxm	r0, #0x900
+    12da:      	add	 r10, r10, r0
+    12de:      	movxm	r0, #0x1b00
+    12e4:      	eq	 r0, r10, r0
+    12e8:      	jz	 r0, #0x1220
+    12ee:      	nop	
+    12f0:      	nop	
+    12f2:      	nop	
+    12f4:      	movxm	r1, #0x600
+    12fa:      	add	 r8, r8, r1;		mov	p4, r12
+
+00001300 <.LBB3_6>:
+    1300:      	lda	 p7, [sp, #-24];		nopx	
+    1306:      	lda	 p6, [sp, #-28]
+    130a:      	lda	 r15, [sp, #-32]
+    130e:      	lda	 r14, [sp, #-36]
+    1312:      	lda	 lr, [sp, #-64]
+    1316:      	lda	 r13, [sp, #-40]
+    131a:      	lda	 r12, [sp, #-44]
+    131e:      	lda	 r11, [sp, #-48]
+    1322:      	lda	 r10, [sp, #-52]
+    1326:      	lda	 r9, [sp, #-56]
+    132a:      	lda	 r8, [sp, #-60]
+    132e:      	ret	lr
+    1332:      	nop	
+    1334:      	nop	
+    1336:      	nop	
+    1338:      	paddxm	 [sp], #-0x40
+    133e:      	nop	
+
+00001340 <.LBB3_7>:
+    1340:      	jl	#0x2490
+    1346:      	nopx	
+    134a:      	nop	
+    134c:      	nop	
+    134e:      	movs	p6, p0;		mov	p1, p0
+    1356:      	mova	r0, #0xc;		movs	p2, p4;		mov	p7, p4
+    1360:      	nopa	;		nopb	;		nops	;		jl	#0x2490;		nopv	
+    1370:      	nopa	;		nopx	
+    1376:      	movxm	m0, #0x3000
+    137c:      	mov	p1, p6
+    1380:      	padda	 [p1], m0;		movxm	p0, #0x718c0
+    138a:      	mova	r0, #0x6;		mov	p2, p7
+    1390:      	lda	 r15, [sp, #-32];		nopxm	
+    139a:      	lda	 r14, [sp, #-36]
+    139e:      	lda	 r13, [sp, #-40]
+    13a2:      	lda	 r12, [sp, #-44]
+    13a6:      	lda	 r11, [sp, #-48]
+    13aa:      	lda	 r10, [sp, #-52]
+    13ae:      	lda	 r9, [sp, #-56]
+    13b2:      	lda	 r8, [sp, #-60]
+    13b6:      	lda	 lr, [sp, #-64]
+    13ba:      	lda	 p7, [sp, #-24]
+    13be:      	lda	 p6, [sp, #-28]
+    13c2:      	j	#0x2490
+    13c8:      	movxm	m1, #0x1800
+    13ce:      	mova	m0, #0x200
+    13d2:      	padda	 [p7], m0;		paddb	 [p6], m0;		movxm	p0, #0x718c0
+    13de:      	movs	p2, p7;		paddb	 [p0], m1;		paddxm	 [sp], #-0x40
+    13ea:      	mova	r0, #0x12;		movs	p1, p6
+
+000013f0 <.LBB3_8>:
+    13f0:      	movxm	r0, #0x7ffffffe
+    13f6:      	nopa	;		and	 r0, r1, r0
+    13fc:      	ne	 r0, r0, r2
+    1400:      	jnz	 r0, #0x1540
+    1406:      	nop	
+    1408:      	nop	
+    140a:      	nop	
+    140c:      	nop	
+    140e:      	nop	
+    1410:      	jl	#0x2360
+    1416:      	nop	
+    1418:      	mova	p3, #0x0;		movx	r8, #0x140
+    141e:      	mova	r12, #-0x120;		eq	 r13, r1, r2;		mov	r11, #0x240
+    1428:      	mova	r0, #0x3;		movs	p7, p0;		movxm	p2, #0x718c0
+    1434:      	mova	r0, #0x0;		movs	p1, p4;		ne	 r10, r1, r0;		mov	p6, p4
+    1440:      	movxm	m0, #0x3000
+    1446:      	mov	r1, p7
+    144a:      	mov	r27, r13
+    144e:      	movxm	p1, #0x718c0
+    1454:      	movs	p0, p7;		jl	#0x2d40
+    145e:      	padda	 [p0], m0;		movxm	m0, #0x1800
+    1468:      	sel.nez	 r11, r8, r11, r27;		mov	r14, p0
+    146e:      	mova	m1, #0x200;		add	 r8, r11, r12;		mov	r0, p0
+    1478:      	padda	 [p1], m0;		paddb	 [p6], m1;		sel.nez	 r13, r0, r1, r27;		mov	p0, p7
+    1484:      	mova	r0, #0x30;		movs	p3, p6;		or	 r1, r8, r8;		mov	p2, r13
+    1490:      	nopa	;		nopb	;		nops	;		movxm	m1, #0x4800;		nopv	
+    14a0:      	jl	#0x2d40
+    14a6:      	nopa	;		mul	r0, r11, r9
+    14ac:      	movxm	p1, #0x718c0
+    14b2:      	movs	p2, r13;		mov	m0, r0
+    14ba:      	padda	 [p2], m0;		paddb	 [p1], m1;		movxm	p0, #0x718c0
+    14c6:      	mova	r0, #0x18;		or	 r1, r8, r8;		mov	p3, p6
+    14d0:      	nopa	;		nopb	;		nops	;		jnz	 r10, #0x1300;		nopv	
+    14e0:      	nopx	
+    14e4:      	nop	
+    14e6:      	nop	
+    14e8:      	nop	
+    14ea:      	nop	
+    14ec:      	lda	 p6, [sp, #-28]
+    14f0:      	lda	 r15, [sp, #-32]
+    14f4:      	lda	 r14, [sp, #-36]
+    14f8:      	lda	 r13, [sp, #-40]
+    14fc:      	lda	 r12, [sp, #-44]
+    1500:      	lda	 r11, [sp, #-48]
+    1504:      	lda	 r10, [sp, #-52]
+    1508:      	lda	 r9, [sp, #-56]
+    150c:      	lda	 r8, [sp, #-60];		mov	p0, r14
+    1512:      	lda	 lr, [sp, #-64]
+    1516:      	lda	 p7, [sp, #-24]
+    151a:      	j	#0x2ef0
+    1520:      	nop	
+    1522:      	nop	
+    1524:      	mova	m0, #0x120
+    1528:      	mova	r0, #0x36;		paddb	 [p7], m0;		paddxm	 [sp], #-0x40
+    1534:      	mova	r3, #0x8;		movs	p1, p7;		movx	r2, #0x140;		mov	r1, #0x40
+
+00001540 <.LBB3_11>:
+    1540:      	mova	r0, #0x4;		nopb	;		nops	;		nopxm	;		nopv	
+    1550:      	ne	 r0, r1, r0
+    1554:      	jnz	 r0, #0x15a0
+    155a:      	nop	
+    155c:      	nop	
+    155e:      	nop	
+    1560:      	nop	
+    1562:      	nop	
+    1564:      	jl	#0x2360
+    156a:      	movxm	p2, #0x718c0
+    1570:      	movxm	m0, #0x1800
+    1576:      	movxm	p3, #0x718c0
+    157c:      	padda	 [p3], m0;		movxm	r9, #0x1b00
+    1586:      	mova	r0, #0x1;		movs	p1, p4;		mov	p6, p0
+    1590:      	j	#0x1620
+    1596:      	nop	
+    1598:      	nop	
+    159a:      	nop	
+    159c:      	nop	
+    159e:      	nop	
+
+000015a0 <.LBB3_13>:
+    15a0:      	nopa	;		nopb	;		jl	#0x2490;		nops	
+    15ae:      	nop	
+    15b0:      	nop	
+    15b2:      	movs	p6, p0;		movxm	r9, #0x2400
+    15bc:      	movs	p1, p0;		movxm	r8, #0x480
+    15c6:      	mova	r0, #0xc;		movs	p2, p4;		mov	p7, p4
+    15d0:      	nopa	;		jl	#0x2490
+    15da:      	nop	
+    15dc:      	nop	
+    15de:      	movxm	p0, #0x718c0
+    15e4:      	movxm	p1, #0x718c0
+    15ea:      	mova	r0, #0x6;		mov	p2, p7
+    15f0:      	nopa	;		nopb	;		jl	#0x2490
+    15fc:      	movxm	m0, #0x1800
+    1602:      	movxm	p0, #0x718c0
+    1608:      	padda	 [p0], m0;		mov	m1, #0x200
+    160e:      	padda	 [p7], m1;		mov	p1, p0
+    1614:      	mova	r0, #0x12;		movs	p2, p7;		movxm	p7, #0x718c0
+
+00001620 <.LBB3_14>:
+    1620:      	nopa	;		nopb	;		nops	;		jl	#0x2fa0;		nopv	
+    1630:      	nop	
+    1632:      	movxm	m0, #0x1800
+    1638:      	movxm	p1, #0x718c0
+    163e:      	padda	 [p1], m0;		mov	p0, p6
+    1644:      	mova	r2, #0x5;		movs	p2, p6;		movx	r0, #0xc;		mov	r1, r8
+    1650:      	lda	 r15, [sp, #-32]
+    1654:      	lda	 r14, [sp, #-36]
+    1658:      	lda	 r13, [sp, #-40]
+    165c:      	lda	 r12, [sp, #-44]
+    1660:      	lda	 r11, [sp, #-48]
+    1664:      	lda	 r10, [sp, #-52]
+    1668:      	lda	 r9, [sp, #-56]
+    166c:      	lda	 r8, [sp, #-60]
+    1670:      	lda	 lr, [sp, #-64]
+    1674:      	lda	 p7, [sp, #-24]
+    1678:      	lda	 p6, [sp, #-28];		movxm	m0, #0x4800
+    1682:      	j	#0x2fa0
+    1688:      	mov	m1, r9
+    168c:      	mov	r1, r8
+    1690:      	padda	 [p7], m0;		movxm	p0, #0x718c0
+    169a:      	movs	p1, p7;		paddb	 [p6], m1;		paddxm	 [sp], #-0x40
+    16a6:      	mova	r2, #0x5;		movs	p2, p6;		movx	r0, #0x6
+
+000016b0 <attn_begin>:
+    16b0:      	nopa	;		nopb	;		nops	;		movxm	r1, #-0x3c00;		nopv	
+    16c0:      	movxm	p2, #0x779b0
+    16c6:      	movxm	p3, #0x779b4
+    16cc:      	movxm	p4, #0x779c0
+    16d2:      	nopa	;		movs	p1, p0;		paddxm	 [sp], #0xc0
+    16de:      	st	 r11, [sp, #-48];		movxm	p5, #0x71300
+    16e8:      	st	 r10, [sp, #-52];		mov	crrnd, #0xc
+    16f0:      	st	 r9, [sp, #-56];		vbcst.16	 x0, r1
+    16f8:      	mova	m0, #0x300;		st	 r8, [sp, #-60];		movxm	r1, #0x3f80
+    1704:      	padda	 [p0], m0;		st	 p1, [p2, #0];		movxm	m0, #0x3880
+    1710:      	st	 p7, [sp, #-40];		movxm	p7, #0x779c4
+    171a:      	st	 p6, [sp, #-44];		movxm	p6, #0x718c0
+    1724:      	st	 p0, [p3, #0];		movxm	p0, #0x779b8
+    172e:      	movs	p2, p1;		mov	p3, p1
+    1736:      	mova	m0, #0x380;		paddb	 [p3], m0;		movx	r2, #0x2;		vbcst.16	 x0, r1;		vst	 x0, [sp, #-0x80]
+    1744:      	padda	 [p2], m0;		st	 p3, [p4, #0];		movxm	m0, #0x4480
+    1750:      	mova	r26, #0x0;		st	 lr, [sp, #-64];		or	 r8, r0, r0;		mov	p3, p1
+    175c:      	padda	 [p3], m0;		st	 p2, [p0, #0];		movxm	m0, #0x880
+    1768:      	mova	r11, #0x1;		movs	p0, p1;		j	#0x17d0
+    1774:      	mova	r10, #0xc0;		st	 p3, [p7, #0];		movxm	p3, #0x779bc
+    1780:      	padda	 [p0], m0;		movs	p4, p1;		movxm	m0, #0x4600
+    178c:      	padda	 [p4], m0;		st	 p0, [p3, #0];		movxm	p3, #0x779c8
+    1798:      	mova	r9, #0x6;		st	 p4, [p3, #0];		movxm	p4, #0x779cc
+    17a4:      	mova	r1, #0x140;		vst	 x0, [sp, #-0xc0];		movxm	p3, #0x779d0
+
+000017b0 <.LBB4_1>:
+    17b0:      	nopa	;		lshl	 r0, r26, r2
+    17b6:      	mov	dj0, r0
+    17ba:      	vldb	 x0, [p5, dj0]
+    17be:      	nop	
+    17c0:      	nop	
+    17c2:      	nop	
+    17c4:      	nop	
+    17c6:      	nop	
+    17c8:      	nop	
+    17ca:      	vst	 x0, [p2, dj0];		add	r26, r26, #0x10
+
+000017d0 <.LBB4_2>:
+    17d0:      	nopa	;		nopb	;		nops	;		ne	 r0, r26, r1;		nopm	;		nopv	
+    17e0:      	jnz	 r0, #0x17b0
+    17e6:      	nop	
+    17e8:      	nop	
+    17ea:      	nop	
+    17ec:      	nop	
+    17ee:      	nop	
+    17f0:      	jl	#0x3cd0
+    17f6:      	nop	
+    17f8:      	nop	
+    17fa:      	mova	r1, #0x0;		st	 r8, [p4, #0];		movxm	m0, #0x1c80
+    1806:      	padda	 [p1], m0;		st	 r1, [p3, #0]
+    180c:      	mova	r0, #0x50
+    1810:      	nopa	;		nopb	;		nops	;		lt	 r0, r11, r8;		nopm	;		nopv	
+    1820:      	jz	 r0, #0x1850
+    1826:      	nop	
+    1828:      	nop	
+    182a:      	nop	
+    182c:      	nop	
+    182e:      	nop	
+    1830:      	jl	#0x3cd0
+    1836:      	nop	
+    1838:      	nop	
+    183a:      	movxm	m0, #0x1000
+    1840:      	padda	 [p6], m0;		movxm	p0, #0x718c0
+    184a:      	mova	r0, #0x40;		mov	p1, p6
+
+00001850 <.LBB4_5>:
+    1850:      	nopa	;		j	#0x1880
+    185a:      	nop	
+    185c:      	nop	
+    185e:      	nop	
+    1860:      	lda	 p0, [p7, #0];		movx	r0, #0x1
+    1866:      	vlda	 x0, [sp, #-0x80];		movx	r26, #0x0;		mov	r1, #0x0
+
+00001870 <.LBB4_6>:
+    1870:      	nopa	;		lshl	 r2, r1, r0
+    1876:      	mov	dj0, r2
+    187a:      	vst	 x0, [p0, dj0];		add	r1, r1, #0x20
+
+00001880 <.LBB4_7>:
+    1880:      	nopa	;		ne	 r2, r1, r10
+    1886:      	jnz	 r2, #0x1870
+    188c:      	nop	
+    188e:      	nop	
+    1890:      	nop	
+    1892:      	nop	
+    1894:      	nop	
+    1896:      	vlda	 x0, [sp, #-0xc0]
+    189a:      	nop	
+    189c:      	nop	
+    189e:      	nop	
+    18a0:      	nop	
+    18a2:      	nop	
+    18a4:      	j	#0x18d0
+    18aa:      	vconv.fp32.bf16	cml0, x0
+    18ae:      	nop	
+    18b0:      	vmov	cmh0, cml0
+    18b4:      	movxm	p0, #0x779c8
+    18ba:      	lda	 p2, [p0, #0];		vconv.bfp16ebs8.fp32	 ex0, dm0
+
+000018c0 <.LBB4_9>:
+    18c0:      	vst.push.576	 ex0, [p2, sf, r26];		nopb	;		nopx	
+    18c8:      	vst.flush.512	 [p2, sf, r26]
+    18cc:      	add	r9, r9, #-0x1
+
+000018d0 <.LBB4_10>:
+    18d0:      	jnz	 r9, #0x18c0
+    18d6:      	nopx	
+    18da:      	nop	
+    18dc:      	nop	
+    18de:      	nop	
+    18e0:      	nop	
+    18e2:      	lda	 lr, [sp, #-64]
+    18e6:      	lda	 p7, [sp, #-40]
+    18ea:      	lda	 p6, [sp, #-44]
+    18ee:      	lda	 r11, [sp, #-48]
+    18f2:      	lda	 r10, [sp, #-52]
+    18f6:      	lda	 r9, [sp, #-56]
+    18fa:      	lda	 r8, [sp, #-60]
+    18fe:      	ret	lr
+    1902:      	nop	
+    1904:      	nop	
+    1906:      	nop	
+    1908:      	paddxm	 [sp], #-0xc0
+    190e:      	nop	
+
+00001910 <attn_qcopy>:
+    1910:      	nopa	;		nopb	;		ne	 r0, r0, r3;		nopm	;		nops	
+    191e:      	jnz	 r0, #0x1a10
+    1924:      	nop	
+    1926:      	nop	
+    1928:      	nop	
+    192a:      	nop	
+    192c:      	paddxm	 [sp], #0x40
+    1932:      	mova	r0, #0x1;		eqz	 r3, r2
+    1938:      	lt	 r4, r0, r1
+    193c:      	xor	 r3, r4, r3
+    1940:      	xor	 r3, r3, r0
+    1944:      	jnz	 r3, #0x1a10
+    194a:      	nop	
+    194c:      	nop	
+    194e:      	nop	
+    1950:      	nop	
+    1952:      	nop	
+    1954:      	lshl	 r0, r2, r0
+    1958:      	movxm	r3, #0xd80
+    195e:      	movxm	p3, #0x718c0
+    1964:      	sub	 r0, r1, r0;		mov	p4, sp
+    196a:      	j	#0x19e0
+    1970:      	padda	 [p4], #-0x40;		mul	r0, r0, r3
+    1976:      	movx	r2, #0x12;		mov	p5, p4
+    197c:      	mova	r1, #0x3;		st	 p0, [p5], #4;		movx	r4, #0x6;		mov	m0, r0
+    1988:      	padda	 [p3], m0;		st	 p1, [p5, #0];		movxm	m0, #0x3000
+    1994:      	padda	 [p3], m0;		st	 p2, [p5, #4];		movx	r0, #0x0;		mov	r3, #0x2
+
+000019a0 <.LBB5_3>:
+    19a0:      	nopa	;		lshl	 r6, r5, r4
+    19a6:      	mov	dj0, r6
+    19aa:      	vldb	 x0, [p0, dj0]
+    19ae:      	nop	
+    19b0:      	nop	
+    19b2:      	nop	
+    19b4:      	nop	
+    19b6:      	nop	
+    19b8:      	nop	
+    19ba:      	vst	 x0, [p3], #0x40;		add	r5, r5, #0x1
+
+000019c0 <.LBB5_4>:
+    19c0:      	nopa	;		nopb	;		ne	 r6, r5, r2;		nopm	
+    19cc:      	jnz	 r6, #0x19a0
+    19d2:      	nop	
+    19d4:      	nop	
+    19d6:      	nop	
+    19d8:      	nop	
+    19da:      	nop	
+    19dc:      	add	r0, r0, #0x1
+
+000019e0 <.LBB5_6>:
+    19e0:      	nopa	;		nopb	;		ne	 r5, r0, r1
+    19e8:      	jz	 r5, #0x1a10
+    19ee:      	nop	
+    19f0:      	nop	
+    19f2:      	nop	
+    19f4:      	nop	
+    19f6:      	nop	
+    19f8:      	j	#0x19c0
+    19fe:      	nop	
+    1a00:      	nop	
+    1a02:      	lshl	 r5, r0, r3
+    1a06:      	mov	dj0, r5
+    1a0a:      	lda	 p0, [p4, dj0];		movx	r5, #0x0
+
+00001a10 <.LBB5_8>:
+    1a10:      	nopa	;		nopb	;		nops	;		ret	lr;		nopm	;		nopv	
+    1a20:      	nopx	
+    1a24:      	nop	
+    1a26:      	nop	
+    1a28:      	paddxm	 [sp], #-0x40
+    1a2e:      	nop	
+
+00001a30 <attn_chunk_k>:
+    1a30:      	nopa	;		nopb	;		nops	;		paddxm	 [sp], #0x180;		nopv	
+    1a40:      	st	 p7, [sp, #-16]
+    1a44:      	st	 r13, [sp, #-32]
+    1a48:      	st	 lr, [sp, #-56]
+    1a4c:      	st	 r8, [sp, #-52]
+    1a50:      	st	 r9, [sp, #-48]
+    1a54:      	st	 r10, [sp, #-44]
+    1a58:      	st	 r11, [sp, #-40]
+    1a5c:      	st	 r12, [sp, #-36]
+    1a60:      	st	 r14, [sp, #-28]
+    1a64:      	st	 r15, [sp, #-24];		movxm	p1, #0x779d0
+    1a6e:      	lda	 r0, [p1, #0];		st	 p6, [sp, #-20];		event	#0
+    1a78:      	nop	
+    1a7a:      	nop	
+    1a7c:      	nop	
+    1a7e:      	nop	
+    1a80:      	mova	r2, #-0x30;		movxm	r1, #0x430
+    1a8a:      	movxm	p1, #0x779cc
+    1a90:      	mac	r1, r1, r0, r2
+    1a94:      	lda	 r0, [p1, #0];		movx	r5, #0x0
+    1a9a:      	lt	 r27, r5, r1
+    1a9e:      	mova	r4, #0x2f;		sel.nez	 r2, r1, r5, r27
+    1aa4:      	mova	r3, #-0x3;		lt	 r27, r4, r1
+    1aaa:      	mova	r3, #0x6;		lshl	 r2, r2, r3
+    1ab0:      	sel.nez	 r1, r3, r2, r27
+    1ab4:      	st	 r1, [sp, #-80];		nez	 r1, r1
+    1aba:      	lt	 r0, r5, r0
+    1abe:      	mova	r13, #0x1;		and	 r0, r1, r0
+    1ac4:      	xor	 r0, r0, r13
+    1ac8:      	jnz	 r0, #0x1e90
+    1ace:      	nop	
+    1ad0:      	nop	
+    1ad2:      	nop	
+    1ad4:      	mov	p7, sp
+    1ad8:      	padda	 [p7], #-0x100
+    1adc:      	mov	r14, p0
+    1ae0:      	movxm	r0, #-0x7fff8000
+    1ae6:      	movxm	m0, #0xd80
+    1aec:      	mova	m1, #0x94;		mov	p0, p7
+    1af2:      	padda	 [p0], m1;		j	#0x1bd0
+    1afc:      	mova	r0, #0x0;		st	 p0, [sp, #-76];		vbcst.32	 x4, r0
+    1b06:      	st	 r0, [sp, #-72];		mov	p2, r14
+    1b0e:      	padda	 [p2], m0;		vst	 x4, [sp, #-0x180];		movx	r4, #0x34;		vbneg_ltz.s32	 x6, r16, x4
+    1b1a:      	mova	r11, #0x40;		st	 p2, [sp, #-60];		movx	r15, #0x35
+    1b24:      	mova	r9, #0x0;		vst	 x6, [sp, #-0x140];		movx	r6, #0x0;		mov	r12, #0x2
+
+00001b30 <.LBB6_2>:
+    1b30:      	lda	 r2, [sp, #-80];		nopb	;		nops	;		nopxm	;		nopv	
+    1b40:      	jl	#0x2780
+    1b46:      	nop	
+    1b48:      	nop	
+    1b4a:      	nop	
+    1b4c:      	mova	r3, #0x0;		or	 r0, r9, r9;		mov	p0, p6
+    1b56:      	movs	p1, r14;		or	 r1, r10, r10;		mov	p2, p7
+    1b60:      	mova	r3, #0x6;		nopb	;		add	r10, r10, #0x1;		nopm	
+    1b6c:      	ne	 r0, r10, r3
+    1b70:      	jnz	 r0, #0x1b30
+    1b76:      	nop	
+    1b78:      	nop	
+    1b7a:      	nop	
+    1b7c:      	nop	
+    1b7e:      	nop	
+
+00001b80 <.LBB6_3>:
+    1b80:      	movxm	p0, #0x779cc
+    1b86:      	lda	 r0, [p0, #0]
+    1b8a:      	lda	 r6, [sp, #-64]
+    1b8e:      	lda	 r5, [sp, #-68]
+    1b92:      	nop	
+    1b94:      	nop	
+    1b96:      	lda	 r2, [sp, #-72];		add	r9, r9, #0x1
+    1b9c:      	movxm	r1, #0xd80
+    1ba2:      	lt	 r0, r9, r0
+    1ba6:      	jz	 r0, #0x1e90
+    1bac:      	mova	r1, #0x60;		add	 r6, r6, r1
+    1bb2:      	add	 r5, r5, r1
+    1bb6:      	vlda	 x4, [sp, #-0x180];		movxm	r1, #0xa80
+    1bc0:      	vlda	 x6, [sp, #-0x140];		add	 r2, r2, r1
+    1bc6:      	lda	 p2, [sp, #-60];		st	 r2, [sp, #-72];		movx	r4, #0x34
+
+00001bd0 <.LBB6_4>:
+    1bd0:      	movxm	p0, #0x779c4
+    1bd6:      	lda	 p0, [p0, #0];		nopx	
+    1bdc:      	nop	
+    1bde:      	nop	
+    1be0:      	nop	
+    1be2:      	nop	
+    1be4:      	mova	r1, #0x0;		lshl	 r0, r5, r13
+    1bea:      	lshl	 r0, r1, r13;		mov	m0, r0
+    1bf0:      	padda	 [p0], m0;		mov	dj0, r0
+    1bf6:      	vldb	 wl0, [p0, dj0]
+    1bfa:      	nop	
+    1bfc:      	nop	
+    1bfe:      	nop	
+    1c00:      	nop	
+    1c02:      	movxm	ls, #0x1c50
+    1c08:      	movxm	le, #0x1ca0
+    1c0e:      	vband	 x2, x6, x0
+    1c12:      	vbneg_ltz.s32	 x0, r16, x0
+    1c16:      	vband	 x0, x0, x4
+    1c1a:      	vbor	 x0, x0, x2
+    1c1e:      	movs	p1, p2;		lshl	 r0, r1, r13;		vmov	wh0, wl0
+    1c28:      	movs	m0, r0;		vshuffle	x2, x0, x0, r15
+    1c30:      	padda	 [p1], m0;		nopb	;		nops	;		add	r0, r1, #0x10;		add.nc	lc, r3, #-0x1;		nopv	
+    1c40:      	nopa	;		nopb	;		vst	 x2, [p1, #0x40];		add	 r1, r1, r11;		vshuffle	x0, x0, x0, r4;		nopv	
+
+00001c50 <.LBB6_5>:
+    1c50:      	nopa	;		nopb	;		nops	;		lshl	 r2, r0, r13;		nopm	;		nopv	
+    1c60:      	vst	 x0, [p1, #0x0];		mov	dj0, r2
+    1c68:      	vldb	 wl5, [p0, dj0]
+    1c6c:      	nop	
+    1c6e:      	nop	
+    1c70:      	nop	
+    1c72:      	nop	
+    1c74:      	nop	
+    1c76:      	nop	
+    1c78:      	vband	 x7, x6, x5
+    1c7c:      	vbneg_ltz.s32	 x9, r16, x5
+    1c80:      	vband	 x11, x9, x4
+    1c84:      	vbor	 x0, x11, x7
+    1c88:      	movs	p1, p2;		lshl	 r2, r1, r13;		vmov	wh0, wl0
+    1c92:      	movs	m0, r2;		vshuffle	x2, x0, x0, r15
+    1c9a:      	padda	 [p1], m0;		add	r0, r0, #0x10
+
+00001ca0 <.L_LEnd2>:
+    1ca0:      	nopa	;		nopb	;		vst	 x2, [p1, #0x40];		add	 r1, r1, r11;		vshuffle	x0, x0, x0, r4;		nopv	
+    1cb0:      	nopa	;		nopb	;		nops	;		nopxm	;		nopv	
+    1cc0:      	lda	 r1, [sp, #-80];		vst	 x0, [p1, #0x0];		movxm	p0, #0x779d0
+    1ccc:      	lda	 r0, [p0, #0]
+    1cd0:      	nop	
+    1cd2:      	nop	
+    1cd4:      	nop	
+    1cd6:      	nop	
+    1cd8:      	nop	
+    1cda:      	eq	 r1, r1, r3
+    1cde:      	nez	 r0, r0
+    1ce2:      	and	 r0, r1, r0
+    1ce6:      	jz	 r0, #0x1b30
+    1cec:      	nop	
+    1cee:      	movxm	p6, #0x718c0
+    1cf4:      	mov	m0, r6
+    1cf8:      	padda	 [p6], m0;		st	 r5, [sp, #-68];		movxm	m0, #0x3000
+    1d04:      	padda	 [p6], m0;		st	 r6, [sp, #-64];		movx	r10, #0x0
+    1d0e:      	lda	 m0, [sp, #-72]
+    1d12:      	lda	 p3, [sp, #-60];		movxm	p0, #0x779b0
+    1d1c:      	lda	 p4, [p0, #0]
+    1d20:      	nop	
+    1d22:      	jl	#0x3420
+    1d28:      	nop	
+    1d2a:      	movxm	p2, #0x718c0
+    1d30:      	padda	 [p2], m0;		movxm	m0, #0x4b00
+    1d3a:      	padda	 [p2], m0;		movs	p1, r14;		movxm	r1, #0x427f
+    1d46:      	mova	r0, #0x24;		movs	p5, p7;		mov	p0, p6
+    1d50:      	mova	dj0, #0x90;		nopb	;		nopx	
+    1d58:      	lda	 r0, [p7, dj0]
+    1d5c:      	nop	
+    1d5e:      	nop	
+    1d60:      	nop	
+    1d62:      	nop	
+    1d64:      	nop	
+    1d66:      	nop	
+    1d68:      	jz	 r0, #0x1b80
+    1d6e:      	nop	
+    1d70:      	nop	
+    1d72:      	nop	
+    1d74:      	nop	
+    1d76:      	mova	r3, #0x6
+    1d7a:      	mova	r10, #0x0;		movx	r8, #0x0
+
+00001d80 <.LBB6_9>:
+    1d80:      	nopa	;		nopx	;		add.nc	lc, r3, #0x0
+    1d8a:      	movxm	ls, #0x1db0
+    1d90:      	nopa	;		nopb	;		nops	;		movxm	le, #0x1e00;		nopv	
+    1da0:      	mova	r0, #0x0;		nopb	;		nops	;		nopx	;		mov	r1, r8;		nopv	
+
+00001db0 <.LBB6_10>:
+    1db0:      	nopa	;		nopb	;		nops	;		lshl	 r2, r1, r12;		nopm	;		nopv	
+    1dc0:      	nopa	;		nopb	;		movs	dj0, r2;		add	r1, r1, #0x1;		nopm	;		nopv	
+    1dd0:      	lda	 r2, [p7, dj0];		nopb	;		nops	;		nopxm	;		nopv	
+    1de0:      	nopa	;		nopb	;		nops	;		nopxm	;		nopv	
+    1df0:      	nopa	;		nopb	;		nopx	
+    1df8:      	nop	
+    1dfa:      	nop	
+    1dfc:      	nop	
+    1dfe:      	nop	
+
+00001e00 <.L_LEnd1>:
+    1e00:      	nopa	;		nopb	;		nops	;		or	 r0, r2, r0;		nopm	;		nopv	
+    1e10:      	nopa	;		nopb	;		nops	;		jz	 r0, #0x1e60;		nopv	
+    1e20:      	nopa	;		nopx	
+    1e26:      	nop	
+    1e28:      	nop	
+    1e2a:      	nop	
+    1e2c:      	nop	
+    1e2e:      	lda	 p2, [sp, #-76]
+    1e32:      	jl	#0x2780
+    1e38:      	nop	
+    1e3a:      	nop	
+    1e3c:      	nop	
+    1e3e:      	mova	r2, #0x6;		mov	p0, p6
+    1e44:      	mova	r3, #0x1;		movs	p1, r14;		or	 r0, r9, r9;		mov	r1, r10
+    1e50:      	mova	r3, #0x6;		nopb	;		nops	;		nopxm	;		nopv	
+
+00001e60 <.LBB6_13>:
+    1e60:      	mova	r0, #0x24;		add	r8, r8, #0x6;		nopm	
+    1e6a:      	eq	 r0, r8, r0
+    1e6e:      	jz	 r0, #0x1d80
+    1e74:      	nop	
+    1e76:      	nop	
+    1e78:      	nop	
+    1e7a:      	nop	
+    1e7c:      	add	r10, r10, #0x1
+    1e80:      	j	#0x1b80
+    1e86:      	nop	
+    1e88:      	nop	
+    1e8a:      	nop	
+    1e8c:      	nop	
+    1e8e:      	nop	
+
+00001e90 <.LBB6_14>:
+    1e90:      	lda	 p7, [sp, #-16];		event	#1
+    1e96:      	lda	 p6, [sp, #-20]
+    1e9a:      	lda	 r15, [sp, #-24]
+    1e9e:      	lda	 r14, [sp, #-28]
+    1ea2:      	lda	 lr, [sp, #-56]
+    1ea6:      	lda	 r13, [sp, #-32]
+    1eaa:      	lda	 r12, [sp, #-36]
+    1eae:      	lda	 r11, [sp, #-40]
+    1eb2:      	lda	 r10, [sp, #-44]
+    1eb6:      	lda	 r9, [sp, #-48]
+    1eba:      	lda	 r8, [sp, #-52]
+    1ebe:      	ret	lr
+    1ec2:      	nop	
+    1ec4:      	nop	
+    1ec6:      	nop	
+    1ec8:      	paddxm	 [sp], #-0x180
+    1ece:      	nop	
+
+00001ed0 <attn_chunk_v>:
+    1ed0:      	nopa	;		nopb	;		nops	;		paddxm	 [sp], #0x40;		nopv	
+    1ee0:      	nopa	;		nopb	;		movxm	p6, #0x779d0;		st	 p6, [sp, #-48]
+    1eee:      	lda	 r0, [p6, #0]
+    1ef2:      	nop	
+    1ef4:      	nop	
+    1ef6:      	nop	
+    1ef8:      	nop	
+    1efa:      	mova	r1, #-0x30
+    1efe:      	movxm	r2, #0x430
+    1f04:      	mac	r2, r2, r0, r1
+    1f08:      	st	 r8, [sp, #-60];		movx	r8, #0x0
+    1f0e:      	ge	 r0, r8, r2
+    1f12:      	jnz	 r0, #0x2030
+    1f18:      	nop	
+    1f1a:      	st	 r9, [sp, #-56]
+    1f1e:      	st	 lr, [sp, #-64]
+    1f22:      	st	 r10, [sp, #-52]
+    1f26:      	mova	r9, #0x18;		st	 p7, [sp, #-44]
+    1f2c:      	movs	p7, p0;		movxm	p0, #0x779bc
+    1f36:      	lda	 p2, [p0, #0]
+    1f3a:      	nop	
+    1f3c:      	jl	#0x3840
+    1f42:      	nop	
+    1f44:      	movxm	p6, #0x718c0
+    1f4a:      	movxm	m0, #0x4b00
+    1f50:      	padda	 [p6], m0
+    1f54:      	mova	r10, #0x1;		movs	p1, p7;		movx	r0, #0x18;		mov	p0, p6
+    1f60:      	movxm	p0, #0x779c8
+    1f66:      	lda	 p1, [p0, #0];		movxm	p0, #0x779c0
+    1f70:      	lda	 p2, [p0, #0]
+    1f74:      	nop	
+    1f76:      	jl	#0x3a40
+    1f7c:      	nop	
+    1f7e:      	nop	
+    1f80:      	nop	
+    1f82:      	nop	
+    1f84:      	mova	r0, #0x6;		movs	p0, p6;		movxm	p6, #0x779d0
+    1f90:      	nopa	;		nopb	;		nops	;		movxm	p0, #0x779cc;		nopv	
+    1fa0:      	lda	 r0, [p0, #0];		nopb	;		nopx	
+    1fa8:      	nop	
+    1faa:      	nop	
+    1fac:      	nop	
+    1fae:      	nop	
+    1fb0:      	nop	
+    1fb2:      	nop	
+    1fb4:      	ge	 r0, r10, r0
+    1fb8:      	jnz	 r0, #0x2030
+    1fbe:      	nop	
+    1fc0:      	nop	
+    1fc2:      	nop	
+    1fc4:      	nop	
+    1fc6:      	nop	
+    1fc8:      	jl	#0x3840
+    1fce:      	nop	
+    1fd0:      	movxm	m0, #0x5580
+    1fd6:      	movs	p1, p7;		movxm	p7, #0x718c0
+    1fe0:      	padda	 [p7], m0;		movxm	p2, #0x718c0
+    1fea:      	mova	r0, #0x18;		mov	p0, p7
+    1ff0:      	nopa	;		nopb	;		nops	;		movxm	p0, #0x779c0;		nopv	
+    2000:      	lda	 p2, [p0, #0];		nopb	;		movxm	p0, #0x779c8;		nops	
+    200e:      	lda	 p1, [p0, #0]
+    2012:      	nop	
+    2014:      	jl	#0x3a40
+    201a:      	nop	
+    201c:      	nop	
+    201e:      	nop	
+    2020:      	movxm	m0, #0x600
+    2026:      	mova	r0, #0x6;		paddb	 [p2], m0;		mov	p0, p7
+
+00002030 <.LBB7_3>:
+    2030:      	lda	 lr, [sp, #-64];		nopb	;		nopxm	
+    203c:      	lda	 r0, [p6, #0]
+    2040:      	lda	 p7, [sp, #-44]
+    2044:      	lda	 r10, [sp, #-52]
+    2048:      	lda	 r9, [sp, #-56]
+    204c:      	lda	 r8, [sp, #-60]
+    2050:      	lda	 p6, [sp, #-48]
+    2054:      	ret	lr
+    2058:      	add	r0, r0, #0x1
+    205c:      	eq	 r27, r0, r9
+    2060:      	sel.nez	 r0, r8, r0, r27
+    2064:      	st	 r0, [p6, #0];		paddxm	 [sp], #-0x40
+    206e:      	nop	
+
+00002070 <attn_end>:
+    2070:      	nopa	;		nopb	;		nops	;		movxm	p1, #0x779cc;		nopv	
+    2080:      	lda	 r0, [p1, #0]
+    2084:      	nop	
+    2086:      	nop	
+    2088:      	nop	
+    208a:      	nop	
+    208c:      	nop	
+    208e:      	movx	r1, #0x0
+    2092:      	ge	 r2, r1, r0
+    2096:      	jnz	 r2, #0x2350
+    209c:      	nop	
+    209e:      	nop	
+    20a0:      	nop	
+    20a2:      	nop	
+    20a4:      	nop	
+    20a6:      	movxm	p1, #0x779c0
+    20ac:      	movxm	p3, #0x779bc
+    20b2:      	movxm	r20, #0x718c0
+    20b8:      	movxm	r2, #-0x4080
+    20be:      	movxm	r3, #0x3f80
+    20c4:      	movxm	r5, #0xc00
+    20ca:      	movxm	r7, #0xd80
+    20d0:      	vbcst.16	 x4, r3
+    20d4:      	vbcst.16	 x0, r2
+    20d8:      	lda	 r19, [p3, #0];		movxm	r2, #0x7ef3
+    20e2:      	mova	r4, #0x40;		vbcst.16	 x2, r2
+    20e8:      	mova	r6, #0x200;		movxm	r2, #0x3f800000
+    20f2:      	lda	 p1, [p1, #0];		movx	r16, #0x240;		vmov	x7, x0
+    20fc:      	mova	r18, #0x2;		movx	r17, #0x180;		vbcst.32	 x6, r2
+    2106:      	mova	r22, #0x0;		movx	r21, #0x0;		vmov	bmll0, x6
+    2110:      	movx	r27, #0x0;		vmov	bmlh0, x6
+    2116:      	mova	r2, #0x33c;		movx	r3, #0x8;		vmov	x6, x0
+
+00002120 <.LBB8_2>:
+    2120:      	sel.eqz	 r23, r19, r20, r27
+    2124:      	mova	r25, #0x0;		movs	p3, r23;		or	 r24, r22, r22;		mov	r23, r21
+
+00002130 <.LBB8_3>:
+    2130:      	nopa	;		lshl	 r26, r23, r18;		nopm	
+    213a:      	movs	p2, p1;		mov	m0, r26
+    2142:      	padda	 [p2], m0
+    2146:      	vlda	 bmll2, [p2], #0x40
+    214a:      	vlda	 bmlh2, [p2], #0x40
+    214e:      	nop	
+    2150:      	nop	
+    2152:      	nop	
+    2154:      	nop	
+    2156:      	nop	
+    2158:      	vlda	 bmll1, [p2, #0x0]
+    215c:      	vlda	 bmlh1, [p2, #0x40];		vconv.bf16.fp32	 x8, cml2
+    2162:      	nop	
+    2164:      	vmac.f	dm2, dm2, x8, x0, r2
+    2168:      	nop	
+    216a:      	nop	
+    216c:      	vsub.16	 x3, x2, x8
+    2170:      	nop	
+    2172:      	vconv.bf16.fp32	 x10, cml1;		vmsc.f	dm2, dm0, x8, x3, r2
+    217a:      	vconv.bf16.fp32	 x1, cml2
+    217e:      	vmac.f	dm1, dm1, x10, x0, r2
+    2182:      	vmsc.f	dm2, dm2, x1, x3, r2
+    2186:      	nop	
+    2188:      	vsub.16	 x5, x2, x10
+    218c:      	nop	
+    218e:      	vmsc.f	dm1, dm0, x10, x5, r2
+    2192:      	vconv.bf16.fp32	 x9, cml1;		vmul.f	dm1, x3, x4, r2
+    219a:      	vconv.bf16.fp32	 x11, cml2
+    219e:      	vmsc.f	dm3, dm1, x9, x5, r2
+    21a2:      	vmac.f	dm1, dm1, x3, x11, r2
+    21a6:      	nop	
+    21a8:      	nop	
+    21aa:      	nop	
+    21ac:      	vmul.f	dm2, x5, x4, r2
+    21b0:      	vconv.bf16.fp32	 x3, cml3
+    21b4:      	vconv.bf16.fp32	 x3, cml1
+    21b8:      	vmac.f	dm2, dm2, x5, x3, r2
+    21bc:      	vmac.f	dm3, dm1, x3, x0, r2
+    21c0:      	nop	
+    21c2:      	nop	
+    21c4:      	nop	
+    21c6:      	nop	
+    21c8:      	vmsc.f	dm4, dm0, x8, x3, r2
+    21cc:      	vconv.bf16.fp32	 x11, cml3
+    21d0:      	nop	
+    21d2:      	vconv.bf16.fp32	 x5, cml2;		vmsc.f	dm4, dm4, x8, x11, r2
+    21da:      	nop	
+    21dc:      	vmac.f	dm3, dm2, x5, x0, r2
+    21e0:      	vmsc.f	dm4, dm4, x1, x3, r2
+    21e4:      	lshl	 r26, r25, r18
+    21e8:      	movs	p4, p3;		mov	m0, r26
+    21f0:      	padda	 [p4], m0
+    21f4:      	movs	m0, r24;		mov	p5, p4;		vmsc.f	dm3, dm0, x10, x5, r2
+    21fe:      	vconv.bf16.fp32	 x8, cml3;		lshl	 r26, r1, r18;		mov	p2, p0
+    2208:      	padda	 [p2], m0;		vconv.bf16.fp32	 x8, cml4;		mov	m0, r26
+    2212:      	padda	 [p5], m0;		vmsc.f	dm3, dm3, x10, x8, r2
+    221a:      	vlda	 bmll1, [p5], #0x40;		vmac.f	dm1, dm1, x3, x8, r2
+    2222:      	vlda	 bmlh1, [p5], #0x40
+    2226:      	vlda	 bmhl1, [p5, #0x0];		vmsc.f	dm3, dm3, x9, x5, r2
+    222e:      	vlda	 bmhh1, [p5, #0x40]
+    2232:      	nop	
+    2234:      	nop	
+    2236:      	vconv.bf16.fp32	 x8, cml1
+    223a:      	nop	
+    223c:      	vconv.bf16.fp32	 x10, cml3
+    2240:      	vconv.bf16.fp32	 x10, cml1
+    2244:      	vconv.bf16.fp32	 x11, cmh1;		vmac.f	dm2, dm2, x5, x10, r2
+    224c:      	nop	
+    224e:      	vmac.f	dm1, dm1, y5, y3, r2
+    2252:      	nop	
+    2254:      	nop	
+    2256:      	nop	
+    2258:      	vconv.bf16.fp32	 x9, cml2
+    225c:      	nop	
+    225e:      	vconv.bf16.fp32	 x10, cml1;		vmul.f	dm2, y5, y4, r2
+    2266:      	vconv.bf16.fp32	 x11, cmh1
+    226a:      	nop	
+    226c:      	vmac.f	dm4, dm2, y5, y4, r2
+    2270:      	nop	
+    2272:      	nop	
+    2274:      	add	 r28, r1, r4;		add.nc	lc, r3, #-0x1
+    227a:      	movxm	ls, #0x2290
+    2280:      	mova	r26, #0x0;		nopb	;		nops	;		movxm	le, #0x2300;		nopv	
+
+00002290 <.LBB8_4>:
+    2290:      	nopa	;		nopb	;		vst.push.576.conv.bfp16ebs8.fp32	 dm4, [p2, sf, r26];		nopxm	;		nopv	
+    22a0:      	vst.flush.512.conv	 [p2, sf, r26]
+    22a4:      	lshl	 r29, r28, r18
+    22a8:      	movs	p5, p4;		mov	m0, r29
+    22b0:      	padda	 [p5], m0
+    22b4:      	vlda	 bmll1, [p5], #0x40
+    22b8:      	vlda	 bmlh1, [p5], #0x40
+    22bc:      	vlda	 bmhh1, [p5, #0x40]
+    22c0:      	vlda	 bmhl1, [p5, #0x0]
+    22c4:      	nop	
+    22c6:      	nop	
+    22c8:      	nop	
+    22ca:      	nop	
+    22cc:      	nop	
+    22ce:      	vconv.bf16.fp32	 x10, cml1
+    22d2:      	vconv.bf16.fp32	 x11, cmh1
+    22d6:      	nop	
+    22d8:      	vmac.f	dm2, dm1, y5, y3, r2
+    22dc:      	nop	
+    22de:      	nop	
+    22e0:      	nop	
+    22e2:      	nop	
+    22e4:      	nop	
+    22e6:      	vconv.bf16.fp32	 x11, cmh2;		vmul.f	dm3, y5, y4, r2
+    22ee:      	vconv.bf16.fp32	 x10, cml2
+    22f2:      	nop	
+    22f4:      	vmac.f	dm4, dm3, y5, y4, r2
+    22f8:      	nop	
+    22fa:      	nop	
+    22fc:      	nop	
+    22fe:      	nop	
+
+00002300 <.L_LEnd3>:
+    2300:      	nopa	;		nopb	;		nops	;		add	 r28, r28, r4;		nopm	;		nopv	
+    2310:      	vst.push.576.conv.bfp16ebs8.fp32	 dm4, [p2, sf, r26];		nopx	
+    2316:      	vst.flush.512.conv	 [p2, sf, r26];		add	 r25, r25, r6
+    231c:      	eq	 r26, r25, r5
+    2320:      	jz	 r26, #0x2130
+    2326:      	nop	
+    2328:      	nop	
+    232a:      	nop	
+    232c:      	add	 r24, r24, r16
+    2330:      	add	 r23, r23, r4
+    2334:      	add	r27, r27, #0x1
+    2338:      	eq	 r23, r0, r27
+    233c:      	jz	 r23, #0x2120
+    2342:      	nop	
+    2344:      	nop	
+    2346:      	nop	
+    2348:      	add	 r22, r22, r7
+    234c:      	add	 r21, r21, r17
+
+00002350 <.LBB8_7>:
+    2350:      	nopa	;		ret	lr
+    2356:      	nop	
+    2358:      	nop	
+    235a:      	nop	
+    235c:      	nop	
+    235e:      	nop	
+
+00002360 <_ZL6bgelu3P8bfloat16PKS_bS0_S0_>:
+    2360:      	nopa	;		nopb	;		movxm	r1, #0x70e80
+    236c:      	paddxm	 [sp], #0x40
+    2372:      	st	 p6, [sp, #-44];		movxm	p4, #0x70a00
+    237c:      	mov	p6, p1
+    2380:      	movs	p1, p0;		or	 r27, r0, r0;		mov	r0, p4
+    238a:      	st	 p7, [sp, #-40];		movxm	p7, #0x718c0
+    2394:      	st	 r10, [sp, #-48];		jl	#0x30d0
+    239e:      	st	 r8, [sp, #-56];		sel.nez	 r8, r1, r0, r27;		mov	r10, p3
+    23a8:      	st	 lr, [sp, #-60];		movxm	r0, #0x7fa00
+    23b2:      	st	 p2, [sp, #-64];		movxm	r1, #0x7f580
+    23bc:      	st	 r9, [sp, #-52];		sel.nez	 r9, r0, r1, r27;		mov	p4, p6
+    23c6:      	mova	r0, #0x60;		movs	p2, r8;		mov	p3, r9
+    23d0:      	lda	 p1, [sp, #-64];		nopb	;		nops	;		nopxm	;		nopv	
+    23e0:      	jl	#0x30d0
+    23e6:      	nopx	
+    23ea:      	nop	
+    23ec:      	mov	p2, r8
+    23f0:      	movs	p3, r9;		movxm	p0, #0x718c0
+    23fa:      	mova	r0, #0x30;		movs	p4, p6
+    2400:      	nopa	;		nopb	;		eqz	 r0, r10
+    2408:      	jnz	 r0, #0x2460
+    240e:      	nop	
+    2410:      	nop	
+    2412:      	nop	
+    2414:      	nop	
+    2416:      	nop	
+    2418:      	lda	 r10, [sp, #-48]
+    241c:      	lda	 r9, [sp, #-52]
+    2420:      	lda	 r8, [sp, #-56]
+    2424:      	lda	 lr, [sp, #-60]
+    2428:      	lda	 p7, [sp, #-40]
+    242c:      	lda	 p6, [sp, #-44];		movxm	m1, #0x1800
+    2436:      	movs	p1, r10;		j	#0x30d0
+    2440:      	mov	p3, r9
+    2444:      	mov	p2, r8
+    2448:      	padda	 [p7], m1;		mov	m0, #0x200
+    244e:      	movs	p0, p7;		paddb	 [p6], m0;		paddxm	 [sp], #-0x40
+    245a:      	mova	r0, #0x90;		movs	p4, p6
+
+00002460 <.LBB9_2>:
+    2460:      	lda	 lr, [sp, #-60];		nopb	;		nopx	
+    2468:      	nop	
+    246a:      	lda	 p7, [sp, #-40]
+    246e:      	lda	 p6, [sp, #-44]
+    2472:      	lda	 r10, [sp, #-48]
+    2476:      	lda	 r9, [sp, #-52]
+    247a:      	lda	 r8, [sp, #-56]
+    247e:      	ret	lr
+    2482:      	nop	
+    2484:      	nop	
+    2486:      	nop	
+    2488:      	paddxm	 [sp], #-0x40
+    248e:      	nop	
+
+00002490 <_ZL8bias_pcsPKfP8bfloat16PKS1_ii>:
+    2490:      	padda	 [p2], #0xc0;		vldb	 x0, [p2, #0x0];		add	r0, r0, #-0x1
+    2498:      	nopa	;		vldb	 x2, [p2], #0x40;		movxm	m0, #0x400
+    24a4:      	vlda	 bmll0, [p0], m0;		vldb	 x4, [p2], #-0xc0;		movx	r1, #-0x1;		mov	m1, #-0x3c0
+    24b0:      	vlda	 bmll1, [p0, #0x0];		paddb	 [p0], m1;		lshl	 r0, r0, r1
+    24b8:      	vlda	 bmlh0, [p0], m0;		vldb	 x6, [p2], #0x40;		add	r1, r0, #0x1;		mov	m2, #0x3c0
+    24c4:      	vlda	 bmlh1, [p0], m1;		movxm	r0, #0x3f80
+    24ce:      	vlda	 bmll2, [p0], #0x40;		vbcst.16	 x5, r0
+    24d4:      	vlda	 bmlh2, [p0], m2;		movx	r0, #0x33c
+    24da:      	vlda	 bmll3, [p0], #0x40;		vldb	 x8, [p2], #0xc0;		vmac.f	dm0, dm0, x0, x5, r0
+    24e4:      	vlda	 bmlh3, [p0], m1
+    24e8:      	vlda	 bmll4, [p0], #0x40
+    24ec:      	vlda	 bmlh4, [p0], m2;		vmac.f	dm2, dm2, x6, x5, r0
+    24f4:      	vmac.f	dm0, dm1, x0, x5, r0
+    24f8:      	paddxm	 [sp], #0x200;		vmac.f	dm3, dm3, x6, x5, r0
+    2502:      	vst	 bmll0, [sp, #-0x100]
+    2506:      	vlda	 bmll4, [sp, #-0x100];		vst	 bmlh0, [sp, #-0xc0];		vmac.f	dm1, dm4, x8, x5, r0
+    2510:      	vlda	 bmlh4, [sp, #-0xc0];		vst	 bmhl0, [sp, #-0x80]
+    2516:      	vlda	 bmhl4, [sp, #-0x80];		vst	 bmhh0, [sp, #-0x40]
+    251c:      	vlda	 bmll0, [p0], #0x40
+    2520:      	vlda	 bmlh0, [p0], m1
+    2524:      	vlda	 bmhh4, [sp, #-0x40]
+    2528:      	vlda	 bmll1, [p0], #0x40
+    252c:      	vlda	 bmlh1, [p0], m2
+    2530:      	vlda	 bmll2, [p0], #0x40;		vst.conv.bf16.fp32	 cml4, [p1], m0;		vmac.f	dm0, dm0, x8, x5, r0
+    253a:      	vlda	 bmlh2, [p0], m1;		vst.conv.bf16.fp32	 cml0, [p1], m1
+    2540:      	vlda	 bmll3, [p0], #0x40;		vst.conv.bf16.fp32	 cml2, [p1], m0
+    2546:      	vlda	 bmlh3, [p0], m2;		vst.conv.bf16.fp32	 cml3, [p1], m1
+    254c:      	vlda	 bmll4, [p0], #0x40;		vst.conv.bf16.fp32	 cml1, [p1], m0;		vmac.f	dm0, dm1, x2, x5, r0
+    2556:      	vlda	 bmlh4, [p0], m1;		vmac.f	dm2, dm2, x2, x5, r0
+    255e:      	vst	 bmll0, [sp, #-0x100]
+    2562:      	vlda	 bmll4, [sp, #-0x100];		vst	 bmlh0, [sp, #-0xc0];		vmac.f	dm3, dm3, x4, x5, r0
+    256c:      	vlda	 bmlh4, [sp, #-0xc0];		vldb	 x10, [p2], #0x40;		vst	 bmhl0, [sp, #-0x80]
+    2574:      	vlda	 bmhl4, [sp, #-0x80];		vst	 bmhh0, [sp, #-0x40];		vmac.f	dm1, dm4, x4, x5, r0
+    257e:      	vlda	 bmll0, [p0], #0x40
+    2582:      	vlda	 bmlh0, [p0], m2
+    2586:      	vlda	 bmhh4, [sp, #-0x40]
+    258a:      	vlda	 bmll1, [p0], #0x40;		vldb	 x1, [p2, #0x0]
+    2590:      	vlda	 bmlh1, [p0], m1
+    2594:      	vlda	 bmll2, [p0], #0x40;		vst.conv.bf16.fp32	 cml4, [p1], m1;		vmac.f	dm0, dm0, x10, x5, r0
+    259e:      	vlda	 bmlh2, [p0], m2;		vst.conv.bf16.fp32	 cml0, [p1], m0
+    25a4:      	vlda	 bmll3, [p0], #0x40;		vldb	 x3, [p2, #0x40];		vst.conv.bf16.fp32	 cml2, [p1], m1
+    25ac:      	vlda	 bmlh3, [p0], m1;		vst.conv.bf16.fp32	 cml3, [p1], m0;		vmac.f	dm1, dm1, x10, x5, r0
+    25b6:      	vlda	 bmll4, [p0], #0x40;		vst.conv.bf16.fp32	 cml1, [p1], m1
+    25bc:      	vlda	 bmlh4, [p0], m2;		vmac.f	dm2, dm2, x1, x5, r0
+    25c4:      	vlda	 bmll0, [p0], #0x40;		vst	 bmll0, [sp, #-0x100]
+    25ca:      	vlda	 bmll1, [sp, #-0x100];		vst	 bmlh0, [sp, #-0xc0];		vmac.f	dm3, dm3, x1, x5, r0
+    25d4:      	vlda	 bmlh1, [sp, #-0xc0];		vst	 bmhl0, [sp, #-0x80]
+    25da:      	vlda	 bmlh0, [p0], #0x40;		vst	 bmll1, [sp, #-0x200];		vmac.f	dm4, dm4, x3, x5, r0
+    25e4:      	vlda	 bmll1, [sp, #-0x200];		vst	 bmlh1, [sp, #-0x1c0]
+    25ea:      	vlda	 bmlh1, [sp, #-0x1c0];		vst	 bmhl1, [sp, #-0x180]
+    25f0:      	vst	 bmhh1, [sp, #-0x140]
+    25f4:      	vst	 bmhh0, [sp, #-0x40];		movxm	ls, #0x2610;		vmac.f	dm0, dm0, x3, x5, r0
+    2600:      	movxm	le, #0x2750
+    2606:      	mova	m3, #0x240;		vst.conv.bf16.fp32	 cml1, [p1], m0;		add.nc	lc, r1, #-0x1
+
+00002610 <.LBB10_1>:
+    2610:      	vlda	 bmll0, [p0], m0;		nopxm	
+    261a:      	vlda	 bmll1, [p0, #0x0];		paddb	 [p0], m1
+    2620:      	vlda	 bmlh0, [p0], m0;		vst.conv.bf16.fp32	 cml1, [p1], m1
+    2626:      	vlda	 bmlh1, [p0], m1;		vst.conv.bf16.fp32	 cml2, [p1], m0
+    262c:      	vlda	 bmll2, [p0], #0x40;		vst.conv.bf16.fp32	 cml3, [p1], m1
+    2632:      	vlda	 bmlh2, [p0], m2;		vst.conv.bf16.fp32	 cml4, [p1], m0
+    2638:      	vlda	 bmll3, [p0], #0x40;		vst.conv.bf16.fp32	 cml0, [p1], m3;		vmac.f	dm0, dm0, x0, x5, r0
+    2642:      	vlda	 bmlh3, [p0], m1
+    2646:      	vlda	 bmll4, [p0], #0x40
+    264a:      	vlda	 bmlh4, [p0], m2;		vmac.f	dm2, dm2, x6, x5, r0
+    2652:      	vmac.f	dm0, dm1, x0, x5, r0
+    2656:      	vmac.f	dm3, dm3, x6, x5, r0
+    265a:      	vst	 bmll0, [sp, #-0x100]
+    265e:      	vlda	 bmll4, [sp, #-0x100];		vst	 bmlh0, [sp, #-0xc0];		vmac.f	dm1, dm4, x8, x5, r0
+    2668:      	vlda	 bmlh4, [sp, #-0xc0];		vst	 bmhl0, [sp, #-0x80]
+    266e:      	vlda	 bmhl4, [sp, #-0x80];		vst	 bmhh0, [sp, #-0x40]
+    2674:      	vlda	 bmll0, [p0], #0x40
+    2678:      	vlda	 bmlh0, [p0], m1
+    267c:      	vlda	 bmhh4, [sp, #-0x40]
+    2680:      	vlda	 bmll1, [p0], #0x40
+    2684:      	vlda	 bmlh1, [p0], m2
+    2688:      	vlda	 bmll2, [p0], #0x40;		vst.conv.bf16.fp32	 cml4, [p1], m0;		vmac.f	dm0, dm0, x8, x5, r0
+    2692:      	vlda	 bmlh2, [p0], m1;		vst.conv.bf16.fp32	 cml0, [p1], m1
+    2698:      	vlda	 bmll3, [p0], #0x40;		vst.conv.bf16.fp32	 cml2, [p1], m0
+    269e:      	vlda	 bmlh3, [p0], m2;		vst.conv.bf16.fp32	 cml3, [p1], m1
+    26a4:      	vlda	 bmll4, [p0], #0x40;		vst.conv.bf16.fp32	 cml1, [p1], m0;		vmac.f	dm0, dm1, x2, x5, r0
+    26ae:      	vlda	 bmlh4, [p0], m1;		vmac.f	dm2, dm2, x2, x5, r0
+    26b6:      	vst	 bmll0, [sp, #-0x100]
+    26ba:      	vlda	 bmll4, [sp, #-0x100];		vst	 bmlh0, [sp, #-0xc0];		vmac.f	dm3, dm3, x4, x5, r0
+    26c4:      	vlda	 bmlh4, [sp, #-0xc0];		vst	 bmhl0, [sp, #-0x80]
+    26ca:      	vlda	 bmhl4, [sp, #-0x80];		vst	 bmhh0, [sp, #-0x40];		vmac.f	dm1, dm4, x4, x5, r0
+    26d4:      	vlda	 bmll0, [p0], #0x40
+    26d8:      	vlda	 bmlh0, [p0], m2
+    26dc:      	vlda	 bmhh4, [sp, #-0x40]
+    26e0:      	vlda	 bmll1, [p0], #0x40
+    26e4:      	vlda	 bmlh1, [p0], m1
+    26e8:      	vlda	 bmll2, [p0], #0x40;		vst.conv.bf16.fp32	 cml4, [p1], m1;		vmac.f	dm0, dm0, x10, x5, r0
+    26f2:      	vlda	 bmlh2, [p0], m2;		vst.conv.bf16.fp32	 cml0, [p1], m0
+    26f8:      	vlda	 bmll3, [p0], #0x40;		vst.conv.bf16.fp32	 cml2, [p1], m1
+    26fe:      	vlda	 bmlh3, [p0], m1;		vst.conv.bf16.fp32	 cml3, [p1], m0;		vmac.f	dm1, dm1, x10, x5, r0
+    2708:      	vlda	 bmll4, [p0], #0x40;		vst.conv.bf16.fp32	 cml1, [p1], m1
+    270e:      	vlda	 bmlh4, [p0], m2;		vmac.f	dm2, dm2, x1, x5, r0
+    2716:      	vlda	 bmll0, [p0], #0x40;		vst	 bmll0, [sp, #-0x100]
+    271c:      	vlda	 bmll1, [sp, #-0x100];		vst	 bmlh0, [sp, #-0xc0];		vmac.f	dm3, dm3, x1, x5, r0
+    2726:      	vlda	 bmlh1, [sp, #-0xc0];		vst	 bmhl0, [sp, #-0x80]
+    272c:      	vlda	 bmlh0, [p0], #0x40;		vst	 bmll1, [sp, #-0x200];		vmac.f	dm4, dm4, x3, x5, r0
+    2736:      	vlda	 bmll1, [sp, #-0x200];		vst	 bmlh1, [sp, #-0x1c0]
+    273c:      	vlda	 bmlh1, [sp, #-0x1c0];		vst	 bmhl1, [sp, #-0x180]
+    2742:      	vst	 bmhh1, [sp, #-0x140]
+    2746:      	vst	 bmhh0, [sp, #-0x40];		vmac.f	dm0, dm0, x3, x5, r0
+    274e:      	nop	
+
+00002750 <.L_LEnd4>:
+    2750:      	nopa	;		nopb	;		vst.conv.bf16.fp32	 cml1, [p1], m0;		nopxm	;		nopv	
+    2760:      	nop	
+    2762:      	paddxm	 [sp], #-0x200
+    2768:      	vst.conv.bf16.fp32	 cml1, [p1], m1;		ret	lr
+    276e:      	vst.conv.bf16.fp32	 cml2, [p1], m0
+    2772:      	vst.conv.bf16.fp32	 cml3, [p1], m1
+    2776:      	vst.conv.bf16.fp32	 cml4, [p1], m0
+    277a:      	vst.conv.bf16.fp32	 cml0, [p1], m3
+    277e:      	nop	
+
+00002780 <_ZN2atL4k_rbEiiPK9bfp16ebs8S2_iPib>:
+    2780:      	nopa	;		nopb	;		paddxm	 [sp], #0xc0
+    278c:      	st	 r12, [sp, #-36];		movxm	r4, #0xa80
+    2796:      	st	 r8, [sp, #-52];		movxm	p3, #0x779b0
+    27a0:      	mova	r5, #0x1c0;		st	 r11, [sp, #-40];		movxm	m0, #0x4b00
+    27ac:      	st	 lr, [sp, #-56];		mul	r1, r1, r5
+    27b2:      	st	 r9, [sp, #-48];		mac	r1, r1, r0, r4;		mov	r9, r1
+    27bc:      	lda	 p4, [p3, #0];		st	 r10, [sp, #-44];		mov	r10, r0
+    27c6:      	mova	r0, #0x240;		st	 p7, [sp, #-16];		movxm	p7, #0x718c0
+    27d2:      	st	 p6, [sp, #-20];		mul	r0, r9, r0;		mov	m1, r1
+    27dc:      	padda	 [p7], m1;		st	 r13, [sp, #-32];		mov	r13, p2
+    27e6:      	mova	r1, #0x7;		st	 r14, [sp, #-28];		mov	p2, p7
+    27f0:      	padda	 [p2], m0;		movs	p6, p1;		lshl	 r1, r9, r1;		mov	m0, r0
+    27fc:      	padda	 [p0], m0;		movs	m0, r1;		jl	#0x3420
+    2808:      	padda	 [p6], m0;		st	 p1, [sp, #-64];		movxm	dj0, #0xd80
+    2814:      	movs	m0, dj0;		or	 r8, r2, r2;		mov	p3, p6
+    281e:      	padda	 [p3], m0;		st	 r15, [sp, #-24];		or	 r11, r3, r3;		mov	r15, p2
+    282a:      	st	 p3, [sp, #-60];		movxm	r1, #0x427f
+    2834:      	mova	r12, #0x6;		movs	p5, r13;		or	 r0, r2, r2;		mov	r14, p0
+    2840:      	jnz	 r11, #0x2880
+    2846:      	nopx	
+    284a:      	nop	
+    284c:      	nop	
+    284e:      	nop	
+    2850:      	mov	p5, r13
+    2854:      	mova	r0, #0x2
+    2858:      	lshl	 r0, r8, r0
+    285c:      	mov	dj0, r0
+    2860:      	lda	 r0, [p5, dj0]
+    2864:      	nop	
+    2866:      	nop	
+    2868:      	nop	
+    286a:      	nop	
+    286c:      	nop	
+    286e:      	nop	
+    2870:      	jz	 r0, #0x2b10
+    2876:      	nop	
+    2878:      	nop	
+    287a:      	nop	
+    287c:      	nop	
+    287e:      	nop	
+
+00002880 <.LBB11_2>:
+    2880:      	ltu	 r27, r12, r8;		mov	r0, r9
+    2886:      	movxm	p0, #0x779c4
+    288c:      	movxm	r1, #-0x3a00
+    2892:      	movxm	r2, #0x4280
+    2898:      	movxm	p1, #0x779d0
+    289e:      	movxm	r6, #-0x7fff8000
+    28a4:      	mac	r0, r0, r10, r12;		vbcst.32	 x3, r6
+    28aa:      	lda	 p0, [p0, #0];		nopb	;		sel.nez	 r5, r8, r12, r27
+    28b2:      	mova	r3, #0x5;		vbcst.16	 x6, r1
+    28b8:      	lshl	 r0, r0, r3;		vbcst.16	 x4, r2
+    28be:      	mova	r4, #0x180;		mov	dj0, r0
+    28c4:      	mova	r11, #0x34;		movs	m0, r0;		movxm	r0, #-0x4080
+    28d0:      	mova	r13, #0x35;		j	#0x2930
+    28da:      	mova	r7, #0x1;		lshl	 r6, r8, r12;		vbcst.16	 x0, r0
+    28e4:      	mova	r2, #0x3c;		movx	r1, #0x10;		mov	p2, p0
+    28ee:      	padda	 [p2], m0;		movxm	r0, #0x3e00
+    28f8:      	mova	r3, #0x40;		vldb	 wh4, [p2, #0x0];		movxm	p2, #0x779b0
+    2904:      	lda	 p4, [p2, #0];		movx	r0, #0x33c;		vbcst.16	 x2, r0;		vclr	dm0
+
+00002910 <.LBB11_3>:
+    2910:      	nopa	;		nopb	;		lshl	 r16, r6, r7
+    2918:      	movs	p2, p4;		mov	m0, r16
+    2920:      	padda	 [p2], m0
+    2924:      	vst	 x6, [p2, #0x0];		add	 r6, r6, r3
+    292a:      	vst	 x6, [p2, #0x40];		add	r5, r5, #-0x1
+
+00002930 <.LBB11_4>:
+    2930:      	nopa	;		nopb	;		ne	 r16, r8, r5
+    2938:      	jnz	 r16, #0x2910
+    293e:      	nop	
+    2940:      	nop	
+    2942:      	nop	
+    2944:      	nop	
+    2946:      	nop	
+    2948:      	j	#0x2990
+    294e:      	nop	
+    2950:      	nop	
+    2952:      	nop	
+    2954:      	vldb	 x6, [p4, #0x0]
+    2958:      	mova	r6, #0x40;		vldb	 x8, [p4, #0x40];		movx	r5, #0x1
+
+00002960 <.LBB11_6>:
+    2960:      	nopa	;		nopb	;		lshl	 r7, r6, r5
+    2968:      	movs	p2, p4;		mov	m0, r7
+    2970:      	padda	 [p2], m0
+    2974:      	vldb	 x10, [p2, #0x0]
+    2978:      	vldb	 x1, [p2, #0x40]
+    297c:      	nop	
+    297e:      	nop	
+    2980:      	nop	
+    2982:      	nop	
+    2984:      	nop	
+    2986:      	vmax_lt.bf16	 x6, r16, x6, x10
+    298a:      	add	 r6, r6, r3;		vmax_lt.bf16	 x8, r16, x8, x1
+
+00002990 <.LBB11_7>:
+    2990:      	nopa	;		nopb	;		ne	 r7, r6, r4;		nopm	;		nops	
+    299e:      	jnz	 r7, #0x2960
+    29a4:      	nop	
+    29a6:      	nop	
+    29a8:      	nop	
+    29aa:      	nop	
+    29ac:      	nop	
+    29ae:      	vconv.fp32.bf16	bmll1, wh4
+    29b2:      	vconv.fp32.bf16	bmll2, wl4;		vadd.f	dm2, dm3, dm2, r2
+    29ba:      	vmov	bmll3, bmll1
+    29be:      	nop	
+    29c0:      	nop	
+    29c2:      	nop	
+    29c4:      	nop	
+    29c6:      	vconv.bf16.fp32	 wl4, bmll2;		vshuffle	x10, x6, x8, r11
+    29ce:      	vshuffle	x6, x6, x8, r13
+    29d2:      	vconv.fp32.bf16	cml2, x4
+    29d6:      	vmov	wl4, wh10
+    29da:      	vmax_lt.bf16	 x8, r16, x10, x4
+    29de:      	vmov	wl4, wh6
+    29e2:      	vmax_lt.bf16	 x6, r16, x6, x4;		vadd.f	dm0, dm2, dm0, r2
+    29ea:      	vmov	wl4, wh4
+    29ee:      	vmax_lt.bf16	 x6, r16, x8, x6
+    29f2:      	vmov	wh8, wl6
+    29f6:      	vmov	wl8, wl6
+    29fa:      	vshift	x8, x8, x0, r1
+    29fe:      	vconv.bf16.fp32	 x8, cml0;		vmax_lt.bf16	 x6, r16, x6, x8
+    2a06:      	vmax_lt.bf16	 x4, r16, x6, x4
+    2a0a:      	vlt.bf16	 r16, x8, x4
+    2a0e:      	nop	
+    2a10:      	extend.u16	 r1, r16
+    2a14:      	jz	 r1, #0x2ae0
+    2a1a:      	nop	
+    2a1c:      	nop	
+    2a1e:      	nop	
+    2a20:      	nop	
+    2a22:      	nop	
+    2a24:      	lda	 r1, [p1, #0]
+    2a28:      	nop	
+    2a2a:      	nop	
+    2a2c:      	nop	
+    2a2e:      	nop	
+    2a30:      	nop	
+    2a32:      	nop	
+    2a34:      	jz	 r1, #0x2aa0
+    2a3a:      	nop	
+    2a3c:      	nop	
+    2a3e:      	nop	
+    2a40:      	nop	
+    2a42:      	vst	 wl4, [p0, dj0]
+    2a46:      	vmac.f	dm0, dm0, x4, x0, r0
+    2a4a:      	vmov	bmll0, bmll1
+    2a4e:      	nop	
+    2a50:      	nop	
+    2a52:      	nop	
+    2a54:      	nop	
+    2a56:      	vconv.bf16.fp32	 wl0, bmll0
+    2a5a:      	nop	
+    2a5c:      	vmul.f	dm0, x0, x2, r0
+    2a60:      	nop	
+    2a62:      	jl	#0x2ba0
+    2a68:      	nop	
+    2a6a:      	vst	 x3, [sp, #-0xc0]
+    2a6e:      	vst	 x4, [sp, #-0x80]
+    2a72:      	vconv.bf16.fp32	 wl0, bmll0;		or	 r1, r9, r9;		mov	r9, p5
+    2a7c:      	mov	r0, r10
+    2a80:      	vlda	 x3, [sp, #-0xc0];		nopb	;		nopxm	
+    2a8c:      	vlda	 x4, [sp, #-0x80]
+    2a90:      	nop	
+    2a92:      	nop	
+    2a94:      	movxm	p0, #0x779b0
+    2a9a:      	lda	 p4, [p0, #0];		mov	p5, r9
+
+00002aa0 <.LBB11_11>:
+    2aa0:      	nopa	;		nopb	;		nops	;		movxm	dj0, #0xd80;		nopv	
+    2ab0:      	nopx	;		vbneg_ltz.s32	 x0, r16, x3
+    2ab6:      	vbneg_ltz.s32	 x2, r16, x4
+    2aba:      	vband	 x0, x0, x4
+    2abe:      	vband	 x2, x2, x3
+    2ac2:      	vbor	 x0, x2, x0
+    2ac6:      	vmov	wh0, wl0
+    2aca:      	vshuffle	x2, x0, x0, r11
+    2ace:      	vshuffle	x0, x0, x0, r13
+    2ad2:      	vst	 x2, [p6, dj0];		movxm	dj0, #0xdc0
+    2adc:      	vst	 x0, [p6, dj0]
+
+00002ae0 <.LBB11_12>:
+    2ae0:      	lda	 p1, [sp, #-64];		nopb	;		nopxm	;		nops	
+    2aee:      	lda	 p3, [sp, #-60]
+    2af2:      	jl	#0x3420
+    2af8:      	nop	
+    2afa:      	nop	
+    2afc:      	nop	
+    2afe:      	movs	p0, r14;		movxm	r1, #0x428f
+    2b08:      	movs	p2, r15;		mov	r0, r8
+
+00002b10 <.LBB11_13>:
+    2b10:      	nopa	;		geu	 r0, r8, r12
+    2b16:      	jnz	 r0, #0x2b60
+    2b1c:      	nop	
+    2b1e:      	nop	
+    2b20:      	nop	
+    2b22:      	nop	
+    2b24:      	nop	
+    2b26:      	mova	r0, #0x0;		movxm	m0, #0x4b90
+    2b30:      	vbcst.32	 x0, r0
+    2b34:      	padda	 [p7], m0
+    2b38:      	vst.128	 wl0, [p7], #0x10
+    2b3c:      	vst	 wl0, [p7], #0x20
+    2b40:      	vst	 wl0, [p7], #0x20
+    2b44:      	vst	 wl0, [p7], #0x20
+    2b48:      	vst	 wl0, [p7], #0x20
+    2b4c:      	vst	 wl0, [p7], #0x20
+    2b50:      	vst	 wl0, [p7], #0x20
+    2b54:      	vst	 wl0, [p7], #0x20
+    2b58:      	vst	 wl0, [p7, #0x0]
+    2b5c:      	vst.128	 wl0, [p7, #0x20]
+
+00002b60 <.LBB11_15>:
+    2b60:      	lda	 p7, [sp, #-16];		nopx	
+    2b66:      	lda	 p6, [sp, #-20]
+    2b6a:      	lda	 r15, [sp, #-24]
+    2b6e:      	lda	 r14, [sp, #-28]
+    2b72:      	lda	 lr, [sp, #-56]
+    2b76:      	lda	 r13, [sp, #-32]
+    2b7a:      	lda	 r12, [sp, #-36]
+    2b7e:      	lda	 r11, [sp, #-40]
+    2b82:      	lda	 r10, [sp, #-44]
+    2b86:      	lda	 r9, [sp, #-48]
+    2b8a:      	lda	 r8, [sp, #-52]
+    2b8e:      	ret	lr
+    2b92:      	nop	
+    2b94:      	nop	
+    2b96:      	nop	
+    2b98:      	paddxm	 [sp], #-0xc0
+    2b9e:      	nop	
+
+00002ba0 <_ZN2atL10rescale_rbEiiN3aie6vectorI8bfloat16Lj16EEE>:
+    2ba0:      	mova	r2, #0x0;		nopb	;		movxm	r3, #-0x3d90
+    2bac:      	vbcst.32	 x8, r2
+    2bb0:      	vbcst.16	 x4, r3
+    2bb4:      	movxm	r3, #0x4270
+    2bba:      	vmov	wh0, wl8
+    2bbe:      	vbcst.16	 x6, r3
+    2bc2:      	movxm	r3, #0x3fb9
+    2bc8:      	vmax_lt.bf16	 x0, r16, x0, x4
+    2bcc:      	vbcst.16	 x2, r3
+    2bd0:      	vmin_ge.bf16	 x0, r16, x0, x6
+    2bd4:      	mova	r3, #0x33c
+    2bd8:      	movxm	r4, #-0x44d4;		vmul.f	dm0, x0, x2, r3
+    2be2:      	vbcst.16	 x4, r4
+    2be6:      	nop	
+    2be8:      	movxm	r4, #0x3f80;		vmac.f	dm0, dm0, x0, x4, r3
+    2bf2:      	vbcst.16	 x6, r2
+    2bf6:      	vbcst.16	 x0, r4
+    2bfa:      	movxm	r4, #0x4b40;		vmac.f	dm1, dm0, x6, x2, r3
+    2c04:      	vbcst.16	 x2, r4
+    2c08:      	nop	
+    2c0a:      	movxm	r4, #-0x34c0;		vmac.f	dm0, dm1, x0, x2, r3
+    2c14:      	vbcst.16	 x2, r4
+    2c18:      	nop	
+    2c1a:      	vmac.f	dm2, dm0, x0, x2, r3
+    2c1e:      	nop	
+    2c20:      	nop	
+    2c22:      	nop	
+    2c24:      	nop	
+    2c26:      	movxm	r4, #-0x4080
+    2c2c:      	vconv.bf16.fp32	 x4, cml2;		vbcst.16	 x2, r4
+    2c34:      	nop	
+    2c36:      	vmac.f	dm1, dm1, x4, x2, r3
+    2c3a:      	nop	
+    2c3c:      	nop	
+    2c3e:      	nop	
+    2c40:      	nop	
+    2c42:      	nop	
+    2c44:      	vconv.bf16.fp32	 x2, cml1
+    2c48:      	nop	
+    2c4a:      	movxm	r5, #0x3d63;		vmul.f	dm1, x2, x2, r3
+    2c54:      	mov	s0, #0x7
+    2c58:      	movxm	r4, #0x3f31
+    2c5e:      	vmov	x10, bmlh0
+    2c62:      	vmov	x1, bmll0
+    2c66:      	vbcst.16	 x4, r4
+    2c6a:      	vconv.bf16.fp32	 x6, cml1;		movxm	r4, #0x3f800000
+    2c74:      	vbcst.32	 x8, r4
+    2c78:      	movxm	r4, #0x3e76;		vmul.f	dm1, x6, x2, r3
+    2c82:      	vmov	bmll0, x8
+    2c86:      	vmov	bmlh0, x8;		vmac.f	dm0, dm0, x2, x4, r3
+    2c8e:      	vbcst.16	 x2, r4
+    2c92:      	mova	r4, #0x2;		mov	crupsmode, #0x0
+    2c98:      	vshuffle	x4, x1, x10, r4;		vmac.f	dm0, dm0, x6, x2, r3
+    2ca0:      	vconv.bf16.fp32	 x2, cml1;		vbcst.16	 x8, r5
+    2ca8:      	vups.2x	cml1, x4, s0, upssign1
+    2cac:      	mov	crsrsmode, #0x0;		vmac.f	dm0, dm0, x2, x8, r3
+    2cb4:      	mov	s0, r2
+    2cb8:      	vsrs.2x	x2, cml1, s0, srssign1
+    2cbc:      	nop	
+    2cbe:      	movxm	p0, #0x779bc
+    2cc4:      	lda	 p0, [p0, #0]
+    2cc8:      	vconv.bf16.fp32	 x2, cml0;		vadd.16	 x0, x2, x0
+    2cd0:      	nop	
+    2cd2:      	vmul.f	dm0, x2, x0, r3
+    2cd6:      	movxm	p1, #0x779b0
+    2cdc:      	movxm	p3, #0x779c0
+    2ce2:      	nop	
+    2ce4:      	lda	 p2, [p1, #0];		or	 r27, r0, r0;		mov	r0, p0
+    2cee:      	lda	 p1, [p3, #0];		movxm	r2, #0x718c0
+    2cf8:      	mova	r3, #0x6;		vconv.bf16.fp32	 x0, cml0;		sel.eqz	 r0, r0, r2, r27
+    2d02:      	mova	r2, #0xb;		mac	r1, r1, r27, r3
+    2d08:      	lshl	 r2, r1, r2;		vmov	wh0, wl0
+    2d0e:      	mova	r3, #0x34;		j	#0x3d90
+    2d18:      	mova	r3, #0x35;		movs	p0, r0;		movx	r4, #0x8;		vshuffle	x2, x0, x0, r3
+    2d24:      	movs	m0, r2;		lshl	 r1, r1, r4;		vshuffle	x0, x0, x0, r3
+    2d2e:      	padda	 [p0], m0;		vst	 x2, [p2, #0x0];		mov	m0, r1
+    2d38:      	padda	 [p1], m0;		vst	 x0, [p2, #0x40]
+    2d3e:      	nop	
+
+00002d40 <gup>:
+    2d40:      	mov	m4, r1
+    2d44:      	mova	dn4, #0x3
+    2d48:      	mova	dj4, #0x0
+    2d4c:      	mova	dc4, #0x0
+    2d50:      	mova	dn0, #0x7
+    2d54:      	mova	dj0, #0x40
+    2d58:      	movxm	m0, #0x240
+    2d5e:      	mova	dc0, #0x0
+    2d62:      	mova	dn1, #0x3
+    2d66:      	mova	dj1, #0x40
+    2d6a:      	mova	m1, #0x40
+    2d6e:      	mova	dc1, #0x0
+    2d72:      	mova	dn3, #0x7
+    2d76:      	mova	dj3, #0x40
+    2d7a:      	movxm	m3, #-0x1c0
+    2d80:      	mova	dc3, #0x0
+    2d84:      	movxm	r3, #0x3f80
+    2d8a:      	vbcst.16	 x11, r3
+    2d8e:      	mova	r2, #0x33c
+    2d92:      	mova	r26, #0x0
+    2d96:      	movxm	ls, #0x2e80
+    2d9c:      	movxm	le, #0x2ec0
+    2da2:      	add.nc	lc, r0, #0x0
+    2da6:      	nop	
+    2da8:      	nop	
+    2daa:      	nop	
+    2dac:      	nop	
+    2dae:      	nop	
+    2db0:      	nop	
+    2db2:      	vldb.2d	 x3, [p3], d3
+    2db6:      	nop	
+    2db8:      	vlda.2d	 bmll2, [p1], d1
+    2dbc:      	vlda.2d	 bmlh2, [p1], d1;		vldb.2d	 x1, [p3], d3
+    2dc2:      	vlda.2d	 bmll1, [p1], d1
+    2dc6:      	nop	
+    2dc8:      	vldb.2d	 x3, [p3], d3
+    2dcc:      	vlda.2d	 bmlh1, [p1], d1;		vmac.f	dm0, dm2, x3, x11, r2
+    2dd4:      	vlda.2d	 bmll2, [p1], d1
+    2dd8:      	vlda.2d	 bmlh2, [p1], d1;		vldb.2d	 x1, [p3], d3
+    2dde:      	vlda.2d	 bmll1, [p1], d1;		vldb.2d	 x2, [p0], d0
+    2de4:      	vmac.f	dm4, dm1, x1, x11, r2
+    2de8:      	vldb.2d	 x3, [p3], d3
+    2dec:      	vlda.2d	 bmlh1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vmac.f	dm0, dm2, x3, x11, r2
+    2df6:      	vlda.2d	 bmll2, [p1], d1
+    2dfa:      	vlda.2d	 bmlh2, [p1], d1;		vldb.2d	 x1, [p3], d3
+    2e00:      	vlda.2d	 bmll1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vconv.bf16.fp32	 x0, cml0
+    2e08:      	vconv.bf16.fp32	 x1, cml4;		vmac.f	dm4, dm1, x1, x11, r2
+    2e10:      	vldb.2d	 x3, [p3], d3;		vmul.f	dm3, x2, x0, r2
+    2e18:      	vlda.2d	 bmlh1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vmac.f	dm0, dm2, x3, x11, r2
+    2e22:      	vlda.2d	 bmll2, [p1], d1;		vmul.f	dm3, x2, x1, r2
+    2e2a:      	vlda.2d	 bmlh2, [p1], d1;		vldb.2d	 x1, [p3], d3
+    2e30:      	vlda.2d	 bmll1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vconv.bf16.fp32	 x0, cml0
+    2e38:      	vconv.bf16.fp32	 x1, cml4;		vmac.f	dm4, dm1, x1, x11, r2
+    2e40:      	vconv.bf16.fp32	 x0, cml3;		vldb.2d	 x3, [p3], d3;		vmul.f	dm3, x2, x0, r2
+    2e4a:      	vlda.2d	 bmlh1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vmac.f	dm0, dm2, x3, x11, r2
+    2e54:      	vlda.2d	 bmll2, [p1], d1;		vmul.f	dm3, x2, x1, r2
+    2e5c:      	vlda.2d	 bmlh2, [p1], d1;		vldb.2d	 x1, [p3], d3;		vconv.bf16.fp32	 x3, cml3
+    2e64:      	vlda.2d	 bmll1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vconv.bf16.fp32	 x0, cml0;		vconv.fp32.bf16	cml2, x0
+    2e70:      	vconv.bf16.fp32	 x1, cml4;		vconv.fp32.bf16	cmh2, x3;		vmac.f	dm4, dm1, x1, x11, r2
+    2e7a:      	nopxm	
+
+00002e80 <gup_start>:
+    2e80:      	nopa	;		vldb.2d	 x3, [p3], d3;		vconv.bf16.fp32	 x0, cml3;		nopx	;		nopm	;		vmul.f	dm3, x2, x0, r2
+    2e90:      	vlda.2d	 bmlh1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vst.push.576.conv.bfp16ebs8.fp32	 dm2, [p2, sf, r26];		vmac.f	dm0, dm2, x3, x11, r2
+    2e9c:      	vlda.2d	 bmll2, [p1], d1;		nopb	;		vst.flush.512.conv.2d	 [p2, sf, r26, d4];		nopx	;		nopm	;		vmul.f	dm3, x2, x1, r2
+    2eac:      	vlda.2d	 bmlh2, [p1], d1;		vldb.2d	 x1, [p3], d3;		vconv.bf16.fp32	 x3, cml3
+    2eb4:      	vlda.2d	 bmll1, [p1], d1;		vldb.2d	 x2, [p0], d0;		vconv.bf16.fp32	 x0, cml0;		vconv.fp32.bf16	cml2, x0
+
+00002ec0 <gup_last>:
+    2ec0:      	nopa	;		nopb	;		vconv.bf16.fp32	 x1, cml4;		nopx	;		vconv.fp32.bf16	cmh2, x3;		vmac.f	dm4, dm1, x1, x11, r2
+    2ed0:      	nop	
+    2ed2:      	nop	
+    2ed4:      	nop	
+    2ed6:      	nop	
+    2ed8:      	nop	
+    2eda:      	nop	
+    2edc:      	ret	lr
+    2ee0:      	nop	
+    2ee2:      	nop	
+    2ee4:      	nop	
+    2ee6:      	nop	
+    2ee8:      	nop	
+    2eea:      	nop	
+    2eec:      	nop	
+    2eee:      	nop	
+
+00002ef0 <cpy32>:
+    2ef0:      	mov	dn0, r3
+    2ef4:      	mov	dn1, r3
+    2ef8:      	mova	dj0, #0x20
+    2efc:      	mova	dj1, #0x20
+    2f00:      	mova	dc0, #0x0
+    2f04:      	mova	dc1, #0x0
+    2f08:      	mov	m0, r1
+    2f0c:      	mov	m1, r2
+    2f10:      	movxm	ls, #0x2f50
+    2f16:      	movxm	le, #0x2f70
+    2f1c:      	add.nc	lc, r0, #0x0
+    2f20:      	nop	
+    2f22:      	nop	
+    2f24:      	nop	
+    2f26:      	nop	
+    2f28:      	nop	
+    2f2a:      	nop	
+    2f2c:      	vlda.2d	 wl1, [p0], d0
+    2f30:      	vlda.2d	 wl2, [p0], d0
+    2f34:      	vlda.2d	 wl0, [p0], d0
+    2f38:      	vlda.2d	 wl1, [p0], d0
+    2f3c:      	vlda.2d	 wl2, [p0], d0
+    2f40:      	vlda.2d	 wl0, [p0], d0
+    2f44:      	vlda.2d	 wl1, [p0], d0
+    2f48:      	nopa	;		nopv	
+
+00002f50 <cpy32_start>:
+    2f50:      	vlda.2d	 wl2, [p0], d0;		nopb	;		vst.2d	 wl1, [p1], d1;		nopx	;		nopm	;		nopv	
+    2f60:      	vlda.2d	 wl0, [p0], d0;		nopb	;		vst.2d	 wl2, [p1], d1;		nopx	;		nopm	;		nopv	
+
+00002f70 <cpy32_last>:
+    2f70:      	vlda.2d	 wl1, [p0], d0;		nopb	;		vst.2d	 wl0, [p1], d1;		nopx	;		nopm	;		nopv	
+    2f80:      	nop	
+    2f82:      	nop	
+    2f84:      	nop	
+    2f86:      	nop	
+    2f88:      	ret	lr
+    2f8c:      	nop	
+    2f8e:      	nop	
+    2f90:      	nop	
+    2f92:      	nop	
+    2f94:      	nop	
+    2f96:      	nop	
+    2f98:      	nop	
+    2f9a:      	nop	
+    2f9c:      	nop	
+    2f9e:      	nop	
+
+00002fa0 <pan>:
+    2fa0:      	mov	m4, r1
+    2fa4:      	mov	dn4, r2
+    2fa8:      	mova	dj4, #0x0
+    2fac:      	mova	dc4, #0x0
+    2fb0:      	mova	dn0, #0x7
+    2fb4:      	mova	dj0, #0x40
+    2fb8:      	movxm	m0, #0x240
+    2fbe:      	mova	dc0, #0x0
+    2fc2:      	mova	dn1, #0x7
+    2fc6:      	mova	dj1, #0x40
+    2fca:      	movxm	m1, #0x240
+    2fd0:      	mova	dc1, #0x0
+    2fd4:      	mova	r26, #0x0
+    2fd8:      	movxm	ls, #0x3030
+    2fde:      	movxm	le, #0x30a0
+    2fe4:      	add.nc	lc, r0, #0x0
+    2fe8:      	nop	
+    2fea:      	nop	
+    2fec:      	nop	
+    2fee:      	nop	
+    2ff0:      	nop	
+    2ff2:      	nop	
+    2ff4:      	vlda.2d.conv.fp32.bf16	 cml0, [p0], d0
+    2ff8:      	nop	
+    2ffa:      	nop	
+    2ffc:      	nop	
+    2ffe:      	nop	
+    3000:      	nop	
+    3002:      	vlda.2d.conv.fp32.bf16	 cmh0, [p0], d0
+    3006:      	vlda.2d.conv.fp32.bf16	 cml1, [p0], d0
+    300a:      	vlda.2d.conv.fp32.bf16	 cmh1, [p0], d0
+    300e:      	vlda.2d.conv.fp32.bf16	 cml2, [p0], d0
+    3012:      	vlda.2d.conv.fp32.bf16	 cmh2, [p0], d0
+    3016:      	vlda.2d.conv.fp32.bf16	 cml0, [p0], d0
+    301a:      	vlda.2d.conv.fp32.bf16	 cml1, [p1], d1
+    301e:      	vlda.2d.conv.fp32.bf16	 cmh0, [p0], d0
+    3022:      	vlda.2d.conv.fp32.bf16	 cmh1, [p1], d1
+    3026:      	vlda.2d.conv.fp32.bf16	 cml2, [p1], d1
+    302a:      	nopxm	
+
+00003030 <pan_start>:
+    3030:      	vlda.2d.conv.fp32.bf16	 cml0, [p0], d0;		nopb	;		vst.push.576.conv.bfp16ebs8.fp32	 dm0, [p2, sf, r26];		nopx	;		nopm	;		nopv	
+    3040:      	vlda.2d.conv.fp32.bf16	 cmh2, [p1], d1;		vst.push.576.conv.bfp16ebs8.fp32	 dm1, [p2, sf, r26]
+    3046:      	vlda.2d.conv.fp32.bf16	 cml1, [p1], d1;		vst.push.576.conv.bfp16ebs8.fp32	 dm2, [p2, sf, r26]
+    304c:      	vlda.2d.conv.fp32.bf16	 cmh1, [p1], d1;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    305c:      	vlda.2d.conv.fp32.bf16	 cml2, [p1], d1;		vst.push.576.conv.bfp16ebs8.fp32	 dm0, [p2, sf, r26]
+    3062:      	vlda.2d.conv.fp32.bf16	 cmh2, [p1], d1;		vst.push.576.conv.bfp16ebs8.fp32	 dm1, [p2, sf, r26]
+    3068:      	vlda.2d.conv.fp32.bf16	 cmh0, [p0], d0;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3078:      	vlda.2d.conv.fp32.bf16	 cml1, [p0], d0
+    307c:      	vlda.2d.conv.fp32.bf16	 cmh1, [p0], d0;		vst.push.576.conv.bfp16ebs8.fp32	 dm2, [p2, sf, r26]
+    3082:      	vlda.2d.conv.fp32.bf16	 cml2, [p0], d0
+    3086:      	vlda.2d.conv.fp32.bf16	 cmh2, [p0], d0;		vst.push.576.conv.bfp16ebs8.fp32	 dm1, [p2, sf, r26]
+    308c:      	vlda.2d.conv.fp32.bf16	 cml0, [p0], d0
+    3090:      	vlda.2d.conv.fp32.bf16	 cml1, [p1], d1;		vst.push.576.conv.bfp16ebs8.fp32	 dm2, [p2, sf, r26]
+    3096:      	vlda.2d.conv.fp32.bf16	 cmh0, [p0], d0;		vst.flush.512.conv.2d	 [p2, sf, r26, d4]
+    309c:      	vlda.2d.conv.fp32.bf16	 cmh1, [p1], d1
+
+000030a0 <pan_last>:
+    30a0:      	vlda.2d.conv.fp32.bf16	 cml2, [p1], d1;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    30b0:      	nop	
+    30b2:      	nop	
+    30b4:      	nop	
+    30b6:      	nop	
+    30b8:      	nop	
+    30ba:      	nop	
+    30bc:      	ret	lr
+    30c0:      	nop	
+    30c2:      	nop	
+    30c4:      	nop	
+    30c6:      	nop	
+    30c8:      	nop	
+    30ca:      	nop	
+    30cc:      	nop	
+    30ce:      	nop	
+
+000030d0 <bgelu>:
+    30d0:      	mov	p5, p4
+    30d4:      	movxm	r16, #0xcccc
+    30da:      	mov	r1, p2
+    30de:      	vbcst.32	 x0, r1
+    30e2:      	mov	r1, p3
+    30e6:      	vbcst.32	 x1, r1
+    30ea:      	mova	r1, #0x240
+    30ee:      	vbcst.32	 x2, r1
+    30f2:      	vsel.32	 x3, x0, x1, r16
+    30f6:      	nop	
+    30f8:      	nop	
+    30fa:      	vadd.32	 x10, x3, x2
+    30fe:      	movxm	r1, #0x4083
+    3104:      	vbcst.16	 x8, r1
+    3108:      	movxm	r1, #-0x3f7c
+    310e:      	vbcst.16	 x9, r1
+    3112:      	movxm	r1, #0x3f80
+    3118:      	vbcst.16	 x11, r1
+    311c:      	mova	r1, #0x33c
+    3120:      	mova	r2, #0x18
+    3124:      	mova	r3, #0x5
+    3128:      	mov	s0, #0x7
+    312c:      	mova	dn0, #0xf
+    3130:      	mova	dj0, #0x40
+    3134:      	mova	m0, #0x40
+    3138:      	mova	dc0, #0x0
+    313c:      	mova	dn5, #0x7
+    3140:      	mova	dj5, #0x40
+    3144:      	movxm	m5, #-0x1c0
+    314a:      	mova	dc5, #0x0
+    314e:      	mov	p3, p1
+    3152:      	mova	dn4, #0x7
+    3156:      	mova	dj4, #0x40
+    315a:      	movxm	m4, #0x240
+    3160:      	mova	dc4, #0x0
+    3164:      	paddxm	 [sp], #0x200
+    316a:      	mov	p1, sp
+    316e:      	padda	 [p1], #-0x200
+    3172:      	mova	dn1, #0x7
+    3176:      	mova	dj1, #0x40
+    317a:      	movxm	m1, #-0x1c0
+    3180:      	mova	dc1, #0x0
+    3184:      	mov	p4, p1
+    3188:      	mova	dn2, #0x7
+    318c:      	mova	dj2, #0x40
+    3190:      	movxm	m2, #-0x1c0
+    3196:      	mova	dc2, #0x0
+    319a:      	mov	p2, p1
+    319e:      	mova	dn3, #0x7
+    31a2:      	mova	dj3, #0x40
+    31a6:      	movxm	m3, #-0x1c0
+    31ac:      	mova	dc3, #0x0
+    31b0:      	movxm	ls, #0x3380
+    31b6:      	movxm	le, #0x33f0
+    31bc:      	add.nc	lc, r0, #0x0
+    31c0:      	nop	
+    31c2:      	nop	
+    31c4:      	nop	
+    31c6:      	nop	
+    31c8:      	nop	
+    31ca:      	nop	
+    31cc:      	vlda.2d	 bmll3, [p0], d0
+    31d0:      	vldb.2d	 x3, [p5], d5
+    31d4:      	nop	
+    31d6:      	vlda.2d	 bmlh3, [p0], d0
+    31da:      	nop	
+    31dc:      	nop	
+    31de:      	nop	
+    31e0:      	nop	
+    31e2:      	vmac.f	dm2, dm3, x3, x11, r1
+    31e6:      	nop	
+    31e8:      	nop	
+    31ea:      	nop	
+    31ec:      	vlda.2d	 bmll3, [p0], d0
+    31f0:      	vldb.2d	 x3, [p5], d5
+    31f4:      	nop	
+    31f6:      	vlda.2d	 bmlh3, [p0], d0;		vst.2d.conv.bf16.fp32	 cml2, [p1], d1
+    31fc:      	nop	
+    31fe:      	nop	
+    3200:      	vconv.bf16.fp32	 x7, cml2
+    3204:      	nop	
+    3206:      	vmin_ge.bf16	 x7, r16, x8, x7;		vmac.f	dm2, dm3, x3, x11, r1
+    320e:      	nop	
+    3210:      	vmax_lt.bf16	 x6, r16, x9, x7
+    3214:      	nop	
+    3216:      	vlda.2d	 bmll3, [p0], d0;		vfloor.s32.bf16	x5, wh6, s0
+    321c:      	vldb.2d	 x3, [p5], d5
+    3220:      	vfloor.s32.bf16	x5, wl6, s0;		vadd.32	 x4, x5, x10
+    3228:      	vlda.2d	 bmlh3, [p0], d0;		vst.2d.conv.bf16.fp32	 cml2, [p1], d1
+    322e:      	vldb.4x64.lo	 wl3, wl4
+    3232:      	vldb.4x64.hi	 wh3, wl4;		vadd.32	 x5, x5, x10
+    3238:      	vldb.4x64.hi	 wh2, wh4;		vconv.bf16.fp32	 x7, cml2
+    323e:      	vldb.4x64.hi	 wh1, wl5
+    3242:      	vldb.4x64.lo	 wl2, wh4;		vmin_ge.bf16	 x7, r16, x8, x7;		vmac.f	dm2, dm3, x3, x11, r1
+    324c:      	vldb.4x64.lo	 wl1, wl5
+    3250:      	vldb.4x64.hi	 wh6, wh5;		vmax_lt.bf16	 x6, r16, x9, x7
+    3256:      	vldb.4x64.lo	 wl6, wh5
+    325a:      	vlda.2d	 bmll3, [p0], d0;		vfloor.s32.bf16	x5, wh6, s0
+    3260:      	vldb.2d	 x3, [p5], d5
+    3264:      	vfloor.s32.bf16	x5, wl6, s0;		vadd.32	 x4, x5, x10
+    326c:      	vlda.2d	 bmlh3, [p0], d0;		vldb.2d	 x1, [p4], d2;		vst.2d.conv.bf16.fp32	 cml2, [p1], d1;		vshuffle	bmlh0, x3, x2, r3
+    3278:      	vldb.4x64.lo	 wl3, wl4;		vshuffle	x2, x3, x2, r2
+    327e:      	vldb.4x64.hi	 wh3, wl4;		vadd.32	 x5, x5, x10
+    3284:      	vconv.bf16.fp32	 x7, cml2;		vldb.4x64.hi	 wh2, wh4;		vshuffle	bmll0, x1, x6, r3
+    328e:      	vldb.4x64.hi	 wh1, wl5;		vshuffle	x6, x1, x6, r2
+    3294:      	vldb.4x64.lo	 wl2, wh4;		vmin_ge.bf16	 x7, r16, x8, x7;		vmac.f	dm2, dm3, x3, x11, r1
+    329e:      	vldb.4x64.lo	 wl1, wl5;		vmov	wl2, wh6
+    32a4:      	vldb.4x64.hi	 wh6, wh5;		vmax_lt.bf16	 x6, r16, x9, x7
+    32aa:      	vldb.4x64.lo	 wl6, wh5;		vmac.f	dm1, dm0, x2, x1, r1
+    32b2:      	vlda.2d	 bmll3, [p0], d0;		vfloor.s32.bf16	x5, wh6, s0
+    32b8:      	vldb.2d	 x3, [p5], d5
+    32bc:      	vlda.2d	 x0, [p2], d3;		vfloor.s32.bf16	x5, wl6, s0;		vadd.32	 x4, x5, x10
+    32c6:      	vlda.2d	 bmlh3, [p0], d0;		vldb.2d	 x1, [p4], d2;		vst.2d.conv.bf16.fp32	 cml2, [p1], d1;		vshuffle	bmlh0, x3, x2, r3
+    32d2:      	vldb.4x64.lo	 wl3, wl4;		vshuffle	x2, x3, x2, r2
+    32d8:      	vldb.4x64.hi	 wh3, wl4;		vadd.32	 x5, x5, x10
+    32de:      	vconv.bf16.fp32	 x7, cml2;		vldb.4x64.hi	 wh2, wh4;		vshuffle	bmll0, x1, x6, r3
+    32e8:      	vldb.4x64.hi	 wh1, wl5;		vshuffle	x6, x1, x6, r2
+    32ee:      	vconv.bf16.fp32	 x4, cml1;		vldb.4x64.lo	 wl2, wh4;		vmin_ge.bf16	 x7, r16, x8, x7;		vmac.f	dm2, dm3, x3, x11, r1
+    32fa:      	vldb.4x64.lo	 wl1, wl5;		vmov	wl2, wh6
+    3300:      	vldb.4x64.hi	 wh6, wh5;		vmax_lt.bf16	 x6, r16, x9, x7;		vmsc.f	dm3, dm1, x4, x11, r1
+    330a:      	vldb.4x64.lo	 wl6, wh5;		vmac.f	dm1, dm0, x2, x1, r1
+    3312:      	vlda.2d	 bmll3, [p0], d0;		vfloor.s32.bf16	x5, wh6, s0
+    3318:      	vldb.2d	 x3, [p5], d5
+    331c:      	vlda.2d	 x0, [p2], d3;		vfloor.s32.bf16	x5, wl6, s0;		vadd.32	 x4, x5, x10;		vmul.f	dm2, x0, x4, r1
+    332a:      	vlda.2d	 bmlh3, [p0], d0;		vldb.2d	 x1, [p4], d2;		vst.2d.conv.bf16.fp32	 cml2, [p1], d1;		vshuffle	bmlh0, x3, x2, r3
+    3336:      	vconv.bf16.fp32	 x3, cml3;		vldb.4x64.lo	 wl3, wl4;		vshuffle	x2, x3, x2, r2
+    3340:      	vldb.4x64.hi	 wh3, wl4;		vadd.32	 x5, x5, x10
+    3346:      	vconv.bf16.fp32	 x7, cml2;		vldb.4x64.hi	 wh2, wh4;		vshuffle	bmll0, x1, x6, r3;		vmac.f	dm4, dm2, x0, x3, r1
+    3352:      	vldb.4x64.hi	 wh1, wl5;		vshuffle	x6, x1, x6, r2
+    3358:      	vconv.bf16.fp32	 x4, cml1;		vldb.4x64.lo	 wl2, wh4;		vmin_ge.bf16	 x7, r16, x8, x7;		vmac.f	dm2, dm3, x3, x11, r1
+    3364:      	vldb.4x64.lo	 wl1, wl5;		vmov	wl2, wh6
+    336a:      	vldb.4x64.hi	 wh6, wh5;		vmax_lt.bf16	 x6, r16, x9, x7;		vmsc.f	dm3, dm1, x4, x11, r1
+    3374:      	vldb.4x64.lo	 wl6, wh5;		vmac.f	dm1, dm0, x2, x1, r1
+    337c:      	nopx	
+
+00003380 <bgelu_start>:
+    3380:      	vlda.2d	 bmll3, [p0], d0;		nopb	;		vfloor.s32.bf16	x5, wh6, s0;		nopx	;		nopm	;		nopv	
+    3390:      	vldb.2d	 x3, [p5], d5;		vst.2d.conv.bf16.fp32	 cml4, [p3], d4
+    3396:      	vlda.2d	 x0, [p2], d3;		nopb	;		vfloor.s32.bf16	x5, wl6, s0;		nopx	;		vadd.32	 x4, x5, x10;		vmul.f	dm2, x0, x4, r1
+    33a6:      	vlda.2d	 bmlh3, [p0], d0;		vldb.2d	 x1, [p4], d2;		vst.2d.conv.bf16.fp32	 cml2, [p1], d1;		vshuffle	bmlh0, x3, x2, r3
+    33b2:      	vconv.bf16.fp32	 x3, cml3;		vldb.4x64.lo	 wl3, wl4;		vshuffle	x2, x3, x2, r2
+    33bc:      	vldb.4x64.hi	 wh3, wl4;		vadd.32	 x5, x5, x10
+    33c2:      	vconv.bf16.fp32	 x7, cml2;		vldb.4x64.hi	 wh2, wh4;		vshuffle	bmll0, x1, x6, r3;		vmac.f	dm4, dm2, x0, x3, r1
+    33ce:      	vldb.4x64.hi	 wh1, wl5;		vshuffle	x6, x1, x6, r2
+    33d4:      	vconv.bf16.fp32	 x4, cml1;		vldb.4x64.lo	 wl2, wh4;		vmin_ge.bf16	 x7, r16, x8, x7;		vmac.f	dm2, dm3, x3, x11, r1
+    33e0:      	vldb.4x64.lo	 wl1, wl5;		vmov	wl2, wh6
+    33e6:      	vldb.4x64.hi	 wh6, wh5;		vmax_lt.bf16	 x6, r16, x9, x7;		vmsc.f	dm3, dm1, x4, x11, r1
+
+000033f0 <bgelu_last>:
+    33f0:      	nopa	;		vldb.4x64.lo	 wl6, wh5;		nops	;		nopx	;		nopm	;		vmac.f	dm1, dm0, x2, x1, r1
+    3400:      	nop	
+    3402:      	nop	
+    3404:      	nop	
+    3406:      	nop	
+    3408:      	nop	
+    340a:      	nop	
+    340c:      	ret	lr
+    3410:      	nop	
+    3412:      	nop	
+    3414:      	nop	
+    3416:      	paddxm	 [sp], #-0x200
+    341c:      	nop	
+    341e:      	nop	
+
+00003420 <attkb>:
+    3420:      	mov	r7, r0
+    3424:      	vbcst.16	 x9, r1
+    3428:      	paddxm	 [sp], #0x40
+    342e:      	st	 p6, [sp, #-64]
+    3432:      	st	 p7, [sp, #-60]
+    3436:      	mov	p6, p5
+    343a:      	mov	p7, p3
+    343e:      	mov	p5, p4
+    3442:      	mova	r5, #0x30c
+    3446:      	mova	r6, #0x3c
+    344a:      	mova	r24, #0x0
+    344e:      	mova	r25, #0x0
+    3452:      	mov	r2, p4
+    3456:      	movxm	r3, #0x380
+    345c:      	add	 r2, r2, r3
+    3460:      	movxm	r16, #0xcccc
+    3466:      	vbcst.32	 x1, r2
+    346a:      	movxm	r2, #0x71300
+    3470:      	vbcst.32	 x0, r2
+    3474:      	movxm	r2, #0x2c0
+    347a:      	vbcst.32	 x2, r2
+    347e:      	vsel.32	 x3, x0, x1, r16
+    3482:      	nop	
+    3484:      	nop	
+    3486:      	vadd.32	 x11, x3, x2
+    348a:      	movxm	r2, #-0x3d50
+    3490:      	vbcst.16	 x10, r2
+    3494:      	mova	r1, #0x33c
+    3498:      	mova	r2, #0x18
+    349c:      	mova	r3, #0x5
+    34a0:      	mov	s0, #0x3
+    34a4:      	mova	r26, #0x0
+    34a8:      	mova	r17, #0x0
+    34ac:      	mova	dn0, #0x5
+    34b0:      	movxm	dj0, #-0x240
+    34b6:      	movxm	m0, #0x0
+    34bc:      	mova	dc0, #0x0
+    34c0:      	mova	dn1, #0x5
+    34c4:      	movxm	dj1, #0x0
+    34ca:      	movxm	m1, #-0xd80
+    34d0:      	mova	dc1, #0x0
+    34d4:      	mova	dn2, #0x5
+    34d8:      	movxm	dj2, #-0x40
+    34de:      	movxm	m2, #0x40
+    34e4:      	mova	dc2, #0x0
+    34e8:      	mova	dn3, #0x5
+    34ec:      	movxm	dj3, #-0x40
+    34f2:      	movxm	m3, #0x40
+    34f8:      	mova	dc3, #0x0
+    34fc:      	mova	dn4, #0x6
+    3500:      	movxm	dj4, #0x40
+    3506:      	movxm	m4, #-0x340
+    350c:      	mova	dc4, #0x0
+    3510:      	mova	dn5, #0x6
+    3514:      	movxm	dj5, #0x40
+    351a:      	movxm	m5, #-0x340
+    3520:      	mova	dc5, #0x0
+    3524:      	mova	dn6, #0x5
+    3528:      	movxm	dj6, #0x0
+    352e:      	movxm	m6, #0x10
+    3534:      	mova	dc6, #0x0
+    3538:      	movxm	ls, #0x36c0
+    353e:      	movxm	le, #0x3800
+    3544:      	add.nc	lc, r7, #0x0
+    3548:      	nop	
+    354a:      	nop	
+    354c:      	nop	
+    354e:      	nop	
+    3550:      	nop	
+    3552:      	nop	
+    3554:      	vlda.fill.512	 [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25]
+    355a:      	nop	
+    355c:      	nop	
+    355e:      	nop	
+    3560:      	nop	
+    3562:      	nop	
+    3564:      	nop	
+    3566:      	nop	
+    3568:      	nop	
+    356a:      	nop	
+    356c:      	nop	
+    356e:      	nop	
+    3570:      	nop	
+    3572:      	vlda.pop.576	 ex3, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25]
+    3578:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25]
+    357e:      	nop	
+    3580:      	nop	
+    3582:      	nop	
+    3584:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25]
+    358a:      	vlda.pop.576	 ex5, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25]
+    3590:      	vlda.pop.576	 ex0, [p0, lf0, r24]
+    3594:      	vldb.pop.576	 ex5, [p1, lf1, r25];		vmul.f	dm1, ex3, ex7, r5
+    359c:      	vlda.pop.576	 ex7, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25];		vmul.f	dm2, ex6, ex8, r5
+    35a6:      	vldb.pop.576	 ex5, [p1, lf1, r25]
+    35aa:      	vlda.pop.576	 ex7, [p0, lf0, r24];		vldb.pop.576	 ex6, [p1, lf1, r25]
+    35b0:      	vlda.pop.576	 ex1, [p0, lf0, r24]
+    35b4:      	vmac.f	dm1, dm1, ex6, ex8, r5
+    35b8:      	vlda.conv.fp32.bf16	 cml0, [p3], #0x40;		vmac.f	dm2, dm2, ex5, ex7, r5
+    35c0:      	padds.2d	 [p1], d1
+    35c4:      	vmac.f	dm1, dm1, ex0, ex5, r5
+    35c8:      	vmac.f	dm2, dm2, ex7, ex8, r5
+    35cc:      	padda.2d	 [p0], d0
+    35d0:      	vmac.f	dm1, dm1, ex7, ex5, r5
+    35d4:      	vmac.f	dm2, dm2, ex1, ex6, r5
+    35d8:      	vlda.fill.512	 [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25]
+    35de:      	nop	
+    35e0:      	vadd.f	dm2, dm1, dm2, r6
+    35e4:      	nop	
+    35e6:      	nop	
+    35e8:      	nop	
+    35ea:      	nop	
+    35ec:      	nop	
+    35ee:      	vconv.bf16.fp32	 x7, cml2
+    35f2:      	vconv.bf16.fp32	 x6, cmh2;		vadd.f	dm3, dm3, dm0, r6
+    35fa:      	vlda.2d.conv.fp32.bf16	 cml3, [p3], d2;		vconv.fp32.bf16	cml3, x7
+    3600:      	nop	
+    3602:      	vst	 x7, [p4], #0x40
+    3606:      	vlda.pop.576	 ex3, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25]
+    360c:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25];		vst.2d	 x6, [p4], d4;		nopx	;		vconv.fp32.bf16	cml0, x6;		vadd.f	dm0, dm0, dm3, r6
+    361c:      	vconv.bf16.fp32	 x4, cml3
+    3620:      	nop	
+    3622:      	nop	
+    3624:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25];		vmin_ge.bf16	 x6, r16, x9, x4
+    362e:      	vlda.pop.576	 ex5, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25]
+    3634:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vmax_lt.bf16	 x1, r16, x10, x6
+    363a:      	vconv.bf16.fp32	 x3, cml0;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmul.f	dm1, ex3, ex7, r5
+    3644:      	vlda.pop.576	 ex7, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25];		vfloor.s32.bf16	x4, wh1, s0;		nopx	;		vlt.bf16	 r18, x9, x4;		vmul.f	dm2, ex6, ex8, r5
+    3654:      	vfloor.s32.bf16	x1, wl1, s0;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmin_ge.bf16	 x7, r16, x9, x3
+    365e:      	vlda.pop.576	 ex7, [p0, lf0, r24];		vldb.pop.576	 ex6, [p1, lf1, r25];		vadd.32	 x4, x4, x11
+    3668:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vmax_lt.bf16	 x2, r16, x10, x7
+    366e:      	vldb.4x64.hi	 wh0, wh4;		vmac.f	dm1, dm1, ex6, ex8, r5
+    3676:      	vlda.conv.fp32.bf16	 cml0, [p3], #0x40;		vfloor.s32.bf16	x6, wl2, s0;		vmac.f	dm2, dm2, ex5, ex7, r5
+    3680:      	padds.2d	 [p1], d1;		vldb.4x64.hi	 wh1, wl4;		vlt.bf16	 r19, x9, x3
+    368a:      	vldb.4x64.lo	 wl1, wl4;		vadd.32	 x3, x6, x11;		vmac.f	dm1, dm1, ex0, ex5, r5
+    3694:      	vldb.4x64.lo	 wl0, wh4;		vmac.f	dm2, dm2, ex7, ex8, r5
+    369c:      	padda.2d	 [p0], d0;		vldb.4x64.lo	 wl2, wl3;		vadd.32	 x4, x1, x11
+    36a6:      	vldb.4x64.hi	 wh3, wh3;		vmac.f	dm1, dm1, ex7, ex5, r5
+    36ae:      	vldb.4x64.hi	 wh2, wl3;		vmac.f	dm2, dm2, ex1, ex6, r5
+    36b6:      	nopa	;		nops	;		nopm	
+
+000036c0 <attkb_start>:
+    36c0:      	vlda.fill.512	 [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vfloor.s32.bf16	x5, wh2, s0;		nopx	;		nopm	;		nopv	
+    36d0:      	vldb.4x64.lo	 wl4, wh4;		or	 r4, r18, r19
+    36d6:      	vldb.4x64.lo	 wl3, wh3;		vadd.f	dm2, dm1, dm2, r6
+    36de:      	vldb.4x64.hi	 wh4, wh4;		or	 r17, r17, r4
+    36e4:      	vldb.4x64.lo	 wl8, wl4;		vadd.32	 x5, x5, x11
+    36ea:      	nopa	;		vldb.4x64.hi	 wh8, wl4;		nops	;		nopx	;		nopm	;		nopv	
+    36fa:      	vldb.4x64.lo	 wl1, wl5
+    36fe:      	vldb.4x64.lo	 wl3, wh5;		vshuffle	bmlh1, x1, x0, r3
+    3704:      	vconv.bf16.fp32	 x7, cml2;		vldb.4x64.hi	 wh1, wl5;		vshuffle	x0, x1, x0, r2
+    370e:      	vconv.bf16.fp32	 x6, cmh2;		vldb.4x64.hi	 wh3, wh5;		vshuffle	bmll2, x2, x3, r3;		vadd.f	dm3, dm3, dm0, r6
+    371a:      	vlda.2d.conv.fp32.bf16	 cml3, [p3], d2;		vconv.fp32.bf16	cml3, x7
+    3720:      	vlda	 x6, [p7], #0x40;		vshuffle	x5, x2, x3, r2
+    3726:      	vlda.2d	 x5, [p7], d3;		vst	 x7, [p4], #0x40;		vshuffle	x2, x8, x4, r2
+    3730:      	vlda.pop.576	 ex3, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25];		vshuffle	bmll1, x8, x4, r3
+    373a:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25];		vst.2d	 x6, [p4], d4;		nopx	;		vconv.fp32.bf16	cml0, x6;		vadd.f	dm0, dm0, dm3, r6
+    374a:      	vconv.bf16.fp32	 x4, cml3;		vmov	wl0, wh2
+    3752:      	vldb	 x5, [p5], #0x40;		vshuffle	x2, x1, x3, r2
+    3758:      	vldb.2d	 x6, [p5], d5;		vmov	wl2, wh5
+    375e:      	vlda.pop.576	 ex6, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25];		vmin_ge.bf16	 x6, r16, x9, x4;		vmac.f	dm0, dm1, x0, x6, r1
+    376a:      	vlda.pop.576	 ex5, [p0, lf0, r24];		vldb.pop.576	 ex7, [p1, lf1, r25];		vshuffle	bmlh2, x1, x3, r3
+    3774:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vmax_lt.bf16	 x1, r16, x10, x6;		vmac.f	dm3, dm2, x2, x5, r1
+    377e:      	vconv.bf16.fp32	 x3, cml0;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmul.f	dm1, ex3, ex7, r5
+    3788:      	vlda.pop.576	 ex7, [p0, lf0, r24];		vldb.pop.576	 ex8, [p1, lf1, r25];		vfloor.s32.bf16	x4, wh1, s0;		nopx	;		vlt.bf16	 r18, x9, x4;		vmul.f	dm2, ex6, ex8, r5
+    3798:      	vfloor.s32.bf16	x1, wl1, s0;		vldb.pop.576	 ex5, [p1, lf1, r25];		vmin_ge.bf16	 x7, r16, x9, x3
+    37a2:      	vlda.pop.576	 ex7, [p0, lf0, r24];		vldb.pop.576	 ex6, [p1, lf1, r25];		vadd.32	 x4, x4, x11;		vmac.f	dm3, dm3, x2, x6, r1
+    37ae:      	vlda.pop.576	 ex1, [p0, lf0, r24];		st	 r4, [p6], #4;		vmax_lt.bf16	 x2, r16, x10, x7;		vmac.f	dm0, dm0, x0, x5, r1
+    37bc:      	vldb.4x64.hi	 wh0, wh4;		vmac.f	dm1, dm1, ex6, ex8, r5
+    37c4:      	vlda.conv.fp32.bf16	 cml0, [p3], #0x40;		vfloor.s32.bf16	x6, wl2, s0;		vmac.f	dm2, dm2, ex5, ex7, r5
+    37ce:      	padds.2d	 [p1], d1;		vldb.4x64.hi	 wh1, wl4;		vlt.bf16	 r19, x9, x3
+    37d8:      	vldb.4x64.lo	 wl1, wl4;		vadd.32	 x3, x6, x11;		vmac.f	dm1, dm1, ex0, ex5, r5
+    37e2:      	vldb.4x64.lo	 wl0, wh4;		vmov	cmh0, cml3;		vmac.f	dm2, dm2, ex7, ex8, r5
+    37ec:      	padda.2d	 [p0], d0;		vldb.4x64.lo	 wl2, wl3;		vadd.32	 x4, x1, x11
+    37f6:      	vst.push.576.conv.bfp16ebs8.fp32	 dm0, [p2, sf, r26];		vldb.4x64.hi	 wh3, wh3;		vmac.f	dm1, dm1, ex7, ex5, r5
+
+00003800 <attkb_last>:
+    3800:      	nopa	;		vldb.4x64.hi	 wh2, wl3;		vst.flush.512.conv.2d	 [p2, sf, r26, d6];		nopx	;		nopm	;		vmac.f	dm2, dm2, ex1, ex6, r5
+    3810:      	st	 r17, [p6, #0]
+    3814:      	lda	 p6, [sp, #-64]
+    3818:      	lda	 p7, [sp, #-60]
+    381c:      	nop	
+    381e:      	nop	
+    3820:      	nop	
+    3822:      	nop	
+    3824:      	nop	
+    3826:      	nop	
+    3828:      	ret	lr
+    382c:      	nop	
+    382e:      	nop	
+    3830:      	nop	
+    3832:      	paddxm	 [sp], #-0x40
+    3838:      	nop	
+    383a:      	nop	
+    383c:      	nop	
+    383e:      	nop	
+
+00003840 <attv>:
+    3840:      	mov	r7, r0
+    3844:      	mova	r5, #0x30c
+    3848:      	mova	r6, #0x3c
+    384c:      	mova	r24, #0x0
+    3850:      	mova	r25, #0x0
+    3854:      	mov	p3, p2
+    3858:      	mov	p4, p0
+    385c:      	mov	p5, p1
+    3860:      	padda	 [p4], #0x0
+    3864:      	padda	 [p5], #0x0
+    3868:      	padda	 [p2], #0x0
+    386c:      	mova	dn0, #0x3
+    3870:      	movxm	dj0, #0x0
+    3876:      	movxm	m0, #0x1c0
+    387c:      	mova	dc0, #0x0
+    3880:      	mova	dn1, #0x3
+    3884:      	movxm	dj1, #0x1c0
+    388a:      	movxm	m1, #-0xc40
+    3890:      	mova	dc1, #0x0
+    3894:      	movxm	ls, #0x3940
+    389a:      	movxm	le, #0x3a10
+    38a0:      	add.nc	lc, r7, #0x0
+    38a4:      	nop	
+    38a6:      	nop	
+    38a8:      	nop	
+    38aa:      	nop	
+    38ac:      	nop	
+    38ae:      	nop	
+    38b0:      	mov	p1, p5
+    38b4:      	vlda	 bmll0, [p2], #0x40;		mov	p0, p4
+    38ba:      	vlda	 bmlh0, [p2], #0x40;		mov	r25, #0x0
+    38c0:      	vlda	 bmhl0, [p2], #0x40;		vldb.fill.512	 [p1, lf1, r25];		mov	r24, #0x0
+    38ca:      	vlda.fill.512	 [p0, lf0, r24];		vldb.pop.576	 ex0, [p1, lf1, r25]
+    38d0:      	vlda.pop.576	 ex2, [p0, lf0, r24];		vldb.pop.576	 ex4, [p1, lf1, r25]
+    38d6:      	vlda.pop.576	 ex3, [p0, lf0, r24];		vldb.pop.576	 ex1, [p1, lf1, r25]
+    38dc:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25]
+    38e2:      	vlda	 bmhh0, [p2], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		padds	 [p5], #0x1c0
+    38ea:      	vlda.pop.576	 ex4, [p0, lf0, r24];		vldb.pop.576	 ex6, [p1, lf1, r25]
+    38f0:      	vlda.pop.576	 ex1, [p0, lf0, r24];		mov	p1, p5
+    38f6:      	vlda	 bmll1, [p2], #0x40
+    38fa:      	vlda	 bmlh1, [p2], #0x40;		mov	r25, #0x0
+    3900:      	vlda.pop.576	 ex5, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		padds.2d	 [p5], d1;		vmac.f	dm0, dm0, ex2, ex0, r5
+    390c:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmul.f	dm2, ex3, ex4, r5
+    3914:      	vlda	 bmhl1, [p2], #0x40;		vldb.pop.576	 ex6, [p1, lf1, r25]
+    391a:      	vlda	 bmhh1, [p2], #0x40;		padds.2d	 [p4], d0;		vmac.f	dm0, dm0, ex0, ex1, r5
+    3924:      	vldb.pop.576	 ex2, [p1, lf1, r25]
+    3928:      	vldb.pop.576	 ex3, [p1, lf1, r25];		vmac.f	dm2, dm2, ex4, ex5, r5
+    3930:      	vldb.pop.576	 ex0, [p1, lf1, r25];		vmac.f	dm0, dm0, ex1, ex7, r5
+    3938:      	vldb.pop.576	 ex2, [p1, lf1, r25]
+    393c:      	nopx	
+
+00003940 <attv_start>:
+    3940:      	nopa	;		nopb	;		nops	;		nopx	;		mov	p1, p5;		vmac.f	dm2, dm2, ex5, ex6, r5
+    3950:      	vlda	 bmll0, [p2], #0x40;		nopb	;		nops	;		nopx	;		mov	p0, p4;		vmac.f	dm1, dm1, ex2, ex7, r5
+    3960:      	vlda	 bmlh0, [p2], #0x40;		nopb	;		nops	;		nopx	;		mov	r25, #0x0;		vmul.f	dm2, ex3, ex6, r5
+    3970:      	vlda	 bmhl0, [p2], #0x40;		vldb.fill.512	 [p1, lf1, r25];		mov	r24, #0x0;		vadd.f	dm3, dm0, dm2, r6
+    397c:      	vlda.fill.512	 [p0, lf0, r24];		vldb.pop.576	 ex0, [p1, lf1, r25];		vmac.f	dm1, dm1, ex0, ex2, r5
+    3986:      	vlda.pop.576	 ex2, [p0, lf0, r24];		vldb.pop.576	 ex4, [p1, lf1, r25];		vmac.f	dm2, dm2, ex4, ex3, r5
+    3990:      	vlda.pop.576	 ex3, [p0, lf0, r24];		vldb.pop.576	 ex1, [p1, lf1, r25]
+    3996:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.pop.576	 ex5, [p1, lf1, r25];		vmac.f	dm1, dm1, ex1, ex0, r5
+    39a0:      	vlda	 bmhh0, [p2], #0x40;		vldb.pop.576	 ex7, [p1, lf1, r25];		padds	 [p5], #0x1c0;		vmac.f	dm2, dm2, ex5, ex2, r5
+    39ac:      	vlda.pop.576	 ex4, [p0, lf0, r24];		vldb.pop.576	 ex6, [p1, lf1, r25];		vst	 bmll3, [p3], #0x40
+    39b4:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vst	 bmlh3, [p3], #0x40;		mov	p1, p5
+    39be:      	vlda	 bmll1, [p2], #0x40;		vst	 bmhl3, [p3], #0x40;		vadd.f	dm3, dm1, dm2, r6
+    39c8:      	vlda	 bmlh1, [p2], #0x40;		vst	 bmhh3, [p3], #0x40;		mov	r25, #0x0
+    39d2:      	vlda.pop.576	 ex5, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		padds.2d	 [p5], d1;		vmac.f	dm0, dm0, ex2, ex0, r5
+    39de:      	vldb.pop.576	 ex7, [p1, lf1, r25];		vmul.f	dm2, ex3, ex4, r5
+    39e6:      	vlda	 bmhl1, [p2], #0x40;		vldb.pop.576	 ex6, [p1, lf1, r25]
+    39ec:      	vlda	 bmhh1, [p2], #0x40;		padds.2d	 [p4], d0;		vmac.f	dm0, dm0, ex0, ex1, r5
+    39f6:      	vldb.pop.576	 ex2, [p1, lf1, r25];		vst	 bmll3, [p3], #0x40
+    39fc:      	vst	 bmlh3, [p3], #0x40;		vldb.pop.576	 ex3, [p1, lf1, r25];		vmac.f	dm2, dm2, ex4, ex5, r5
+    3a06:      	vst	 bmhl3, [p3], #0x40;		vldb.pop.576	 ex0, [p1, lf1, r25];		vmac.f	dm0, dm0, ex1, ex7, r5
+
+00003a10 <attv_last>:
+    3a10:      	nopa	;		vldb.pop.576	 ex2, [p1, lf1, r25];		vst	 bmhh3, [p3], #0x40;		nopx	;		nopm	;		nopv	
+    3a20:      	nop	
+    3a22:      	nop	
+    3a24:      	nop	
+    3a26:      	nop	
+    3a28:      	ret	lr
+    3a2c:      	nop	
+    3a2e:      	nop	
+    3a30:      	nop	
+    3a32:      	nop	
+    3a34:      	nop	
+    3a36:      	nop	
+    3a38:      	nop	
+    3a3a:      	nop	
+    3a3c:      	nop	
+    3a3e:      	nop	
+
+00003a40 <attvs>:
+    3a40:      	mov	r7, r0
+    3a44:      	mova	r5, #0x30c
+    3a48:      	mova	r6, #0x3c
+    3a4c:      	mova	r24, #0x0
+    3a50:      	mova	r25, #0x0
+    3a54:      	mov	p3, p2
+    3a58:      	mov	p4, p0
+    3a5c:      	mov	p5, p1
+    3a60:      	padda	 [p4], #0x0
+    3a64:      	padda	 [p5], #0x0
+    3a68:      	padda	 [p2], #0x0
+    3a6c:      	mova	dn0, #0x0
+    3a70:      	movxm	dj0, #0x1c0
+    3a76:      	movxm	m0, #0x1c0
+    3a7c:      	mova	dc0, #0x0
+    3a80:      	movxm	ls, #0x3b00
+    3a86:      	movxm	le, #0x3b80
+    3a8c:      	add.nc	lc, r7, #0x0
+    3a90:      	nop	
+    3a92:      	nop	
+    3a94:      	nop	
+    3a96:      	nop	
+    3a98:      	nop	
+    3a9a:      	nop	
+    3a9c:      	mov	p0, p4
+    3aa0:      	mov	p1, p5
+    3aa4:      	mov	r24, #0x0
+    3aa8:      	vlda.fill.512	 [p0, lf0, r24];		mov	r25, #0x0
+    3aae:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25]
+    3ab4:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vldb.pop.576	 ex2, [p1, lf1, r25]
+    3aba:      	vlda	 bmll0, [p2], #0x40
+    3abe:      	vlda	 bmlh0, [p2], #0x40;		vldb.pop.576	 ex3, [p1, lf1, r25]
+    3ac4:      	vlda	 bmhl0, [p2], #0x40
+    3ac8:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.pop.576	 ex1, [p1, lf1, r25]
+    3ace:      	vlda	 bmhh0, [p2], #0x40
+    3ad2:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vldb.pop.576	 ex2, [p1, lf1, r25]
+    3ad8:      	vlda.pop.576	 ex0, [p0, lf0, r24];		padds.2d	 [p4], d0
+    3ade:      	vldb.pop.576	 ex1, [p1, lf1, r25]
+    3ae2:      	vlda.pop.576	 ex2, [p0, lf0, r24];		vldb.pop.576	 ex3, [p1, lf1, r25];		vmac.f	dm0, dm0, ex0, ex2, r5
+    3aec:      	vmul.f	dm1, ex1, ex3, r5
+    3af0:      	nop	
+    3af2:      	vmac.f	dm0, dm0, ex0, ex1, r5
+    3af6:      	nopa	;		nops	;		nopm	
+
+00003b00 <attvs_start>:
+    3b00:      	nopa	;		nopb	;		nops	;		nopx	;		mov	p0, p4;		nopv	
+    3b10:      	mov	p1, p5;		vmac.f	dm1, dm1, ex1, ex2, r5
+    3b18:      	mov	r24, #0x0
+    3b1c:      	vlda.fill.512	 [p0, lf0, r24];		mov	r25, #0x0;		vmac.f	dm0, dm0, ex0, ex1, r5
+    3b26:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.fill.512	 [p1, lf1, r25];		vmac.f	dm1, dm1, ex2, ex3, r5
+    3b30:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vldb.pop.576	 ex2, [p1, lf1, r25]
+    3b36:      	vlda	 bmll0, [p2], #0x40
+    3b3a:      	vlda	 bmlh0, [p2], #0x40;		vldb.pop.576	 ex3, [p1, lf1, r25];		vadd.f	dm1, dm0, dm1, r6
+    3b44:      	vlda	 bmhl0, [p2], #0x40
+    3b48:      	vlda.pop.576	 ex0, [p0, lf0, r24];		vldb.pop.576	 ex1, [p1, lf1, r25]
+    3b4e:      	vlda	 bmhh0, [p2], #0x40
+    3b52:      	vlda.pop.576	 ex1, [p0, lf0, r24];		vldb.pop.576	 ex2, [p1, lf1, r25]
+    3b58:      	vlda.pop.576	 ex0, [p0, lf0, r24];		padds.2d	 [p4], d0
+    3b5e:      	vldb.pop.576	 ex1, [p1, lf1, r25];		vst	 bmll1, [p3], #0x40
+    3b64:      	vlda.pop.576	 ex2, [p0, lf0, r24];		vldb.pop.576	 ex3, [p1, lf1, r25];		vst	 bmlh1, [p3], #0x40;		nopx	;		nopm	;		vmac.f	dm0, dm0, ex0, ex2, r5
+    3b74:      	vst	 bmhl1, [p3], #0x40;		vmul.f	dm1, ex1, ex3, r5
+    3b7c:      	vst	 bmhh1, [p3], #0x40
+
+00003b80 <attvs_last>:
+    3b80:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		vmac.f	dm0, dm0, ex0, ex1, r5
+    3b90:      	nop	
+    3b92:      	nop	
+    3b94:      	nop	
+    3b96:      	nop	
+    3b98:      	ret	lr
+    3b9c:      	nop	
+    3b9e:      	nop	
+    3ba0:      	nop	
+    3ba2:      	nop	
+    3ba4:      	nop	
+    3ba6:      	nop	
+    3ba8:      	nop	
+    3baa:      	nop	
+    3bac:      	nop	
+    3bae:      	nop	
+
+00003bb0 <vtk>:
+    3bb0:      	mov	r7, r0
+    3bb4:      	mova	r1, #0x33c
+    3bb8:      	mova	r2, #0x34
+    3bbc:      	mova	r3, #0x35
+    3bc0:      	mova	r26, #0x0
+    3bc4:      	movxm	r4, #0x3f80
+    3bca:      	vbcst.16	 x11, r4
+    3bce:      	mova	dn0, #0x5
+    3bd2:      	movxm	dj0, #0x340
+    3bd8:      	movxm	m0, #-0x13c0
+    3bde:      	mova	dc0, #0x0
+    3be2:      	mova	dn1, #0x5
+    3be6:      	movxm	dj1, #-0x40
+    3bec:      	movxm	m1, #0x40
+    3bf2:      	mova	dc1, #0x0
+    3bf6:      	mova	dn2, #0x5
+    3bfa:      	movxm	dj2, #0x0
+    3c00:      	movxm	m2, #0x10
+    3c06:      	mova	dc2, #0x0
+    3c0a:      	movxm	ls, #0x3c50
+    3c10:      	movxm	le, #0x3ca0
+    3c16:      	add.nc	lc, r7, #0x0
+    3c1a:      	nop	
+    3c1c:      	nop	
+    3c1e:      	nop	
+    3c20:      	nop	
+    3c22:      	nop	
+    3c24:      	nop	
+    3c26:      	vlda	 bmll0, [p0], #0x40
+    3c2a:      	vlda	 x1, [p1], #0x40
+    3c2e:      	vlda.2d	 x0, [p1], d1
+    3c32:      	vlda	 bmlh0, [p0], #0x40
+    3c36:      	vlda	 bmll1, [p0], #0x40
+    3c3a:      	vlda.2d	 bmlh1, [p0], d0
+    3c3e:      	nop	
+    3c40:      	nop	
+    3c42:      	vmac.f	dm0, dm0, x1, x11, r1
+    3c46:      	vmac.f	dm1, dm1, x0, x11, r1
+    3c4a:      	nop	
+    3c4c:      	nop	
+    3c4e:      	nop	
+
+00003c50 <vtk_start>:
+    3c50:      	vlda	 bmll0, [p0], #0x40;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3c60:      	vlda	 x1, [p1], #0x40;		nopb	;		vconv.bf16.fp32	 x0, cml0;		nopx	;		nopm	;		nopv	
+    3c70:      	vlda.2d	 x0, [p1], d1;		vconv.bf16.fp32	 x1, cml1
+    3c76:      	vlda	 bmlh0, [p0], #0x40
+    3c7a:      	vlda	 bmll1, [p0], #0x40;		vshuffle	x2, x0, x1, r2
+    3c80:      	vlda.2d	 bmlh1, [p0], d0;		vshuffle	x0, x0, x1, r3
+    3c86:      	vconv.fp32.bf16	cml1, x2
+    3c8a:      	vconv.fp32.bf16	cmh1, x0
+    3c8e:      	vmac.f	dm0, dm0, x1, x11, r1
+    3c92:      	vst.push.576.conv.bfp16ebs8.fp32	 dm1, [p2, sf, r26];		vmac.f	dm1, dm1, x0, x11, r1
+    3c9a:      	vst.flush.512.conv.2d	 [p2, sf, r26, d2]
+    3c9e:      	nop	
+
+00003ca0 <vtk_last>:
+    3ca0:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3cb0:      	nop	
+    3cb2:      	nop	
+    3cb4:      	nop	
+    3cb6:      	nop	
+    3cb8:      	ret	lr
+    3cbc:      	nop	
+    3cbe:      	nop	
+    3cc0:      	nop	
+    3cc2:      	nop	
+    3cc4:      	nop	
+    3cc6:      	nop	
+    3cc8:      	nop	
+    3cca:      	nop	
+    3ccc:      	nop	
+    3cce:      	nop	
+
+00003cd0 <zero2>:
+    3cd0:      	mov	r7, r0
+    3cd4:      	mova	r2, #0x0
+    3cd8:      	vbcst.32	 x0, r2
+    3cdc:      	movxm	ls, #0x3d50
+    3ce2:      	movxm	le, #0x3d70
+    3ce8:      	add.nc	lc, r7, #0x0
+    3cec:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3cfc:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3d0c:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3d1c:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3d2c:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3d3c:      	nopa	;		nopb	;		nops	;		nopx	;		nopm	;		nopv	
+    3d4c:      	nopx	
+
+00003d50 <zero2_a>:
+    3d50:      	nopa	;		nopb	;		vst	 x0, [p0], #0x40;		nopx	;		nopm	;		nopv	
+    3d60:      	nopa	;		nopb	;		vst	 x0, [p1], #0x40;		nopx	;		nopm	;		nopv	
+
+00003d70 <zero2_a_last>:
+    3d70:      	nopa	;		nopb	;		vst	 x0, [p1], #0x40;		nopx	;		nopm	;		nopv	
+    3d80:      	ret	lr
+    3d84:      	nop	
+    3d86:      	nop	
+    3d88:      	nop	
+    3d8a:      	nop	
+    3d8c:      	nop	
+    3d8e:      	nop	
+
+00003d90 <resc>:
+    3d90:      	vlda	 x9, [p2, #0x0]
+    3d94:      	vlda	 x10, [p2, #0x40]
+    3d98:      	movxm	r0, #0x3f80
+    3d9e:      	vbcst.16	 x11, r0
+    3da2:      	mova	r1, #0x33c
+    3da6:      	mov	r2, p1
+    3daa:      	mov	r3, p0
+    3dae:      	sub	 r2, r2, r3
+    3db2:      	movxm	r4, #-0x7c0
+    3db8:      	add	 r2, r2, r4
+    3dbc:      	mov	m0, r2
+    3dc0:      	mov	m1, r2
+    3dc4:      	mova	dn0, #0x1f
+    3dc8:      	mova	dj0, #0x40
+    3dcc:      	mova	dc0, #0x0
+    3dd0:      	mova	dn1, #0x1f
+    3dd4:      	mova	dj1, #0x40
+    3dd8:      	mova	dc1, #0x0
+    3ddc:      	mov	p3, p0
+    3de0:      	movxm	ls, #0x3e60
+    3de6:      	movxm	le, #0x3eb0
+    3dec:      	mova	r0, #0x9
+    3df0:      	add.nc	lc, r0, #0x0
+    3df4:      	vlda.2d	 bmll1, [p0], d0
+    3df8:      	vlda.2d	 bmlh1, [p0], d0
+    3dfc:      	nop	
+    3dfe:      	nop	
+    3e00:      	vlda.2d	 bmll0, [p0], d0
+    3e04:      	vlda.2d	 bmlh0, [p0], d0
+    3e08:      	nop	
+    3e0a:      	nop	
+    3e0c:      	vlda.2d	 bmll1, [p0], d0;		vconv.bf16.fp32	 x0, cml1
+    3e12:      	vlda.2d	 bmlh1, [p0], d0
+    3e16:      	vmsc.f	dm2, dm1, x0, x11, r1
+    3e1a:      	nop	
+    3e1c:      	vlda.2d	 bmll0, [p0], d0;		vconv.bf16.fp32	 x1, cml0
+    3e22:      	vlda.2d	 bmlh0, [p0], d0;		vmul.f	dm2, x0, x9, r1
+    3e2a:      	vmsc.f	dm3, dm0, x1, x11, r1
+    3e2e:      	nop	
+    3e30:      	vlda.2d	 bmll1, [p0], d0;		vconv.bf16.fp32	 x0, cml1
+    3e36:      	vlda.2d	 bmlh1, [p0], d0;		vconv.bf16.fp32	 x1, cml2;		vmul.f	dm3, x1, x10, r1
+    3e40:      	vmsc.f	dm2, dm1, x0, x11, r1
+    3e44:      	vmac.f	dm4, dm2, x1, x9, r1
+    3e48:      	vlda.2d	 bmll0, [p0], d0;		vconv.bf16.fp32	 x1, cml0
+    3e4e:      	vlda.2d	 bmlh0, [p0], d0;		vconv.bf16.fp32	 x0, cml3;		vmul.f	dm2, x0, x9, r1
+    3e58:      	vmsc.f	dm3, dm0, x1, x11, r1
+    3e5c:      	vmac.f	dm4, dm3, x0, x10, r1
+
+00003e60 <resc_start>:
+    3e60:      	vlda.2d	 bmll1, [p0], d0;		nopb	;		vconv.bf16.fp32	 x0, cml1;		nopx	;		nopm	;		nopv	
+    3e70:      	vlda.2d	 bmlh1, [p0], d0;		nopb	;		vconv.bf16.fp32	 x1, cml2;		nopx	;		nopm	;		vmul.f	dm3, x1, x10, r1
+    3e80:      	nopa	;		nopb	;		vst.2d	 bmll4, [p3], d1;		nopx	;		nopm	;		vmsc.f	dm2, dm1, x0, x11, r1
+    3e90:      	vst.2d	 bmlh4, [p3], d1;		vmac.f	dm4, dm2, x1, x9, r1
+    3e98:      	vlda.2d	 bmll0, [p0], d0;		vconv.bf16.fp32	 x1, cml0
+    3e9e:      	vlda.2d	 bmlh0, [p0], d0;		vconv.bf16.fp32	 x0, cml3;		vmul.f	dm2, x0, x9, r1
+    3ea8:      	vst.2d	 bmll4, [p3], d1;		vmsc.f	dm3, dm0, x1, x11, r1
+
+00003eb0 <resc_last>:
+    3eb0:      	nopa	;		nopb	;		vst.2d	 bmlh4, [p3], d1;		nopx	;		nopm	;		vmac.f	dm4, dm3, x0, x10, r1
+    3ec0:      	ret	lr
+    3ec4:      	nop	
+    3ec6:      	nop	
+    3ec8:      	nop	
+    3eca:      	nop	
+    3ecc:      	nop	
+    3ece:      	nop	
+
+00003ed0 <_main_init>:
+    3ed0:      	nopa	;		nopb	;		nops	;		jl	#0x20;		nopv	
+    3ee0:      	nopa	;		paddxm	 [sp], #0x40
+    3eea:      	st	 p7, [sp, #-60]
+    3eee:      	st	 lr, [sp, #-64];		mov	p7, sp
+    3ef6:      	padda	 [p7], #-0x40
+    3efa:      	mova	p0, #0x0;		movx	r1, #0x0
+    3f00:      	nopa	;		nopb	;		nops	;		done	;		nopm	;		nopv	
+    3f10:      	nopx	
+    3f14:      	nop	
+    3f16:      	nop	
+    3f18:      	nop	
+    3f1a:      	nop	
+    3f1c:      	lda	 lr, [sp, #-64]
+    3f20:      	nop	
+    3f22:      	nop	
+    3f24:      	nop	
+    3f26:      	nop	
+    3f28:      	nop	
+    3f2a:      	lda	 p7, [sp, #-60]
+    3f2e:      	ret	lr
+    3f32:      	nop	
+    3f34:      	nop	
+    3f36:      	nop	
+    3f38:      	paddxm	 [sp], #-0x40
+    3f3e:      	nop	
