@@ -56,8 +56,10 @@ extern "C" void mm_core_p(const bfp16ebs8 *pA, const bfp16ebs8 *pB, float *piece
 #ifdef MM_KS  // round 9 (P20 stage c): the whole k-step in asm, stripes pipelined (r9/gen_ks.py -> build/mm_ks.s / .h)
 #include "build/mm_ks.h"
 extern "C" void mm_ks(const int32_t *rec, const bfp16ebs8 *pB, float *piece0);
+#ifndef KSC
 static int32_t g_ks_tab[MM_KS_NREC];
 static const bfloat16 *g_ks_for = nullptr;
+#endif
 #endif
 #ifdef PROF  // timing build (round 7, npu-research P15): core-timer stamps per tile, written over the tile's first words
 // (the runtime sequence enables each core's processor bus first: read_tm hangs the core without it)
@@ -180,6 +182,19 @@ static constexpr KsTab ks_tab = [] {
   }
   return t;
 }();
+#ifdef KSC  // round 18 (research rev 13 KSC): every GEMM core has the same placement, so the records are build-time data. The
+// addresses come in as -DKS_ACC_HI / -DKS_C / -DKS_A0..2 (design8 checks them against the linked elf and the lowered MLIR after the
+// build and fails it if anything moved); mm_kstep is then one tail call (-~280 B of program memory)
+struct KsRec {
+  int32_t r[MM_KS_NREC];
+};
+static constexpr KsRec ks_rec = [] {
+  KsRec t{};
+  const int32_t d = (int32_t)KS_C - (int32_t)KS_ACC_HI, slot[3] = {(int32_t)KS_A0, (int32_t)KS_A1, (int32_t)KS_A2};
+  for (int i = 0; i < MM_KS_NREC; i++) t.r[i] = ks_tab.b[i] == 2 ? slot[ks_tab.a[i]] : ks_tab.a[i] + ks_tab.b[i] * d;
+  return t;
+}();
+#else
 static void ks_records(bfp16ebs8 *const slot[3], bfloat16 *c_out) {
   const int32_t d = (int32_t)((const char *)c_out - (const char *)acc_hi);
 #pragma clang loop unroll(disable)
@@ -187,6 +202,7 @@ static void ks_records(bfp16ebs8 *const slot[3], bfloat16 *c_out) {
     g_ks_tab[i] = ks_tab.b[i] == 2 ? (int32_t)(uintptr_t)slot[ks_tab.a[i]] : ks_tab.a[i] + ks_tab.b[i] * d;
   g_ks_for = c_out;
 }
+#endif
 #endif
 void mm_kstep(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfp16ebs8 *__restrict pB_in, bfloat16 *c_out) {
 #ifdef PROF
@@ -198,7 +214,10 @@ void mm_kstep(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfp16ebs8 *__restrict
   }
 #endif
   bfp16ebs8 *const slot[3] = {a0, a1, a2};
-#ifdef MM_KS
+#if defined(MM_KS) && defined(KSC)
+  (void)slot;
+  mm_ks(ks_rec.r, pB_in, piece(c_out, 0, 0));
+#elif defined(MM_KS)
   if (c_out != g_ks_for) ks_records(slot, c_out);  // once per C object address (round 13: a cold function, program memory)
   mm_ks(g_ks_tab, pB_in, piece(c_out, 0, 0));
 #else

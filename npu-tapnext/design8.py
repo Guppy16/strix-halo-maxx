@@ -848,6 +848,36 @@ def step8(
     return Program(iron.get_current_device(), rt, workers=workers).resolve_program()
 
 
+def ksc_check(out, kdefs):
+    """round 18 KSC: -DKS_ACC_HI / KS_C / KS_A0..2 (L1 byte addresses as the core sees them, 0x70000 + offset) against every GEMM
+    core's linked acc_hi (llvm-nm) and its A slot / C object buffers in input_with_addresses.mlir"""
+    import re
+    import subprocess
+
+    want = {k: int(v, 0) for k, v in re.findall(r"-D(KS_ACC_HI|KS_C|KS_A[012])=(0x[0-9a-fA-F]+|\d+)", kdefs.replace(",", " "))}
+    assert len(want) == 5, f"KSC needs KS_ACC_HI, KS_C, KS_A0..2: {want}"
+    prj = Path(out + ".prj")
+    mlir = (prj / "input_with_addresses.mlir").read_text()
+    bad = []
+    for r in range(ROWS_G):
+        for c in range(COLS):
+            tile = f"tile_{c}_{r + 2}"
+            for i in range(3):
+                m_ = re.search(rf"%a{r}{c}_{i} = aie.buffer\(%{tile}\) {{address = (\d+)", mlir)
+                if not m_ or 0x70000 + int(m_.group(1)) != want[f"KS_A{i}"]:
+                    bad.append(f"{tile} a slot {i}: {m_ and hex(0x70000 + int(m_.group(1)))}")
+            m_ = re.search(rf"%C{c}_{r}_buff_0 = aie.buffer\(%{tile}\) {{address = (\d+)", mlir)
+            if not m_ or 0x70000 + int(m_.group(1)) != want["KS_C"]:
+                bad.append(f"{tile} C: {m_ and hex(0x70000 + int(m_.group(1)))}")
+            elf = prj / f"elfs_main_core_{c}_{r + 2}" / f"elfs_main_core_{c}_{r + 2}.elf"
+            nm = subprocess.run([f"{PEANO}/bin/llvm-nm", str(elf)], capture_output=True, text=True, check=True).stdout
+            m_ = re.search(r"^([0-9a-f]+) [bBdD] _ZL6acc_hi$", nm, re.M)
+            if not m_ or int(m_.group(1), 16) != want["KS_ACC_HI"]:
+                bad.append(f"{tile} acc_hi: {m_ and hex(int(m_.group(1), 16))}")
+    assert not bad, "KSC placement moved, rebuild with: " + "; ".join(sorted(set(bad))[:6])
+    print(f"[design8] KSC placement checked on {ROWS_G * COLS} GEMM cores: " + ", ".join(f"{k} {v:#x}" for k, v in want.items()))
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--sched", required=True, help="plan json (ops) + meta json next to it")
@@ -879,6 +909,8 @@ def main():
             if src.exists():
                 shutil.copy(src, o.out + ".failed." + f)
         raise
+    if "-DKSC" in o.kdefs:  # round 18: the k-step records were built from these addresses: fail the build if the placement moved
+        ksc_check(o.out, o.kdefs)
     Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT,
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1")))
