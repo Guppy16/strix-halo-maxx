@@ -113,7 +113,7 @@ static inline __attribute__((always_inline)) uint32_t stamp() {
 }
 static uint32_t g_ph[14], g_tlast, g_nchunk;
 // round 15: phase 13 = the x copies (input ring), 12 = h + panels, 9 = the rest
-static uint32_t g_nst, g_ncnt, g_nneed;  // round 16: cycles in the norms' n1k steps / their count / in_need cycles around them
+static uint32_t g_nst, g_ncnt, g_nneed, g_nout;  // round 16 (round 17: g_nout = the norms' out_begin waits): cycles in the norms' n1k steps / their count / in_need cycles around them
 // a call, not inline code: sched barriers inside the pipelined chunk loop crashed Peano (AIE Region assertion)
 static __attribute__((noinline)) void ph(int i) {
   const uint32_t t = stamp();
@@ -129,10 +129,24 @@ static inline __attribute__((always_inline)) uint32_t stamp() {
   return v;
 }
 static uint32_t g_ph[14], g_tlast, g_nchunk;
-static uint32_t g_nst, g_ncnt, g_nneed;
-#define PH(i) ((void)0)
+static uint32_t g_nst, g_ncnt, g_nneed, g_nout;
+#ifdef CPROF  // round 17: the conv phase split (NPROF + 3 stamps): phase 0 = the rest of the chunk, 13 = the part pointers + the
+// straddle copy, 1 = convk alone
+static __attribute__((noinline)) void ph(int i) {
+  const uint32_t t = stamp();
+  g_ph[i] += t - g_tlast;
+  g_tlast = t;
+}
+#define PH(i) (((i) == 0 || (i) == 1) ? ph(i) : (void)0)
+#define PHC() ph(13)
 #else
 #define PH(i) ((void)0)
+#endif
+#else
+#define PH(i) ((void)0)
+#endif
+#ifndef PHC
+#define PHC() ((void)0)
 #endif
 static inline void lacq(const void *p, int id, int n) { acquire_greater_equal(p, id + 48, n); }
 static inline void lrel(void *p, int id, int n) { release(p, id + 48, n); }
@@ -380,6 +394,108 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
   const B32 w2 = aie::broadcast<int16_t, 32>((int16_t)(n_in > 2 ? 0x3F80 : 0)).template cast_to<bfloat16>();
   uint8_t *rr = (uint8_t *)g_arena + 15360;  // r | r | rl | rl | nb | nb for the kernels (free during norm ops)
   static_assert(15872 + KB <= sizeof(g_arena));
+#ifdef NPIPE
+#ifndef NPIPE_G
+#define NPIPE_G 2
+#endif
+  static_assert(QS % NPIPE_G == 0);
+#ifndef N1K
+#error "NPIPE interleaves the n1k steps"
+#endif
+  // round 17 (research rev 12 NPIPE): pass 2 of row block rb interleaved with pass 1 of rb + 1, NPIPE_G units at a time
+  // (pass 2 of a unit reads its stage slot before pass 1 of the next row block rewrites it), so the input and the output DMA both
+  // stay busy. nrm_* clobber the n1k registers: the accumulators go through g_nacc around each group (_end / _begin). Same math
+  // and accumulation order per unit: bit-identical.
+  const int w1b = n_in > 1 ? 0x3F80 : 0, w2b = n_in > 2 ? 0x3F80 : 0;
+  for (int rb = -1; rb < RBN; rb++) {
+    const bool more = rb + 1 < RBN;
+    if (more)
+      for (int i = 0; i < 128; i += 16) aie::store_v(g_nacc + i, aie::zeros<float, 16>());
+    for (int q0 = 0; q0 < QS; q0 += NPIPE_G) {
+      if (rb >= 0)
+        for (int q = q0; q < q0 + NPIPE_G; q++) {
+#if defined(PROF) || defined(NPROF)
+          const uint32_t to0 = stamp();
+#endif
+          out_begin(out_ring, UNIT_B);
+#if defined(PROF) || defined(NPROF)
+          g_nout += stamp() - to0;
+#endif
+          bfloat16 *sq = g_stage + q * 512;
+          // the kernels store X' and push the panels straight into the ring; a part that would wrap the ring end goes to scratch
+          // (X': arena + 15872, 1 KB; panels: g_panels) and is copied (round 15: the flush after the 8 pushes writes nothing past
+          // the 576 B, so a direct push never touches the next unit)
+          const int xp = g_out_b, xw = xp + KB > OUT_B;
+          int pp = xp + KB;
+          if (pp >= OUT_B) pp -= OUT_B;
+          const int pw = pp + PANB > OUT_B;
+          bfloat16 *xd = xw ? (bfloat16 *)(g_arena + 15872) : (bfloat16 *)((char *)out_ring + xp);
+          bfp16ebs8 *pd = pw ? (bfp16ebs8 *)g_panels : (bfp16ebs8 *)((char *)out_ring + pp);
+          if (ln)
+            nrm_ln(sq, g_p0 + q * 64, pd, rr, g_p1 + q * 64, xd);
+          else
+            nrm_rms(sq, g_p0 + q * 64, pd, (const bfloat16 *)rr, xd);
+          if (xw) out_copy(out_ring, 0, xd, KB / 64);
+          if (pw) out_copy(out_ring, KB, (const bfloat16 *)g_panels, PANB / 64);
+          if (to_x) out_copy(out_ring, 0, sq, KB / 64);
+          out_end(out_ring, UNIT_B);
+        }
+      if (!more) continue;
+      if (ln) n1k_ln_begin(g_nacc, w1b, w2b); else n1k_rms_begin(g_nacc, w1b, w2b);
+      for (int q = q0; q < q0 + NPIPE_G; q++) {
+#if defined(PROF) || defined(NPROF)
+        const uint32_t tn0 = stamp();
+#endif
+        in_need(in_ring, unit);
+#if defined(PROF) || defined(NPROF)
+        g_nneed += stamp() - tn0;
+#endif
+        const bfloat16 *p[3];
+        int dc[3];
+        for (int s = 0; s < 3; s++) {
+          int qq = g_in_b + (s == 0 ? 0 : s == 1 ? o1 : o2);
+          if (qq >= IN_B) qq -= IN_B;
+          p[s] = (const bfloat16 *)((const char *)in_ring + qq);
+          const int n1 = (IN_B - qq) >> 7;  // 128 B pieces before the ring end
+          dc[s] = n1 >= 8 ? 0 : 8 - n1;
+        }
+#if defined(PROF) || defined(NPROF)
+        const uint32_t ts0 = stamp();
+#endif
+#if defined(NORM_TWIN) && (NORM_TWIN & 4)  // round 16 timing twin (outputs wrong): the n1k step calls skipped
+        if (q < 0)
+#endif
+        if (ln)
+          n1k_ln_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
+        else
+          n1k_rms_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
+#if defined(PROF) || defined(NPROF)
+        g_nst += stamp() - ts0;
+        g_ncnt++;
+#endif
+        in_done(in_ring, unit);
+        }
+      if (ln) n1k_ln_end(g_nacc); else n1k_rms_end(g_nacc);
+    }
+    if (!more) continue;
+    if (ln) {
+      B32 r0, r1, rl0, rl1;
+      A32 nb0, nb1;
+      ln_stats(rowsum8(A32(aie::load_v<32>(g_nacc))), rowsum8(A32(aie::load_v<32>(g_nacc + 64))), eps, r0, rl0, nb0);
+      ln_stats(rowsum8(A32(aie::load_v<32>(g_nacc + 32))), rowsum8(A32(aie::load_v<32>(g_nacc + 96))), eps, r1, rl1, nb1);
+      aie::store_v((bfloat16 *)rr, r0);
+      aie::store_v((bfloat16 *)(rr + 64), r1);
+      aie::store_v((bfloat16 *)(rr + 128), rl0);
+      aie::store_v((bfloat16 *)(rr + 192), rl1);
+      aie::store_v((float *)(rr + 256), FV(nb0));
+      aie::store_v((float *)(rr + 384), FV(nb1));
+    } else {
+      aie::store_v((bfloat16 *)rr, rms_rstd(rowsum8(A32(aie::load_v<32>(g_nacc + 64))), eps));
+      aie::store_v((bfloat16 *)(rr + 64), rms_rstd(rowsum8(A32(aie::load_v<32>(g_nacc + 96))), eps));
+    }
+  }
+}
+#else
   for (int rb = 0; rb < RBN; rb++) {
 #ifdef N1K  // round 16 (research N1): pass 1 + the statistics per unit in asm (r16/gen_n1k.py), the accumulators via g_nacc
     for (int i = 0; i < 128; i += 16) aie::store_v(g_nacc + i, aie::zeros<float, 16>());
@@ -493,7 +609,13 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
     }
 #endif  // N1K
     for (int q = 0; q < QS; q++) {
+#if defined(PROF) || defined(NPROF)
+      const uint32_t to0 = stamp();
+#endif
       out_begin(out_ring, UNIT_B);
+#if defined(PROF) || defined(NPROF)
+      g_nout += stamp() - to0;
+#endif
       bfloat16 *sq = g_stage + q * 512;
       // the kernels store X' and push the panels straight into the ring; a part that would wrap the ring end goes to scratch
       // (X': arena + 15872, 1 KB; panels: g_panels) and is copied (round 15: the flush after the 8 pushes writes nothing past
@@ -515,6 +637,7 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
     }
   }
 }
+#endif  // NPIPE
 #else
 template <bool LN>
 static __attribute__((noinline)) void norm_rows(uint32_t *in_ring, uint32_t *out_ring, int n_in, int to_x, B32 eps) {
@@ -623,7 +746,11 @@ extern "C" {
 // streams, word 1 = eps as bf16 bits) + 2 slots (mode 1) or 4 (2/3).
 void ew_norm(uint32_t *in_ring, uint32_t *out_ring, int32_t mode) {
   aie::set_rounding(aie::rounding_mode::conv_even);
+#ifdef AL1  // round 17 (research rev 12): params fills padded to 1 KB multiples (plan8 AL1=1)
+  const int pbytes = mode >= 2 ? 6144 : 3072;  // (3 KB multiples: the ring slots are 768 B)
+#else
   const int pbytes = mode >= 2 ? 5 * SLOT_B : 3 * SLOT_B;  // [header slot][scale | gamma][beta]
+#endif
   in_need(in_ring, pbytes);
   const int n_in = *(const int32_t *)in_at(in_ring, 0);
   const B32 eps = aie::broadcast<int16_t, 32>(*(const int16_t *)in_at(in_ring, 4)).template cast_to<bfloat16>();
@@ -868,6 +995,15 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
     in_need(in_ring, SSM_PARAM_B);
     PH(10);
     const int first = *(const int32_t *)in_at(in_ring, 0);
+#ifdef XROT  // round 17 (X1 full rotation): header word 2 = 1: the SSM area slides by one region per frame, so x, x-1, x-2 already
+    // sit where the next frame reads them: the chunk's output is only [h rows 0-3][h rows 4-7][z panels] (3 KB); 0 = the wrap
+    // frame (every N frames): today's 6 KB output with the x copies, which moves the state back to the top of the area
+    static_assert(SLOT_B * 4 == 3 * KB);
+    const int rot = *(const int32_t *)in_at(in_ring, 8);
+    const int o_slots = rot ? 4 : 8, o_h = rot ? 0 : 3 * KB, o_z = rot ? 2 * KB : 5 * KB;
+#else
+    constexpr int o_slots = 8, o_h = 3 * KB, o_z = 5 * KB;
+#endif
     in_copy(in_ring, g_sv, 0, 1536);
     in_copy(in_ring, g_wx, 1536, 4608);
     in_copy(in_ring, g_wa, 1536 + 4608, 4608);
@@ -905,6 +1041,7 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #endif
       // conv1d: xc = bf16(bf16(sum_t bf16(x_t w_t)) + b), taps x-3 (part 4) .. x (part 1)
 #ifdef CONVK  // round 15: r15/gen_conv.py, the same MACs and roundings (bit-identical); its drain over-reads past the parts / g_tct
+      PHC();
       convk(P[4], P[3], P[2], P[1], g_tct, g_xc);
 #else
       AIE_LOOP_MIN_ITERATION_COUNT(8)
@@ -1008,8 +1145,8 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       {
 #ifdef ZRING  // round 15: the output slots first, then the z panels pushed straight into the ring's Z part (5 KB into the chunk's
         // 6 KB: chunks start on 1 KB boundaries of the 9 KB ring, so the part never wraps; its 448 B pad is never read)
-        lacq(out_ring, L_OUT_FREE, 8);
-        OutS zs((bfp16ebs8 *)out_at(out_ring, 5 * KB));
+        lacq(out_ring, L_OUT_FREE, o_slots);
+        OutS zs((bfp16ebs8 *)out_at(out_ring, o_z));
 #else
         OutS zs(g_panels);
 #endif
@@ -1025,6 +1162,10 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       lacq(out_ring, L_OUT_FREE, 8);
 #endif
       PH(8);
+#ifdef XROT
+      if (rot) {
+      } else
+#endif
 #ifdef XONE  // round 16 (research X1b): x, x-1, x-2 are consecutive 1 KB parts of the input ring unless one straddles: one call
       if (P[2] == P[1] + KB / 2 && P[3] == P[2] + KB / 2)
         out_copy(out_ring, 0, P[1], 3 * KB / 64);
@@ -1032,24 +1173,25 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #endif
         for (int p = 0; p < 3; p++) out_copy(out_ring, p * KB, P[1 + p], KB / 64);
       PH(13);
-      out_copy(out_ring, 3 * KB, (const bfloat16 *)g_hout, 2 * KB / 64);
+      out_copy(out_ring, o_h, (const bfloat16 *)g_hout, 2 * KB / 64);
 #ifndef ZRING
       out_copy(out_ring, 5 * KB, (const bfloat16 *)g_panels, KB / 64);  // panels 576 B + g_panels' zero tail as the pad
 #endif
       PH(12);
 #if defined(PROF) || defined(NPROF)  // record in the pad (unused bytes of the output): magic, chunks so far, phase totals (r8/ewprof.py)
       {
-        uint32_t *rec = (uint32_t *)out_at(out_ring, 5 * KB + PANB);
+        uint32_t *rec = (uint32_t *)out_at(out_ring, o_z + PANB);
         rec[0] = 0x504D5353u;
         rec[1] = ++g_nchunk;
         for (int i = 0; i < 14; i++) rec[2 + i] = g_ph[i];
         rec[16] = g_nst;  // round 16: the norm steps (all norm ops so far on this core)
         rec[17] = g_ncnt;
         rec[18] = g_nneed;
+        rec[19] = g_nout;  // round 17 (research NIO)
       }
 #endif
-      lrel(out_ring, L_OUT_FILL, 8);
-      g_out_b += 6 * KB;
+      lrel(out_ring, L_OUT_FILL, o_slots);
+      g_out_b += o_slots * SLOT_B;
       if (g_out_b >= OUT_B) g_out_b -= OUT_B;
       in_done(in_ring, 7 * KB);
       PH(9);

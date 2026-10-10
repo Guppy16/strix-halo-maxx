@@ -48,6 +48,23 @@ P23 = os.environ.get("P23") == "1"
 # pair {2, 5}: dealt 2 the half-0 halves of natural 2 (positions 0-2) and 5 (3-5), dealt 5 the half-1 halves (r15/deal4.py).
 P60G = os.environ.get("P60G") == "1"
 HQ = 3 * PAN  # a half tile per head: 1,728 B
+# round 17 (X1 full rotation): XROT=N > 0 slides each block's SSM area down by one region S per frame through N frame phases. A
+# column's area spans (N + 7) S; phase k (0 .. N - 2) reads its 7 streams at B_k = top - k S, where the previous frame left x,
+# x-1, x-2 (its own x / x-1 / x-2 regions are this frame's x-1 / x-2 / x-3) and h (written one region down), and writes only h
+# + z (3 streams at B_k + 4 S: over x-3 / Hlo / Hhi of the same chunk, which the chunk read first). Phase N - 1 is the wrap
+# frame: it reads at the bottom (top - (N - 1) S) and writes today's 6 streams (x copies included) at top + 2 S, i.e. the state
+# phase 0 reads. Each phase is its own runtime sequence (XPH = the phase this plan builds); the SSM params of the rotating
+# phases come from a second W copy whose header word 2 is 1 (ew8.cc -DXROT).
+XROT = int(os.environ.get("XROT", "0") or 0)
+# round 17 (research rev 12 AL1): every EW op's params fill padded to a multiple of 3 KB = lcm(1 KB, the 768 B ring slot: the core's
+# packet BD fills whole slots, so a fill group must stay a slot multiple - 1 KB padding hung the step) (SSM 10,752 -> 12,288 B per
+# head, RMS 2,304 -> 3,072, LN 3,840 -> 6,144): the input ring pointer stays 1 KB aligned, no 1 KB SSM part straddles the ring end
+AL1 = os.environ.get("AL1") == "1"
+
+
+def kb_pad(n):
+    return (n + 3071) // 3072 * 3072 if AL1 else n
+XPH = int(os.environ.get("XPH", "0") or 0)
 EPI = dict(plain=0, gelu=1, gated_a=2, gated_b=3, gelu_pan=4, q_obj=5, k_obj=6, v_obj=7)
 
 
@@ -88,11 +105,22 @@ class Plan:
     def qkv(self, name):
         return dict(kind="qkv", base=self.alloc(QKV_BYTES, name))
 
-    def ssm_area(self, name):
-        base = self.alloc(COLS * 8 * S, name)
-        yx = dict(kind="q16", base=base, nq=24, col=8 * S, pan_off=XB)
-        z = dict(kind="q16", base=base + 7 * S, nq=12, col=8 * S, pan_off=0)
-        return dict(base=base, yx=yx, z=z)
+    def ssm_area(self, name, phase=0):
+        if not XROT:
+            base = self.alloc(COLS * 8 * S, name)
+            yx = dict(kind="q16", base=base, nq=24, col=8 * S, pan_off=XB)
+            z = dict(kind="q16", base=base + 7 * S, nq=12, col=8 * S, pan_off=0)
+            return dict(base=base, yx=yx, z=z, col=8 * S, out=base + 2 * S, rot=False, span=COLS * 8 * S)
+        assert 0 <= phase < XROT
+        col = (XROT + 7) * S
+        area = self.alloc(COLS * col, name)
+        top = area + (XROT - 1) * S
+        wrap = phase == XROT - 1
+        base = top - phase * S  # (the wrap phase: the bottom)
+        yx = dict(kind="q16", base=base, nq=24, col=col, pan_off=XB)
+        z = dict(kind="q16", base=top + 7 * S if wrap else base + 6 * S, nq=12, col=col, pan_off=0)
+        return dict(base=base, yx=yx, z=z, col=col, out=top + 2 * S if wrap else base + 4 * S, rot=not wrap, area=area,
+                    span=COLS * col, top=top)
 
     # ---- TAP helpers (bytes) ----------------------------------------------------------------------------------
     @staticmethod
@@ -244,7 +272,7 @@ class Plan:
         if dst is None:
             dst = self.q16(name + "_out")
         if params_bytes is None:
-            params_bytes = 3 * SLOT if mode in ("rms", "none") else 5 * SLOT  # header slot + vectors
+            params_bytes = kb_pad(3 * SLOT if mode in ("rms", "none") else 5 * SLOT)  # header slot + vectors (AL1: padded)
         fills = [[self.tap("w", params_w, [1, 1, 1, params_bytes], [0, 0, 0, 1]),
                   self.tap("act", srcs[0]["base"] + c * srcs[0]["col"], [RB, 12, max(n_in, 1), XB], [UNIT, KSTEP16, d, 1])] for c in range(COLS)]
         drains = [self.tap("act", dst["base"] + c * dst["col"], [RB, 12, 1, UNIT], [UNIT, KSTEP16, 0, 1]) for c in range(COLS)]
@@ -252,14 +280,18 @@ class Plan:
                              fills=fills, c=drains, dst=dst, srcs=srcs))
         return dst
 
-    def ssm(self, name, area, params_w):
+    def ssm(self, name, area, params_w, params_rot=None):
         """The recurrent block's elementwise part on the row-3 cores, head (k-step) major: per head one params fill
-        (SSM_PARAM_BYTES) and one chunk fill of the 7 input streams, one drain for the 6 output streams."""
-        base = area["base"]
-        fills = [[(self.tap("w", params_w + q * SSM_PARAM_BYTES, [1, 1, 1, SSM_PARAM_BYTES], [0, 0, 0, 1]),
-                   self.tap("act", base + c * 8 * S + q * KSTEP16, [RB, 7, 1, XB], [UNIT, S, 0, 1])) for q in range(12)] for c in range(COLS)]
-        drains = [self.tap("act", base + c * 8 * S + 2 * S, [12, RB, 6, XB], [KSTEP16, UNIT, S, 1]) for c in range(COLS)]
-        self.ops.append(dict(kind="ew", fn="ssm", name=name, fills=fills, c=drains, dst=area["z"], area=area, params_w=params_w))
+        (SSM_PARAM_BYTES) and one chunk fill of the 7 input streams, one drain for the 6 output streams (round 17 XROT: 3
+        streams, h and z, in the rotating phases, with the params copy whose header says so)."""
+        base, col = area["base"], area["col"]
+        pw = params_rot if area["rot"] else params_w
+        ps = kb_pad(SSM_PARAM_BYTES)  # round 17 AL1: the per-head params stride / fill
+        fills = [[(self.tap("w", pw + q * ps, [1, 1, 1, ps], [0, 0, 0, 1]),
+                   self.tap("act", base + c * col + q * KSTEP16, [RB, 7, 1, XB], [UNIT, S, 0, 1])) for q in range(12)] for c in range(COLS)]
+        drains = [self.tap("act", area["out"] + c * col, [12, RB, 3 if area["rot"] else 6, XB], [KSTEP16, UNIT, S, 1]) for c in range(COLS)]
+        self.ops.append(dict(kind="ew", fn="ssm", name=name, fills=fills, c=drains, dst=area["z"], area=area, params_w=params_w,
+                             params_rot=params_rot, pstride=ps))
         return area["z"]
 
     def patch(self, name, frame, params_w, dst=None):
@@ -306,7 +338,7 @@ def block_regions(p: Plan):
 MAX_DEPTH = 12
 
 
-def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH):
+def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
     """The whole frame: `depth` blocks and the encoder norm. The host writes X0 (the X' parts) every frame: the
     patch embedding + pos-emb for the image rows (torch's bf16 conv on the CPU, 0.2 ms) and the query tokens.
     Memory (ACT, W) is laid out for `alloc_depth` blocks whatever `depth` is, and the ops of blocks >= depth are
@@ -317,38 +349,41 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH):
     p = Plan()
     r = block_regions(p)
     x0 = p.q16("X0")
-    areas = [p.ssm_area(f"SSM{b}") for b in range(alloc_depth)]
+    phase = XPH if phase is None else phase
+    areas = [p.ssm_area(f"SSM{b}", phase) for b in range(alloc_depth)]
     fin = p.q16("FINAL")
     w = {}
     prev = [x0]  # inputs of block 0's norm0
     for b in range(alloc_depth):
         wb = w[b] = {}
-        wb["norm0"] = p.alloc_w(3 * SLOT)
+        wb["norm0"] = p.alloc_w(kb_pad(3 * SLOT))
         p.norm(f"b{b}_norm0", "rms", prev, wb["norm0"], dst=r["R0"])
         p.gemm(f"b{b}_yx", r["R0"], 768, 8, epi="gelu", flags=["gelu"] * 12 + ["plain"] * 12, dst=areas[b]["yx"], rr=True)
-        wb["ssm"] = p.alloc_w(12 * SSM_PARAM_BYTES)
+        wb["ssm"] = p.alloc_w(12 * kb_pad(SSM_PARAM_BYTES))
+        if XROT:  # round 17: the rotating phases' params (header word 2 = 1)
+            wb["ssm_rot"] = p.alloc_w(12 * kb_pad(SSM_PARAM_BYTES))
         if "ssm" not in skip:
-            p.ssm(f"b{b}_ssm", areas[b], wb["ssm"])
+            p.ssm(f"b{b}_ssm", areas[b], wb["ssm"], wb.get("ssm_rot"))
         p.gemm(f"b{b}_out", areas[b]["z"], 768, 4, dst=r["R1"])
-        wb["norm1"] = p.alloc_w(3 * SLOT)
+        wb["norm1"] = p.alloc_w(kb_pad(3 * SLOT))
         p.norm(f"b{b}_norm1", "rms", [r["R1"], r["R0"]], wb["norm1"], dst=r["R2"])
         p.gemm(f"b{b}_up_a", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=0))
         p.gemm(f"b{b}_up_b", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=24), reuse_a=True)
         p.gemm(f"b{b}_down_a", dict(r["G"], q0=0), 1536, 4, dst=r["D1"])
         p.gemm(f"b{b}_down_b", dict(r["G"], q0=24), 1536, 4, dst=r["D2"], bias_in=False)
-        wb["norm2"] = p.alloc_w(5 * SLOT)
+        wb["norm2"] = p.alloc_w(kb_pad(5 * SLOT))
         p.norm(f"b{b}_norm2", "ln", [r["D1"], r["D2"], r["R2"]], wb["norm2"], dst=r["R3"])
         p.gemm(f"b{b}_qkv", r["R3"], 768, 12, epi="qkv", dst=r["QKV"], rr=True)
         if "attn" not in skip:
             p.attn(f"b{b}_attn", r["QKV"], dst=r["O"])
         p.gemm(f"b{b}_out_proj", r["O"], 768, 4, dst=r["R4"], deal=P60G)
-        wb["norm3"] = p.alloc_w(5 * SLOT)
+        wb["norm3"] = p.alloc_w(kb_pad(5 * SLOT))
         p.norm(f"b{b}_norm3", "ln", [r["R4"], r["R3"]], wb["norm3"], dst=r["R5"])
         p.gemm(f"b{b}_mlp0", r["R5"], 768, 16, epi="gelu_pan", dst=dict(r["M"], q0=0))
         p.gemm(f"b{b}_mlp3_a", dict(r["M"], q0=0), 1536, 4, dst=r["D3"])
         p.gemm(f"b{b}_mlp3_b", dict(r["M"], q0=24), 1536, 4, dst=r["D4"], bias_in=False)
         prev = [r["D3"], r["D4"], r["R5"]]
-    w["final"] = p.alloc_w(5 * SLOT)
+    w["final"] = p.alloc_w(kb_pad(5 * SLOT))
     p.norm("final", "ln_out", prev, w["final"], dst=fin)
     p.ops = [op for op in p.ops if op["name"] == "final" or int(op["name"].split("_")[0][1:]) < depth]
     info = dict(x0=x0, areas=areas[:depth], final=fin, w=w, regions=r)

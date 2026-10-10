@@ -76,6 +76,10 @@ class Step8:
 
         bj = json.load(open(f"{HERE}/build/{build}.json"))
         plan8.A_HALF, plan8.P23, plan8.P60G = bool(bj.get("a_half", False)), bool(bj.get("p23", False)), bool(bj.get("p60g", False))
+        # round 17 (X1 full rotation): XROT = N frame phases, each its own runtime sequence (build/full<d><suffix>_p<k>.bin, k >= 1)
+        plan8.XROT, plan8.XPH = int(bj.get("xrot", 0)), 0
+        plan8.AL1 = bool(bj.get("al1", False))  # round 17: params fills padded to 1 KB (the per-head SSM stride: op["pstride"])
+        self.nph, self.phase = max(plan8.XROT, 1), 0
         self.p_all, self.info_all = full_step(MAX_DEPTH)  # every block: the weights are packed once for all depths
         meta = json.load(open(f"{HERE}/build/{build}.sched.meta"))
         P.B_PAIR4 = P.uses_asm_gemm(f"{HERE}/build/{build}.json")
@@ -98,31 +102,38 @@ class Step8:
         self.bo_a.write(self.ACT.tobytes(), 0)
         for bo in (self.bo_w, self.bo_a):
             bo.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
-        self.instr = {}  # depth -> (bo, n words)
+        self.instr = {}  # (depth, phase) -> (bo, n words, plan, info)
         self.first = True
         self.last_us = 0.0
         self.set_depth(depth)
 
-    def seq_name(self, depth):
-        """The build whose runtime sequence runs `depth` blocks: full<depth><suffix> next to `build`."""
+    def seq_name(self, depth, phase=0):
+        """The build whose runtime sequence runs `depth` blocks: full<depth><suffix> next to `build` (round 17: + _p<phase>)."""
         m = __import__("re").match(r"full(\d+)(.*)", self.build)
-        return f"full{depth}{m.group(2)}"
+        return f"full{depth}{m.group(2)}" + (f"_p{phase}" if phase else "")
 
     def set_depth(self, depth):
         """Run `depth` blocks from the next step on (no rebuild, no new hw context: another instruction stream).
         Blocks that were not running hold stale recurrent state: reset() before tracking on with a larger depth."""
-        name = self.seq_name(depth)
-        self.p, self.info = full_step(depth)
-        sched = f"{HERE}/build/{name}.sched"
-        assert open(sched).read() == self.p.sched_json(), f"stale build {name}: plan8 changed since"
-        if depth not in self.instr:
+        for k in range(self.nph):
+            if (depth, k) in self.instr:
+                continue
+            name = self.seq_name(depth, k)
+            p, info = full_step(depth, phase=k)
+            sched = f"{HERE}/build/{name}.sched"
+            assert open(sched).read() == p.sched_json(), f"stale build {name}: plan8 changed since"
             instr = np.fromfile(f"{HERE}/build/{name}.bin", dtype=np.uint32)
             bo = pyxrt.bo(self.dev, instr.nbytes, pyxrt.bo.cacheable, self.kern.group_id(1))
             bo.write(instr.tobytes(), 0)
             bo.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
-            self.instr[depth] = (bo, len(instr))
-        self.bo_i, self.n_instr = self.instr[depth]
+            self.instr[depth, k] = (bo, len(instr), p, info)
         self.depth = depth
+        self.select(self.phase)
+
+    def select(self, phase):
+        """round 17: the runtime sequence (and its plan) of frame phase `phase` for the next dispatch"""
+        self.bo_i, self.n_instr, self.p, self.info = self.instr[self.depth, phase]
+        self.phase = phase
 
     # ---- packing -------------------------------------------------------------------------------------------------
     def _pack(self):
@@ -181,7 +192,7 @@ class Step8:
                 else:
                     ln = pre + "vit_block." + ("ln_1" if name == "norm2" else "ln_2")
                     put_w(op["params_w"], P.norm_params("ln", sd[ln + ".weight"], sd[ln + ".bias"], n_in=op["n_in"]))
-            elif op.get("fn") == "ssm":
+            elif op.get("fn") == "ssm":  # (round 17: XROT also packs the rotating phases' copy, header word 2 = 1)
                 pre = f"blocks.{int(op['name'].split('_')[0][1:])}.ssm_block.recurrent_block."
                 cw, cb = sd[pre + "conv_1d.w"], sd[pre + "conv_1d.b"]
                 ap = sd[pre + "rg_lru.a_param"]
@@ -189,7 +200,13 @@ class Step8:
                 wa, ba = sd[pre + "rg_lru.a_gate.w"], sd[pre + "rg_lru.a_gate.b"].reshape(-1)
                 for q in range(12):
                     sl = slice(q * 64, q * 64 + 64)
-                    put_w(op["params_w"] + q * SSM_PARAM_BYTES, P.ssm_params(q, cw[:, sl], cb[sl], ap[sl], wx[q], bx[sl], wa[q], ba[sl], 1))
+                    prm = P.ssm_params(q, cw[:, sl], cb[sl], ap[sl], wx[q], bx[sl], wa[q], ba[sl], 1)
+                    ps = op.get("pstride", SSM_PARAM_BYTES)
+                    put_w(op["params_w"] + q * ps, prm)
+                    if op.get("params_rot") is not None:
+                        prm = prm.copy()
+                        prm[2] = 1
+                        put_w(op["params_rot"] + q * ps, prm)
 
     # ---- per-frame host work --------------------------------------------------------------------------------------
     def _sync_to(self, bo, byte_off, nbytes):
@@ -205,16 +222,18 @@ class Step8:
         for op in self.p_all.ops:
             if op["kind"] == "ew" and op["fn"] == "ssm":
                 for q in range(12):
-                    off = op["params_w"] + q * SSM_PARAM_BYTES
-                    self.bo_w.write(one.tobytes(), off)
-                    self._sync_to(self.bo_w, off, 64)
+                    for pw in filter(lambda v: v is not None, (op["params_w"], op.get("params_rot"))):
+                        off = pw + q * op.get("pstride", SSM_PARAM_BYTES)
+                        self.bo_w.write(one.tobytes(), off)
+                        self._sync_to(self.bo_w, off, 64)
         self.first = first
 
     def reset(self):
         """A new video: zero every block's SSM area (conv cache and h) and mark the next frame first."""
         for a in self.info_all["areas"]:
-            self._write_act(a["base"], np.zeros(COLS * 8 * S // 4, np.uint32))
+            self._write_act(a.get("area", a["base"]), np.zeros(a["span"] // 4, np.uint32))
         self.set_first(True)
+        self.select(0)  # round 17: a video starts at phase 0 (the state at the area's top)
 
     def x0_rows(self, frame, queries):
         """X0 = [patch embedding + pos-emb (1024 image rows); query tokens; zero padding] as [COLS*M, 768] bf16,
@@ -274,6 +293,10 @@ class Step8:
         r = self.kern(3, self.bo_i, self.n_instr, self.bo_w, self.bo_a)
         st = r.wait(timeout_ms * 1000)
         self.last_us = (time.perf_counter() - t0) * 1e6
+        self.last_phase = self.phase
+        if self.nph > 1:  # round 17: the next frame's phase (self.p / self.info stay this frame's until then)
+            self.select((self.phase + 1) % self.nph)
+            self.p, self.info = self.instr[self.depth, self.last_phase][2:]
         if str(st) != "ert_cmd_state.ERT_CMD_STATE_COMPLETED":
             raise RuntimeError(f"dispatch failed: {st} after {self.last_us:.0f} us")
 
@@ -546,7 +569,7 @@ def timing(o):
     s = Step8(o.build, o.depth)
     q = demo_queries()
     s.reset()
-    tk, th = [], []
+    tk, th, tp = [], [], {}
     for it in range(o.warmup + o.iters):
         t0 = time.perf_counter()
         rel = torch.cat([q[..., :1] - it, q[..., 1:]], -1)
@@ -554,9 +577,15 @@ def timing(o):
         if it >= o.warmup:
             th.append((time.perf_counter() - t0) * 1e3)
             tk.append(s.last_us / 1e3)
+            tp.setdefault(s.last_phase, []).append(s.last_us / 1e3)
     busy = open("/sys/class/drm/card1/device/gpu_busy_percent").read().strip() if os.path.exists("/sys/class/drm/card1/device/gpu_busy_percent") else "?"
     print(f"TIME {o.build}: dispatch median {np.median(tk):.2f} min {min(tk):.2f} ms; whole step (host incl.) median {np.median(th):.2f} ms; "
           f"iters {o.iters} gpu_busy% {busy}")
+    q = np.percentile(tk, [10, 25, 75, 90])  # round 17: the dispatch times are bimodal under the foreign CPU load: show the spread
+    print(f"SPREAD {o.build}: p10 {q[0]:.2f} p25 {q[1]:.2f} median {np.median(tk):.2f} p75 {q[2]:.2f} p90 {q[3]:.2f} mean {np.mean(tk):.2f} ms")
+    if s.nph > 1:  # round 17: per frame phase (the last one is the wrap frame) and the mean over a cycle of phases
+        med = {k: float(np.median(v)) for k, v in sorted(tp.items())}
+        print("PHASES " + " ".join(f"p{k} {m:.2f}" for k, m in med.items()) + f"; mean over a cycle {np.mean(list(med.values())):.2f} ms")
 
 
 def headscheck(o):
@@ -601,7 +630,7 @@ def sweep(o):
     for d in depths:
         s.set_depth(d)
         s.reset()
-        tk, th = [], []
+        tk, th, tp = [], [], {}
         for it in range(o.warmup + o.iters):
             t0 = time.perf_counter()
             rel = torch.cat([q[..., :1] - it, q[..., 1:]], -1)
@@ -609,8 +638,12 @@ def sweep(o):
             if it >= o.warmup:
                 th.append((time.perf_counter() - t0) * 1e3)
                 tk.append(s.last_us / 1e3)
+                tp.setdefault(s.last_phase, []).append(s.last_us / 1e3)
         print(f"SWEEP {o.build} depth {d:2d}: dispatch median {np.median(tk):.2f} min {min(tk):.2f} ms; whole step median {np.median(th):.2f} ms; "
               f"iters {o.iters} gpu_busy% {busy()}", flush=True)
+        if s.nph > 1:  # round 17: per frame phase and the mean over a cycle (the last phase is the wrap frame)
+            med = {k: float(np.median(v)) for k, v in sorted(tp.items())}
+            print(f"PHASES depth {d:2d}: " + " ".join(f"p{k} {m:.2f}" for k, m in med.items()) + f"; mean over a cycle {np.mean(list(med.values())):.2f} ms", flush=True)
 
 
 def tap_ends(t):
