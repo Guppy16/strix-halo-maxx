@@ -481,3 +481,4 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   + delay slots each); ln_stats 381, rms_rstd 263, rowsum8 63 per row-block call.
 - **R12.9 [MODEL] SSM DDR / port note:** 13 KB per chunk per column; output floor at R_out 2,614 cycles vs ~2,950 compute; X1
   halves it.
+- **R12.10 [DOC]** ZOL trip count = the value written to lc (Peano: n - 1 plus a peeled iteration; generated loops: n).

@@ -1,125 +1,86 @@
 # ANALYSIS.md — where the TAPNext++ step's time goes, what bounds it, and what is left
 
-Revision 12, 2026-10-10 (night). State analysed: round 16's deployed `full12r16z` (39.94 ms per depth-12 dispatch, Turbo,
-gpu_busy 0, BIT-IDENTICAL to full12r9a), its elfs disassembled with `-z` (`r17/r16z_0_2.dis`, `r17/r16z_0_5.dis`), the EW elfs of
-r15h / r15i / r15k3 / r16f / r16h (`r17/*_0_5.dis`), round 15–16 timelines (`npu-tapnext/build/tl_full12r15{d,h,iN1}_d12.json`),
-NPROF r16hN and RESULTS 24/25. Revision 11 is in `rev11/`. New tools: `tools/tcall.py`, `tools/ewio.py`; asmlint rule FIFO-POP9.
-Written by the coordinating session from research pass 12's hand-back.
+Revision 12, 2026-10-10 (night). State analysed: round 16's deployed `full12r16z` (39.94 ms per depth-12 dispatch, Turbo, gpu_busy 0,
+BIT-IDENTICAL to full12r9a). Disassemblies (`-z`) of r15h, r15i, r15k3, r16f, r16h, r16z in `r17/`; round 15/16 timelines
+(tl_full12r15{d,h,iN1}), NPROF r16hN, PROF r16eP, round-16 twins. Revision 11 is in `rev11/`. Tools: `tools/tcall.py` (new, T-CALL),
+`tools/ewio.py` (new, EW I/O model), `tools/asmlint.py` (+FIFO-POP9), `tools/asmlint_hist.py` (20 cases, ALL PASS).
+Text from research pass 12's hand-back, written by the coordinating session.
 
 ## 0. Scorecard (rev 11 vs round 16)
-- SQK −0.18..−0.25 vs −0.31..−0.35: miss (preamble + call unpriced). P-IN −0.29 vs −0.25: hit. X1b −0.28 vs −0.18: stale base
-  (432, not 289). G1 −0.41 vs −0.50: II 24, not 20.
-- **N1 −0.16..−0.28 vs −0.6: a rev-11 pricing error, not I/O.** The C++ pass 1 was 273 cycles per unit whole-call and n1k is 256
-  (the 116–130 cycles of per-unit glue stayed); the stats loop went (LN 480 / RMS 384 per row block). Static −0.32, through the
-  I/O model −0.24: hit.
-- Twins (NORM_TWIN=2 / 4) saved 0.17 / 0.5 ms more than their own static compute (§3).
+- P-IN -0.29 vs -0.25 +- 0.06: hit. G1 -0.41 vs -0.50: slight miss (II 24). X1b -0.28 vs -0.18: stale base (432, not 289).
+- SQK -0.18..-0.25 vs -0.31..-0.35: miss, preamble + call unpriced.
+- N1 -0.16..-0.28 vs -0.6 +- 0.25: **pricing error**. Rev 11 priced the 23-bundle C++ body against a 10-cycle asm cb and assumed
+  the per-unit glue would go; it stayed (in_need 28-41, pointer setup 36, in_done 39, loop 13). Whole-call static: pass 1 273 ->
+  256 per unit, the stats loop (LN 480 / RMS 384 per row block) -> begin / end ~95: -0.32 ms static, -0.24 through ewio. Hit.
+- Twins: NORM_TWIN=2 removed 1.81 ms of static compute (cb loop + stats + stats calls) and saved 1.98; NORM_TWIN=4 removed 176
+  cycles per unit (n1k 140 + pointer setup 36 = 1.03 ms) and saved 1.53-1.61. The excess (0.17 / 0.5 ms) is outside the norm op's
+  model; inferred (UNVERIFIED): wrong norm outputs change the data-dependent attention fallback downstream. Twins are priced from
+  per-op timeline walls only.
 
-### 0.1 Method changes
-- Every price is a tcall whole-call count of the deployed elf, put through ewio for EW ops. Phases are priced with `--seg`; the
-  census lists every call site per step.
+## 1. T-CALL (tools/tcall.py) and its calibration
+Whole-call static counts from the deployed elf: natural loops by dominators (rotated loops entered mid-body: the norm rb loop, the
+pass-1 loop), ZOL trips from `add.nc lc` (Peano writes n - 1 and peels one; generated loops write n), call / ret delay slots,
+callees recursively, branch pinning per mode, segments, a census per step. Calibration (static vs bench minus ~20 of stamps):
+ggk 282 / 290, ssq 674 / 681, convk 220 / 231, reck 263 / 272, n1k 134 / 139; nrm_rms 117 / 136 and nrm_ln 177 / 210 are the
+exceptions (pushes or bank stalls: 19 / 33 cycles unexplained). In situ: r15h norm row blocks LN 13,070 / RMS 10,470 static vs
+13,760 / 10,760 from the r15h timeline (first -> last / 17.5 row blocks); r15h -> r15i (out_begin / out_end by div768) -0.54 static
+vs -0.53 measured. Census of r16z (`r17/tcall_r16z_census.out`, static ms per step): ssq 0.97, nrm_ln 0.53, sigk 0.52, ggk 0.40,
+n1k_ln 0.40, n1k_rms 0.38, reck 0.38, nrm_rms 0.34, convk 0.32; glue (outside ZOL bodies) is 40-70 % of every norm / SSM root.
 
-## 1. tcall calibration
+## 2. The EW I/O model (tools/ewio.py)
+Rings: ewi 20 x 768 B (bank 3) filled by shim -> core packet flow; ewo 12 x 768 B (bank 0) drained by core MM2S -> shim S2MM. The
+protocol is ew8's (in_need waits for whole filled slots, in_done frees consumed slots, out_begin waits for free slots, out_end
+hands whole slots to the DMA). Compute per step from tcall, mode-pinned. Fit over an R_in x R_out grid (r17/ewio_fit.out):
 
-| item | tcall static | measured |
+| evidence | measured | model at R_in 6.0, R_out 2.35 |
 |---|---|---|
-| ggk / ssq / convk / reck / n1k | 282 / 674 / 220 / 263 / 134 | bench − ~20 stamps: 290 / 681 / 231 / 272 / 139 |
-| nrm_rms / nrm_ln | 117 / 177 | 136 / 210 (19 / 33 over: pushes or bank stalls, open) |
-| r15h norm row block LN / RMS | 13,070 / 10,470 | timeline 13,760 / 10,760 |
-| r15h → r15i (out_begin / out_end div768) | −0.54 ms | −0.53 |
-| r15i → NRMK | −1.23 static | −0.37..−0.42 (§2) |
-| r16f → r16h (N1K) | −0.32 static | −0.16..−0.28 |
+| r15h -> r15i | -0.53 ms | -0.48..-0.50 |
+| r15i -> NRMK (static -1.23) | -0.37..-0.42 | -0.44 |
+| r16f -> r16h, N1K (static -0.32) | -0.16..-0.28 | -0.24 |
+| r15h LN n3 - n2 | ~0 us | 1 us |
+| NPROF in_need wait per unit | ~45-65 | 51 |
 
-## 2. The EW I/O model (ewio)
-Rings: input ewi 20 × 768 B (bank 3, shim packet flow), output ewo 12 × 768 B (bank 0, core MM2S → shim). A norm op is 18 row
-blocks × 12 units; a unit is n_in KB in and 1,600 B out (X' 1 KB + panels 576). Pass 1 consumes the input (12 n_in KB per row
-block), pass 2 produces the output (19.2 KB), in turn.
+Per op at r16z (us; compute in brackets; waits per unit): RMS n3 99 (68), in 97 / out 147; RMS n2 89 (68), 7 / 147; LN n3 105 (81),
+98 / 90; LN n2 94 (81), 8 / 90; + ~8 us fixed per op (params, first row block, drain tail; from r15h's timeline). Norms ~5.1 ms
+per step = compute 3.7 + fixed 0.4 + waits ~1.0. Floors per op: output 216 x 1,600 B / 2.35 = 81 us; input n3 61, n2 41 us.
+Mechanism: pass 1 (all input, no output) and pass 2 (all output, no input) alternate per row block; the 15 KB input ring cannot
+hold an n3 row block's 36 KB and the 9 KB output ring cannot absorb pass 2's 19.2 KB burst, so each DMA idles half the time.
+NRMK made pass 2 fast enough to hit the output side: that is where 0.8 ms of its static gain went.
+Levers through the model (r17/ewio_levers.out): NPIPE -0.55 (-0.54..-0.56); NG1 (pass-1 glue -80 per unit) -0.20 alone; NG2 (pass-2
+glue -100) -0.09; NS (stats in asm) -0.31 alone; after NPIPE the three together add only ~-0.03 at R_out 2.35 (-0.4 at R_out 3.0):
+the next norm lever is the output rate itself (EWO bench, OSLOT).
+Open: why R_out is 2.35 B/cycle (= 768 B per ~327 cycles: a ~135-cycle per-slot overhead on a 4 B/cycle stream fits, as does the
+drain TAP's 1,600 B pieces 28,800 B apart).
 
-Fit over (R_in, R_out) against r15i, NRMK, N1K, r15h n_in invariance and the NPROF in_need wait: **R_in 6.0 (5.75–6.25),
-R_out 2.35 (2.3–2.45) B/cycle per column** (`r17/ewio_fit.out`). Twin-1 at r15i (RMS 81 µs first→last) requires R_out ≥ 2.3.
+## 3. The SSM after round 16
+Chunk phases (tcall segments of r16z vs PROF r16eP; PROF adds ~30 per interval): conv 292..493 static (P[] 58 + convk 220 + call
+glue; + the straddle in_copy ~200-250 when taken) vs 440; gates 327 / 365; sigk 365 / ~440; ssq 685 / 715; reck 281 / 313; z 228 /
+264; cp_h 81..189 / 192; cp_x 147 one call, ~365 three calls / 269; rest + in_done + in_need ~200 / 293. Static chunk ~2,950;
+compute-bound with in_wait 80.
+The straddle: a head's params are 10,752 B = 10.5 KB, so within a head g_in_b sits at 512 mod 1 KB and a 1 KB part straddles the
+15 KB ring end whenever the end falls inside the chunk's 7 KB (7 of 15 positions): ~47 % of chunks. AL1 (all params 1 KB
+multiples) removes it: conv -> ~310-330, cp_x's three-call fallback from ~1 chunk in 3 to 2 in 15: -0.21 +- 0.05 ms.
+Output floor: 6 KB per chunk / 2.35 = 2,614 cycles against ~2,950 of compute; ewio puts out_begin waits at 49 per chunk at a
+2,500-cycle chunk and 237 at 2,300. X1 full (3 KB per chunk) moves the floor to 1,307: it gates every SSM compute lever > ~350.
 
-| check | measured | model |
-|---|---|---|
-| r15h → r15i | −0.53 | −0.50 |
-| NRMK (static −1.23) | −0.37..−0.42 | −0.44 |
-| N1K | −0.16..−0.28 | −0.24 |
-| r15h LN n_in 3 vs 2 | equal | 1 µs apart |
-| NPROF in_need wait per unit | ~45–65 | 51 |
+## 4. X1 full rotation (mod 4)
+Layout per block / column unchanged (8S): y at B, x-history R0..R3 at B + S .. B + 4S (where x / C0 / C1 / C2 sit now), Hlo,
+Hhi, Z at B + 5S .. 7S. Frame t: the yx GEMM writes x into R[t mod 4] (only its per-q drain base constants change); the SSM fill
+is the same single TAP over 7 streams S apart; the kernel maps tap x-k to R[(t - k) mod 4] from a header word; the drain is one TAP
+of 3 streams [Hlo, Hhi, Z] at B + 5S. No copies of x, 4 output slots per chunk, 4 .bin per depth (step8 swaps the instruction bo by
+t mod 4). Price: cp_x ~240 non-PROF (~180 after AL1) + XONE glue -> 0: -0.34 alone, -0.26 after AL1, +- 0.04. DDR writes of the
+SSM halve.
 
-Per op at r16z (model; + ~8 µs fixed):
+## 5. Attention (unchanged from rev 11 numbers)
+S2 on attkb's stack: -0.38 (-0.29..-0.45); then S3 -0.06, V1 -0.21, K1 -0.27, K2 -0.19. Bank 0 holds the stack and aexp_ab
+(sgelu_ab, serf_ab, ks_tab) but not Q (q_buf in bank 1): S2's slot load and store must avoid bundles that carry an ab LUT load
+(bank rule), 18 of 34 bundles; a pairing constraint for cpsched, not a resource bound.
 
-| op kind | wall | compute | in_need wait / unit | out_begin wait / unit |
-|---|---|---|---|---|
-| RMS, n_in 3 | 99 µs | 68 µs | 97 | 147 |
-| RMS, n_in 2 | 89 µs | 68 µs | 7 | 147 |
-| LN, n_in 3 | 105 µs | 81 µs | 98 | 90 |
-| LN, n_in 2 | 94 µs | 81 µs | 8 | 90 |
+## 6. Program memory
+EW r16z 15,600 / 16,384 (non-PROF; NPROF +460). NPIPE ~+150 B C++ (+ n1k save / load ~60 B); AL1 removes the straddle path (~-150);
+X1 removes XONE's copy path (~-100). GEMM 16,192 / 16,384 (S2 ~40 B).
 
-Floors per op: output 216 × 1,600 B / 2.35 = 81 µs, input (n_in 3) 61 µs. Norms per step ≈ 3.7 static compute + 0.4 fixed +
-1.0 waits (≈ 0.7 out_begin, 0.3 in_need) ≈ 5.1 ms. The norms have been output-port bound since NRMK, which is why NRMK realised
-only a third of its static gain. The out_begin waits are a pre-registered prediction (NPROF never stamped out_begin; NIO).
-
-Consequence: compute cuts in the norms are worth little now (NG1 −0.20, NG2 −0.09, NS −0.31 alone, all ~0 after NPIPE). The
-lever is overlap: **NPIPE (pass 2 of rb interleaved unit by unit with pass 1 of rb+1) −0.55**, after which every op is within
-~5 µs of the output floor. Beyond that only the output rate itself (EWO bench → OSLOT) or fewer output bytes help.
-
-SSM: chunk 7 KB in / 6 KB out; input floor 1,195 cycles, output floor 2,614 vs ~2,950 compute. Not port-bound now (model waits
-in_need 67, out_begin 0), but output-bound after about −350 cycles of compute unless X1 halves the output.
-
-## 3. Twins
-Twin-4 (n1k skipped) removed 176 cycles per unit (n1k 140 + pointer setup 36) = 1.03 ms of static compute and saved 1.53–1.61;
-twin-2 removed 1.81 ms and saved 1.98. ewio has no mechanism by which removing compute saves more than the compute. Inferred
-(unverified): wrong norm outputs change downstream data-dependent work, the attention's lazy-max fallback (~0.9 ms at full
-rate in sim18). Rule: price twins from their per-op timeline walls, never the step delta.
-
-## 4. The SSM chunk, phase by phase (tcall `--seg` on r16z vs r16eP PROF; PROF adds ~30 per stamped phase)
-
-| phase | static | PROF | note |
-|---|---|---|---|
-| in_need | 28–41 | | |
-| conv | 292–493 | 440 | P[] 58 via the stack + straddle in_copy 6–207 (~47 % of chunks) + convk 220 |
-| gates | 327 | 365 | |
-| sigk | 365 | ~440 | not stamped |
-| ssq | 685 | 715 | |
-| recur | 281 | 313 | |
-| z | 228 | 264 | |
-| x copies | 147 one call / ~365 three calls (~1 chunk in 3) | 269 | |
-| h copy | 81–189 | 192 | |
-| rest | 97 + 59 + 28–41 | 213 + 80 | |
-
-**The conv gap (440 vs convk 251) is the pointer array 58 + the straddle copy + the stamp.** Cause of the straddles: head params
-of 10,752 B leave g_in_b at 512 mod 1 KB, so a 1 KB part crosses the 15 KB ring end whenever the end falls inside the 7 KB chunk
-(7 of 15 positions). **AL1** (pad every op's params to a 1 KB multiple: SSM 10,752 → 11,264, RMS 2,304 → 3,072, LN 3,840 →
-4,096) removes them: −0.21 ± 0.05; predicted conv 440 → 310–330, cp_x 269 → 180–200.
-
-## 5. X1 full rotation (designed)
-The mod-4 x history R0..R3 sits where x / C0 / C1 / C2 are now. The yx GEMM writes x to R[t mod 4]. The fill stays one TAP
-[RB, 7, 1, XB] / [UNIT, S, 0, 1]; the kernel maps taps by t mod 4 (header word: 4 W copies of the params, or a rot prefix). The
-drain is one TAP [12, RB, 3, XB] / [KSTEP16, UNIT, S, 1] at base + 5S ([Hlo, Hhi, Z]). Same 8S footprint; 4 runtime sequences per
-depth; output 6 → 3 KB per chunk; cp_x → 0. −0.34 alone, −0.26 after AL1; the SSM output floor drops to 1,307.
-
-## 6. Attention after S2 (unchanged prices, sim18)
-S2 −0.38 (−0.29..−0.45); then S3 −0.06, V1 −0.21, K1 −0.27, K2 −0.19. GEMM bank 0: stack (0x70000–0x709FF; attkb's frame and the
-768 B slot ring) + sgelu_ab / serf_ab / aexp_ab (0x71300, 1,280 B) / ks_tab; acc_hi from 0x718C0; Q in bank 1
-(q_buf(t) = 0x748C0 + 3,456 t). S2 adds a bank-0 slot load + store per iteration: a CP pairing constraint (≤ 1 bank-0 access per
-bundle, counting the aexp_ab LUT load, the slot vlda and the slot vst: 18 of 34 bundles), not a resource bound. If the CP fails,
-allow 2 per bundle at +1 cycle each (II 35–36 stays inside the price). Unverified: whether a vldb.4x64 LUT load counts as one
-bank access.
-
-## 7. Program memory (r16z)
-GEMM 16,192 / 16,384. EW r16h/z 15,600 / 16,384 (r16f 15,088). NPIPE ~+150 B C++; AL1 and X1 ~0 (X1 removes the XONE path).
-
-## 8. Ranking and ceiling (deltas applied to the measured 39.94)
-
-| rank | lever | ms |
-|---|---|---|
-| 1 | NPIPE | −0.55 (−0.54..−0.56) |
-| 2 | S2 | −0.38 (−0.29..−0.45) |
-| 3 | AL1 | −0.21 ± 0.05 |
-| 4 | X1 full, mod-4 rotation | −0.26 ± 0.04 after AL1 (−0.34 alone) |
-| 5 | S3 + V1 + K1 + K2 | −0.73 |
-
-Also: EWO (output rate vs slot size bench; OSLOT ≈ −0.3 after NPIPE if per-slot overhead), NIO (NPROF with out_begin stamped).
-Parked: NG1 (−0.20 alone, ~0 after NPIPE), NG2 (−0.09), NS (−0.31 alone, ~−0.02 after NPIPE), FSX (after X1).
+## 7. Ceiling (deltas applied to the measured 39.94)
 
 | added | ms |
 |---|---|
@@ -127,8 +88,8 @@ Parked: NG1 (−0.20 alone, ~0 after NPIPE), NG2 (−0.09), NS (−0.31 alone, ~
 | S2 | 39.01 |
 | AL1, X1 | 38.54 |
 | S3, V1, K1, K2 | 37.81 |
-| OSLOT (if EWO says per-slot overhead), SSM compute after X1 | 37.3 |
-| P55, P35 + P24b, P51, P57 | 34.5 |
-| k-step 2,055 → 1,600 | **~30.1** |
+| OSLOT (if EWO says per-slot overhead), SSM compute after X1 | ~37.3 |
+| P55, P35 + P24b, P51, P57 (rev 8/9 prices) | ~34.5 |
+| k-step 2,055 -> 1,600 | **~30.1** |
 
-Depth 10 ≈ 25.3 and depth 8 ≈ 20.1 (r16z sweep ratios 33.84 / 40.30, 26.86 / 40.30).
+Depth 10 ~25.3, depth 8 ~20.1 (r16z sweep ratios).
