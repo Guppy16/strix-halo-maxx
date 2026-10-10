@@ -67,18 +67,28 @@ def table():
     return t, np.concatenate([g, g], 1).reshape(-1)
 
 
-def sqrt_ops(o, w, out, bk, tag=""):
-    """append the ops computing vreg `out` = sqrt(w) (w: a bf16 x vreg); scalar config: r1 828, r3 24, r4 10, s0 2, s1 0,
-    s2 1; x constants C_FF, C_HI, C_BASE, C_2E60. tag: suffix for op / vreg names (fusion into another loop)"""
+def sqrt_ops(o, w, out, bk, tag="", k=None, sh=("s0", "s1", "s2"), rm=("r3", "r4")):
+    """append the ops computing vreg `out` = sqrt(w) (w: a bf16 x vreg). Scalar config: r1 828, rm = the shuffle mode
+    registers (24, 10), sh = the shift registers (2, 0, 1). k: constant -> vreg name (a reloaded constant, fusion) for
+    'ff', 'hi', 'base', 'b60'; missing ones are the physical x constants C_FF, C_HI, C_BASE, C_2E60. tag: suffix for
+    op / vreg names"""
     T = lambda s: s + tag  # noqa: E731
+    k = k or {}
+    phys = dict(ff=C_FF, hi=C_HI, base=C_BASE, b60=C_2E60)
+
+    def K(name):  # (operand text, uses)
+        return (f"{{{k[name]}.x}}", [(k[name], "x", 1)]) if name in k else (f"x{phys[name]}", [])
+
     ix, iu, a0, a1, j0, j1 = (T(v) for v in ("ix", "iu", "a0", "a1", "j0", "j1"))
-    o.append(Op(T("B1"), "mv", f"vband {{{ix}.x}}, {{{w}.x}}, x{C_FF}", defs=[(ix, "x", 2)], uses=[(w, "x", 1)], instr=VBAND))
-    o.append(Op(T("U1"), "mv", f"vups.2x {{{iu}.cml}}, {{{ix}.x}}, s0, upssign1", defs=[(iu, "cml", 3)], uses=[(ix, "x", 1)], instr=UPS))
+    kt, ku = K("ff")
+    o.append(Op(T("B1"), "mv", f"vband {{{ix}.x}}, {{{w}.x}}, {kt}", defs=[(ix, "x", 2)], uses=[(w, "x", 1)] + ku, instr=VBAND))
+    o.append(Op(T("U1"), "mv", f"vups.2x {{{iu}.cml}}, {{{ix}.x}}, {sh[0]}, upssign1", defs=[(iu, "cml", 3)], uses=[(ix, "x", 1)], instr=UPS))
     for nm, v, q in (("M1", a0, "bmll"), ("M2", a1, "bmlh")):  # vmov x <- bm: its own itinerary (DM_RM_L0_PORT, round 15)
         o.append(Op(T(nm), "mv", f"vmov {{{v}.x}}, {{{iu}.{q}}}", defs=[(v, "x", 2)], uses=[(iu, q, 1)]))
         o[-1].ports = [(0, "DM_RM_L0_PORT")]
-    o.append(Op(T("A0"), "mv", f"vadd.32 {{{j0}.x}}, {{{a0}.x}}, x{C_BASE}", defs=[(j0, "x", 2)], uses=[(a0, "x", 1)], instr=VADD32))
-    o.append(Op(T("A1"), "mv", f"vadd.32 {{{j1}.x}}, {{{a1}.x}}, x{C_BASE}", defs=[(j1, "x", 2)], uses=[(a1, "x", 1)], instr=VADD32))
+    kt, ku = K("base")
+    o.append(Op(T("A0"), "mv", f"vadd.32 {{{j0}.x}}, {{{a0}.x}}, {kt}", defs=[(j0, "x", 2)], uses=[(a0, "x", 1)] + ku, instr=VADD32))
+    o.append(Op(T("A1"), "mv", f"vadd.32 {{{j1}.x}}, {{{a1}.x}}, {kt}", defs=[(j1, "x", 2)], uses=[(a1, "x", 1)] + ku, instr=VADD32))
     cs = []
     for h, j in ((0, j0), (1, j1)):
         for q, half in ((0, "wl"), (1, "wh")):
@@ -88,17 +98,19 @@ def sqrt_ops(o, w, out, bk, tag=""):
                 o.append(Op(T(f"L{h}{q}{lh}"), "ldb", f"vldb.4x16.{lh} {{{c}.{part}}}, {{{j}.{half}}}", defs=[(c, part, 7)],
                             uses=[(j, half, 1)], banks=bk("tab"), instr=LUT[lh]))
     s0, s1, t, hb, hu, k7, r, zz, zb = (T(v) for v in ("s0", "s1", "t", "hb", "hu", "k7", "r", "zz", "zb"))
-    o.append(Op(T("S0"), "mv", f"vshuffle {{{s0}.x}}, {{{cs[0]}.x}}, {{{cs[1]}.x}}, r3", defs=[(s0, "x", 2)],
+    o.append(Op(T("S0"), "mv", f"vshuffle {{{s0}.x}}, {{{cs[0]}.x}}, {{{cs[1]}.x}}, {rm[0]}", defs=[(s0, "x", 2)],
                 uses=[(cs[0], "x", 1), (cs[1], "x", 1)], instr=SHUF))
-    o.append(Op(T("S1"), "mv", f"vshuffle {{{s1}.x}}, {{{cs[2]}.x}}, {{{cs[3]}.x}}, r3", defs=[(s1, "x", 2)],
+    o.append(Op(T("S1"), "mv", f"vshuffle {{{s1}.x}}, {{{cs[2]}.x}}, {{{cs[3]}.x}}, {rm[0]}", defs=[(s1, "x", 2)],
                 uses=[(cs[2], "x", 1), (cs[3], "x", 1)], instr=SHUF))
-    o.append(Op(T("S2"), "mv", f"vshuffle {{{t}.x}}, {{{s0}.x}}, {{{s1}.x}}, r4", defs=[(t, "x", 2)],
+    o.append(Op(T("S2"), "mv", f"vshuffle {{{t}.x}}, {{{s0}.x}}, {{{s1}.x}}, {rm[1]}", defs=[(t, "x", 2)],
                 uses=[(s0, "x", 1), (s1, "x", 1)], instr=SHUF))
-    o.append(Op(T("B2"), "mv", f"vband {{{hb}.x}}, {{{w}.x}}, x{C_HI}", defs=[(hb, "x", 2)], uses=[(w, "x", 1)], instr=VBAND))
-    o.append(Op(T("U2"), "mv", f"vups.2x {{{hu}.cml}}, {{{hb}.x}}, s1, upssign1", defs=[(hu, "cml", 3)], uses=[(hb, "x", 1)], instr=UPS))
-    o.append(Op(T("R2"), "st", f"vsrs.2x {{{k7}.x}}, {{{hu}.cml}}, s2, srssign1", defs=[(k7, "x", 4)], uses=[(hu, "cml", 1)], instr=SRS))
+    kt, ku = K("hi")
+    o.append(Op(T("B2"), "mv", f"vband {{{hb}.x}}, {{{w}.x}}, {kt}", defs=[(hb, "x", 2)], uses=[(w, "x", 1)] + ku, instr=VBAND))
+    o.append(Op(T("U2"), "mv", f"vups.2x {{{hu}.cml}}, {{{hb}.x}}, {sh[1]}, upssign1", defs=[(hu, "cml", 3)], uses=[(hb, "x", 1)], instr=UPS))
+    o.append(Op(T("R2"), "st", f"vsrs.2x {{{k7}.x}}, {{{hu}.cml}}, {sh[2]}, srssign1", defs=[(k7, "x", 4)], uses=[(hu, "cml", 1)], instr=SRS))
     o.append(Op(T("AD"), "mv", f"vadd.16 {{{r}.x}}, {{{t}.x}}, {{{k7}.x}}", defs=[(r, "x", 2)], uses=[(t, "x", 1), (k7, "x", 1)], instr=VADD16))
-    o.append(Op(T("VM"), "vec", f"vmul.f {{{zz}.dm}}, {{{w}.x}}, x{C_2E60}, r1", defs=[(zz, "dm", 6)], uses=[(w, "x", 1)], instr=VMUL))
+    kt, ku = K("b60")
+    o.append(Op(T("VM"), "vec", f"vmul.f {{{zz}.dm}}, {{{w}.x}}, {kt}, r1", defs=[(zz, "dm", 6)], uses=[(w, "x", 1)] + ku, instr=VMUL))
     o.append(Op(T("CV"), "st", f"vconv.bf16.fp32 {{{zb}.x}}, {{{zz}.cml}}", defs=[(zb, "x", 2)], uses=[(zz, "cml", 1)], instr=CONV))
     o.append(Op(T("MN"), "mv", f"vmin_ge.bf16 {{{out}.x}}, r16, {{{r}.x}}, {{{zb}.x}}", defs=[(out, "x", 2)],
                 uses=[(r, "x", 1), (zb, "x", 1)], instr=MIN))

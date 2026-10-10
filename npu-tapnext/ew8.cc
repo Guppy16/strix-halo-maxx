@@ -662,6 +662,11 @@ static bfloat16 *const g_e2 = (bfloat16 *)(g_arena + 22592);      // exp(2 log_a
 static_assert(22592 + 1024 <= sizeof(g_arena));
 #endif
 
+#ifdef GGK
+#include "build/ggk.h"
+extern "C" void ggk(const bfp16ebs8 *xcp, const bfp16ebs8 *wt, const void *tbx, bfloat16 *dst, const void *tba);
+__attribute__((section(".aie.bank2"))) alignas(64) static uint8_t g_xcpb[576 + 64];  // + a line of FIFO read-ahead
+#endif
 // the SSM's 6 KB output per chunk is exactly 8 output slots and always starts on a slot: reserve them once, store
 // the 96 vectors straight into the ring, release them once
 static inline bfloat16 *out_at(uint32_t *ring, int off) {
@@ -818,12 +823,21 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       }
 #endif
       PH(1);
+#ifdef GGK  // round 16 (research G1): both gate GEMMs in one asm loop (r16/gen_ggk.py), bit-identical; xc's panels in bank 2 (B is bank 1)
+      {
+        OutS ps((bfp16ebs8 *)g_xcpb);
+        for (int cb = 0; cb < 8; cb++) ps.push(A64(aie::load_v<64>(g_xc + cb * 64)).template to_vector<bfp16ebs8>());
+      }
+      static_assert(4608 == 4608 * 1 && 13376 == 12352 + 1024, "ggk walks Wx | Wa (arena 0 / 4608) and gx | ga (12352 / 13376) as one each");
+      ggk((const bfp16ebs8 *)g_xcpb, g_wx, g_tbx, g_gx, g_tba);
+#else
       {  // xc -> bfp panels for the gate GEMMs
         OutS ps(g_xcp);
         for (int cb = 0; cb < 8; cb++) ps.push(A64(aie::load_v<64>(g_xc + cb * 64)).template to_vector<bfp16ebs8>());
       }
       gate_gemm(g_xcp, g_wx, g_tbx, g_gx);
       gate_gemm(g_xcp, g_wa, g_tba, g_ga);
+#endif
       PH(2);
 #ifndef SSM_NO_GATES
 #if defined(SIGK)  // round 12 (P29a): kernel-only asm (r12/gen_sig.py), bit-identical; backwards from g_ga's last vector,
