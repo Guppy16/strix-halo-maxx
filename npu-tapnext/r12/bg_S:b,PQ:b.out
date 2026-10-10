@@ -1,0 +1,10 @@
+II 11: CP-SAT found none
+Traceback (most recent call last):
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 165, in <module>
+    main()
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 153, in main
+    lp = build(o.rel, o.ii, times, cp=dict(time_limit=o.time))
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 101, in build
+    raise Infeasible("none")
+msched.Infeasible: none

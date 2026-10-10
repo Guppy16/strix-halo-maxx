@@ -1,0 +1,11 @@
+/s/npu-tapnext/build/full12r12e.prj/elfs_main_core_0_3/elfs_main_core_0_3.elf  :
+section           size     addr
+.text            16288        0
+.aie.bank3        2304   521600
+.data             3700   461312
+.comment           197        0
+.stack_sizes        95        0
+.bss             24872   465024
+Total            47456
+
+

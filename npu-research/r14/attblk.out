@@ -1,0 +1,9 @@
+r13f (deployed): corr +0.93, slope measured/model 0.70; spread model 204 us, measured 176 us
+   model   944   857   955   932   860   863   946   917   938   765   751
+   meas    850   817   908   857   824   811   875   862   920   763   744
+r13b (test on every unit): corr +0.95, slope measured/model 0.78; spread model 182 us, measured 164 us
+   model   978   900   988   967   904   905   980   953   973   818   806
+   meas    881   846   929   894   861   841   908   897   947   783   784
+r12e (C++ chunk_k (approx.)): corr +0.92, slope measured/model 1.23; spread model 63 us, measured 87 us
+   model  1235  1207  1236  1233  1211  1209  1237  1224  1227  1178  1174
+   meas    927   901   952   936   899   882   929   912   944   865   868

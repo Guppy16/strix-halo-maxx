@@ -1,0 +1,30 @@
+kappa 0.6: r14f model attention 8.05 ms/step; F128-like (no slow path in chunks 1-21) -2.30
+  columns independent (memtile depth 8 still couples): -1.29; D=24 -1.35; D=48 -1.35
+
+lockstep levers (bit-identical):
+   -1.41  deal round robin, pieces of 1 rb
+   -1.29  deal round robin, pieces of 2 rb
+   -1.13  deal round robin, pieces of 3 rb
+   -0.66  deal round robin, pieces of 6 rb
+   -0.73  pair deal (half 1 from column c ^ 4)
+   -0.74  pair deal (half 1 from column c ^ 2)
+   -0.65  pair deal (half 1 from column c ^ 1)
+   -1.66  deal rr 3 rb + columns independent D 8
+   -1.69  deal rr 3 rb + columns independent D 24
+   -0.75  3 L1 slots
+   -0.89  4 L1 slots
+
+slow-path levers (bit-identical), alone / after deal rr 3:
+   -0.60 /  -0.35  asm rescale (578 -> 200)
+   -0.14 /  -0.08  exact test -O2 (164 -> 80)
+   -0.58 /  -0.33  no first-pass rerun (row max kept by attkb; FP 393 -> 40)
+   -1.31 /  -0.73  all three
+   -1.31 /  -0.73  all three + exact rerun as P-only fix (XR 393 -> 393)
+
+  deal rr 3 alone -1.13; floor of the slow path after deal (F128 with deal) -2.30
+
+uniform levers:
+   -0.28  V phase 136 -> 100 per rb (sums folded into attv)
+   -0.28  batched K 261 -> 230 per rb (per-(tile,chunk) prep / flag scan in asm)
+   -0.19  chunk 0 1005 -> 600 per rb (QK-only first pass + test, no fast P)
+   -0.20  head-group fixed H0/H1 -30 %

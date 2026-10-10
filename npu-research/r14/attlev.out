@@ -1,0 +1,43 @@
+model r13f attention 10.68 ms/step (890 us/block; timeline 10.13 ms); params Prm(PREP=68.0, L=400, T=66, R=300, E=400, VRB=222.0, OK=60.0, OV=40.0, X=580.0, P_SHIM=1600, D=8, SLOTS=2, H0=15500.0, H1=10200.0, LOCK=True)
+  lockstep cost today (columns independent): 0.82 ms
+  fast loop only (no fallback at all, the F2 twin): -2.25 ms
+
+Bit-identical levers:
+   -1.14 ms  rows dealt to columns by 8-row block, round robin (Q fill / O drain TAPs)
+   -0.62 ms  rows dealt by 48-row tile, round robin
+   -0.33 ms  chunk 22 fast (loop with nkb trips + zero P panels for the invalid blocks)
+   -0.13 ms  chunk 0: QK-only loop (gen_attk --qkonly, II 11) instead of the fused pass
+   -0.14 ms  chunk 0: skip rescale_rb (O, sums are zero)  [R is degenerate with T in the fit: 0-400]
+   -0.52 ms  cheaper slow exp: asm aexp (E 400 -> 250)
+   -0.59 ms  cheaper rescale: -O2 / asm rescale_rb (R / 3)
+   -1.11 ms  both
+   -1.26 ms  36-iteration form (L 400 -> 285 per row block: one prologue / preamble per (tile, chunk))
+   -0.67 ms  L1: 3 K / V slots per core (needs ~1.1-4.6 KB of L1)
+   -0.77 ms  L1: 4 K / V slots
+   -0.82 ms  defer flagged units of chunks 1-21 past the lockstep (needs a V copy per deferred chunk: L1)
+
+Combined, bit-identical:
+   -0.46 ms  chunk 22 fast + chunk 0 QK-only
+   -1.60 ms    + rb interleave
+   -2.02 ms    + asm aexp + cheaper rescale
+   -3.21 ms    + 36-iteration form
+
+Numerics-changing (not bit-identical; DAVIS gate), each alone then with chunk 22 fast:
+   -1.62 ms  selfseed  [m seeded with q_i . k_i: chunk 0 no longer forced slow; seed cost NOT included]
+   -1.95 ms  selfseed + chunk 22 fast
+   -2.19 ms  selfseed + chunk 22 fast + rb interleave
+   -0.87 ms  tau96  [TAU 12 nats: exp table to +13 (96 segments)]
+   -1.20 ms  tau96 + chunk 22 fast
+   -1.76 ms  tau96 + chunk 22 fast + rb interleave
+   -1.39 ms  tau128  [TAU 16 nats: table to +17 (112 segments)]
+   -1.72 ms  tau128 + chunk 22 fast
+   -1.92 ms  tau128 + chunk 22 fast + rb interleave
+   -1.23 ms  kbinter  [keys dealt to chunks by 8-key block, stride 23]
+   -1.55 ms  kbinter + chunk 22 fast
+   -1.73 ms  kbinter + chunk 22 fast + rb interleave
+   -3.42 ms  selfseed + chunk 22 fast + rb interleave + 36-iteration form
+   -3.52 ms  floor: no fallback at all + 36-iteration form
+
+lockstep cost left after each layout (columns independent minus lockstep):
+  today          0.82 ms
+  rb interleave  0.05 ms

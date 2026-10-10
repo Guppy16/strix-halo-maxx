@@ -1,0 +1,57 @@
+sim16 on tl_full12r13f_d12.json: dispatch 49.67 ms; block (1-11) 4084 us; depth line 4000 us/block + 1.27 ms (residuals d6 -0.11, d8 +0.17, d10 -0.02, d12 -0.05)
+
+Block breakdown r13f (4084 us):
+    k-steps                               1517.6 us  18.21 ms/step   37.2%
+    attention                              839.2 us  10.07 ms/step   20.5%
+    ssm (+boundary)                        750.5 us   9.01 ms/step   18.4%
+    norms                                  529.5 us   6.35 ms/step   13.0%
+    boundaries                             151.7 us   1.82 ms/step    3.7%
+    tile handoff + zero + first + coup     151.5 us   1.82 ms/step    3.7%
+    epilogues                              143.7 us   1.72 ms/step    3.5%
+
+attention: timeline 10.07 ms/step; attsim r13f 10.55 (thin) / 10.68 (raw)
+
+Attention levers alone (attsim deltas, ms per step; thin = primary, raw = alternative calibration):
+   -0.84 /  -1.00  P60 query rows interleaved (half tiles)
+   -0.54 /  -0.62  P60b interleaved by tile (3 pieces)
+   -0.33 /  -0.33  P61 chunk 22 fast
+   -0.70 /  -0.59  P62 slow path: rescale_rb in asm (R / 3)
+   +0.00 /  +0.00  P62b slow exp by an attk rerun (aexp_push gone; E = L)
+   -1.26 /  -1.26  P63 36-iteration K loop (L 400 -> 285)
+   -1.19 /  -1.19  P50 V phase in asm (222 -> 90 per row block)
+   -0.04 /  -0.04  P64 K / V objects of 3,456 B (producer 1600 -> 1200 per object)
+   -0.13 /  -0.13  P65 chunk 0 QK-only loop
+
+Attention stacks (each row adds to the previous):
+   -0.84 /  -1.00  (this row -0.84)  + P60 query rows interleaved (half tiles)
+   -1.17 /  -1.33  (this row -0.33)  + P61 chunk 22 fast
+   -1.55 /  -1.62  (this row -0.38)  + P62 slow path: rescale_rb in asm (R / 3)
+   -2.82 /  -2.89  (this row -1.27)  + P50 V phase in asm (222 -> 90 per row block)
+   -4.05 /  -4.12  (this row -1.23)  + P63 36-iteration K loop (L 400 -> 285)
+   -4.10 /  -4.17  (this row -0.05)  + P64 K / V objects of 3,456 B (producer 1600 -> 1200 per object)
+  (P60 alone vs every column independent: -0.84 vs -0.80)
+
+Combined (sim16, depth 12, model base 50.28 ms; attention by attsim 'thin'):
+   -1.55 ms   48.72  (20.5 fps)  P60 + P61 + P62 (bit-identical, DMA + slow path)
+   -2.50 ms   47.78  (20.9 fps)  + P29b
+   -3.77 ms   46.51  (21.5 fps)  + P50 (V phase asm)
+   -4.99 ms   45.28  (22.1 fps)  + P63 (36-iteration K loop)
+   -5.05 ms   45.23  (22.1 fps)  + P64 (3,456 B K / V objects)
+   -7.84 ms   42.44  (23.6 fps)  + P29c + P29d (x 0.85) + P52
+   -8.20 ms   42.08  (23.8 fps)  + P55
+  -11.31 ms   38.96  (25.7 fps)  + P7-E high
+  -12.29 ms   37.98  (26.3 fps)  + P35 + P24b
+  -13.25 ms   37.02  (27.0 fps)  + P51
+  -13.73 ms   36.54  (27.4 fps)  + P57
+  -18.08 ms   32.20  (31.1 fps)  + k-step 2,055 -> 1,600 (ceiling)
+  ceiling block: norms 270, boundaries 152, k-steps 1119, epilogues 144, tile handoff + zero + first + coup 106, ssm (+boundary) 439, attention 497 (+-150) = 2577 us
+  ceiling depth 12: 32.2 ms
+  ceiling depth 10: 27.0 ms
+  ceiling depth 8: 21.9 ms
+  without the k-step row: depth 12 36.5 ms, depth 10 30.7 ms
+
+P14 (two frames in flight; per frame >= busier side + 15 % of the other):
+  today                      serial  50.3 ms; GEMM side  2804, EW side  1280 us/block; 2 in flight ~ 37.2 ms/frame (26.9 fps), latency ~ 74.4 ms
+  after the attention stack  serial  45.2 ms; GEMM side  2462, EW side  1201 us/block; 2 in flight ~ 33.0 ms/frame (30.3 fps), latency ~ 66.0 ms
+  after the SSM              serial  42.4 ms; GEMM side  2462, EW side   968 us/block; 2 in flight ~ 32.6 ms/frame (30.7 fps), latency ~ 65.1 ms
+  ceiling                    serial  32.2 ms; GEMM side  1868, EW side   709 us/block; 2 in flight ~ 25.0 ms/frame (40.1 fps), latency ~ 49.9 ms

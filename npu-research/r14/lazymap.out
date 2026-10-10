@@ -1,0 +1,16 @@
+frame 0 today    : flag 6.48 %, move 6.43 %, chunk 0 100.0 %, chunks 1-21 2.34 %
+frame 0 tau96    : flag 5.14 %, move 5.13 %, chunk 0 100.0 %, chunks 1-21 0.87 %
+frame 0 tau128   : flag 4.58 %, move 4.58 %, chunk 0 100.0 %, chunks 1-21 0.25 %
+frame 0 kbinter  : flag 5.26 %, move 5.23 %, chunk 0 100.0 %, chunks 1-21 0.98 %
+frame 0 selfseed : flag 0.72 %, move 0.69 %, chunk 0 9.7 %, chunks 1-21 0.32 %
+frame 1 today    : flag 6.38 %, move 6.33 %, chunk 0 100.0 %, chunks 1-21 2.23 %
+frame 1 tau96    : flag 5.11 %, move 5.09 %, chunk 0 100.0 %, chunks 1-21 0.83 %
+frame 1 tau128   : flag 4.58 %, move 4.57 %, chunk 0 100.0 %, chunks 1-21 0.25 %
+frame 1 kbinter  : flag 5.20 %, move 5.18 %, chunk 0 100.0 %, chunks 1-21 0.92 %
+frame 1 selfseed : flag 0.66 %, move 0.64 %, chunk 0 9.7 %, chunks 1-21 0.26 %
+frame 2 today    : flag 6.36 %, move 6.30 %, chunk 0 100.0 %, chunks 1-21 2.21 %
+frame 2 tau96    : flag 5.11 %, move 5.09 %, chunk 0 100.0 %, chunks 1-21 0.83 %
+frame 2 tau128   : flag 4.57 %, move 4.57 %, chunk 0 100.0 %, chunks 1-21 0.25 %
+frame 2 kbinter  : flag 5.20 %, move 5.18 %, chunk 0 100.0 %, chunks 1-21 0.92 %
+frame 2 selfseed : flag 0.65 %, move 0.62 %, chunk 0 9.8 %, chunks 1-21 0.24 %
+wrote /work/npu-research/r14/lazymap.npz

@@ -1,0 +1,3 @@
+r13f (deployed): corr +0.97, slope measured/model 0.80; spread model 196 us, measured 176 us
+r13b (test on every unit): corr +0.98, slope measured/model 0.88; spread model 178 us, measured 164 us
+r12e (C++ chunk_k (approx.)): corr +0.96, slope measured/model 1.09; spread model 79 us, measured 87 us

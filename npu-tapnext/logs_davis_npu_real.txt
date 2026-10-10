@@ -1,0 +1,13 @@
+packed 96 trunk Linears to the NPU in 3s
+bike-packing             T= 69 Q= 25 AJ= 56.1 OA= 87.3 PTS= 74.1 4408 ms/f (NPU kernels 363.6 ms/f, packing 3524 ms/f)
+blackswan                T= 50 Q=  5 AJ= 97.0 OA=100.0 PTS= 98.4 4446 ms/f (NPU kernels 352.4 ms/f, packing 3567 ms/f)
+bmx-trees                T= 80 Q= 25 AJ= 49.7 OA= 75.1 PTS= 75.9 4483 ms/f (NPU kernels 361.6 ms/f, packing 3586 ms/f)
+breakdance               T= 84 Q= 25 AJ= 71.4 OA= 91.2 PTS= 82.7 4477 ms/f (NPU kernels 366.7 ms/f, packing 3571 ms/f)
+camel                    T= 90 Q= 10 AJ= 80.5 OA= 99.7 PTS= 87.0 4427 ms/f (NPU kernels 366.5 ms/f, packing 3530 ms/f)
+car-roundabout           T= 75 Q= 20 AJ= 55.1 OA= 89.8 PTS= 76.0 4410 ms/f (NPU kernels 372.1 ms/f, packing 3518 ms/f)
+car-shadow               T= 40 Q= 25 AJ= 80.1 OA= 93.0 PTS= 91.6 4350 ms/f (NPU kernels 361.9 ms/f, packing 3493 ms/f)
+cows                     T=104 Q= 10 AJ= 87.5 OA= 98.8 PTS= 92.7 4400 ms/f (NPU kernels 365.6 ms/f, packing 3502 ms/f)
+dance-twirl              T= 90 Q= 25 AJ= 71.8 OA= 94.3 PTS= 83.7 4421 ms/f (NPU kernels 365.2 ms/f, packing 3531 ms/f)
+dog                      T= 60 Q= 10 AJ= 57.7 OA= 95.6 PTS= 71.1 4476 ms/f (NPU kernels 362.1 ms/f, packing 3574 ms/f)
+RESULT {"mode": "npu_real", "videos": 10, "ms_per_frame": 4423.9, "occlusion_accuracy": 92.5, "pts_within_1": 50.96, "pts_within_2": 77.37, "pts_within_4": 91.77, "pts_within_8": 97.17, "pts_within_16": 99.34, "average_jaccard": 70.68, "average_pts_within_thresh": 83.32}
+DAVIS_DONE

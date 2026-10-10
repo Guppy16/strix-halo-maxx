@@ -1,0 +1,11 @@
+II 11: CP-SAT found none
+Traceback (most recent call last):
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 169, in <module>
+    
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 157, in main
+    for k in range(nr):
+         ^^^^^^^^^^^^^^^
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 105, in build
+    lp = mk(rel)
+^^^^^^^^^^^^^^^^^
+msched.Infeasible: none

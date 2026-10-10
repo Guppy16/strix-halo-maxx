@@ -1,0 +1,27 @@
+II 6: CP-SAT found none
+II 7: CP-SAT found none
+II 8: CP-SAT found none
+II 9: CP-SAT found none
+II 10: CP-SAT found none
+II 11: CP-SAT found none
+II 12: CP-SAT found none
+II 13: {'status': 'OPTIMAL', 'peak': {'dm': 2, 'x': 3}, 'length': 23}
+II 13 (resource bound 6: {'a': 6, ('port', 'AGUA__AGI_I'): 6, ('port', 'AGUA__AGU_C1'): 6, ('port', 'AGUA__AG_P'): 6, ('port', 'DM_ADA'): 6, ('port', 'DM_WM_L0_PORT'): 6, ('port', 'AGUA__AGU_M_CG20S'): 4, ('port', 'QEY_WA_L0_PORT'): 4}), U 1, stages 2, maxlive {'x': 3, 'dm': 2}
+  t   0 (stage 0, slot  0) a LA0   vlda bmll0, [p0], #64
+  t   1 (stage 0, slot  1) a BL0   vlda x1, [p1], #64
+  t   2 (stage 0, slot  2) a BL1   vlda.2d x0, [p1], d1
+  t   3 (stage 0, slot  3) a LA1   vlda bmlh0, [p0], #64
+  t   4 (stage 0, slot  4) a LB0   vlda bmll1, [p0], #64
+  t   5 (stage 0, slot  5) a LB1   vlda.2d bmlh1, [p0], d0
+  t   8 (stage 0, slot  8) v M0    vmac.f dm0, dm0, x1, x11, r1
+  t   9 (stage 0, slot  9) v M1    vmac.f dm1, dm1, x0, x11, r1
+  t  14 (stage 1, slot  1) s C0    vconv.bf16.fp32 x0, cml0
+  t  15 (stage 1, slot  2) s C1    vconv.bf16.fp32 x1, cml1
+  t  17 (stage 1, slot  4) m S0    vshuffle x2, x0, x1, r2
+  t  18 (stage 1, slot  5) m S1    vshuffle x0, x0, x1, r3
+  t  19 (stage 1, slot  6) m U0    vconv.fp32.bf16 cml1, x2
+  t  20 (stage 1, slot  7) m U1    vconv.fp32.bf16 cmh1, x0
+  t  22 (stage 1, slot  9) s PU    vst.push.576.conv.bfp16ebs8.fp32 dm1, [p2, sf, r26]
+  t  23 (stage 1, slot 10) s FL    vst.flush.512.conv.2d [p2, sf, r26, d2]
+check OK (24 iterations): 325 cycles, last write lands at 328
+wrote vt_try.s

@@ -1,0 +1,66 @@
+P7 weight-side pre-check (bfp16 along K, unit-rms normalised inputs):
+block 0
+  norm0 (RMS) -> yx            |g| min  0.2540 med  0.8168 max   1.8552  8-block max/min p50   1.54 p90    2.49 max       3.5  | weight-side error ratio fold/today 1.086
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0000 med  0.4839 max   1.1137  8-block max/min p50   3.36 p90  214.43 max  101431.8  | weight-side error ratio fold/today 1.058
+  norm2 (LN) -> qkv            |g| min  0.0000 med  0.3310 max   0.9845  8-block max/min p50 359.21 p90 2440.65 max   24857.8  | weight-side error ratio fold/today 1.062
+  norm3 (LN) -> mlp0           |g| min  0.0001 med  0.3841 max   1.2006  8-block max/min p50   5.63 p90 1728.33 max    5207.5  | weight-side error ratio fold/today 1.082
+block 1
+  norm0 (RMS) -> yx            |g| min  0.6458 med  1.0793 max   1.4348  8-block max/min p50   1.28 p90    1.45 max       1.8  | weight-side error ratio fold/today 1.031
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0018 med  0.5379 max   0.8461  8-block max/min p50   1.61 p90    2.71 max     390.2  | weight-side error ratio fold/today 1.047
+  norm2 (LN) -> qkv            |g| min  0.0000 med  0.4178 max   1.0871  8-block max/min p50   3.46 p90  581.07 max   21282.3  | weight-side error ratio fold/today 1.074
+  norm3 (LN) -> mlp0           |g| min  0.0000 med  0.4836 max   1.3622  8-block max/min p50   2.19 p90  898.84 max   11608.4  | weight-side error ratio fold/today 1.040
+block 2
+  norm0 (RMS) -> yx            |g| min  0.6355 med  1.1357 max   1.3504  8-block max/min p50   1.20 p90    1.33 max       1.8  | weight-side error ratio fold/today 1.012
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0002 med  0.5517 max   0.8014  8-block max/min p50   1.73 p90    2.68 max    3991.9  | weight-side error ratio fold/today 1.037
+  norm2 (LN) -> qkv            |g| min  0.0002 med  0.4952 max   1.1407  8-block max/min p50   2.46 p90    4.31 max    4894.8  | weight-side error ratio fold/today 1.045
+  norm3 (LN) -> mlp0           |g| min  0.0000 med  0.5070 max   0.9593  8-block max/min p50   1.67 p90  188.02 max  382907.7  | weight-side error ratio fold/today 1.025
+block 3
+  norm0 (RMS) -> yx            |g| min  0.7043 med  1.1066 max   1.3303  8-block max/min p50   1.21 p90    1.30 max       1.6  | weight-side error ratio fold/today 1.004
+  norm1 (RMS) -> up_a/up_b     |g| min  0.1137 med  0.5644 max   0.7631  8-block max/min p50   1.40 p90    1.97 max       5.9  | weight-side error ratio fold/today 1.025
+  norm2 (LN) -> qkv            |g| min  0.0378 med  0.5222 max   0.9015  8-block max/min p50   1.81 p90    2.41 max      15.9  | weight-side error ratio fold/today 1.034
+  norm3 (LN) -> mlp0           |g| min  0.0976 med  0.5602 max   1.0709  8-block max/min p50   1.65 p90    3.20 max      11.0  | weight-side error ratio fold/today 1.038
+block 4
+  norm0 (RMS) -> yx            |g| min  0.4446 med  1.1617 max   1.3877  8-block max/min p50   1.19 p90    1.38 max       3.0  | weight-side error ratio fold/today 1.009
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0775 med  0.6539 max   0.8416  8-block max/min p50   1.51 p90    2.63 max       9.1  | weight-side error ratio fold/today 1.031
+  norm2 (LN) -> qkv            |g| min  0.0048 med  0.6091 max   1.0130  8-block max/min p50   1.77 p90    2.99 max     148.1  | weight-side error ratio fold/today 1.024
+  norm3 (LN) -> mlp0           |g| min  0.0754 med  0.5827 max   1.1270  8-block max/min p50   1.53 p90    2.63 max       9.1  | weight-side error ratio fold/today 1.017
+block 5
+  norm0 (RMS) -> yx            |g| min  0.6008 med  1.1247 max   1.3828  8-block max/min p50   1.18 p90    1.36 max       2.0  | weight-side error ratio fold/today 1.009
+  norm1 (RMS) -> up_a/up_b     |g| min  0.1276 med  0.6305 max   0.8816  8-block max/min p50   1.43 p90    2.15 max       5.5  | weight-side error ratio fold/today 1.024
+  norm2 (LN) -> qkv            |g| min  0.1123 med  0.5305 max   0.8714  8-block max/min p50   1.81 p90    2.38 max       6.2  | weight-side error ratio fold/today 1.023
+  norm3 (LN) -> mlp0           |g| min  0.0783 med  0.5708 max   1.4074  8-block max/min p50   1.55 p90    2.23 max       8.2  | weight-side error ratio fold/today 1.018
+block 6
+  norm0 (RMS) -> yx            |g| min  0.7596 med  1.0687 max   1.3663  8-block max/min p50   1.26 p90    1.39 max       1.6  | weight-side error ratio fold/today 1.000
+  norm1 (RMS) -> up_a/up_b     |g| min  0.2157 med  0.6570 max   1.0117  8-block max/min p50   1.29 p90    1.69 max       3.4  | weight-side error ratio fold/today 1.013
+  norm2 (LN) -> qkv            |g| min  0.0980 med  0.5439 max   1.0441  8-block max/min p50   1.76 p90    2.38 max       6.6  | weight-side error ratio fold/today 1.022
+  norm3 (LN) -> mlp0           |g| min  0.0474 med  0.7876 max   1.3665  8-block max/min p50   1.68 p90    3.43 max      21.1  | weight-side error ratio fold/today 1.015
+block 7
+  norm0 (RMS) -> yx            |g| min  0.4192 med  1.1350 max   1.4911  8-block max/min p50   1.25 p90    1.52 max       2.9  | weight-side error ratio fold/today 1.011
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0021 med  0.6578 max   0.9212  8-block max/min p50   1.46 p90    3.01 max     372.3  | weight-side error ratio fold/today 1.016
+  norm2 (LN) -> qkv            |g| min  0.0773 med  0.5993 max   1.0415  8-block max/min p50   1.72 p90    2.21 max       8.5  | weight-side error ratio fold/today 1.015
+  norm3 (LN) -> mlp0           |g| min  0.0169 med  0.9911 max   1.2856  8-block max/min p50   1.33 p90    2.62 max      65.9  | weight-side error ratio fold/today 1.009
+block 8
+  norm0 (RMS) -> yx            |g| min  0.3453 med  1.1717 max   1.4411  8-block max/min p50   1.29 p90    1.71 max       3.7  | weight-side error ratio fold/today 1.016
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0552 med  0.6665 max   1.1166  8-block max/min p50   1.42 p90    2.21 max      12.6  | weight-side error ratio fold/today 1.015
+  norm2 (LN) -> qkv            |g| min  0.1066 med  0.5709 max   1.0024  8-block max/min p50   1.63 p90    2.02 max       6.1  | weight-side error ratio fold/today 1.024
+  norm3 (LN) -> mlp0           |g| min  0.3804 med  2.4524 max   3.9414  8-block max/min p50   1.30 p90    2.35 max       6.7  | weight-side error ratio fold/today 1.008
+block 9
+  norm0 (RMS) -> yx            |g| min  0.4853 med  1.1482 max   1.4606  8-block max/min p50   1.24 p90    1.51 max       2.7  | weight-side error ratio fold/today 1.013
+  norm1 (RMS) -> up_a/up_b     |g| min  0.1572 med  0.6947 max   1.2558  8-block max/min p50   1.29 p90    1.72 max       4.9  | weight-side error ratio fold/today 1.016
+  norm2 (LN) -> qkv            |g| min  0.2013 med  0.6031 max   1.3382  8-block max/min p50   1.49 p90    1.97 max       3.3  | weight-side error ratio fold/today 1.021
+  norm3 (LN) -> mlp0           |g| min  0.1547 med  4.3814 max   6.1404  8-block max/min p50   1.29 p90    2.84 max      32.1  | weight-side error ratio fold/today 1.009
+block 10
+  norm0 (RMS) -> yx            |g| min  0.1213 med  1.3148 max   1.6769  8-block max/min p50   1.50 p90    2.24 max      13.1  | weight-side error ratio fold/today 1.020
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0003 med  0.8103 max   1.0709  8-block max/min p50   1.48 p90    2.31 max    3230.1  | weight-side error ratio fold/today 1.002
+  norm2 (LN) -> qkv            |g| min  0.1332 med  0.6020 max   1.3188  8-block max/min p50   1.60 p90    2.10 max       4.4  | weight-side error ratio fold/today 1.012
+  norm3 (LN) -> mlp0           |g| min  0.0343 med  6.4747 max   9.3947  8-block max/min p50   1.22 p90    1.77 max     192.3  | weight-side error ratio fold/today 1.003
+block 11
+  norm0 (RMS) -> yx            |g| min  0.2747 med  1.2246 max   1.6788  8-block max/min p50   1.42 p90    2.11 max       5.1  | weight-side error ratio fold/today 1.016
+  norm1 (RMS) -> up_a/up_b     |g| min  0.0008 med  0.7767 max   0.9545  8-block max/min p50   1.28 p90    2.03 max    1062.7  | weight-side error ratio fold/today 1.004
+  norm2 (LN) -> qkv            |g| min  0.1055 med  0.5830 max   2.1567  8-block max/min p50   1.79 p90    2.34 max       6.4  | weight-side error ratio fold/today 0.979
+  norm3 (LN) -> mlp0           |g| min  0.2154 med  0.9908 max   1.4743  8-block max/min p50   1.23 p90    1.58 max       4.6  | weight-side error ratio fold/today 1.005
+summary (weight-side error ratio fold/today over the 12 blocks):
+  norm0 -> yx    median 1.013  max 1.086
+  norm1 -> up    median 1.020  max 1.058
+  norm2 -> qkv   median 1.023  max 1.074
+  norm3 -> mlp0  median 1.016  max 1.082

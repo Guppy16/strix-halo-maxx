@@ -1,0 +1,42 @@
+prior parameters (bench / stamps / twins as read):
+prior: rms 0.128 ms (fit set), base 39.28 ms; L 341 T 66 R 300 E 399 P_SHIM 1280
+    F3    measured  43.39  model  43.64  err +0.25  attention    364 us/block
+    F2    measured  47.14  model  47.05  err -0.09  attention    648 us/block
+    F16   measured  48.49  model  48.43  err -0.06  attention    763 us/block
+    r13c  measured  49.84  model  49.78  err -0.06  attention    875 us/block
+    F8    measured  52.87  model  52.81  err -0.06  attention   1128 us/block
+    r13e  measured  49.54  model  49.78  err +0.24  attention    875 us/block  (holdout)
+    r13f  measured  49.21  model  49.31  err +0.10  attention    836 us/block  (holdout)
+
+best grid fit: rms 0.016 ms (fit set), base 38.69 ms; L 400 T 66 R 300 E 400 P_SHIM 1600
+    F3    measured  43.39  model  43.41  err +0.02  attention    393 us/block
+    F2    measured  47.14  model  47.11  err -0.03  attention    702 us/block
+    F16   measured  48.49  model  48.49  err -0.00  attention    817 us/block
+    r13c  measured  49.84  model  49.84  err +0.00  attention    930 us/block
+    F8    measured  52.87  model  52.88  err +0.01  attention   1183 us/block
+    r13e  measured  49.54  model  49.84  err +0.30  attention    930 us/block  (holdout)
+    r13f  measured  49.21  model  49.36  err +0.15  attention    890 us/block  (holdout)
+
+refined: rms 0.016 ms (fit set), base 38.69 ms; L 400 T 66 R 300 E 400 P_SHIM 1600
+    F3    measured  43.39  model  43.41  err +0.02  attention    393 us/block
+    F2    measured  47.14  model  47.11  err -0.03  attention    702 us/block
+    F16   measured  48.49  model  48.49  err -0.00  attention    817 us/block
+    r13c  measured  49.84  model  49.84  err +0.00  attention    930 us/block
+    F8    measured  52.87  model  52.88  err +0.01  attention   1183 us/block
+    r13e  measured  49.54  model  49.84  err +0.30  attention    930 us/block  (holdout)
+    r13f  measured  49.21  model  49.36  err +0.15  attention    890 us/block  (holdout)
+
+lockstep counterfactual (same parameters, columns independent):
+    F2    lockstep   702.1 us/block, independent   702.1: lockstep costs 0.00 ms/step
+    r13c  lockstep   929.7 us/block, independent   869.7: lockstep costs 0.72 ms/step
+    r13f  lockstep   889.9 us/block, independent   821.5: lockstep costs 0.82 ms/step
+r13f: mean core wait for K / V objects 55.4 us per block (0.67 ms/step)
+    r13f at l2_depth  2: 10.68 ms attention/step
+    r13f at l2_depth  4: 10.68 ms attention/step
+    r13f at l2_depth  6: 10.68 ms attention/step
+    r13f at l2_depth  8: 10.68 ms attention/step
+    r13f at l2_depth 12: 10.68 ms attention/step
+    r13f at l2_depth 16: 10.68 ms attention/step
+    r13f with 2 L1 K / V slots: 10.68 ms
+    r13f with 3 L1 K / V slots: 10.01 ms
+    r13f with 4 L1 K / V slots: 9.91 ms

@@ -1,0 +1,39 @@
+3 frames x 12 blocks x 12 heads x 8 cols x 18 rb x 23 chunks
+slow (flag | chunk 22) 10.76 %; flag 6.41 %; move 6.35 %; flag-not-move 0.055 %
+after chunk 0, excl. chunk 22: flag 2.26 %, move 2.20 %
+
+per chunk (flag %, all heads / cols):
+  0:100.0 1:0.7 2:1.1 3:1.2 4:1.2 5:1.8 6:2.0 7:1.7 8:2.1 9:2.8 10:3.1 11:3.3 12:4.4 13:4.4 14:3.8 15:3.0 16:2.3 17:2.2 18:2.2 19:1.7 20:1.5 21:0.8 22:0.0
+
+per column (flag % chunks 1-21):
+  c0:0.25 c1:0.90 c2:1.36 c3:2.79 c4:2.87 c5:4.19 c6:4.92 c7:0.79
+per block (flag % chunks 1-21):
+  b0:2.96 b1:2.73 b2:1.51 b3:4.60 b4:3.72 b5:1.80 b6:1.65 b7:2.98 b8:2.64 b9:2.28 b10:0.22 b11:0.00
+per head (flag % chunks 1-21):
+  h0:1.99 h1:2.08 h2:3.26 h3:1.36 h4:3.13 h5:1.08 h6:3.08 h7:2.71 h8:1.97 h9:2.39 h10:2.40 h11:1.64
+
+per core (slow % incl. chunks 0 / 22; in situ 8.6-10.9 %): rows = columns, cols = core rows
+  col 0:   8.8   9.0   9.0
+  col 1:   9.3   9.7   9.6
+  col 2:   9.8  10.2   9.8
+  col 3:  10.9  11.9  10.9
+  col 4:  11.1  11.9  10.9
+  col 5:  12.6  12.8  12.1
+  col 6:  13.6  13.6  12.4
+  col 7:   9.4   9.4   9.4
+
+multicast lockstep: slow row blocks per K object, mean over columns vs max over columns (chunks 1-21):
+  pass 0 (12 rb): mean 0.265, max 1.463 slow rb per object -> amplification 5.51x; P(any column slow) 31.1 %
+    max by chunk: 1:0.38 2:0.53 3:0.88 4:0.78 5:0.88 6:1.50 7:1.32 8:1.41 9:2.37 10:1.96 11:1.47 12:2.87 13:2.33 14:2.11 15:2.31 16:1.59 17:1.54 18:2.05 19:1.36 20:0.73 21:0.36
+    mean by chunk:1:0.10 2:0.12 3:0.17 4:0.14 5:0.18 6:0.31 7:0.24 8:0.21 9:0.37 10:0.37 11:0.31 12:0.56 13:0.53 14:0.40 15:0.39 16:0.26 17:0.23 18:0.28 19:0.20 20:0.11 21:0.09
+  pass 1 (6 rb): mean 0.141, max 0.838 slow rb per object -> amplification 5.94x; P(any column slow) 26.4 %
+    max by chunk: 1:0.20 2:0.38 3:0.24 4:0.46 5:0.84 6:0.25 7:0.38 8:1.04 9:0.78 10:1.13 11:1.61 12:1.03 13:1.38 14:1.60 15:0.91 16:1.03 17:1.22 18:0.76 19:0.89 20:1.23 21:0.21
+    mean by chunk:1:0.04 2:0.07 3:0.04 4:0.08 5:0.14 6:0.05 7:0.07 8:0.17 9:0.13 10:0.19 11:0.29 12:0.23 13:0.26 14:0.29 15:0.16 16:0.16 17:0.17 18:0.11 19:0.12 20:0.16 21:0.05
+  iid at the per-chunk rate, pass 0: max 1.062 vs mean 0.265
+  iid at the per-chunk rate, pass 1: max 0.697 vs mean 0.141
+
+share of 'slowest column' per object, pass 0 (chunks 1-21): c0:1% c1:5% c2:10% c3:15% c4:14% c5:20% c6:28% c7:8%
+column 7 flag % by (tile, rb), chunks 1-21:
+  t0  3.95  4.14  1.20  0.00  0.00  0.00
+  t1  0.00  0.00  0.49  0.49  0.49  0.49
+  t2  0.49  0.49  0.49  0.49  0.49  0.49

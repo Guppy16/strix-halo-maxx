@@ -1,0 +1,48 @@
+sim12 on full12r9s: block 4800 us (+0.50 ms fixed), 1296 k-steps and 92 tiles per core
+  t_ks = max(2055 compute, A 10368 B / 7.6 B/cyc = 1364) + gap 67 = 2122 cycles = 1.172 us   (A-port floor at the hard bound 5.5 B/cyc: 1885)
+    kstep            1519.4 us  18.23 ms/step   31.7%
+    opstart           364.8 us   4.38 ms/step    7.6%
+    tiles             453.1 us   5.44 ms/step    9.4%
+    coupling          118.5 us   1.42 ms/step    2.5%
+    attn              930.0 us  11.16 ms/step   19.4%
+    norms             541.0 us   6.49 ms/step   11.3%
+    ssm+sync (fit)    873.2 us  10.48 ms/step   18.2%
+  model 58.10 ms (measured 58.14)
+
+Levers, each alone (depth 12):
+   -1.58 ms   56.52  P5a: K=768 slot once + up_b reuses up_a's slot
+   -3.32 ms   54.78  P5: + k-chunk streaming (first tile at max(compute, DDR))
+   -6.83 ms   51.27  P7 full: norms folded into the GEMM epilogues
+   -4.57 ms   53.53  P7 conservative: norm ops -> 40 us stats passes
+   -1.42 ms   56.68  P23: epilogue kinds balanced across rows (yx, qkv) + mlp3_a columns
+   -0.70 ms   57.40  P27: a by table (SSM -58 us)
+   -3.48 ms   54.62  SSM hand-scheduled chains (P29, SSM 790 -> ~500)
+   -3.96 ms   54.14  attention 930 -> 600 us (P12 / P19)
+   -0.47 ms   57.63  P35: B locks inside mm_ks, one call per tile (gap 67 -> 12)
+   -0.54 ms   57.56  P24b: acc_zero folded into the first k-step
+   -0.86 ms   57.24  P37: DMA-collision placement (in-situ extra 201 -> ~100 cycles)
+   -3.91 ms   54.19  k-step compute 1,600 (deep-K visits / 2x2; needs L1), R_A 7.6
+   -1.46 ms   56.64  k-step compute 1,600, R_A 5.5 (the hard bound)
+   -5.94 ms   52.16  k-step compute 1,200, R_A 7.6 (A-port-bound)
+   -7.35 ms   50.75  k-step compute 1,200, A split over 2 S2MM (R_A x 2, B shares)
+
+Combined (depth 12), each row adds to the one above:
+   -3.32 ms   54.78  P5 (P5a + reuse + chunks)
+  -10.15 ms   47.95  + P7 full
+  -11.57 ms   46.53  + P23
+  -12.59 ms   45.51  + P35, P24b
+  -13.28 ms   44.82  + P27
+  -17.24 ms   40.86  + attention 0.6 ms                       (ceiling with today's 4-chain k-step)
+  -20.03 ms   38.07  + SSM hand-scheduled (790 -> ~500)
+  -20.88 ms   37.22  + P37 DMA-collision placement
+  -23.37 ms   34.73  + k-step compute 1,600 (needs L1; R_A 7.6)   (ceiling)
+  -21.23 ms   36.87    same with R_A = 5.5 (the hard bound)
+  ceiling per block: kstep 1154, opstart 136, tiles 436, coupling 0, attn 600, norms 0, ssm+sync 527 = 2853 us
+  ceiling depth 12: 34.7 ms (28.8 fps)
+  ceiling depth 10: 29.0 ms (34.4 fps)
+  ceiling depth 8: 23.3 ms (42.9 fps)
+
+P14 (two frames in flight), the EW cores' work hides behind the GEMM cores' (list bound: per frame >= the busier side; boundaries stay):
+  today                  serial  58.1 ms; GEMM side   3386 us, EW side  1414 us per block; 2 in flight ~ 43.7 ms per frame (22.9 fps), latency ~ 87.3 ms
+  after P5 + P7 + P23    serial  46.5 ms; GEMM side   3018 us, EW side   817 us per block; 2 in flight ~ 38.2 ms per frame (26.2 fps), latency ~ 76.4 ms
+  ceiling                serial  34.7 ms; GEMM side   2326 us, EW side   527 us per block; 2 in flight ~ 29.4 ms per frame (34.1 fps), latency ~ 58.7 ms

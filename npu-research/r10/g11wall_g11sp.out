@@ -1,0 +1,11 @@
+op          n  wall us  steady steady-only us  rest us
+yx         12    210.0    2053          112.5     97.5
+out        12    101.7    2052           56.2     45.5
+down_a     12    151.0    2056          112.6     38.4
+down_b     12    157.1    2057          112.7     44.5
+qkv        12    337.4    2053          168.7    168.7
+out_proj   12     99.9    2053           56.2     43.7
+mlp3_a     12    173.5    2063          113.0     60.6
+mlp3_b     12    156.5    2055          112.6     43.9
+mlp         1    418.9    2051          224.7    194.3
+block (ops with complete records) 1805.9 us

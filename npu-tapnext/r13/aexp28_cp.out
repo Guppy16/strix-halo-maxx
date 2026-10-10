@@ -1,0 +1,11 @@
+II 28: CP-SAT found none
+Traceback (most recent call last):
+  File "~/git/app/.scratch/npu-tapnext/r13/gen_aexp.py", line 205, in <module>
+    main()
+  File "~/git/app/.scratch/npu-tapnext/r13/gen_aexp.py", line 192, in main
+    lp = build(o.ii, times, cp=dict(time_limit=o.time))
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/git/app/.scratch/npu-tapnext/r13/gen_aexp.py", line 143, in build
+    raise Infeasible("none")
+msched.Infeasible: none
+EXIT=1

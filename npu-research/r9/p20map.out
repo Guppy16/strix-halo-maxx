@@ -1,0 +1,33 @@
+  A-store overlap: stripe 3 A pops (bank 1) with stores of H9 [0, 1]: <= 4 cycles
+map OK: no Cl/Cs bank pair, nothing in B's bank 3; worst-case residual 4 cycles per k-step
+
+k-step order (the table mm_kstep walks; one 32-bit L1 address per group):
+  stripe 0: 0x78900 (C0, bank 2), 0x73100 (H6, bank 0), 0x78d00 (C1, bank 2), 0x76900 (H20, bank 1)
+  stripe 1: 0x79100 (C2, bank 2), 0x75900 (H16, bank 1), 0x79500 (C3, bank 2), 0x76d00 (H21, bank 1)
+  stripe 2: 0x79900 (C4, bank 2), 0x75d00 (H17, bank 1), 0x79d00 (C5, bank 2), 0x73d00 (H9, bank 0/1)
+  stripe 3: 0x7a100 (C6, bank 2), 0x73500 (H7, bank 0), 0x7a500 (C7, bank 2), 0x77100 (H22, bank 1)
+  stripe 4: 0x7a900 (C8, bank 2), 0x76100 (H18, bank 1), 0x7ad00 (C9, bank 2), 0x77500 (H23, bank 1)
+  stripe 5: 0x7b100 (C10, bank 2), 0x76500 (H19, bank 1), 0x7b500 (C11, bank 2), 0x73900 (H8, bank 0)
+  stripe 6: 0x74100 (H10, bank 1), 0x71900 (H0, bank 0), 0x74500 (H11, bank 1), 0x71d00 (H1, bank 0)
+  stripe 7: 0x74900 (H12, bank 1), 0x72100 (H2, bank 0), 0x74d00 (H13, bank 1), 0x72500 (H3, bank 0)
+  stripe 8: 0x75100 (H14, bank 1), 0x72900 (H4, bank 0), 0x75500 (H15, bank 1), 0x72d00 (H5, bank 0)
+
+epilogue map acc_piece(rb, pair) (rb = 0..17):
+  rb  0: pair0 0x78900  pair1 0x73100
+  rb  1: pair0 0x78d00  pair1 0x76900
+  rb  2: pair0 0x79100  pair1 0x75900
+  rb  3: pair0 0x79500  pair1 0x76d00
+  rb  4: pair0 0x79900  pair1 0x75d00
+  rb  5: pair0 0x79d00  pair1 0x73d00
+  rb  6: pair0 0x7a100  pair1 0x73500
+  rb  7: pair0 0x7a500  pair1 0x77100
+  rb  8: pair0 0x7a900  pair1 0x76100
+  rb  9: pair0 0x7ad00  pair1 0x77500
+  rb 10: pair0 0x7b100  pair1 0x76500
+  rb 11: pair0 0x7b500  pair1 0x73900
+  rb 12: pair0 0x74100  pair1 0x71900
+  rb 13: pair0 0x74500  pair1 0x71d00
+  rb 14: pair0 0x74900  pair1 0x72100
+  rb 15: pair0 0x74d00  pair1 0x72500
+  rb 16: pair0 0x75100  pair1 0x72900
+  rb 17: pair0 0x75500  pair1 0x72d00

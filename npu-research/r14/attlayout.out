@@ -1,0 +1,11 @@
+
+layouts (bit-identical), delta vs today's model 10.68 ms:
+  pieces of 6 rb ( 3 pieces per column per head): -0.62 ms
+  pieces of 3 rb ( 6 pieces per column per head): -1.00 ms
+  pieces of 2 rb ( 9 pieces per column per head): -1.08 ms
+  pieces of 1 rb (18 pieces per column per head): -1.14 ms
+with the map thinned to the in-situ range (cap 10.9 %, R 450):
+  pieces of 6 rb: -0.54 ms
+  pieces of 3 rb: -0.84 ms
+  pieces of 2 rb: -0.91 ms
+  pieces of 1 rb: -0.96 ms

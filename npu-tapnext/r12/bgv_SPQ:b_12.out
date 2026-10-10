@@ -1,0 +1,11 @@
+II 12: no register allocation at II 12 (copies needed 2, pressure {'dm': 3.1666666666666665, 'x': 7.083333333333333}, maxlive {'dm': 4, 'x': 8})
+Traceback (most recent call last):
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 169, in <module>
+    
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 157, in main
+    for k in range(nr):
+         ^^^^^^^^^^^^^^^
+  File "~/git/app/.scratch/npu-tapnext/r12/gen_bgelu.py", line 105, in build
+    lp = mk(rel)
+^^^^^^^^^^^^^^^^^
+msched.Infeasible: none

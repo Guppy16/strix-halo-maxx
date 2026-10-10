@@ -1,0 +1,16 @@
+tools/attk.py results (laptop, 2026-10-10; msched = npu-tapnext r11/msched.py unmodified [GEN]; cpsched = r12/cpsched.py [CP])
+per iteration = one key block (64 scores) of one row block
+
+qk                                    : ResMII 10 (QEY_WA 10, vec 9)  -> [GEN] II 10, U 1, 4 stages, maxlive x 6 dm 4
+exp, m pinned (2 x), base in x        : ResMII 20 (QEY_RS)           -> [GEN] none to II 48; [CP] none at II 24 (120 s)
+exp, m pinned, --bias-ptr             : ResMII 20                     -> [GEN] II 41
+exp --arg upsadd (-m pinned in dm4)   : ResMII 20                     -> [GEN] II 30 (semantics: only valid per row block call)
+exp --arg upsadd --mload ldb          : ResMII 20 (DM_ADA, mv, QEY_RS) -> [GEN] II 30, U 4, 3 stages, x 9 dm 3
+exp --arg upsadd --mload ldb --bias-ptr: ResMII 20                    -> [GEN] II 26, U 2, 3 stages, x 9 dm 4
+exp --arg upsadd --mload ldb [CP]     : none at II 24 (400 s, H 120); II 26 see cp4.out
+fused --arg upsadd --mload ldb        : ResMII 26 (DM_ADA, ldb)       -> [GEN] none to II 48; [CP] none at 26/28 in 150 s (earlier list)
+fused --arg upsadd --mload ldb --bias-ptr : ResMII 26                 -> [GEN] II 37, U 2, 3 stages, x 10 dm 5
+== exp upsadd mload II 24
+  none
+== exp upsadd mload II 26
+(cp4: the CP runs at exp II 26 and fused II 30 / 32 were stopped unfinished; rerun with a msched hint, see PROPOSALS P53 row)

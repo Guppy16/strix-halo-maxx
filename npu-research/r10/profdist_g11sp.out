@@ -1,0 +1,106 @@
+op kind: mean of per-instance mean cyc/ks | median | instances
+  yx        mean    3039  median    2843  n 12  per-instance means: 3034 3033 3037 3053 3030 3036 3042 3054 3044 3029 3044 3033
+  out       mean    3319  median    2062  n 12  per-instance means: 3297 3322 3319 3310 3317 3323 3334 3318 3334 3319 3315 3315
+  down_a    mean    2591  median    2065  n 12  per-instance means: 2589 2587 2588 2587 2597 2587 2587 2602 2591 2599 2593 2592
+  down_b    mean    2705  median    2064  n 12  per-instance means: 2699 2717 2711 2707 2707 2694 2700 2705 2697 2706 2706 2706
+  qkv       mean    2667  median    2348  n 12  per-instance means: 2663 2673 2662 2663 2668 2674 2668 2663 2661 2666 2674 2674
+  out_proj  mean    3291  median    2060  n 12  per-instance means: 3288 3294 3290 3276 3295 3296 3291 3284 3283 3300 3297 3301
+  mlp3_a    mean    2704  median    2073  n 12  per-instance means: 2702 2709 2707 2701 2705 2700 2701 2703 2705 2708 2703 2705
+  mlp3_b    mean    2695  median    2065  n 12  per-instance means: 2699 2689 2694 2693 2695 2689 2694 2692 2699 2702 2700 2689
+  up_a      mean    2057  median    2058  n 1  per-instance means: 2057
+  up_b      mean    2056  median    2057  n 1  per-instance means: 2056
+  mlp       mean    2376  median    2060  n 1  per-instance means: 2376
+
+down_a5 column 0, records in drain-offset order: cyc/ks  (k-wall - busy)/ks  first-gap  epi
+   off        0     4164      69       51     1290
+   off    28800     2055      69       51     1290
+   off    57600     2064      69       51     1291
+   off    86400     2065      69       51     1290
+   off   115200     4164      69       51     1289
+   off   144000     2055      69       51     1293
+   off   172800     2064      69       51     1291
+   off   201600     2065      69       51     1292
+   off   230400     4164      69       51     1291
+   off   259200     2055      69       51     1290
+   off   288000     2064      69       51     1290
+   off   316800     2065      69       51     1290
+
+out5 column 0, records in drain-offset order: cyc/ks  (k-wall - busy)/ks  first-gap  epi
+   off        0     6567      71       51     1290
+   off    28800     2063      71       51     1291
+   off    57600     2054      71       51     1293
+   off    86400     2053      71       51     1293
+   off   115200     7401      71       51     1290
+   off   144000     2062      71       51     1291
+   off   172800     2054      71       51     1291
+   off   201600     2051      71       51     1290
+   off   230400     7402      71       51     1291
+   off   259200     2062      71       51     1290
+   off   288000     2054      71       51     1291
+   off   316800     2052      71       51     1293
+
+yx5 column 0, records in drain-offset order: cyc/ks  (k-wall - busy)/ks  first-gap  epi
+   off        0     7223      71       51    10980
+   off    28800     2054      71       51    10979
+   off    57600     2058      71       51    10981
+   off    86400     2060      71       51    10978
+   off   115200     2061      71       51    10978
+   off   144000     2052      71       51    10979
+   off   172800     2052      71       51    10979
+   off   201600     2058      71       51    10981
+   off   230400     7225      71       51    10981
+   off   259200     2052      71       51    10978
+   off   288000     2059      71       51    10981
+   off   316800     2059      71       51    10981
+   off   345600     2060      71       51     1292
+   off   374400     2835      71       51     1308
+   off   403200     2858      71       51     1308
+   off   432000     2864      71       51     1290
+   off   460800     7226      71       51     1290
+   off   489600     2833      71       51     1310
+   off   518400     2864      71       51     1310
+   off   547200     2865      71       51     1315
+   off   576000     2866      71       51     1310
+   off   604800     2857      71       51     1307
+   off   633600     2858      71       51     1310
+   off   662400     2864      71       51     1290
+
+qkv5 column 0, records in drain-offset order: cyc/ks  (k-wall - busy)/ks  first-gap  epi
+   off        0     7291      71       51     3695
+   off        0     2335      71       51     3713
+   off        0     2349      71       51     3712
+   off        0     2349      71       51     3714
+   off        0     2355      71       51     3710
+   off        0     2357      71       51     3714
+   off        0     2358      71       51     3713
+   off        0     2348      71       51     3712
+   off        0     2349      71       51     3712
+   off        0     2355      71       51     3708
+   off        0     2358      71       51     3717
+   off        0     2356      71       51     3695
+   off     4608     7291      71       51     3695
+   off     4608     2335      71       51     3713
+   off     4608     2349      71       51     3712
+   off     4608     2349      71       51     3714
+   off     4608     2356      71       51     3708
+   off     4608     2357      71       51     3714
+   off     4608     2357      71       51     3712
+   off     4608     2348      71       51     3712
+   off     4608     2349      71       51     3712
+   off     4608     2355      71       51     3711
+   off     4608     2358      71       51     3717
+   off     4608     2356      71       51     3695
+   off     9216     7294      71       51     7260
+   off     9216     2063      71       51     7261
+   off     9216     2053      71       51     7264
+   off     9216     2053      71       51     7258
+   off     9216     2060      71       51     7257
+   off     9216     2062      71       51     7258
+   off     9216     2062      71       51     7261
+   off     9216     2053      71       51     7263
+   off     9216     2054      71       51     7257
+   off     9216     2059      71       51     7256
+   off     9216     2063      71       51     7260
+   off     9216     2061      71       51     7256
+
+up_a5 column 0, records in drain-offset order: cyc/ks  (k-wall - busy)/ks  first-gap  epi

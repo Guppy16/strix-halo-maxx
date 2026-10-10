@@ -1,0 +1,16 @@
+  today          0.82 ms
+  rb interleave  0.05 ms
+
+cap 0.109: refit T 66 R 450 L 400: rms 0.099; r13f model 49.19 (49.21), r13e 49.71
+  lockstep cost 0.80 ms
+  rb interleave -0.96 ms
+  chunk 22 fast -0.33 ms
+  asm aexp + cheaper rescale -1.12 ms
+  36-iteration -1.26 ms
+
+cap 0.1: refit T 100 R 300 L 410: rms 0.182; r13f model 48.64 (49.21), r13e 49.50
+  lockstep cost 0.44 ms
+  rb interleave -0.50 ms
+  chunk 22 fast -0.35 ms
+  asm aexp + cheaper rescale -0.69 ms
+  36-iteration -1.29 ms

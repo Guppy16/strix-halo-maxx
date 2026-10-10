@@ -1,0 +1,550 @@
+"""TAPNext++ step on the NPU as ONE dispatch of a design8 build, with the real weights.
+
+Runs in npu-iron-torch (pyxrt + torch CPU); mounts: /work = .scratch, /repo = the app checkout (read-only).
+The host does: patch embedding + pos-emb (torch bf16 conv on the CPU) and query tokens -> X0, one dispatch, the heads.
+
+    python3 step8.py smoke  --build full12a [--frames 4]    NPU vs CPU bf16 on a real clip: tokens, tracks
+    python3 step8.py blocks --build full1a                  depth-1 build: every region vs the CPU block
+    python3 step8.py davis  --build full12a [--videos 10]   TAP-Vid DAVIS 'first' AJ
+    python3 step8.py time   --build full12a [--iters 20]    step latency (dispatch, host parts)
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+import types
+
+import numpy as np
+import torch
+from ml_dtypes import bfloat16
+
+sys.path.insert(0, "/opt/xilinx/xrt/python")
+sys.path.insert(0, "/work/npu-tapnext")
+import pyxrt  # noqa: E402
+
+import pack8 as P  # noqa: E402
+from plan8 import COLS, M, OBJ, S, RB, SSM_PARAM_BYTES, UNIT, XB, KSTEP16, full_step  # noqa: E402
+
+HERE = "/work/npu-tapnext"
+REPO = "/repo"
+tn = types.ModuleType("tn")  # the vendored model targets Python 3.14 (lazy annotations); the container is 3.13
+exec(open(f"{REPO}/agent/app/jobs/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
+N_IMG = 1024
+
+
+def f32(t):
+    return t.detach().float().numpy() if isinstance(t, torch.Tensor) else np.asarray(t, np.float32)
+
+
+def load_model(depth):
+    model = tn.TAPNext()
+    tn.load_state(model, f"{REPO}/data/models/tapnextpp_256.safetensors")
+    model.to_half(torch.bfloat16).eval()
+    model.blocks = model.blocks[:depth]
+    return model
+
+
+def col_rows(words, nq=12, unit=UNIT, xoff=0):
+    """One column of a Q16 region ([q][rb][unit] bytes) -> its 144 rows [144, 64 nq] bf16."""
+    u = words.view(np.uint8).reshape(nq, RB, unit)[..., xoff:xoff + XB].view(bfloat16).reshape(nq, RB, 8, 8, 8)
+    return np.ascontiguousarray(u.transpose(1, 3, 0, 2, 4)).reshape(M, nq * 64)
+
+
+def q16_col(x144):
+    """[144, 768] bf16 rows of one column -> the X' parts of that column's Q16 slice (panel parts zero)."""
+    out = np.zeros((12, RB, UNIT), np.uint8)
+    v = np.asarray(x144, bfloat16).reshape(RB, 8, 12, 8, 8).transpose(2, 0, 3, 1, 4)  # [q][rb][cb][row][col]
+    out[..., :XB] = np.ascontiguousarray(v).reshape(12, RB, XB // 2).view(np.uint8)
+    return out.reshape(-1).view(np.uint32)
+
+
+class Step8:
+    def __init__(self, build, depth, n_slots=48):
+        self.depth, self.n_slots = depth, n_slots
+        self.p, self.info = full_step(depth)
+        meta = json.load(open(f"{HERE}/build/{build}.sched.meta"))
+        assert meta["act_words"] == max(self.p.act_bytes, 64) // 4 and meta["reps"] == depth, ("build/plan mismatch", meta)
+        assert open(f"{HERE}/build/{build}.sched").read() == self.p.sched_json(), "stale build: plan8 changed since"
+        self.model = load_model(depth)
+        t0 = time.perf_counter()
+        self.W = np.zeros(meta["w_words"], np.uint32)
+        self.ACT = np.zeros(meta["act_words"], np.uint32)
+        self._pack()
+        print(f"packed W {self.W.nbytes / 1e6:.0f} MB in {time.perf_counter() - t0:.1f} s", flush=True)
+        dev = self.dev = pyxrt.device(0)
+        b = f"{HERE}/build/{build}"
+        self.xb = pyxrt.xclbin(b + ".xclbin")
+        dev.register_xclbin(self.xb)
+        self.ctx = pyxrt.hw_context(dev, self.xb.get_uuid())
+        self.kern = pyxrt.kernel(self.ctx, self.xb.get_kernels()[0].get_name())
+        instr = np.fromfile(b + ".bin", dtype=np.uint32)
+        self.n_instr = len(instr)
+        self.bo_i = pyxrt.bo(dev, instr.nbytes, pyxrt.bo.cacheable, self.kern.group_id(1))
+        self.bo_w = pyxrt.bo(dev, self.W.nbytes, pyxrt.bo.host_only, self.kern.group_id(3))
+        self.bo_a = pyxrt.bo(dev, self.ACT.nbytes, pyxrt.bo.host_only, self.kern.group_id(4))
+        self.bo_i.write(instr.tobytes(), 0)
+        self.bo_w.write(self.W.tobytes(), 0)
+        self.bo_a.write(self.ACT.tobytes(), 0)
+        for bo in (self.bo_i, self.bo_w, self.bo_a):
+            bo.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
+        self.first = True
+        self.last_us = 0.0
+
+    # ---- packing -------------------------------------------------------------------------------------------------
+    def _pack(self):
+        W, ACT, info = self.W, self.ACT, self.info
+        sd = {k: f32(v) for k, v in self.model.state_dict().items()}
+
+        def put_w(off, words):
+            W[off // 4: off // 4 + words.size] = words
+
+        for op in self.p.ops:
+            if op["kind"] == "gemm":
+                b, name = op["name"].split("_", 1)
+                pre = f"blocks.{int(b[1:])}."
+                rb_, mb_, vb_ = pre + "ssm_block.recurrent_block.", pre + "ssm_block.mlp_block.", pre + "vit_block."
+                if name == "yx":
+                    wt, bias = sd[rb_ + "linear_yx.weight"], sd[rb_ + "linear_yx.bias"]
+                elif name == "out":
+                    wt, bias = sd[rb_ + "linear_out.weight"], sd[rb_ + "linear_out.bias"]
+                elif name in ("up_a", "up_b"):
+                    w, bb = sd[mb_ + "ffw_up.weight"], sd[mb_ + "ffw_up.bias"]
+                    wt, bias = P.interleave_gated(w[:3072], w[3072:], bb[:3072], bb[3072:])
+                    h = slice(0, 3072) if name == "up_a" else slice(3072, 6144)
+                    wt, bias = wt[h], bias[h]
+                elif name in ("down_a", "down_b"):
+                    w = sd[mb_ + "ffw_down.weight"]
+                    wt = w[:, :1536] if name == "down_a" else w[:, 1536:]
+                    bias = sd[mb_ + "ffw_down.bias"]
+                elif name == "qkv":
+                    wt, bias = sd[vb_ + "self_attention.in_proj_weight"], sd[vb_ + "self_attention.in_proj_bias"]
+                elif name == "out_proj":
+                    wt, bias = sd[vb_ + "self_attention.out_proj.weight"], sd[vb_ + "self_attention.out_proj.bias"]
+                elif name == "mlp0":
+                    wt, bias = sd[vb_ + "mlp.0.weight"], sd[vb_ + "mlp.0.bias"]
+                elif name in ("mlp3_a", "mlp3_b"):
+                    w = sd[vb_ + "mlp.3.weight"]
+                    wt = w[:, :1536] if name == "mlp3_a" else w[:, 1536:]
+                    bias = sd[vb_ + "mlp.3.bias"]
+                else:
+                    raise KeyError(op["name"])
+                put_w(op["w"], P.pack_gemm(op, np.ascontiguousarray(wt), bias))
+                # timing experiments: EPI_OVERRIDE="mlp0:0,yx:0" rewrites the epilogue flag of every tile of those ops
+                for item in filter(None, os.environ.get("EPI_OVERRIDE", "").split(",")):
+                    nm, flag = item.split(":")
+                    if name == nm:
+                        for pos in range(3 * op["nt"]):
+                            W[(op["w"] + (pos + 1) * op["lw"] - OBJ + 1024) // 4] = int(flag)
+            elif op.get("fn") == "norm":
+                if op["name"] == "final":
+                    put_w(op["params_w"], P.norm_params("ln", sd["encoder_norm.weight"], sd["encoder_norm.bias"], n_in=op["n_in"]))
+                    continue
+                b, name = op["name"].split("_", 1)
+                pre = f"blocks.{int(b[1:])}."
+                if name in ("norm0", "norm1"):
+                    key = pre + "ssm_block." + ("temporal_pre_norm" if name == "norm0" else "channel_pre_norm") + ".scale"
+                    put_w(op["params_w"], P.norm_params("rms", sd[key], n_in=op["n_in"]))
+                else:
+                    ln = pre + "vit_block." + ("ln_1" if name == "norm2" else "ln_2")
+                    put_w(op["params_w"], P.norm_params("ln", sd[ln + ".weight"], sd[ln + ".bias"], n_in=op["n_in"]))
+            elif op.get("fn") == "ssm":
+                pre = f"blocks.{int(op['name'].split('_')[0][1:])}.ssm_block.recurrent_block."
+                cw, cb = sd[pre + "conv_1d.w"], sd[pre + "conv_1d.b"]
+                ap = sd[pre + "rg_lru.a_param"]
+                wx, bx = sd[pre + "rg_lru.input_gate.w"], sd[pre + "rg_lru.input_gate.b"].reshape(-1)
+                wa, ba = sd[pre + "rg_lru.a_gate.w"], sd[pre + "rg_lru.a_gate.b"].reshape(-1)
+                for q in range(12):
+                    sl = slice(q * 64, q * 64 + 64)
+                    put_w(op["params_w"] + q * SSM_PARAM_BYTES, P.ssm_params(q, cw[:, sl], cb[sl], ap[sl], wx[q], bx[sl], wa[q], ba[sl], 1))
+
+    # ---- per-frame host work --------------------------------------------------------------------------------------
+    def _sync_to(self, bo, byte_off, nbytes):
+        bo.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE, nbytes, byte_off)
+
+    def _write_act(self, byte_off, words):
+        self.bo_a.write(words.tobytes(), byte_off)
+        self._sync_to(self.bo_a, byte_off, words.nbytes)
+
+    def set_first(self, first):
+        """The SSM ops' `first` header word (RG-LRU without state, zero conv cache) for every block and head."""
+        one = np.array([1 if first else 0], np.uint32)
+        for op in self.p.ops:
+            if op["kind"] == "ew" and op["fn"] == "ssm":
+                for q in range(12):
+                    off = op["params_w"] + q * SSM_PARAM_BYTES
+                    self.bo_w.write(one.tobytes(), off)
+                    self._sync_to(self.bo_w, off, 64)
+        self.first = first
+
+    def reset(self):
+        """A new video: zero every block's SSM area (conv cache and h) and mark the next frame first."""
+        for a in self.info["areas"]:
+            self._write_act(a["base"], np.zeros(COLS * 8 * S // 4, np.uint32))
+        self.set_first(True)
+
+    def put_x0(self, frame, queries):
+        """The block input X0 = [patch embedding + pos-emb (1024 image rows); query tokens; zero padding], computed
+        on the CPU exactly as torch does in bf16 (the conv is 0.2 ms), written as the X' parts of the X0 region."""
+        m = self.model
+        with torch.no_grad():
+            x = m.lin_proj(frame.permute(2, 0, 1)[None].to(torch.bfloat16))[0].flatten(1).transpose(0, 1) + m.image_pos_emb[0]
+            tok = m.embed_queries(queries).to(x.dtype)
+        rows = torch.zeros(COLS * M, 768, dtype=torch.bfloat16)
+        rows[:N_IMG] = x
+        rows[N_IMG:N_IMG + tok.shape[0]] = tok
+        self._write_act(self.info["x0"]["base"], P.to_q16(rows.view(torch.int16).numpy().view(bfloat16)))
+
+    def read_col(self, region, col=7, nq=12, xoff=0):
+        off, n = region["base"] + col * region["col"], nq * KSTEP16
+        self.bo_a.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, n, off)
+        return col_rows(np.frombuffer(self.bo_a.read(n, off), np.uint32), nq=nq, xoff=xoff)
+
+    def read_all(self):
+        self.bo_a.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE)
+        return np.frombuffer(self.bo_a.read(self.ACT.nbytes, 0), np.uint32)
+
+    def dispatch(self, timeout_ms=3000):
+        t0 = time.perf_counter()
+        r = self.kern(3, self.bo_i, self.n_instr, self.bo_w, self.bo_a)
+        st = r.wait(timeout_ms * 1000)
+        self.last_us = (time.perf_counter() - t0) * 1e6
+        if str(st) != "ert_cmd_state.ERT_CMD_STATE_COMPLETED":
+            raise RuntimeError(f"dispatch failed: {st} after {self.last_us:.0f} us")
+
+    def step(self, frame, queries):
+        """frame [256, 256, 3] in [-1, 1]; queries [1, Q, 3] (t relative to this frame). Returns tracks, logits, vis
+        and the encoder-normed query tokens."""
+        self.put_x0(frame, queries)
+        self.dispatch()
+        if self.first:
+            self.set_first(False)
+        q = queries.shape[1]
+        x = self.read_col(self.info["final"])[16:16 + q]
+        with torch.no_grad():
+            tracks, logits, vis = self.model.heads(torch.from_numpy(x.astype(np.float32)))
+        return tracks, logits, vis, x
+
+
+def preprocess(frames_u8, res=256):
+    import torch.nn.functional as F
+    t = torch.from_numpy(np.ascontiguousarray(frames_u8)).permute(0, 3, 1, 2).float()
+    t = F.interpolate(t, size=(res, res), mode="bilinear", align_corners=False)
+    return (t / 127.5 - 1.0).permute(0, 2, 3, 1).contiguous()
+
+
+def cpu_step_tokens(model, frame, queries, caches):
+    """The CPU bf16 step, also returning the encoder-normed query tokens."""
+    out = {}
+    h = model.encoder_norm.register_forward_hook(lambda m, i, o: out.__setitem__("x", o))
+    try:
+        tracks, logits, vis, caches = model.step(frame, queries, caches)
+    finally:
+        h.remove()
+    return tracks, logits, vis, caches, f32(out["x"])
+
+
+def demo_queries(n=48):
+    q = [[0.0, 100.0, 100.0], [0.0, 200.0, 60.0], [0.0, 50.0, 220.0], [0.0, 128.0, 128.0]]
+    return torch.tensor([q + [[10000.0, 0.0, 0.0]] * (n - len(q))])
+
+
+def smoke(o):
+    frames = np.load("/work/tapnet/data/clip30.npy")[: o.frames]
+    video = preprocess(frames)
+    s = Step8(o.build, o.depth)
+    ref = load_model(o.depth)
+    q = demo_queries()
+    s.reset()
+    caches = None
+    with torch.no_grad():
+        for t in range(len(video)):
+            rel = torch.cat([q[..., :1] - t, q[..., 1:]], -1)
+            tr_n, _, vis_n, x_n = s.step(video[t], rel)
+            tr_c, _, vis_c, caches, x_c = cpu_step_tokens(ref, video[t], rel, caches)
+            xq = x_c[N_IMG:N_IMG + 48]
+            d = np.abs(x_n.astype(np.float32) - xq)
+            corr = np.corrcoef(x_n.astype(np.float32).ravel(), xq.ravel())[0, 1]
+            print(f"frame {t}: dispatch {s.last_us / 1e3:.1f} ms; tokens corr {corr:.5f} rms_rel {np.sqrt((d ** 2).sum() / (xq ** 2).sum()):.3e}"
+                  f" max {d.max():.3f}; tracks max|d| {(tr_n[:4] - tr_c[:4]).abs().max():.3f} px", flush=True)
+            print(f"   NPU {tr_n[:4].numpy().round(2).tolist()} vis {vis_n[:4].numpy().round(2).tolist()}")
+            print(f"   CPU {tr_c[:4].numpy().round(2).tolist()} vis {vis_c[:4].numpy().round(2).tolist()}")
+
+
+def blocks(o):
+    """depth-1 build: compare every region of block 0 against the CPU block (first frame, then a second frame)."""
+    assert o.depth == 1
+    frames = np.load("/work/tapnet/data/clip30.npy")[:2]
+    video = preprocess(frames)
+    s = Step8(o.build, 1)
+    m = load_model(1)
+    q = demo_queries()
+    s.reset()
+    caches = None
+    r = s.info["regions"]
+    for t in range(2):
+        rel = torch.cat([q[..., :1] - t, q[..., 1:]], -1)
+        s.step(video[t], rel)
+        act = s.read_all()
+        with torch.no_grad():
+            x = m.lin_proj(video[t].permute(2, 0, 1)[None].to(torch.bfloat16))[0].flatten(1).transpose(0, 1) + m.image_pos_emb[0]
+            x = torch.cat([x, m.embed_queries(rel).to(x.dtype)])
+            blk = m.blocks[0]
+            sb = blk.ssm_block
+            t0 = sb.temporal_pre_norm(x)
+            rec = sb.recurrent_block
+            y, xx = rec.linear_yx(t0).chunk(2, dim=-1)
+            yg = tn.gelu(y)
+            xc, conv = rec.conv_1d(xx, None if caches is None else caches[0].conv)
+            xl, lru = rec.rg_lru(xc, None if caches is None else caches[0].lru)
+            hh = rec.linear_out(xl * yg)
+            res = hh + x
+            l1 = sb.channel_pre_norm(res)
+            x1 = sb.mlp_block(l1) + res
+            vb = blk.vit_block
+            a = vb.self_attention(vb.ln_1(x1))
+            x2 = x1 + a
+            x3 = x2 + vb.mlp(vb.ln_2(x2))
+            fin = m.encoder_norm(x3)
+            caches = [tn.BlockCache(lru=lru, conv=conv)]
+        R = 1072
+
+        def words(region, nq=12):  # the region's per-column slices, concatenated (regions may be strided, e.g. SSM areas)
+            return np.concatenate([act[(region["base"] + c * region["col"]) // 4:][: nq * KSTEP16 // 4] for c in range(COLS)])
+
+        def get(region, nq=12):
+            return P.from_q16(words(region, nq), ncols=nq * 64)[:R]
+
+        def cmp(label, got, ref):
+            g, e = np.asarray(got, np.float32)[:R], f32(ref)[:R]
+            err = g - e
+            corr = np.corrcoef(g.ravel(), e.ravel())[0, 1]
+            print(f"  {label:28s} corr {corr:.5f} rms_rel {np.sqrt((err ** 2).sum() / max((e ** 2).sum(), 1e-30)):.3e} max|err| {np.abs(err).max():.3e}")
+
+        def pan(region, nq=12):
+            return P.decode_rows(np.ascontiguousarray(P.panels_from_q16(words(region, nq), ncols=nq * 64, pan_off=region["pan_off"])))
+
+        print(f"frame {t}:")
+        cmp("x0 (R0 X')", get(r["R0"]), x)
+        cmp("t = rmsnorm (R0 panels)", pan(r["R0"]), t0)
+        area = s.info["areas"][0]
+        yx = get(area["yx"], nq=24)
+        cmp("y gelu (YX y)", yx[:, :768], yg)
+        cmp("x (YX x)", yx[:, 768:], xx)
+        cmp("z panels", pan(area["z"]), xl * yg)
+        cmp("h = linear_out (R1)", get(r["R1"]), hh)
+        cmp("residual (R2 X')", get(r["R2"]), res)
+        cmp("channel norm (R2 panels)", pan(r["R2"]), l1)
+        cmp("x1 (R3 X')", get(r["R3"]), x1)
+        cmp("ln_1 (R3 panels)", pan(r["R3"]), vb.ln_1(x1))
+        cmp("attn out_proj (R4)", get(r["R4"]), a)
+        cmp("x2 (R5 X')", get(r["R5"]), x2)
+        cmp("ln_2 (R5 panels)", pan(r["R5"]), vb.ln_2(x2))
+        cmp("final LN", get(s.info["final"]), fin)
+
+
+def davis(o):
+    # davis.py imports tnpp (the repo model); only its loader, query sampling and metrics are needed (as davis_cpu.py)
+    src = "\n".join(line for line in open("/work/tapnet/davis.py").read().split("\n") if "import tnpp" not in line)
+    dv = types.ModuleType("dv")
+    dv.__dict__["__file__"] = "/work/tapnet/davis.py"
+    exec(src.split("def track_video")[0], dv.__dict__)
+    dv.ROOT = __import__("pathlib").Path("/work/tapnet")
+    data = dv.load_davis(dv.ROOT / "data" / "tapvid_davis.zip")
+    names = sorted(data.keys())[: o.videos]
+    s = Step8(o.build, o.depth)
+    per_video, ms, kus = [], [], []
+    for name in names:
+        d = data[name]
+        frames = d["video"]
+        T = frames.shape[0]
+        pts = d["points"] * np.array([256.0, 256.0])
+        qp, gt_tracks, gt_occ = dv.sample_queries_first(d["occluded"], pts)
+        Q = qp.shape[1]
+        qq = qp
+        if o.support:  # co-tracked grid points per query (davis_cpu.py's add_support), discarded on output
+            qq = dv.add_support(torch.from_numpy(qp.astype(np.float32)), o.support, 8.0).numpy()
+        n = qq.shape[1]
+        assert n <= o.slots <= 128, (n, o.slots)
+        q = torch.from_numpy(qq.astype(np.float32))
+        q = torch.cat([q, torch.full((1, o.slots - n, 3), 10000.0)], 1) if n < o.slots else q
+        video = preprocess(frames)
+        s.reset()
+        tr, vl, kk = [], [], []
+        t1 = time.perf_counter()
+        for t in range(T):
+            rel = torch.cat([q[..., :1] - t, q[..., 1:]], -1)
+            tracks, _, vis, _ = s.step(video[t], rel)
+            kk.append(s.last_us)
+            tr.append(tracks[:Q].clone())
+            vl.append(vis[:Q].clone())
+        ms.append((time.perf_counter() - t1) * 1e3 / T)
+        kus.append(float(np.median(kk)))
+        tracks = torch.stack(tr).numpy()
+        vis = torch.stack(vl).numpy()
+        pred_tracks = tracks[..., ::-1].transpose(1, 0, 2)[None]
+        pred_occ = ~(vis > 0).T[None]
+        m = dv.compute_tapvid_metrics(qp, gt_occ, gt_tracks, pred_occ, pred_tracks)
+        per_video.append({k: float(np.mean(v)) for k, v in m.items()})
+        print(f"{name:24s} T={T:3d} Q={Q:3d} AJ={per_video[-1]['average_jaccard'] * 100:5.1f} OA={per_video[-1]['occlusion_accuracy'] * 100:5.1f} "
+              f"{ms[-1]:.0f} ms/f (dispatch {kus[-1] / 1e3:.1f} ms)", flush=True)
+    agg = {k: round(float(np.mean([v[k] for v in per_video])) * 100, 2) for k in per_video[0]}
+    row = dict(mode="npu_step8", build=o.build, depth=o.depth, support=o.support, slots=o.slots, videos=len(names), ms_per_frame=round(float(np.median(ms)), 1),
+               dispatch_ms=round(float(np.median(kus)) / 1e3, 2), **agg)
+    with open(f"{HERE}/davis_npu.jsonl", "a") as f:
+        f.write(json.dumps(row) + "\n")
+    print("RESULT", json.dumps(row))
+
+
+def timing(o):
+    frames = np.load("/work/tapnet/data/clip30.npy")[:2]
+    video = preprocess(frames)
+    s = Step8(o.build, o.depth)
+    q = demo_queries()
+    s.reset()
+    tk, th = [], []
+    for it in range(o.warmup + o.iters):
+        t0 = time.perf_counter()
+        rel = torch.cat([q[..., :1] - it, q[..., 1:]], -1)
+        s.step(video[it % 2], rel)
+        if it >= o.warmup:
+            th.append((time.perf_counter() - t0) * 1e3)
+            tk.append(s.last_us / 1e3)
+    busy = open("/sys/class/drm/card1/device/gpu_busy_percent").read().strip() if os.path.exists("/sys/class/drm/card1/device/gpu_busy_percent") else "?"
+    print(f"TIME {o.build}: dispatch median {np.median(tk):.2f} min {min(tk):.2f} ms; whole step (host incl.) median {np.median(th):.2f} ms; "
+          f"iters {o.iters} gpu_busy% {busy}")
+
+
+def tap_ends(t):
+    """First and last byte offset a plan8 TAP touches (sizes/strides in bytes, inner stride 1)."""
+    last = t["off"] + sum((n - 1) * st for n, st in zip(t["sizes"][:3], t["strides"][:3])) + t["sizes"][3] - 4
+    return t["off"], last
+
+
+def op_marks(op):
+    """(first, last) byte offsets of column 0's output of an op: the first and last word its drain writes."""
+    c = op["c"]
+    if op["kind"] == "attn":
+        return tap_ends(c[0][0])[0], tap_ends(c[-1][0])[1]
+    c0 = c[0]
+    if isinstance(c0, list):  # qkv: 12 drains per column
+        return tap_ends(c0[0])[0], tap_ends(c0[-1])[1]
+    return tap_ends(c0)
+
+
+def timeline(o):
+    """Per-op timeline of one dispatch, measured from the host: a thread-free loop polls the first and last word of
+    every op's column-0 output in the mapped ACT buffer while the NPU runs and records when each changes."""
+    frames = np.load("/work/tapnet/data/clip30.npy")[:3]
+    video = preprocess(frames)
+    s = Step8(o.build, o.depth)
+    q = demo_queries()
+    s.reset()
+    for t in range(2):  # warm frames (the probed frame is not the first: the SSMs run their recurrent path)
+        s.step(video[t], torch.cat([q[..., :1] - t, q[..., 1:]], -1))
+    mv = np.frombuffer(s.bo_a.map(), np.uint32)
+    ops = s.p.ops
+    marks = [op_marks(op) for op in ops]
+    addrs = sorted({a // 4 for m in marks for a in m})
+    idx = np.array(addrs)
+    # every address is written once per block by the same op kind (shared regions) or once (per-block areas):
+    # assign the k-th change of an address to the k-th op (in plan order) that has it as a mark
+    users = {a: [] for a in addrs}
+    for i, (f, l) in enumerate(marks):
+        users[f // 4].append((i, 0))
+        users[l // 4].append((i, 1))
+    detail = os.environ.get("DETAIL")  # e.g. DETAIL=b5_mlp0: also watch the start of every C object of that op (col 0)
+    extra = []
+    if detail:
+        op = next(op for op in ops if op["name"] == detail)
+        if op["kind"] == "ew" and op["fn"] == "ssm":  # the SSM: each head's first output word (C0, rb 0) in columns 0 and 7
+            base = op["area"]["base"]
+            extra = [base + c * 8 * S + 2 * S + q * KSTEP16 + rb * UNIT for c in (0, 7) for q in range(12) for rb in (0, 17)]
+        elif op["kind"] == "ew":  # an EW op: the first and last word of every column's output
+            extra = [e for c in range(COLS) for e in tap_ends(op["c"][c])]
+        else:
+            t = op["c"][0]
+            f0 = t["off"]
+            extra = [f0 + i * t["strides"][0] + j * t["strides"][1] for j in range(t["sizes"][1]) for i in range(t["sizes"][0])]
+        addrs = sorted(set(addrs) | {a // 4 for a in extra})
+        idx = np.array(addrs)
+        users.update({a // 4: users.get(a // 4, []) for a in extra})
+    rel = torch.cat([q[..., :1] - 2, q[..., 1:]], -1)
+    s.put_x0(video[2], rel)
+    prev = mv[idx].copy()
+    changes = {a: [] for a in addrs}
+    t0 = time.perf_counter()
+    r = s.kern(3, s.bo_i, s.n_instr, s.bo_w, s.bo_a)
+    done = pyxrt.ert_cmd_state.ERT_CMD_STATE_COMPLETED
+    polls = 0
+    while True:
+        st = r.state()
+        now = time.perf_counter()
+        for a in addrs:  # host_only memory is cached on the CPU side: invalidate each probed line
+            s.bo_a.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, 64, (a * 4) // 64 * 64)
+        cur = mv[idx]
+        diff = np.nonzero(cur != prev)[0]
+        for j in diff:
+            changes[addrs[j]].append((now - t0) * 1e3)
+        prev = cur.copy()
+        polls += 1
+        if st == done or now - t0 > 5:
+            break
+    t_end = (time.perf_counter() - t0) * 1e3
+    if detail:
+        print(f"object write times of {detail} (column 0, drain order; every change of the word, ms):")
+        for a in extra:
+            print(f"  +{a - extra[0]:9d} B: " + " ".join(f"{tm:.2f}" for tm in changes[a // 4]))
+    print(f"dispatch {t_end:.1f} ms, {polls} polls ({t_end / polls * 1e3:.0f} us each), {len(addrs)} addresses")
+    ev = {}  # (op, 0/1) -> time
+    for a in addrs:
+        for (key, tm) in zip(users[a], changes[a]):
+            ev[key] = tm
+    rows, last_end = [], 0.0
+    for i, op in enumerate(ops):
+        f, l = ev.get((i, 0)), ev.get((i, 1))
+        kind = op["kind"] if op["kind"] != "ew" else op["fn"]
+        rows.append((op["name"], kind, f, l))
+    print(f"{'op':18s} {'kind':6s} {'first':>8s} {'last':>8s} {'gap':>7s} {'span':>7s}  (ms; gap = first - previous op's last)")
+    for name, kind, f, l in rows:
+        fs = f"{f:8.2f}" if f is not None else "       -"
+        ls = f"{l:8.2f}" if l is not None else "       -"
+        gap = f"{f - last_end:7.2f}" if f is not None else "      -"
+        span = f"{l - f:7.2f}" if (f is not None and l is not None) else "      -"
+        print(f"{name:18s} {kind:6s} {fs} {ls} {gap} {span}")
+        if l is not None:
+            last_end = l
+    # per kind: sum of (last - previous last) = the op's share of the wall time
+    share, prev_l = {}, 0.0
+    for name, kind, f, l in rows:
+        if l is None:
+            continue
+        k = kind if kind != "gemm" else "gemm:" + name.split("_", 1)[-1]
+        share[k] = share.get(k, 0.0) + (l - prev_l)
+        prev_l = l
+    print("wall-time share by op (last word to last word):")
+    for k, v in sorted(share.items(), key=lambda kv: -kv[1]):
+        print(f"  {k:16s} {v:8.2f} ms")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cmd", choices=["smoke", "blocks", "davis", "time", "timeline"])
+    ap.add_argument("--build", required=True)
+    ap.add_argument("--depth", type=int, default=None)
+    ap.add_argument("--frames", type=int, default=4)
+    ap.add_argument("--videos", type=int, default=10)
+    ap.add_argument("--iters", type=int, default=20)
+    ap.add_argument("--warmup", type=int, default=5)
+    ap.add_argument("--support", type=int, default=0, help="davis: support points per query")
+    ap.add_argument("--slots", type=int, default=48, help="davis: query rows (tokens); a build with --attn-keys 1152 for 128")
+    o = ap.parse_args()
+    if o.depth is None:
+        o.depth = json.load(open(f"{HERE}/build/{o.build}.sched.meta"))["reps"]
+    torch.set_num_threads(int(os.environ.get("THREADS", "8")))
+    dict(smoke=smoke, blocks=blocks, davis=davis, time=timing, timeline=timeline)[o.cmd](o)
+
+
+if __name__ == "__main__":
+    main()

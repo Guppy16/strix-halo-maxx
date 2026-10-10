@@ -1,0 +1,37 @@
+ bytes  bund   B/b  nop  nopB  16B pack<=  function  <- callers
+  2768   573   4.8  232   472   18    310  ew_ssm  <- 
+  2624   431   6.1  104   214   28    354  _ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE  <- 
+  1968   340   5.8  101   208   20    194  _ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE  <- 
+   784   133   5.9    9    18    2     28  _ZN4ssm9L10sqrt_lut_nEP8bfloat16i  <- ew_ssm x1
+   672   127   5.3   31    62    1     36  _ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_  <- _ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x2
+   528    96   5.5   23    46    3     60  ew_norm  <- 
+   512    69   7.4   13    26   10     56  _ZN4ssm9L6exp_pDEPK8bfloat16S2_PS0_  <- ew_ssm x1
+   496    69   7.2   16    46   10     86  _ZN4ssm9L6exp_pCEPK8bfloat16S2_PKsPS0_S5_  <- ew_ssm x1
+   480    88   5.5   26    52    2     48  _ZL10ssm_tablesv  <- ew_ssm x1
+   480    81   5.9   13    28    3     36  _ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEPS4_  <- ew_ssm x2
+   464    82   5.7   31    76    7     90  _ZN4ssm9L6exp_pBEPK8bfloat16PS0_S3_  <- ew_ssm x1
+   432   118   3.7   58   120    1     20  _ZL7rsqrt_iN3aie6vectorI8bfloat16Lj32EEES2_  <- _ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_ x1, _ZL8rms_rstdN3aie5accumIu10__accfloatLj32EEENS_6vectorI8bfloat16Lj32EEE x1
+   336    77   4.4   34    68    2     44  _ZL7in_partPKji  <- ew_ssm x7
+   336    63   5.3   15    46    4     44  _ZN4ssm9L6exp_pAEPK8bfloat16PS0_Ps  <- ew_ssm x1
+   288    54   5.3   13    28    2     22  _ZL8out_copyPjiPK8bfloat16i  <- ew_ssm x5
+   272    57   4.8   27    64    5     54  _ZN4ssm9L6loga_pEP8bfloat16PKN3aie6vectorIS0_Lj32EEE  <- ew_ssm x1
+   256    61   4.2   24    48    1     14  ew_op  <- main x1
+   240    45   5.3   16    32    1     20  _ZL8rms_rstdN3aie5accumIu10__accfloatLj32EEENS_6vectorI8bfloat16Lj32EEE  <- _ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x2
+   208    21   9.9    4    24    9    118  _ZL6copy_vP8bfloat16PKS_i  <- _ZL8out_copyPjiPK8bfloat16i x1
+   208    42   5.0   10    20    0     10  _ZL7out_endPji  <- _ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1, _ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1
+   176    38   4.6   13    26    1     22  main  <- _main_init x1
+   176    39   4.5   16    32    0     10  _ZL7in_donePji  <- ew_norm x2, _ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1, _ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1, ew_ssm x2
+   176    23   7.7    0     0    3     32  sigk_start  <- 
+   160    34   4.7   15    32    1     26  _ZL7in_copyPKjPvii  <- ew_norm x2, ew_ssm x3
+   160    35   4.6   19    40    2     28  _ZL8bias_tabPK8bfloat16PN3aie6vectorIS_Lj64EEE  <- _ZL10ssm_tablesv x1
+   160    29   5.5   13    32    3     26  _ZL7rowsum8N3aie5accumIu10__accfloatLj32EEE  <- _ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x4, _ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x2
+   160    38   4.2   17    34    0     14  _ZL9out_beginPji  <- _ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1, _ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1
+   144    35   4.1   10    32    0     12  sigk  <- ew_ssm x1
+   144    35   4.1    0     0    0      2  __udivsi3  <- _ZL9out_beginPji x1, _ZL7out_endPji x1
+   128    36   3.6   17    34    0      4  _ZL4mul3RKN3aie5accumIu10__accfloatLj32EEE8bfloat16S4_S4_  <- _ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_ x2, _ZL8rms_rstdN3aie5accumIu10__accfloatLj32EEENS_6vectorI8bfloat16Lj32EEE x1
+   126    25   5.0   14    44    3     30  _main_init  <- __start x1
+   112    31   3.6   19    38    0      6  _ZL7in_needPKji  <- ew_norm x1, _ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1, _ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE x1, ew_ssm x2, ew_op x1
+    32     7   4.6    5    20    0     10  __start  <- 
+    32     8   4.0    6    12    1     12  sigk_last  <- 
+ 16238 total; nop bundles 964 = 2074 B; full-form bundles 143
+bundle sizes: 2 B x939, 4 B x940, 6 B x467, 8 B x163, 10 B x256, 12 B x101, 14 B x31, 16 B x143

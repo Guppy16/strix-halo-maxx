@@ -1,0 +1,211 @@
+"""Round 11: the GELU-by-table epilogue loop as a hand modulo schedule (r11/msched.py).
+
+Same arithmetic as mm8.cc gelu_lut_i (bit-identical): per 32 lanes
+    xc = clamp(x, LO, HI); idx = floor(xc * 2^7) (byte offsets, 16 B per segment) + table bases + bias
+    (offset fp32, slope bf16) = LUT(idx) (4 x vldb.4x64 per 16 lanes, both table copies)
+    s = offset + slope * xc; sh = bf16(s); sl = bf16(s - sh); out = bf16(x * sh + x * sl)
+Slots per 32 lanes: mv 9 (vmin, vmax, 2 vadd.32, 4 vshuffle, 1 vmov), ldb 8 (LUT), st 5 (2 vfloor, 2 vconv, vst.conv),
+vec 4, lda 2 (x, and x reloaded for the final product so it need not live in a register across the chain).
+The clamp takes the constant FIRST (vmin_ge HI, x): a NaN then clamps to HI, so garbage over-reads past the end of the
+data (the drain iterations) always index inside the table.
+
+    extern "C" void gelu_ms(const bfloat16 *in /*p0*/, bfloat16 *out /*p1*/, int trips /*r0*/, const float *ab /*p2*/,
+                            const float *cd /*p3*/, int jump /*r1*/)
+processes 32 lanes x U x trips: 8 vectors at a 64 B stride, then `jump` bytes (64 = contiguous, 576 = the first half of
+consecutive 1 KB pieces); in place allowed (out = in).
+
+    python3 r11/gen_gelu.py OUT.s [--ii N] [--probe K] [--func NAME] [--banks]   (prints the schedule report)
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from msched import Infeasible, Loop  # noqa: E402
+from msched import Op as _Op  # noqa: E402
+
+INSTR = {  # op name (prefix) -> the .td instruction (its itinerary's ports are reserved by the scheduler)
+    "L": "VLDA_2D_dmx_lda_x", "R": "VLDA_2D_dmx_lda_x", "XL": "VLDA_2D_dmx_lda_x", "XS": "VST_2D_dmx_sts_x",
+    "MN": "VMIN_GE_bf16", "MX": "VMAX_LT_bf16", "F0": "VFLOOR_s32_bf16_mv_float_to_int_w", "F1": "VFLOOR_s32_bf16_mv_float_to_int_w",
+    "A0": "VADD_32", "A1": "VADD_32", "LA": "VLDB_4x64_lo", "LB": "VLDB_4x64_hi", "LC": "VLDB_4x64_lo", "LD": "VLDB_4x64_hi",
+    "SO": "VSHUFFLE_vec_shuffle_bm", "SS": "VSHUFFLE_vec_shuffle_x", "MV": "VMOV_alu_mv_mv_w",
+    "S": "VMAC_f_vmac_bf_vmul_bf_core_X_X", "D": "VMAC_f_vmac_bf_vmul_bf_core_X_X", "Q": "VMAC_f_vmac_bf_vmul_bf_core_X_X",
+    "P": "VMUL_f_vmul_bf_vmul_bf_core_X_X", "SH": "VCONV_bf16_fp32_mv_x_srs_bf", "SL": "VCONV_bf16_fp32_mv_x_srs_bf",
+    "ST": "VST_2D_CONV_bf16_fp32_dmx_sts_srs_bf",
+}
+
+
+def Op(name, *a, **k):
+    if "instr" not in k:
+        base = name if name in INSTR else name.rstrip("0123456789")
+        k["instr"] = INSTR[base]
+    return _Op(name, *a, **k)
+
+C_HI, C_LO, C_BASE, C_M1 = 8, 9, 10, 11  # constant x registers
+X_FREE = [0, 1, 2, 3, 4, 5, 6, 7]
+DM_FREE = [0, 1, 2, 3, 4]
+SCALE = {"in": 0, "out": 1, "re": 2}  # 2D modifier register per stream: d0 / d1 / d2
+
+
+def ops(banks=None):
+    """one iteration (32 lanes). banks: dict stream / table -> bank number (None: no bank constraints)"""
+    b = banks or {}
+    bk = lambda *names: tuple(b[n] for n in names if n in b)  # noqa: E731
+    o = [
+        Op("L", "lda", "vlda.2d {x.x}, [p0], d0", defs=[("x", "x", 7)], mem=("ld", "in"), banks=bk("in")),
+        Op("MN", "mv", f"vmin_ge.bf16 {{t.x}}, r16, x{C_HI}, {{x.x}}", defs=[("t", "x", 2)], uses=[("x", "x", 1)]),
+        Op("MX", "mv", f"vmax_lt.bf16 {{xc.x}}, r16, x{C_LO}, {{t.x}}", defs=[("xc", "x", 2)], uses=[("t", "x", 1)]),
+        # xc is needed again by the s MAC ~20 cycles later: through a 4-slot ring on the stack (st + lda slots, no mv op)
+        Op("XS", "st", "vst.2d {xc.x}, [p2], d3", uses=[("xc", "x", 1)], mem=("st", "ring"), spill=("xc", "x"), banks=bk("ring")),
+        Op("XL", "lda", "vlda.2d {xc2.x}, [p3], d4", defs=[("xc2", "x", 7)], mem=("ld", "ringr"), fill=("xc", "x"),
+           after=[("XS", 8)], banks=bk("ring")),
+        Op("F0", "st", "vfloor.s32.bf16 {i0.x}, {xc.wl}, s0", defs=[("i0", "x", 2)], uses=[("xc", "wl", 1)]),
+        Op("F1", "st", "vfloor.s32.bf16 {i1.x}, {xc.wh}, s0", defs=[("i1", "x", 2)], uses=[("xc", "wh", 1)]),
+        Op("A0", "mv", f"vadd.32 {{j0.x}}, {{i0.x}}, x{C_BASE}", defs=[("j0", "x", 2)], uses=[("i0", "x", 1)]),
+        Op("A1", "mv", f"vadd.32 {{j1.x}}, {{i1.x}}, x{C_BASE}", defs=[("j1", "x", 2)], uses=[("i1", "x", 1)]),
+    ]
+    for h in (0, 1):
+        j, c0, c1 = f"j{h}", f"c0{h}", f"c1{h}"
+        tb = bk("ab", "cd")
+        o += [
+            Op(f"LA{h}", "ldb", f"vldb.4x64.lo {{{c0}.wl}}, {{{j}.wl}}", defs=[(c0, "wl", 7)], uses=[(j, "wl", 1)], banks=tb),
+            Op(f"LB{h}", "ldb", f"vldb.4x64.hi {{{c0}.wh}}, {{{j}.wl}}", defs=[(c0, "wh", 7)], uses=[(j, "wl", 1)], banks=tb),
+            Op(f"LC{h}", "ldb", f"vldb.4x64.lo {{{c1}.wl}}, {{{j}.wh}}", defs=[(c1, "wl", 7)], uses=[(j, "wh", 1)], banks=tb),
+            Op(f"LD{h}", "ldb", f"vldb.4x64.hi {{{c1}.wh}}, {{{j}.wh}}", defs=[(c1, "wh", 7)], uses=[(j, "wh", 1)], banks=tb),
+            Op(f"SO{h}", "mv", f"vshuffle {{sacc.{'bmll' if h == 0 else 'bmlh'}}}, {{{c0}.x}}, {{{c1}.x}}, r3",
+               defs=[("sacc", "bmll" if h == 0 else "bmlh", 2)], uses=[(c0, "x", 1), (c1, "x", 1)]),
+            Op(f"SS{h}", "mv", f"vshuffle {{{'sl0' if h == 0 else 'slope'}.x}}, {{{c0}.x}}, {{{c1}.x}}, r2",
+               defs=[("sl0" if h == 0 else "slope", "x", 2)], uses=[(c0, "x", 1), (c1, "x", 1)]),
+        ]
+    o += [
+        Op("MV", "mv", "vmov {slope.wl}, {sl0.wh}", defs=[("slope", "wl", 2)], uses=[("sl0", "wh", 1)]),
+        Op("S", "vec", "vmac.f {s.dm}, {sacc.dm}, {slope.x}, {xc2.x}, r1", defs=[("s", "dm", 6)],
+           uses=[("sacc", "cml", 4), ("slope", "x", 1), ("xc2", "x", 1)]),
+        Op("SH", "st", "vconv.bf16.fp32 {sh.x}, {s.cml}", defs=[("sh", "x", 2)], uses=[("s", "cml", 1)]),
+        Op("D", "vec", f"vmac.f {{d.dm}}, {{s.dm}}, {{sh.x}}, x{C_M1}, r1", defs=[("d", "dm", 6)],
+           uses=[("s", "cml", 4), ("sh", "x", 1)]),
+        Op("SL", "st", "vconv.bf16.fp32 {sl.x}, {d.cml}", defs=[("sl", "x", 2)], uses=[("d", "cml", 1)]),
+        Op("R", "lda", "vlda.2d {xr.x}, [p4], d2", defs=[("xr", "x", 7)], mem=("ld", "re"), banks=bk("in")),
+        Op("P", "vec", "vmul.f {p.dm}, {xr.x}, {sh.x}, r1", defs=[("p", "dm", 6)], uses=[("xr", "x", 1), ("sh", "x", 1)]),
+        Op("Q", "vec", "vmac.f {q.dm}, {p.dm}, {xr.x}, {sl.x}, r1", defs=[("q", "dm", 6)],
+           uses=[("p", "cml", 4), ("xr", "x", 1), ("sl", "x", 1)]),
+        Op("ST", "st", "vst.2d.conv.bf16.fp32 {q.cml}, [p1], d1", uses=[("q", "cml", 1)], mem=("st", "out"), banks=bk("out")),
+    ]
+    return o
+
+
+def tapped(o, tap):
+    """debug: the final store writes x register `tap` (e.g. xc, xc2, slope, sh, sl, xr) instead of the result"""
+    if not tap:
+        return o
+    o = [x for x in o if x.name not in ("Q", "ST")] if tap not in ("p", "q") else [x for x in o if x.name != "ST"]
+    o.append(Op("ST", "st", f"vst.2d {{{tap}.x}}, [p1], d1", uses=[(tap, "x", 1)], mem=("st", "out"), instr="VST_2D_dmx_sts_x"))
+    used = {v for x in o for v, *_ in x.uses}
+    return [x for x in o if not x.defs or any(v in used for v, *_ in x.defs) or x.spill or x.mem]
+
+
+def build(II=None, banks=None, max_ii=16, tap=None, slack=0):
+    lo = II or 9
+    last = None
+    for ii in range(lo, (II or max_ii) + 1):
+        lp = Loop(tapped(ops(banks), tap), consts={"x": [C_HI, C_LO, C_BASE, C_M1]}, classes={"x": X_FREE, "dm": DM_FREE})
+        lp.slack = slack
+        try:
+            try:
+                lp.schedule(ii)
+                lp.allocate()
+            except Infeasible:
+                lp.schedule_ims(ii)
+                lp.allocate()
+            return lp
+        except Infeasible as e:
+            last = e
+            print(f"II {ii}: {e}", file=sys.stderr)
+    raise last
+
+
+def piece_off(i, jump):
+    """byte offset of vector i: 8 vectors at 64 B, then `jump` (64 = contiguous)"""
+    return (i // 8) * (7 * 64 + jump) + (i % 8) * 64
+
+
+def check(lp, jump, n=None):
+    n = n or 8 * lp.U * 3
+    st = {s: (lambda i, j=jump: piece_off(i, j), dict(base=0x1000 * (k + 1), dn=7, dj=64, m=jump)) for k, s in enumerate(("in", "out", "re"))}
+    for s in ("ring", "ringr"):
+        st[s] = (lambda i: (i % 4) * 64, dict(base=0x8000, dn=3, dj=64, m=-192))
+    # in place is a separate question (the out stream shares the in addresses); the checker only verifies each stream's walk
+    return lp.check(n, st)
+
+
+def function(lp, name, drain=6):
+    """asm text of one function: preamble (constants, pointers, 2D registers, loop registers), the schedule, return"""
+    L = []
+    a = L.append
+    a(f"\t.section\t.text.{name},\"ax\",@progbits")
+    a(f"\t.globl\t{name}")
+    a("\t.p2align\t4")
+    a(f"\t.type\t{name},@function")
+    a(f"{name}:")
+    pre = [
+        "movxm\tr16, #52428",  # lane mask 0xCCCC: lanes 2,3, 6,7, ... index the cd copy (aie::lut layout)
+        "mov\tm0, r1", "mov\tm1, r1", "mov\tm2, r1",
+        "mov\tr1, p2", "vbcst.32\tx0, r1", "mov\tr1, p3", "vbcst.32\tx1, r1",
+        "mova\tr1, #512", "vbcst.32\tx2, r1",  # LUT_BIAS_B: segment 32 of 64 at x = 0
+        "vsel.32\tx3, x0, x1, r16", "nop", "nop",
+        f"vadd.32\tx{C_BASE}, x3, x2",
+        "movxm\tr1, #16511", f"vbcst.16\tx{C_HI}, r1",  # 0x407F = 3.984375 = SGELU_HI - 1/64
+        "movxm\tr1, #-16256", f"vbcst.16\tx{C_LO}, r1",  # 0xC080 = -4.0
+        "movxm\tr1, #-16512", f"vbcst.16\tx{C_M1}, r1",  # 0xBF80 = -1.0
+        "mova\tr1, #828", "mova\tr2, #24", "mova\tr3, #5", "mov\ts0, #7",  # mac config, shuffle modes, LUT shift
+        "mov\tp4, p0",
+        "paddxm\t[sp], #256", "mov\tp2, sp", "padda\t[p2], #-256", "mov\tp3, p2",  # the xc ring: 4 x 64 B on the stack
+        "mova\tdn3, #3", "mova\tdj3, #64", "mova\tm3, #-192", "mova\tdc3, #0",
+        "mova\tdn4, #3", "mova\tdj4, #64", "mova\tm4, #-192", "mova\tdc4, #0",
+        "mova\tdn0, #7", "mova\tdj0, #64", "mova\tdc0, #0",
+        "mova\tdn1, #7", "mova\tdj1, #64", "mova\tdc1, #0",
+        "mova\tdn2, #7", "mova\tdj2, #64", "mova\tdc2, #0",
+        f"movxm\tls, #{name}_start", f"movxm\tle, #{name}_last", "add.nc\tlc, r0, #0",
+        "nop", "nop", "nop", "nop", "nop", "nop",
+    ]
+    L += ["\t" + p for p in pre]
+    L += lp.emit_loop(name, drain=drain)
+    L += ["\tret\tlr", "\tnop", "\tnop", "\tnop", "\tpaddxm\t[sp], #-256", "\tnop"]
+    a(f".Lfunc_end_{name}:")
+    a(f"\t.size\t{name}, .Lfunc_end_{name}-{name}")
+    return L
+
+
+def report(lp):
+    lt = lp.lifetimes()
+    print(f"II {lp.II} (resource bound {lp.res_mii()}), U {lp.U}, stages {lp.stages()}, pressure "
+          + ", ".join(f"{c} {v:.1f}" for c, v in lp.pressure().items()))
+    for o in sorted(lp.ops, key=lambda o: o.t):
+        print(f"  t {o.t:3d} (stage {o.t // lp.II}, slot {o.t % lp.II:2d}) {o.slot} {o.name:4s} {o.fmt}")
+    print("  lifetimes: " + ", ".join(f"{v} {h - l + 1}" for v, (l, h) in sorted(lt.items(), key=lambda kv: kv[1])))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("out")
+    ap.add_argument("--ii", type=int, default=None)
+    ap.add_argument("--func", default="gelu_ms")
+    ap.add_argument("--banks", default=None, help="e.g. in=1,out=2,ab=0,cd=3")
+    ap.add_argument("--tap", default=None, help="debug: store this x register instead of the result")
+    ap.add_argument("--slack", type=int, default=0, help="keep registers reserved this many cycles after their last read")
+    o = ap.parse_args()
+    banks = dict((k, int(v)) for k, v in (kv.split("=") for kv in o.banks.split(","))) if o.banks else None
+    lp = build(o.ii, banks, tap=o.tap, slack=o.slack)
+    report(lp)
+    for jump in (64, 576):
+        cyc, land = check(lp, jump)
+        print(f"check OK (jump {jump}): {cyc} cycles issued, last write lands at {land}")
+    text = function(lp, o.func)
+    Path(o.out).write_text("\t.text\n" + "\n".join(text) + "\n")
+    Path(o.out).with_suffix(".h").write_text(f"// generated by r11/gen_gelu.py\n#define GELU_MS_U {lp.U}\n#define GELU_MS_II {lp.II}\n")
+    print(f"wrote {o.out} ({len(text)} lines), U {lp.U}")
+
+
+if __name__ == "__main__":
+    main()

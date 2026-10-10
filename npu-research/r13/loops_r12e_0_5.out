@@ -1,0 +1,20 @@
+_ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE     body [0x7b0, 0x880]  31 bundles  lc: add.nc	lc, r3, #-0x1
+_ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE     body [0xba0, 0xc80]  45 bundles  lc: add.nc	lc, r3, #-0x1
+_ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE     body [0xd00, 0xd30]   8 bundles  lc: add.nc	lc, r3, #0x0
+_ZL9norm_rowsILb1EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE     body [0xda0, 0xe00]   8 bundles  lc: add.nc	lc, r2, #-0x1
+_ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE     body [0x1110, 0x11c0]  24 bundles  lc: add.nc	lc, r3, #-0x1
+_ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE     body [0x1460, 0x1500]  31 bundles  lc: add.nc	lc, r3, #-0x1
+_ZL9norm_rowsILb0EEvPjS0_iiN3aie6vectorI8bfloat16Lj32EEE     body [0x1580, 0x15d0]   8 bundles  lc: add.nc	lc, r1, #-0x1
+ew_ssm                                                       body [0x1a70, 0x1be0]  90 bundles  lc: ?
+ew_ssm                                                       body [0x1c40, 0x1c90]  13 bundles  lc: add.nc	lc, r6, #-0x1
+ew_ssm                                                       body [0x1dd0, 0x1f40] 108 bundles  lc: add.nc	lc, r6, #-0x1
+ew_ssm                                                       body [0x1fd0, 0x2030]  25 bundles  lc: add.nc	lc, r4, #-0x1
+_ZL9gate_gemmPK9bfp16ebs8S1_PKN3aie6vectorI8bfloat16Lj64EEEP body [0x25c0, 0x26e0]  57 bundles  lc: ?
+_ZN4ssm9L10sqrt_lut_nEP8bfloat16i                            body [0x28d0, 0x2a00]  54 bundles  lc: add.nc	lc, r17, #-0x1
+_ZN4ssm9L6loga_pEP8bfloat16PKN3aie6vectorIS0_Lj32EEE         body [0x2cd0, 0x2d30]  23 bundles  lc: ?
+_ZN4ssm9L6exp_pAEPK8bfloat16PS0_Ps                           body [0x2e00, 0x2e60]  20 bundles  lc: ?
+_ZN4ssm9L6exp_pBEPK8bfloat16PS0_S3_                          body [0x2f90, 0x2ff0]  12 bundles  lc: ?
+_ZN4ssm9L6exp_pCEPK8bfloat16S2_PKsPS0_S5_                    body [0x3170, 0x31c0]   6 bundles  lc: add.nc	lc, r0, #-0x5
+_ZN4ssm9L6exp_pDEPK8bfloat16S2_PS0_                          body [0x3380, 0x33b0]   4 bundles  lc: ?
+_ZL6copy_vP8bfloat16PKS_i                                    body [0x34b0, 0x3500]   6 bundles  lc: ?
+sigk                                                         body [0x3d90, 0x3e40]  24 bundles  lc: ?

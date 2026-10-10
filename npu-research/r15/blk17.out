@@ -1,0 +1,18 @@
+kappa 0.5 r14a: corr +0.87 slope meas/model 3.19; mean model 724 meas 798 us; spread model 46 meas 165
+kappa 0.5 r14c: corr +0.95 slope meas/model 1.19; mean model 695 meas 760 us; spread model 232 meas 305
+kappa 0.5 r14f: corr +0.95 slope meas/model 1.26; mean model 632 meas 701 us; spread model 242 meas 339
+kappa 0.6 r14a: corr +0.89 slope meas/model 2.61; mean model 731 meas 798 us; spread model 56 meas 165
+    model  747  723  748  748  727  726  751  738  737  698  695
+    meas   801  779  872  826  779  757  848  825  871  712  708
+kappa 0.6 r14c: corr +0.95 slope meas/model 0.98; mean model 726 meas 760 us; spread model 278 meas 305
+    model  806  685  824  792  695  696  812  773  789  566  546
+    meas   791  727  895  806  720  701  836  794  890  611  590
+kappa 0.6 r14f: corr +0.95 slope meas/model 1.05; mean model 663 meas 701 us; spread model 289 meas 339
+    model  744  621  768  728  629  632  755  714  730  497  479
+    meas   717  663  853  750  662  649  799  736  838  531  514
+kappa 0.7 r14a: corr +0.90 slope meas/model 2.20; mean model 738 meas 798 us; spread model 66 meas 165
+kappa 0.7 r14c: corr +0.95 slope meas/model 0.84; mean model 756 meas 760 us; spread model 325 meas 305
+kappa 0.7 r14f: corr +0.95 slope meas/model 0.90; mean model 694 meas 701 us; spread model 337 meas 339
+kappa 1.0 r14a: corr +0.92 slope meas/model 1.47; mean model 761 meas 798 us; spread model 100 meas 165
+kappa 1.0 r14c: corr +0.96 slope meas/model 0.59; mean model 847 meas 760 us; spread model 468 meas 305
+kappa 1.0 r14f: corr +0.96 slope meas/model 0.64; mean model 786 meas 701 us; spread model 480 meas 339

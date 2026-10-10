@@ -1,0 +1,2 @@
+II 11 (bound 11: {('port', 'DM_ADA'): 11, 'b': 10, ('port', 'QEY_WB_L0_PORT'): 10, ('port', 'QEY_RS_L0_PORT'): 10, 'm': 9, 's': 7}), U 2, stages 7, maxlive {'x': 8, 'dm': 4}; check OK (330 cycles, 24 vectors)
+wrote bgv_S:b,PQ:a_11.s

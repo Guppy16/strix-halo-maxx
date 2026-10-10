@@ -1,0 +1,44 @@
+G {0,3,6}+{1,4,7}, pair {2,5}: single-TAP both sides OK; attention TAPs [(2, 3, 165888, 13824), (3, 2, 165888, 55296)]; out_proj TAPs [(3, 2, 1728, 30000000), (3, 2, 30000000, 10000000)]
+G {1,2,3}+{4,5,6}, pair {0,7}: single-TAP both sides OK; attention TAPs [(2, 3, 387072, 13824), (3, 2, 55296, 165888)]; out_proj TAPs [(3, 2, 1728, 70000000), (3, 2, 10000000, 30000000)]
+G {1,3,5}+{2,4,6}, pair {0,7}: single-TAP both sides OK; attention TAPs [(2, 3, 387072, 13824), (6, 1, 55296, 0)]; out_proj TAPs [(3, 2, 1728, 70000000), (6, 1, 10000000, 0)]
+G {0,1,2}+{5,6,7}, pair {3,4}: single-TAP both sides OK; attention TAPs [(2, 3, 55296, 13824), (3, 2, 55296, 276480)]; out_proj TAPs [(3, 2, 1728, 10000000), (3, 2, 10000000, 50000000)]
+G {0,2,4}+{3,5,7}, pair {1,6}: single-TAP both sides OK; attention TAPs [(2, 3, 276480, 13824), (3, 2, 110592, 165888)]; out_proj TAPs [(3, 2, 1728, 50000000), (3, 2, 20000000, 30000000)]
+kappa 0.6: r14f model attention 8.05 ms/step; F128-like (no slow path in chunks 1-21) -2.30
+  columns independent (memtile depth 8 still couples): -1.29; D=24 -1.35; D=48 -1.35
+
+lockstep levers (bit-identical):
+   -1.41  deal round robin, pieces of 1 rb
+   -1.29  deal round robin, pieces of 2 rb
+   -1.13  deal round robin, pieces of 3 rb
+   -0.66  deal round robin, pieces of 6 rb
+   -0.73  pair deal (half 1 from column c ^ 4)
+   -0.74  pair deal (half 1 from column c ^ 2)
+   -0.65  pair deal (half 1 from column c ^ 1)
+   -1.66  deal rr 3 rb + columns independent D 8
+   -1.69  deal rr 3 rb + columns independent D 24
+   -0.75  3 L1 slots
+   -0.89  4 L1 slots
+
+slow-path levers (bit-identical), alone / after deal rr 3:
+   -0.60 /  -0.35  asm rescale (578 -> 200)
+   -0.14 /  -0.08  exact test -O2 (164 -> 80)
+   -0.58 /  -0.33  no first-pass rerun (row max kept by attkb; FP 393 -> 40)
+   -1.31 /  -0.73  all three
+   -1.31 /  -0.73  all three + exact rerun as P-only fix (XR 393 -> 393)
+
+  deal rr 3 alone -1.13; floor of the slow path after deal (F128 with deal) -2.30
+
+uniform levers:
+   -0.28  V phase 136 -> 100 per rb (sums folded into attv)
+   -0.28  batched K 261 -> 230 per rb (per-(tile,chunk) prep / flag scan in asm)
+   -0.19  chunk 0 1005 -> 600 per rb (QK-only first pass + test, no fast P)
+   -0.20  head-group fixed H0/H1 -30 %
+
+price vs r14f (ms/step; sim17 kappa 0.6), map as measured / clustering moved by +2, +4, +6 columns (mean):
+   +0.00   +0.00   identity (today)
+   -1.13   -1.20   rr 3-rb pieces (P60, multi-TAP)
+   -1.08   -1.11   G {0,3,6}+{1,4,7}, pair {2,5}
+   -1.05   -0.99   G {1,2,3}+{4,5,6}, pair {0,7}
+   -1.06   -1.01   G {1,3,5}+{2,4,6}, pair {0,7}
+   -0.94   -0.95   G {0,1,2}+{5,6,7}, pair {3,4}
+   -1.04   -1.10   G {0,2,4}+{3,5,7}, pair {1,6}

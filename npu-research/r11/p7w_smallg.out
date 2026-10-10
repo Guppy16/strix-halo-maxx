@@ -1,0 +1,4 @@
+norm0 channels with |g|<0.05 per block [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] most common []
+norm1 channels with |g|<0.05 per block [18, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1] most common [(36, 2), (179, 2), (26, 1), (60, 1), (85, 1), (127, 1)]
+norm2 channels with |g|<0.05 per block [110, 20, 4, 1, 1, 0, 0, 0, 0, 0, 0, 0] most common [(542, 3), (127, 2), (134, 2), (303, 2), (447, 2), (515, 2)]
+norm3 channels with |g|<0.05 per block [52, 28, 11, 0, 0, 0, 2, 1, 0, 0, 1, 0] most common [(263, 3), (401, 3), (423, 3), (442, 3), (712, 3), (36, 3)]

@@ -1,0 +1,90 @@
+sim14 on tl_full12r11b_d12.json: dispatch 52.25 ms; block (1-11) 4328 us; depth line 4310 us/block + 0.37 ms (residuals d6 -0.00, d8 -0.01, d10 +0.05, d12 -0.02)
+  g11-r11gp composition 1938 us/block x 12 = 23.25 ms (r10rp: 2,074 us)
+
+GEMM boundaries (wall - composition), classes, fit:
+  yx        wall  169.7 comp  141.4 boundary  +28.3 class ew    ( +26.7) err   -1.6
+  out       wall  862.8 comp   66.4 boundary +796.4 class ssm   (+796.4) err   +0.0
+  up_a      wall  337.2 comp  314.5 boundary  +22.7 class ew    ( +26.7) err   +4.0
+  up_b      wall  319.9 comp  314.5 boundary   +5.4 class reuse (  +5.4) err   +0.0
+  down_a    wall  114.8 comp  122.8 boundary   -8.0 class ind   ( -11.7) err   -3.8
+  down_b    wall  111.0 comp  123.6 boundary  -12.6 class ind   ( -11.7) err   +0.8
+  qkv       wall  250.0 comp  214.6 boundary  +35.4 class ew    ( +26.7) err   -8.6
+  out_proj  wall   86.1 comp   66.4 boundary  +19.7 class dep   ( +29.1) err   +9.5
+  mlp0      wall  343.0 comp  322.5 boundary  +20.5 class ew    ( +26.7) err   +6.2
+  mlp3_a    wall  166.0 comp  127.4 boundary  +38.6 class dep   ( +29.1) err   -9.5
+  mlp3_b    wall  108.8 comp  123.5 boundary  -14.7 class ind   ( -11.7) err   +3.0
+  class model rms 5.8 us; step (r11b) 52.66 vs 52.43; with P43 52.31 vs 52.07 (the depth line includes P43)
+
+Block breakdown r11b + P43 (4299 us):
+    k-steps                               1515.5 us  18.19 ms/step   35.3%
+    attention                              911.7 us  10.94 ms/step   21.2%
+    ssm (+boundary)                        796.4 us   9.56 ms/step   18.5%
+    norms                                  546.7 us   6.56 ms/step   12.7%
+    epilogues                              288.6 us   3.46 ms/step    6.7%
+    boundaries                             135.4 us   1.62 ms/step    3.1%
+    tile handoff + zero + first + coup     133.5 us   1.60 ms/step    3.1%
+
+Round 10 -> 11 per op (timeline means, us): r10r -> r11b
+    norm0       125.9 ->   124.7     -1.2
+    yx          182.9 ->   169.7    -13.2
+    out         861.2 ->   862.8     +1.6
+    norm1       123.2 ->   122.9     -0.3
+    up_a        366.5 ->   337.2    -29.3
+    up_b        350.8 ->   319.9    -30.8
+    down_a      116.7 ->   114.8     -1.9
+    down_b      112.6 ->   111.0     -1.6
+    norm2       146.2 ->   152.0     +5.8
+    qkv         252.8 ->   250.0     -2.8
+    attn        909.6 ->   911.7     +2.1
+    out_proj     86.1 ->    86.1     +0.0
+    norm3       146.7 ->   147.1     +0.4
+    mlp0        411.3 ->   343.0    -68.2
+    mlp3_a      161.2 ->   166.0     +4.8
+    mlp3_b      112.6 ->   108.8     -3.8
+
+per tile (us): GELU tile 2.18 (now yx 2.92), gated G1 1.57 / G1a 2.44 (now 5.11), pan G1 2.41 (now 4.30)
+
+Levers alone (depth 12, model base 51.96 ms):
+   -1.02 ms   50.94  G1a: gated product + push pass generated (gup, II 6 / 64)
+   -1.76 ms   50.20  G1 : one fused bias+GELU kernel (II 12.5) + gup + panpush
+   -1.83 ms   50.13    G1 at II 11 (if a better allocator reaches it)
+   -0.36 ms   51.60  P43b: B before the EW op's finish + memtile B one tile deep
+   -0.96 ms   51.00  P51: norm output straight into the next GEMM's A slot (4 after-EW boundaries 28 -> ~8 us)
+   -0.92 ms   51.04  P48: attention exp + push generated per row block (330 -> ~250 cycles)
+   -0.78 ms   51.18  P49a: QK^T + store in asm (138 -> ~70)
+   -1.15 ms   50.81  P49b: max / rows8 / control fused (~150 -> ~50)
+   -2.88 ms   49.08  K phase P48 + P49 (571 -> ~320 cycles per (rb, chunk))
+   -1.41 ms   50.55  P50: V phase in asm (213 -> ~90)
+   -1.03 ms   50.93  P29a: sigmoid pass generated (1168 -> 450 cyc/chunk)
+   -1.03 ms   50.93  P29b: loga + exp chain as one generated loop (1170 -> 450)
+   -1.18 ms   50.78  P29c: sqrt + recurrence generated (1381 -> 560)
+   -0.99 ms   50.97  P29d: conv + z panels generated (1302 -> 610)
+   -3.59 ms   48.37  P29 all (x 0.85 realism)
+   -0.78 ms   51.17  P52: SSM outputs written in the ring, conv cache by rotation (out copies 798 -> ~250)
+   -1.54 ms   50.41  P7-E low / high (pending P44)
+   -3.32 ms   48.64  P7-E high
+   -0.98 ms   50.98  P35 + P24b
+   -4.32 ms   47.64  k-step 2,055 -> 1,600 (needs L1, R_A)
+
+Combined (each row adds to the previous):
+   -1.76 ms   50.20  (19.9 fps)  G1
+   -2.12 ms   49.84  (20.1 fps)  + P43b
+   -4.99 ms   46.97  (21.3 fps)  + attention K phase (P48 + P49)
+   -9.37 ms   42.59  (23.5 fps)  + P29 (x 0.85) + P52
+  -12.69 ms   39.27  (25.5 fps)  + P7-E high
+  -13.67 ms   38.29  (26.1 fps)  + P35 + P24b
+  -15.08 ms   36.88  (27.1 fps)  + P50
+  -16.04 ms   35.92  (27.8 fps)  + P51
+  -20.38 ms   31.58  (31.7 fps)  + k-step 1,600 (ceiling)
+  ceiling block: norms 270, boundaries 135, k-steps 1117, epilogues 142, tile handoff + zero + first + coup 88, ssm (+boundary) 432, attention 555 (+-139) = 2600 us
+  ceiling depth 12: 31.6 ms (31.7 fps)
+  ceiling depth 10: 26.4 ms (37.9 fps)
+  ceiling depth 8: 21.2 ms (47.2 fps)
+  without the k-step row: depth 12 35.9 ms, depth 10 30.0 ms
+
+P14 (two frames in flight; per frame >= busier side + 15 % of the other):
+  today                            serial  52.0 ms; GEMM side  2956, EW side  1343 us/block; 2 in flight ~ 38.3 ms/frame (26.1 fps, x1.36), latency ~ 76.5 ms
+  after G1 + P43b + attention K    serial  47.0 ms; GEMM side  2540, EW side  1343 us/block; 2 in flight ~ 33.3 ms/frame (30.1 fps, x1.41), latency ~ 66.5 ms
+  after + SSM                      serial  42.6 ms; GEMM side  2540, EW side   978 us/block; 2 in flight ~ 32.6 ms/frame (30.7 fps, x1.31), latency ~ 65.2 ms
+  after + norms                    serial  39.3 ms; GEMM side  2540, EW side   702 us/block; 2 in flight ~ 32.1 ms/frame (31.1 fps, x1.22), latency ~ 64.2 ms
+  ceiling                          serial  31.6 ms; GEMM side  1899, EW side   702 us/block; 2 in flight ~ 24.4 ms/frame (40.9 fps, x1.29), latency ~ 48.8 ms

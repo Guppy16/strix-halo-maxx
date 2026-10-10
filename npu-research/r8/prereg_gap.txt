@@ -1,0 +1,35 @@
+npu-research, revision 3 - PRE-REGISTERED before reading build/g11pa.out, g11pc.out, prof_g11p{a,c}.npy
+(timestamp appended at the end). Static counts from llvm-objdump -d -z of the linked elfs (r8/core02_*.dis).
+
+Static facts (DOC, the deployed binaries):
+- full12r7g: mm_acc (C++ wrapper, MM_ASM) = 34 bundles around jl mm_core; mm_core = 225 -> 259 per call.
+  full12r7a/f: mm_acc C++ = 321 per call (dynamic path). IRON k-step loop (9 x acq/jl/rel + B acq/rel + counters)
+  = 89 bundles in both builds (0x170-0x35f, identical code).
+- Static k-step: C++ 9 x 321 + 89 = 2,978 cyc = 1.645 us; asm 9 x 259 + 89 = 2,420 cyc = 1.337 us (1.81 GHz).
+  Static saving 558 cyc/k-step, not 864 (the -7 ms extrapolation counted 96/call, ignoring the 34-bundle wrapper
+  that replaces the C++ mm_acc's own 19 bundles of entry/return).
+- 15,552 k-steps per core per depth-12 step -> static saving 4.79 ms. Measured 1.91 ms. Unexplained 2.88 ms
+  = 335 cyc per k-step = 37 cyc per call.
+- full12r7g also moved attn_begin back to minsize (800 B vs 1,104 B at -O2 in r7f) to fit program memory:
+  +0.05..0.2 ms [estimate].
+- r7p (C++ PROF) steady k-step: 9 x 333 + 401 = 3,398 measured vs static 9 x (333 + 33) + 89 = 3,383: the
+  "~400 cycles of call + lock overhead" is STATIC code (IRON 89 + 9 x 33 of the PROF wrapper outside the stamps);
+  only ~15 cyc per k-step is dynamic (lock latency / waits).
+
+Hypotheses for the 37 cyc/call:
+ H1 in-call memory stalls in mm_core (denser L1 traffic: ~290 accesses per 225 cycles vs 321; bank conflicts
+    between lda/ldb/st and with the A/B DMA writes). Signature in g11pa: cyc/call above the static busy region
+    by ~25-45 cycles; gA/call and gKB/ks at static.
+ H2 DMA-starved A ring (core wins bank arbitration, S2MM throttled -> lock waits). Signature: cyc/call at static,
+    gA/call (inside k-steps) >= static + 20.
+ H3 B fifo starved (shim/memtile B broadcast to 8 columns). Signature: gKB/ks (k-step starts) >> static.
+ H4 none of the above in the GEMM-only g11 (then the loss is a full-step interaction: EW traffic on the shared
+    shim channel 0, dependency/finish timing).
+
+Static PROF-build numbers for g11-r8pa (asm), common path (calls>0, stripe>0):
+ busy region (lda.tm at 0xcea .. 0xe26) = 284 bundles (225 mm_core + 59 wrapper/bookkeeping).
+ gap between calls inside a k-step (e26 -> next cea) = ~45 bundles static.
+ gap at a k-step start = ~62 bundles static + the B acquire.
+PREDICTION (best guess H1): g11pa cyc/call 305-325 (static 284 + 20-40), gA/call 45-55, gKB/ks 60-75.
+If H2: cyc/call 280-290, gA/call >= 65. If H3: gKB/ks >= 200.
+2026-10-09T19:28:10+01:00

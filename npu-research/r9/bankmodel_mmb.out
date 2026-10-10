@@ -1,0 +1,9 @@
+../npu-tapnext/build/mmb_split.s: 225 bundles, conflict-free 225 cycles
+  A-B            14 bundles
+  A-Cs            3 bundles
+  B-Cl           36 bundles
+  B-Cs           42 bundles
+  Cl-Cs          33 bundles
+  triple:ABCs     3 bundles
+  triple:BClCs   27 bundles
+  207 placements, call/loop constant 13 cycles, max |pred - meas| = 0.0

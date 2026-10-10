@@ -1,0 +1,26 @@
+
+full12p1n: 109 spans; distinct span kinds: 11
+  down_a, down_b+norm2, mlp0, mlp3_a, mlp3_b+norm0, norm1, norm3, qkv+attn+out_proj, up_a, up_b, yx+ssm+out
+  free fit: t_ks 0.753 us  t_tile 7.00  L_dep 35.7  rms 6.07 us
+  t_ks 0.600 us (9.5 B/cyc): rms   6.50 us  t_tile   9.21  L_dep   39.6  t_gelu  14.86  ssm   1350  attn   1283
+  t_ks 0.753 us (7.6 B/cyc): rms   6.07 us  t_tile   7.01  L_dep   35.7  t_gelu  15.60  ssm   1359  attn   1297
+  t_ks 0.900 us (6.4 B/cyc): rms   6.46 us  t_tile   4.89  L_dep   31.9  t_gelu  16.30  ssm   1368  attn   1310
+  t_ks 1.000 us (5.7 B/cyc): rms   7.11 us  t_tile   3.45  L_dep   29.3  t_gelu  16.78  ssm   1374  attn   1319
+  t_ks 1.100 us (5.2 B/cyc): rms   8.00 us  t_tile   2.01  L_dep   26.8  t_gelu  17.26  ssm   1380  attn   1328
+  t_ks 1.200 us (4.8 B/cyc): rms   9.05 us  t_tile   0.57  L_dep   24.2  t_gelu  17.74  ssm   1386  attn   1337
+  t_ks 1.300 us (4.4 B/cyc): rms  10.21 us  t_tile  -0.87  L_dep   21.7  t_gelu  18.22  ssm   1392  attn   1346
+  t_ks 1.430 us (4.0 B/cyc): rms  11.84 us  t_tile  -2.74  L_dep   18.3  t_gelu  18.85  ssm   1400  attn   1357
+  t_ks 1.600 us (3.6 B/cyc): rms  14.09 us  t_tile  -5.19  L_dep   14.0  t_gelu  19.66  ssm   1411  attn   1372
+
+full12r6a: 160 spans; distinct span kinds: 16
+  attn, down_a, down_b, mlp0, mlp3_a, mlp3_b, norm0, norm1, norm2, norm3, out_proj, qkv, ssm+out, up_a, up_b, yx
+  free fit: t_ks 1.825 us  t_tile 5.68  L_dep 43.7  rms 16.65 us
+  t_ks 0.600 us (9.5 B/cyc): rms  31.07 us  t_tile  23.53  L_dep   41.1  t_gelu  12.34  ssm   1283  attn   1355
+  t_ks 0.753 us (7.6 B/cyc): rms  28.36 us  t_tile  21.30  L_dep   41.5  t_gelu  12.85  ssm   1284  attn   1355
+  t_ks 0.900 us (6.4 B/cyc): rms  25.88 us  t_tile  19.16  L_dep   41.8  t_gelu  13.34  ssm   1286  attn   1355
+  t_ks 1.000 us (5.7 B/cyc): rms  24.28 us  t_tile  17.70  L_dep   42.0  t_gelu  13.68  ssm   1287  attn   1355
+  t_ks 1.100 us (5.2 B/cyc): rms  22.77 us  t_tile  16.24  L_dep   42.2  t_gelu  14.01  ssm   1287  attn   1355
+  t_ks 1.200 us (4.8 B/cyc): rms  21.36 us  t_tile  14.79  L_dep   42.4  t_gelu  14.35  ssm   1288  attn   1355
+  t_ks 1.300 us (4.4 B/cyc): rms  20.09 us  t_tile  13.33  L_dep   42.6  t_gelu  14.69  ssm   1289  attn   1355
+  t_ks 1.430 us (4.0 B/cyc): rms  18.68 us  t_tile  11.43  L_dep   42.9  t_gelu  15.12  ssm   1290  attn   1355
+  t_ks 1.600 us (3.6 B/cyc): rms  17.33 us  t_tile   8.96  L_dep   43.2  t_gelu  15.69  ssm   1291  attn   1355

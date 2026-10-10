@@ -1,0 +1,39 @@
+II 9: IMS budget exhausted at II 9
+II 10: IMS budget exhausted at II 10
+II 11: no register allocation at II 11 (copies needed 2, pressure {'dm': 2.727272727272727, 'x': 8.636363636363637}, maxlive {'dm': 3, 'x': 10})
+II 12: no register allocation at II 12 (copies needed 1, pressure {'dm': 2.5833333333333335, 'x': 7.75}, maxlive {'dm': 3, 'x': 9})
+II 13 (resource bound 11), U 1, stages 5, pressure dm 2.3, x 6.9
+  t   0 (stage 0, slot  0) a L    vlda.2d {x.x}, [p0], d0
+  t   7 (stage 0, slot  7) m MN   vmin_ge.bf16 {t.x}, r16, x8, {x.x}
+  t   9 (stage 0, slot  9) m MX   vmax_lt.bf16 {xc.x}, r16, x9, {t.x}
+  t  11 (stage 0, slot 11) s XS   vst.2d {xc.x}, [p2], d3
+  t  12 (stage 0, slot 12) s F0   vfloor.s32.bf16 {i0.x}, {xc.wl}, s0
+  t  13 (stage 1, slot  0) s F1   vfloor.s32.bf16 {i1.x}, {xc.wh}, s0
+  t  14 (stage 1, slot  1) m A0   vadd.32 {j0.x}, {i0.x}, x10
+  t  15 (stage 1, slot  2) m A1   vadd.32 {j1.x}, {i1.x}, x10
+  t  16 (stage 1, slot  3) b LA0  vldb.4x64.lo {c00.wl}, {j0.wl}
+  t  17 (stage 1, slot  4) b LB0  vldb.4x64.hi {c00.wh}, {j0.wl}
+  t  18 (stage 1, slot  5) b LC0  vldb.4x64.lo {c10.wl}, {j0.wh}
+  t  20 (stage 1, slot  7) b LD0  vldb.4x64.hi {c10.wh}, {j0.wh}
+  t  21 (stage 1, slot  8) b LA1  vldb.4x64.lo {c01.wl}, {j1.wl}
+  t  22 (stage 1, slot  9) b LB1  vldb.4x64.hi {c01.wh}, {j1.wl}
+  t  23 (stage 1, slot 10) b LC1  vldb.4x64.lo {c11.wl}, {j1.wh}
+  t  27 (stage 2, slot  1) b LD1  vldb.4x64.hi {c11.wh}, {j1.wh}
+  t  29 (stage 2, slot  3) m SO0  vshuffle {sacc.bmll}, {c00.x}, {c10.x}, r3
+  t  30 (stage 2, slot  4) m SS0  vshuffle {sl0.x}, {c00.x}, {c10.x}, r2
+  t  32 (stage 2, slot  6) a XL   vlda.2d {xc2.x}, [p3], d4
+  t  34 (stage 2, slot  8) m SO1  vshuffle {sacc.bmlh}, {c01.x}, {c11.x}, r3
+  t  36 (stage 2, slot 10) m SS1  vshuffle {slope.x}, {c01.x}, {c11.x}, r2
+  t  37 (stage 2, slot 11) m MV   vmov {slope.wl}, {sl0.wh}
+  t  39 (stage 3, slot  0) v S    vmac.f {s.dm}, {sacc.dm}, {slope.x}, {xc2.x}, r1
+  t  41 (stage 3, slot  2) a R    vlda.2d {xr.x}, [p4], d2
+  t  45 (stage 3, slot  6) s SH   vconv.bf16.fp32 {sh.x}, {s.cml}
+  t  47 (stage 3, slot  8) v D    vmac.f {d.dm}, {s.dm}, {sh.x}, x11, r1
+  t  48 (stage 3, slot  9) v P    vmul.f {p.dm}, {xr.x}, {sh.x}, r1
+  t  53 (stage 4, slot  1) s SL   vconv.bf16.fp32 {sl.x}, {d.cml}
+  t  55 (stage 4, slot  3) v Q    vmac.f {q.dm}, {p.dm}, {xr.x}, {sl.x}, r1
+  t  61 (stage 4, slot  9) s ST   vst.2d.conv.bf16.fp32 {q.cml}, [p1], d1
+  lifetimes: x 2, t 2, xc 4, i0 2, i1 2, j0 6, j1 12, c00 9, c10 7, c01 10, c11 8, sacc 13, sl0 7, slope 3, xc2 2, s 7, sh 3, xr 9, d 2, p 6, sl 2, q 2
+check OK (jump 64): 364 cycles issued, last write lands at 369
+check OK (jump 576): 364 cycles issued, last write lands at 369
+wrote ../r12/ref13.s (143 lines), U 1

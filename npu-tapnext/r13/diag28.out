@@ -1,0 +1,5 @@
+28 x12 dm5 no maxlife {'status': 'FEASIBLE', 'peak': {'x': 8, 'dm': 3}, 'length': 70}
+28 x12 dm5 maxlife {'status': 'FEASIBLE', 'peak': {'x': 7, 'dm': 3}, 'length': 66}
+28 x8 dm3 maxlife {'status': 'FEASIBLE', 'peak': {'x': 6, 'dm': 3}, 'length': 70}
+28 x6 dm3 maxlife3 {'status': 'FEASIBLE', 'peak': {'x': 6, 'dm': 3}, 'length': 68}
+EXIT=0

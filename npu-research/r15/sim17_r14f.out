@@ -1,0 +1,26 @@
+sim17 on full12r14f: 47.31 ms at depth 12
+
+Attention (attsim17, ms per step, cumulative; kappa 0.5 / 0.6 / 0.7):
+   -0.87 /  -1.08 /  -1.30  P60g gather deal (DMA only)
+   -1.18 /  -1.44 /  -1.70  + S1 rescale_rb in asm
+   -1.50 /  -1.82 /  -2.13  + S2 running row max in attkb (no first-pass rerun, test on 1 vector)
+   -1.55 /  -1.87 /  -2.19  + S3 test + rescale as one asm call
+   -1.76 /  -2.08 /  -2.40  + V1 row sums folded into attv, glue
+   -2.03 /  -2.35 /  -2.68  + K1 batched call prep / flag scan in asm (B 268 -> 237)
+   -2.21 /  -2.54 /  -2.86  + K2 chunk 0 as QK-only + test (C0 1,005 -> 600)
+  -> 44.77 ms (attention 8.52 -> 5.98 ms per step)
+
+SSM (static, 1:1):
+   -0.95 ..  -1.08  P29b log_a + exp chain (1,131: loga_p 23x8, exp_pA-D 20/12/6/4 x16, +275 calls)
+   -0.84 ..  -0.97  P29c recurrence (ew_ssm 108 x 8 + 25)
+   -0.82 ..  -0.99  P29d conv (90 x 8 + 330) + z panels (25 x 8 + 44)
+   -0.24 ..  -0.48  P29s sqrt (sqrt_lut_n 54 x 8 + 80)
+   -0.71 ..  -1.14  P52 out copies (798; outputs written in place)
+  SSM total -3.56 .. -4.66 -> 40.66 ms
+   -0.36 +- 0.12  P55 tile-granular A dependency -> 40.30
+   -2.30 +- 0.80  P7-E norm passes (port-bound) -> 38.00
+   -0.98 +- 0.30  P35 + P24b -> 37.02
+   -0.96 +- 0.40  P51 norm writes the next A slot -> 36.06
+   -0.50 +- 0.25  P57 C object in two halves -> 35.56
+  -4.35  k-step 2,055 -> 1,600 (ceiling) -> 31.21 ms; without it 35.56
+  ceiling depth 10 ~26.4 ms, depth 8 ~21.6 ms

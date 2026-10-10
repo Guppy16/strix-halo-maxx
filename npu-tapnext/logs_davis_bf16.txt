@@ -1,0 +1,14 @@
+[1;91mE-001h rocSHMEM[0m Could not open libnuma. Returning	[90mNUMAWrapper@src/gda/numa_wrapper.cpp:48[0m
+MIOpen(HIP): Warning [ParseAndLoadDb] File is unreadable: "~/git/app/.scratch/tapnet/venv/lib/python3.14/site-packages/_rocm_sdk_libraries/share/miopen/db/gfx1151_20.HIP.fdb.txt"
+bike-packing             T= 69 Q= 25 AJ= 56.2 OA= 87.0 PTS= 74.4 134.4 ms/f
+blackswan                T= 50 Q=  5 AJ= 97.0 OA=100.0 PTS= 98.4 107.0 ms/f
+bmx-trees                T= 80 Q= 25 AJ= 49.8 OA= 75.2 PTS= 75.8 93.7 ms/f
+breakdance               T= 84 Q= 25 AJ= 71.6 OA= 91.3 PTS= 82.8 107.3 ms/f
+camel                    T= 90 Q= 10 AJ= 79.5 OA= 99.6 PTS= 86.4 90.6 ms/f
+car-roundabout           T= 75 Q= 20 AJ= 52.9 OA= 88.1 PTS= 75.9 105.7 ms/f
+car-shadow               T= 40 Q= 25 AJ= 81.3 OA= 94.4 PTS= 91.7 107.3 ms/f
+cows                     T=104 Q= 10 AJ= 87.8 OA= 99.3 PTS= 92.6 100.6 ms/f
+dance-twirl              T= 90 Q= 25 AJ= 71.7 OA= 94.3 PTS= 83.8 92.5 ms/f
+dog                      T= 60 Q= 10 AJ= 57.6 OA= 95.6 PTS= 71.1 32.2 ms/f
+RESULT {"mode": "bf16", "tag": "v1", "videos": 10, "ms_per_frame": 103.2, "occlusion_accuracy": 92.49, "pts_within_1": 50.76, "pts_within_2": 77.53, "pts_within_4": 91.75, "pts_within_8": 97.11, "pts_within_16": 99.32, "average_jaccard": 70.54, "average_pts_within_thresh": 83.29}
+DAVIS_DONE

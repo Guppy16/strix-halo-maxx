@@ -1,0 +1,9 @@
+build/
+__pycache__/
+*.pyc
+stray/
+*.xclbin
+*.elf
+*.npz
+*.pt
+*.safetensors

@@ -1,0 +1,28 @@
+ bytes  bund   B/b  nop  nopB  16B pack<=  function  <- callers
+  2080   498   4.2  204   416   12    240  main  <- _main_init x1
+  2000   323   6.2   71   190   22    210  acc_epilogue  <- main x1
+  1824   289   6.3   47   100    2     24  mm_ks  <- 
+  1360   233   5.8   52   132   18    166  _ZN2atL13chunk_k_fusedEiPK9bfp16ebs8S2_i  <- attn_chunk_k x1
+   896   164   5.5   49    98    6     16  attk  <- _ZN2atL13chunk_k_fusedEiPK9bfp16ebs8S2_i x1
+   848   159   5.3   34    70    3     22  bgelu  <- _ZL6bgelu3P8bfloat16PKS_bS0_S0_ x2
+   816   147   5.6   52   106    2     82  attn_begin  <- main x1
+   784   172   4.6   65   130    5     68  attn_end  <- main x1
+   752   114   6.6    3     6    1     20  _ZL8bias_pcsPKfP8bfloat16PKS1_ii  <- acc_epilogue x5
+   608   100   6.1   14    28    3     28  _ZN2atL7chunk_vEiPK9bfp16ebs8  <- attn_chunk_v x1
+   560   103   5.4   30    62    3     38  _ZN2atL10rescale_rbEiiN3aie6vectorI8bfloat16Lj16EEE  <- _ZN2atL13chunk_k_fusedEiPK9bfp16ebs8S2_i x1
+   464    83   5.6    9    18    1     18  _ZN2atL9aexp_pushEPK8bfloat16P9bfp16ebs8N3aie6vectorIS0_Lj64EEEPKfS9_  <- _ZN2atL13chunk_k_fusedEiPK9bfp16ebs8S2_i x1
+   432    81   5.3   23    50    3     16  gup  <- acc_epilogue x2
+   400    78   5.1   23    46    0     28  attn_qcopy  <- main x1
+   336    29  11.6    1     2   15     74  acc_zero  <- main x1
+   320    77   4.2   32    64    1     22  mm_kstep  <- main x1
+   304    70   4.3   33    66    2     38  attn_chunk_k  <- main x1
+   304    51   6.0   12    26    1     24  _ZL6bgelu3P8bfloat16PKS_bS0_S0_  <- acc_epilogue x2
+   304    69   4.4   26    52    1     14  _ZN3nk8L5exp32EN3aie6vectorI8bfloat16Lj32EEERKNS_4ExpCES3_  <- _ZN2atL10rescale_rbEiiN3aie6vectorI8bfloat16Lj16EEE x1
+   304    70   4.3   26    56    4     50  pan  <- acc_epilogue x1
+   256    54   4.7   18    38    2     40  attn_chunk_v  <- main x1
+   176    43   4.1   21    48    3     36  cpy32  <- 
+   126    25   5.0   14    44    3     30  _main_init  <- __start x1
+   112    26   4.3    3     6    0      4  _ZN2atL5rows8EPK8bfloat16  <- _ZN2atL10rescale_rbEiiN3aie6vectorI8bfloat16Lj16EEE x1
+    32     7   4.6    5    20    0     10  __start  <- 
+ 16398 total; nop bundles 867 = 1874 B; full-form bundles 113
+bundle sizes: 2 B x842, 4 B x996, 6 B x503, 8 B x233, 10 B x261, 12 B x104, 14 B x13, 16 B x113

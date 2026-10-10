@@ -1,0 +1,10 @@
+delta vs r14f, ms per step (kappa 0.5 / 0.6 / 0.7); rows 1-5 cumulative
+   -0.87 /  -1.08 /  -1.30   P60g single-TAP deal G{0,3,6}+{1,4,7} / pair {2,5}
+   -1.18 /  -1.44 /  -1.70   + S1 rescale_rb asm (R 578 -> 200 +- 50)
+   -1.50 /  -1.82 /  -2.13   + S2 running row max in attkb (FP 393 -> 0, T 164 -> 70; B +7 per rb for II 34 -> 35)
+   -1.55 /  -1.87 /  -2.19   + S3 exact test + rescale in asm in one call (T + R call overhead -60)
+   -1.76 /  -2.08 /  -2.40   + V sums folded into attv, glue (VRB 136 -> 110)
+   -0.51 /  -0.60 /  -0.70   S1 alone (no deal)
+   -1.11 /  -1.32 /  -1.54   S1 + S2 alone (no deal)
+   -0.61 /  -0.73 /  -0.85   S2 alone (no deal)
+   -1.91 /  -2.30 /  -2.68   P60g + no slow path at all (floor)

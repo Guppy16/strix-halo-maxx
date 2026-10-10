@@ -1,0 +1,6 @@
+dance-twirl              T= 90 Q= 25 AJ= 71.9 OA= 94.2 53 ms/f (dispatch 50.3 ms)
+dog                      T= 60 Q= 10 AJ= 57.8 OA= 95.6 53 ms/f (dispatch 50.2 ms)
+RESULT {"mode": "npu_step8", "build": "full12r12e", "depth": 12, "support": 0, "slots": 48, "videos": 10, "ms_per_frame": 52.5, "dispatch_ms": 50.19, "occlusion_accuracy": 92.57, "pts_within_1": 51.19, "pts_within_2": 77.76, "pts_within_4": 91.85, "pts_within_8": 97.18, "pts_within_16": 99.36, "average_jaccard": 70.84, "average_pts_within_thresh": 83.47}
+dance-twirl              T= 90 Q= 25 AJ= 69.3 OA= 93.5 44 ms/f (dispatch 42.0 ms)
+dog                      T= 60 Q= 10 AJ= 57.9 OA= 93.5 44 ms/f (dispatch 41.8 ms)
+RESULT {"mode": "npu_step8", "build": "full12r12e", "depth": 10, "support": 0, "slots": 48, "videos": 10, "ms_per_frame": 44.0, "dispatch_ms": 41.92, "occlusion_accuracy": 91.02, "pts_within_1": 51.06, "pts_within_2": 79.04, "pts_within_4": 91.79, "pts_within_8": 96.93, "pts_within_16": 99.34, "average_jaccard": 69.9, "average_pts_within_thresh": 83.63}

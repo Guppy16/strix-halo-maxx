@@ -1,0 +1,43 @@
+II 14: CP-SAT found none
+II 15: CP-SAT found none
+II 16: CP-SAT found none
+II 17: CP-SAT found none
+II 18: {'status': 'OPTIMAL', 'peak': {'x': 4, 'dm': 2}, 'length': 34}
+II 18 (resource bound 11: {'a': 11, ('port', 'AGUA__AGI_I'): 11, ('port', 'DM_ADA'): 11, ('bank', 1): 7, ('port', 'LD_FIFO_RA_PORT'): 7, ('port', 'LD_FIFO_WA_PORT'): 7, 'b': 7, ('bank', 3): 7, 'v': 7, ('port', 'QEY_WA_L0_PORT'): 6}), U 1, stages 2, maxlive {'dm': 2, 'x': 4}
+  t   0 (stage 0, slot  0) m MP     mov p0, p4
+  t   1 (stage 0, slot  1) m MV0    mov p1, p5
+  t   2 (stage 0, slot  2) m RP     mov r24, #0
+  t   3 (stage 0, slot  3) a PF     vlda.fill.512 [p0, lf0, r24]
+  t   3 (stage 0, slot  3) m RV0    mov r25, #0
+  t   4 (stage 0, slot  4) a P0     vlda.pop.576 ex0, [p0, lf0, r24]
+  t   4 (stage 0, slot  4) b VF0    vldb.fill.512 [p1, lf1, r25]
+  t   5 (stage 0, slot  5) a P1     vlda.pop.576 ex1, [p0, lf0, r24]
+  t   5 (stage 0, slot  5) b V0     vldb.pop.576 ex2, [p1, lf1, r25]
+  t   6 (stage 0, slot  6) a L0bmll vlda bmll0, [p2], #64
+  t   7 (stage 0, slot  7) b V1     vldb.pop.576 ex3, [p1, lf1, r25]
+  t   7 (stage 0, slot  7) a L0bmlh vlda bmlh0, [p2], #64
+  t   8 (stage 0, slot  8) a L0bmhl vlda bmhl0, [p2], #64
+  t   9 (stage 0, slot  9) a P2     vlda.pop.576 ex0, [p0, lf0, r24]
+  t   9 (stage 0, slot  9) b V2     vldb.pop.576 ex1, [p1, lf1, r25]
+  t  10 (stage 0, slot 10) a L0bmhh vlda bmhh0, [p2], #64
+  t  11 (stage 0, slot 11) a P3     vlda.pop.576 ex1, [p0, lf0, r24]
+  t  11 (stage 0, slot 11) b V3     vldb.pop.576 ex2, [p1, lf1, r25]
+  t  12 (stage 0, slot 12) s PW     padds.2d [p4], d0
+  t  12 (stage 0, slot 12) a P4     vlda.pop.576 ex0, [p0, lf0, r24]
+  t  13 (stage 0, slot 13) b V4     vldb.pop.576 ex1, [p1, lf1, r25]
+  t  14 (stage 0, slot 14) a P5     vlda.pop.576 ex2, [p0, lf0, r24]
+  t  14 (stage 0, slot 14) b V5     vldb.pop.576 ex3, [p1, lf1, r25]
+  t  14 (stage 0, slot 14) v M00    vmac.f dm0, dm0, ex0, ex2, r5
+  t  15 (stage 0, slot 15) v M01    vmul.f dm1, ex1, ex3, r5
+  t  17 (stage 0, slot 17) v M02    vmac.f dm0, dm0, ex0, ex1, r5
+  t  19 (stage 1, slot  1) v M03    vmac.f dm1, dm1, ex1, ex2, r5
+  t  21 (stage 1, slot  3) v M04    vmac.f dm0, dm0, ex0, ex1, r5
+  t  22 (stage 1, slot  4) v M05    vmac.f dm1, dm1, ex2, ex3, r5
+  t  25 (stage 1, slot  7) v AD0    vadd.f dm1, dm0, dm1, r6
+  t  31 (stage 1, slot 13) s S0bmll vst bmll1, [p3], #64
+  t  32 (stage 1, slot 14) s S0bmlh vst bmlh1, [p3], #64
+  t  33 (stage 1, slot 15) s S0bmhl vst bmhl1, [p3], #64
+  t  34 (stage 1, slot 16) s S0bmhh vst bmhh1, [p3], #64
+check OK (6 iterations): 126 cycles, last write lands at 132
+check OK (1 iterations): 36 cycles, last write lands at 42
+wrote attvs_try.s

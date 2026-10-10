@@ -1,0 +1,13 @@
+/s/npu-tapnext/build/full12r12e.prj/elfs_main_core_7_5/elfs_main_core_7_5.elf  :
+section           size     addr
+.text            16224        0
+.aie.bank0        1024   474112
+.aie.bank2        2560   502784
+.aie.bank3        1024   523264
+.data             2560   475136
+.comment           197        0
+.stack_sizes       152        0
+.bss             24128   477696
+Total            47869
+
+

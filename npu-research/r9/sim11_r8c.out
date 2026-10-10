@@ -1,0 +1,41 @@
+sim11 on full12r8c: block 5658 us, 1296 k-steps per core per block
+  k-step static 2420 + bank 306 + DMA 108 + fitted d +65 = 2899 cycles = 1.602 us  (g11 PROF stamps: 3352 cycles incl. ~16-40 cycles per call of stamps)
+  per block:
+    kstep      2075.9 us  24.91 ms/step   36.7%
+    opstart     484.4 us   5.81 ms/step    8.6%
+    tilebnd     148.6 us   1.78 ms/step    2.6%
+    epilogue    307.5 us   3.69 ms/step    5.4%
+    ring         55.1 us   0.66 ms/step    1.0%
+    ssm        1115.0 us  13.38 ms/step   19.7%
+    attn        930.0 us  11.16 ms/step   16.4%
+    norms       541.0 us   6.49 ms/step    9.6%
+  today (fit)                                                  67.9 ms
+
+Levers, each alone (depth 12):
+    -8.2 ms  P20 + conflict-free pieces: k-step 2899 -> 1941 cycles
+    -2.6 ms    P20 staged: layout only (in-place C removed: -bank)
+    -5.7 ms    P20 staged: + one call per k-step, stripes not pipelined
+   -12.0 ms  P20 + 2x2 blocking (k-step ~1500; A port ~1364 below)
+    -4.2 ms  SSM N1 tables in C++ (5140 -> ~2210 cycles/chunk)
+    -6.0 ms  SSM N2 / N0 hand-scheduled (-> ~1000-1600 cycles/chunk)
+    -4.6 ms  P7 norms folded (40 us each)
+    -6.2 ms  P7 full (no norm ops; +0.3 us per tile of epilogue)
+    -1.3 ms  P5a K=768 slot loaded once (124 KB, -16 us)
+    -3.9 ms  P5 full: chunk-streamed + ping-pong for up_b/down_b/mlp3_b
+    -4.0 ms  attention 0.93 -> 0.6 ms (P12/P19)
+    -0.5 ms  acc_zero folded into the first k-step
+    -0.9 ms  C handoff 1.31 -> 0.3 us (C object double-buffered)
+    -0.7 ms  P23 row balance (yx, qkv)
+
+Combined:
+  P20                                                          59.7 ms  ( -8.2)
+  + SSM N1                                                     55.5 ms  (-12.4)
+  + P5                                                         52.0 ms  (-15.9)
+  + P7 (40 us norms)                                           47.4 ms  (-20.5)
+  + attention 0.6 ms                                           43.4 ms  (-24.5)
+  + acc_zero fold, C double-buffer, P23   (ceiling, 4-chain GEMM)   41.3 ms  (-26.6)
+  + 2x2 GEMM, SSM hand-scheduled          (ceiling)            35.7 ms  (-32.2)
+  ceiling per block: kstep 1074, opstart 192, tilebnd 27, epilogue 307, ring 0, ssm 615, attn 600, norms 160  = 2976 us
+  ceiling depth 12: 35.7 ms (28.0 fps)
+  ceiling depth 10: 29.8 ms (33.6 fps)
+  ceiling depth 8: 23.8 ms (42.0 fps)
