@@ -67,7 +67,9 @@ def emit_f(name, vals):
 
 def emit_i(name, vals):
     body = ",\n  ".join(", ".join(str(int(v)) for v in vals[i:i + 16]) for i in range(0, len(vals), 16))
-    return "".join(sec_default(name, t) + f"SEC_{name.upper()}_{t.upper()} alignas(64) int16_t {name}_{t}[{len(vals)}] = {{\n  {body}}};\n" for t in ("ab", "cd"))
+    alt = "#ifdef SQK_TAB  // round 16: r16/gen_sqk.py's exponent-folded entries (same size and placement)\nSQK_TAB;\n#else\n" if name == "ssqrt" else ""
+    return "".join(sec_default(name, t) + f"SEC_{name.upper()}_{t.upper()} alignas(64) int16_t {name}_{t}[{len(vals)}] =\n" + alt
+                   + f"{{\n  {body}}};\n" + ("#endif\n" if alt else "") for t in ("ab", "cd"))
 
 
 def main():

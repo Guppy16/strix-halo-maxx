@@ -21,6 +21,10 @@
 #define SEC_SSIG_CD __attribute__((section(".aie.bank2")))
 #define SEC_SSQRT_AB __attribute__((section(".aie.bank0")))
 #define SEC_SSQRT_CD __attribute__((section(".aie.bank3")))
+#ifdef SQK  // round 16: r16/gen_sqk.py -> build/sqk.s / .h; its tables (SQK_TAB) replace ssqrt_ab / ssqrt_cd's entries
+#include "build/sqk.h"
+extern "C" void sqk(bfloat16 *v, const int16_t *ab, const int16_t *cd);
+#endif
 #include "r9/ssm_lut.h"
 #include "r9/ssm9.h"
 #endif
@@ -823,7 +827,10 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       nk8::exp_a2_n(g_ga, g_e2, 16, kc);  // a, 1 - e2 (e2 = exp(2 log_a) = a^2: one exp instead of two)
 #endif
       PH(4);
-#ifdef SSM_LUT
+#if defined(SQK)  // round 16: one asm loop (II 13, U 2), bit-identical on every non-negative bf16; its drain over-reads
+      // up to 3 vectors past g_e2 (g_xc: readable)
+      sqk(g_e2, ssqrt_ab, ssqrt_cd);
+#elif defined(SSM_LUT)
       ssm9::sqrt_lut_n(g_e2, 16);  // mult = sqrt(1 - e2), exact
 #else
       nk8::sqrt_n(g_e2, 16, kc);  // mult = sqrt(1 - e2)

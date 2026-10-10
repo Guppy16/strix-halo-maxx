@@ -147,6 +147,10 @@ def ew_object(flags):
         steps += [["python3", str(HERE / "r15" / "gen_ssx.py"), str(bd / "ssx.s"), "--times", str(HERE / "r15" / "ssx.json"), "--fit"],
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "ssx.s"), "-o", str(bd / "ssx.o")]]
         objs.append(str(bd / "ssx.o"))
+    if "-DSQK" in flags:  # round 16: the SSM sqrt as one asm loop (r16/gen_sqk.py, schedule r16/sqk.json)
+        steps += [["python3", str(HERE / "r16" / "gen_sqk.py"), str(bd / "sqk.s"), "--times", str(HERE / "r16" / "sqk.json"), "--fit"],
+                  [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "sqk.s"), "-o", str(bd / "sqk.o")]]
+        objs.append(str(bd / "sqk.o"))
     if "-DCONVK" in flags:  # round 15: the SSM conv as one asm loop (r15/gen_conv.py, schedule r15/convk.json)
         steps += [["python3", str(HERE / "r15" / "gen_conv.py"), str(bd / "convk.s"), "--times", str(HERE / "r15" / "convk.json"), "--fit"],
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "convk.s"), "-o", str(bd / "convk.o")]]
