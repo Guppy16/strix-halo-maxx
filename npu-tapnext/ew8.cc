@@ -779,7 +779,27 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       // round 8: contiguous views of the chunk's 7 input parts (a part the ring wrap splits is copied to g_ptmp once);
       // the loops below use plain pointers instead of a wrap check per vector (in_at)
       const bfloat16 *P[7];
+#ifdef INPART_INLINE  // round 16 (research rev 11 P-IN; the flag PIN is #undef-ed by a header): in_part's common path inline; only a part that straddles the ring end is copied
+      {
+        int strad = -1;
+        for (int p = 0; p < 7; p++) {
+          int q = g_in_b + p * KB;
+          if (q >= IN_B) q -= IN_B;
+          P[p] = (const bfloat16 *)((const char *)in_ring + q);
+          if (q + KB > IN_B) strad = p;
+        }
+#ifdef CPY64  // the straddling part by cpy64 (in_part's minsize loops ran ~10 cycles per vector)
+        if (strad >= 0) {
+          in_copy(in_ring, g_ptmp, strad * KB, KB);
+          P[strad] = g_ptmp;
+        }
+#else
+        if (strad >= 0) P[strad] = in_part(in_ring, strad * KB);
+#endif
+      }
+#else
       for (int p = 0; p < 7; p++) P[p] = in_part(in_ring, p * KB);
+#endif
       // conv1d: xc = bf16(bf16(sum_t bf16(x_t w_t)) + b), taps x-3 (part 4) .. x (part 1)
 #ifdef CONVK  // round 15: r15/gen_conv.py, the same MACs and roundings (bit-identical); its drain over-reads past the parts / g_tct
       convk(P[4], P[3], P[2], P[1], g_tct, g_xc);

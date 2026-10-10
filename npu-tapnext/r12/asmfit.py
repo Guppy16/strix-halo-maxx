@@ -11,7 +11,9 @@ keeps the full-form body.
 """
 
 import re
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 B = "/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin"
@@ -22,11 +24,17 @@ def available():
 
 
 def body_offsets(text, name, work):
-    s, o = Path(work) / f"{name}_fit.s", Path(work) / f"{name}_fit.o"
-    s.write_text(text)
-    subprocess.run([f"{B}/clang", "--target=aie2p-none-unknown-elf", "-c", str(s), "-o", str(o)], check=True)
-    dis = subprocess.run([f"{B}/llvm-objdump", "-d", str(o)], capture_output=True, text=True, check=True).stdout
-    syms = subprocess.run([f"{B}/llvm-objdump", "-t", str(o)], capture_output=True, text=True, check=True).stdout
+    # a private temp dir per call (benches and generators that run outside design8's build lock share work dirs too)
+    tmp = Path(tempfile.mkdtemp(prefix=f".{name}_fit_", dir=work))
+    try:
+        s, o = tmp / f"{name}_fit.s", tmp / f"{name}_fit.o"
+        s.write_text(text)
+        subprocess.run([f"{B}/clang", "--target=aie2p-none-unknown-elf", "-c", str(s), "-o", str(o)], check=True)
+        # -z: without it runs of 2-byte nops print as "..." and their bundle offsets are missing
+        dis = subprocess.run([f"{B}/llvm-objdump", "-d", "-z", str(o)], capture_output=True, text=True, check=True).stdout
+        syms = subprocess.run([f"{B}/llvm-objdump", "-t", str(o)], capture_output=True, text=True, check=True).stdout
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     addr = {m.group(2): int(m.group(1), 16) for m in re.finditer(r"^([0-9a-f]+)\s.*\s(\S+)$", syms, re.M)}
     start, last = addr[f"{name}_start"], addr[f"{name}_last"]
     offs = [int(m.group(1), 16) for m in re.finditer(r"^\s*([0-9a-f]+):", dis, re.M)]

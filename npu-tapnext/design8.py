@@ -11,6 +11,7 @@ per rep: the GEMM cores' code is one block), `post` ops once.
 """
 
 import argparse
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -836,6 +837,11 @@ def main():
     p.add_argument("--attn-keys", type=int, default=1072)
     p.add_argument("--out", required=True)
     o = p.parse_args()
+    # One design build at a time per build dir (held until exit): asm_object / ew_object write fixed names (build/mm8asm.o,
+    # ew8cpp.o, the generated <k>.s / <k>.h that mm8.cc includes as "build/<k>.h", asmfit's <k>_fit.s) that aiecc links
+    # later in this process; two builds in parallel raced on them ("the last body bundle is not 16 B aligned", round 13).
+    lock = open(HERE / "build" / ".design8.lock", "w")
+    fcntl.flock(lock, fcntl.LOCK_EX)
     meta = json.loads(Path(o.sched + ".meta").read_text())
     iron.set_current_device(NPU2())
     kw = dict(sched_path=o.sched, w_words=meta["w_words"], act_words=meta["act_words"], pre_n=meta["pre_n"], body_n=meta["body_n"],
