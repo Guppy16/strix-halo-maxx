@@ -75,6 +75,19 @@ extern "C" void reck(const bfloat16 *e2, const float *h5, const float *h6, bfloa
 #error "RECK assumes the SSM_LUT / SSM_EXP3 arena layout (g_e2 at 10240, g_hb = g_gx)"
 #endif
 #endif
+#ifdef SSQ  // round 16: r16/gen_ssq.py -> build/ssq.s / .h: ssx's chain + sqk's sqrt in one loop (II 30, U 2); needs SQK's tables
+#ifndef SQK
+#error "SSQ uses SQK's exponent-folded sqrt tables (EW_DEFS -DSQK)"
+#endif
+#include "build/ssq.h"
+extern "C" void ssq(bfloat16 *g, const B32 *tsp, bfloat16 *mult, const bfloat16 *tab, const int16_t *ab, const int16_t *cd);
+#ifndef SSX_ROW
+#define SSX_R4(b) b, b, b, b
+#define SSX_ROW(b) SSX_R4(b), SSX_R4(b), SSX_R4(b), SSX_R4(b), SSX_R4(b), SSX_R4(b), SSX_R4(b), SSX_R4(b)
+#endif
+// ssx's rows + 0x00FF, 0xFF00, 2^60 and the lane-base row (written by ssq's preamble: non-const)
+__attribute__((section(".aie.bank2"))) alignas(64) static uint16_t ssq_tab[SSQ_NROWS * 32] = {SSQ_ROWS};
+#endif
 #ifdef SSX  // round 15 (P29b): r15/gen_ssx.py -> build/ssx.s / .h: log_a, a = exp(log_a) and 1 - a^2 in one modulo-scheduled loop
 #include "build/ssx.h"
 extern "C" void ssx(bfloat16 *g, const B32 *tsp, bfloat16 *om, const bfloat16 *tab);  // tab = ssx_tab + SSX_TAB_OFF
@@ -850,7 +863,9 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       nk8::sigmoid_n(g_gx, 32, kc);  // gate_x and gate_a (contiguous)
 #endif
       PH(3);
-#if defined(SSX)  // round 15: one asm loop, bit-identical to the passes below; its drain over-reads past g_ga (g_hout) and g_tsp
+#if defined(SSQ)  // round 16: ssx + sqk in one loop: a -> g_ga, mult -> g_e2 (the sqrt phase PH 5 is then empty)
+      ssq(g_ga, g_tsp, g_e2, (const bfloat16 *)((const uint8_t *)ssq_tab + SSQ_TAB_OFF), ssqrt_ab, ssqrt_cd);
+#elif defined(SSX)  // round 15: one asm loop, bit-identical to the passes below; its drain over-reads past g_ga (g_hout) and g_tsp
       ssx(g_ga, g_tsp, g_e2, (const bfloat16 *)((const uint8_t *)ssx_tab + SSX_TAB_OFF));  // (g_tbx), both readable
 #elif defined(SSM_EXP3)  // round 9: the same ops as pipelined passes (s1 = 9216, s2 = g_e2, s3 / s4 = g_hout, all free here)
       ssm9::loga_exp_a2(g_ga, g_tsp, (bfloat16 *)(g_arena + 9216), g_e2, (bfloat16 *)g_hout, (bfloat16 *)g_hout + 512);
@@ -861,7 +876,9 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       nk8::exp_a2_n(g_ga, g_e2, 16, kc);  // a, 1 - e2 (e2 = exp(2 log_a) = a^2: one exp instead of two)
 #endif
       PH(4);
-#if defined(SQK)  // round 16: one asm loop (II 13, U 2), bit-identical on every non-negative bf16; its drain over-reads
+#if defined(SSQ)
+      // (the sqrt ran inside ssq)
+#elif defined(SQK)  // round 16: one asm loop (II 13, U 2), bit-identical on every non-negative bf16; its drain over-reads
       // up to 3 vectors past g_e2 (g_xc: readable)
       sqk(g_e2, ssqrt_ab, ssqrt_cd);
 #elif defined(SSM_LUT)

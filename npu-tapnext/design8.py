@@ -152,6 +152,10 @@ def ew_object(flags):
         steps += [["python3", str(HERE / "r16" / "gen_ggk.py"), str(bd / "ggk.s"), "--times", str(HERE / "r16" / "ggk2.json"), "--fit"],
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "ggk.s"), "-o", str(bd / "ggk.o")]]
         objs.append(str(bd / "ggk.o"))
+    if "-DSSQ" in flags:  # round 16: ssx + sqk fused (r16/gen_ssq.py, schedule r16/ssq.json: II 30, U 2)
+        steps += [["python3", str(HERE / "r16" / "gen_ssq.py"), str(bd / "ssq.s"), "--times", str(HERE / "r16" / "ssq.json"), "--fit"],
+                  [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "ssq.s"), "-o", str(bd / "ssq.o")]]
+        objs.append(str(bd / "ssq.o"))
     if "-DSQK" in flags:  # round 16: the SSM sqrt as one asm loop (r16/gen_sqk.py, schedule r16/sqk.json)
         steps += [["python3", str(HERE / "r16" / "gen_sqk.py"), str(bd / "sqk.s"), "--times", str(HERE / "r16" / "sqk.json"), "--fit"],
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "sqk.s"), "-o", str(bd / "sqk.o")]]
