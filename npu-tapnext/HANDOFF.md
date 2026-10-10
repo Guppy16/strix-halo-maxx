@@ -1,10 +1,37 @@
-# ROUND 17 IN PROGRESS (2026-10-10/11) - working rules from the user (keep for later rounds)
+# ROUND 17 DONE (2026-10-11) - read this block first; the round-16 block below is the base it builds on
+## Working rules from the user (keep for every later round)
 - **All compute runs on testbox, never the laptop**: CP-SAT / generators / sims / python tools from ~/git/app/.scratch/npu-tapnext
   with `nice -n 10` and at most 12 solver workers (ortools: `~/.local/bin/uv run --no-project --with ortools --with numpy python ...`,
-  9.15.6755 as on the laptop; r17/cp_attks.sh is the pattern). Edit files on testbox directly (source of truth); the laptop is only
-  ssh + reading; rsync the laptop mirror at round end.
-- Dispatch times are bimodal (~0.17 ms apart) under the foreign CPU worker: compare SPREAD lines (p10 / p25 / median / mean of
-  200 iterations, interleaved with the baseline), not one median.
+  9.15.6755 as on the laptop; r17/cp_attks.sh is the pattern; cpsched defaults to 4 workers, pass --workers). Edit files on testbox
+  directly (source of truth); the laptop is only ssh + reading; rsync the laptop mirror at round end.
+- Dispatch times are bimodal (~0.17 ms apart) under the foreign CPU worker: compare SPREAD lines (p10 / median / mean of 200
+  iterations interleaved with the baseline), not one 60-iteration median.
+## State: **full12r17d 39.16 ms** at depth 12 (sweep; time run 39.19), 4 phase sequences per depth, BIT-IDENTICAL vs full12r9a
+| depth | dispatch ms (sweep median) | whole step ms | fps | DAVIS AJ (OA) (CPU bf16) |
+|---|---|---|---|---|
+| 12 | 39.16 | 41.01 (DAVIS loop 42.2) | 24.4 | 70.84 (92.57) (70.98) |
+| 10 | 32.78 | 34.86 (DAVIS loop 35.0) | 28.7 | 69.90 (91.02) (70.07) |
+| 8 | 26.29 | 28.37 | 35.2 | not run (68.22) |
+| 6 | 19.79 | 21.87 | 45.7 | not run (64.77) |
+Build: `r17/xtry.sh NAME 4 [--sweep] --k-add -DATTKS2MAX --env AL1=1 --ew-add -DAL1 --ew-add -DNPIPE --ew-add -DNPIPE_G=6` (try17.sh
+= r16z's flags; xtry adds XROT=4 / -DXROT and the phase builds full<d>NAME_p1..3, then regress / time / sweep). Commits: 16998cd (S2),
+26ccb0a (AL1, NPIPE, sliding X1, stamps), d3c671d (X1 mod 4), round end. Timeouts: 1 (1 KB AL1 padding; recovered). Text: GEMM
+16,336 / 16,384 (48 free), EW 15,808 (NPROF + CPROF fit only without N1K).
+## Where the time goes (timeline r17d, ms per step): attn 6.78, norms 4.87, ssm 3.99, mlp0 3.82, up_a 3.53, up_b 3.29, qkv 2.76,
+yx 1.98, mlp3_a 1.92, down_a 1.45, mlp3_b 1.32, down_b 1.27, out 1.17, out_proj 1.04. SSM chunk (CPROF): convk 280, pointers 101,
+rest 2,562. Norm units (NPROF r16z / NPIPE 2): in_need 101.5 / 61, out_begin 45 / 47, n1k step 161.
+## Next concrete actions
+1. GEMM text (48 B free) before S3 / V1 / K1 / K2 (research -0.73 together): find 200-400 B (csize.sh; k_rb's slow path is smaller
+   now; KFOLD-style folding; the attkb prologue with 3 stages at II 36).
+2. Norms: in_need still 61 per unit after NPIPE: price the input side (n_in 3 ops read 3 KB per unit); fold D1 + D2 / D3 + D4 partials
+   upstream (P35 / P24b) so norm0 / norm2 read 2 streams; the EWO bench (research) for the output rate.
+3. SSM after X1 (3 KB output per chunk): FSX inside SSQ, the 101-cycle part pointer + mapping glue, ssq's prologue.
+4. Research rev 13 (RESULTS_FROM_MAIN round 17 holds the verdicts and requests).
+## Rules that bit us this round (also in the skill)
+- An EW input fill group must total a multiple of the 768 B ring slot (1 KB-padded params hung the step): pad to 3 KB multiples.
+- Memory-carried modulo state: load by offset / store with post-modify, maxdist(load, store) <= II - 4, stores in the last stage.
+- CP schedules failing only the pad replay: re-solve with the colliding op's time forbidden; allocation at maxlive = budget: reserve 1.
+- r13/attkb.py's C++-reference compare reports BAD P for the deployed attkb too: compare builds with --hashes.
 
 # ROUND 16 DONE (2026-10-11) - read this block first; the round-15 block below is the base it builds on
 Read the skill (round 16 added: the 576-bit pop-stream underflow and its fill rule, periodic 2D modifiers, #undef-ed flags, 64-lane

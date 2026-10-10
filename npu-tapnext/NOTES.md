@@ -735,3 +735,43 @@ byte-identical); gen_sig --umax.
 - The first ggk debugging hypotheses (pop register windows, 2D bias modifier, A / B co-issue, epilogue MACs): all refuted by
   probes; a pop-window allocation guard was added to msched and reverted (never isolated as a cause).
 - Not built: X1 full rotation (cp_x 269 -> 0: the sliding SSM area base needs per-frame runtime sequences), S2, FSX, P52 by DMA.
+
+## 22. Round 17 (2026-10-10/11): 39.94 -> 39.16 ms, S2, X1 by rotation (mod 4), AL1, NPIPE
+### 22.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 26; commits 16998cd, 26ccb0a, d3c671d in strix-halo-maxx)
+1. **S2** (mm8 -DATTKS2MAX, r14/gen_attkb.py --s2, schedule r17/attks.json): every attkb iteration loads its row block's max slot
+   ([p6, #0] / [p6, #64], the caller's stack, bank 0), vmax_lt(slot, reloaded score) in the C++ test's operand order, stores it back
+   (vst #64 then vst.2d d7: 0 x5, then +128); the stores in the last stage. The per-iteration flag stores are gone: attkb returns the
+   flags' OR (int32_t: trips / hi move to r1 / r2) and a flagged row block's own flag is recomputed from its slot (bf16(max s - m) >
+   63.75 in some lane: monotone, exactly the loop's per-score test). k_rb takes the slot and skips the first-pass rerun. II 36
+   (34: none in 240 s; 35: failed the pad replay twice); x pressure needed cpsched `reserve` 1 and the max on the ring-reloaded scores.
+2. **X1** (plan8 XROT=4, ew8 -DXROT; research rev 12 design): conv history R0..R3 at B + S .. B + 4 S, x(t) -> R[t mod 4] by splitting
+   the yx drain ([2, 12, RB, XB], strides [x_at - base, KSTEP16, UNIT, 1]: under P23 the C objects arrive in k-step order), the kernel
+   maps tap x - k to R[(r - k) mod 4] (header word 2 = 1 + r, four params copies in W), output [h lo, h hi, z] (3 KB) at B + 5 S. 4
+   runtime sequences per depth (build/full<d>NAME_p<k>), step8 rotates the instruction bo per dispatch (Step8.select / phase), reset()
+   starts at phase 0. Built first as a sliding area (N phases, a wrap frame with copies, (N + 7) S per column): same rotating-frame
+   gain, replaced (no wrap frame, no memory growth).
+3. **AL1** (plan8 AL1=1, ew8 -DAL1): params fills padded to 3 KB multiples (SSM 12,288 B per head, RMS 3,072, LN 6,144); the
+   straddle path compiled out.
+4. **NPIPE** (ew8 -DNPIPE, NPIPE_G=6): norm pass 2 of rb interleaved with pass 1 of rb + 1 in groups of G units; the n1k accumulators
+   go through g_nacc around each group (_end / _begin).
+Tools: r17/try17.sh (r16z base), r17/xtry.sh (XROT phase builds + regress + time + sweep), r17/xrotsim.py (state flow check),
+r17/cp_attks.sh (CP on testbox), step8 SPREAD / PHASES lines, NPROF out_begin stamp (record word 19), CPROF (conv split), attkb.py
+--hashes, cpsched `forbid` + gen_attkb re-solve on pad port collisions.
+### 22.2 What the numbers say
+- S2 hit (-0.31). X1 hit (-0.33 per rotating frame; the mod-4 form has no wrap frame). AL1 and NPIPE missed: AL1 -0.05..-0.15
+  (-0.21 predicted), NPIPE ~-0.1 at G 4-6 and nothing at G 2 (-0.55 predicted).
+- NPROF: in_need 101.5 -> 61 per unit with NPIPE, out_begin 45 -> 47: the norms are not output-bound (ewio predicted out_begin
+  147 / 90); the extra _end / _begin per group (~45 cycles) eats much of what the overlap gives at G 2.
+- The SSM conv gap is closed: convk runs 250-280 in situ; the 440 was the straddle copy (~47 % of chunks, AL1) + pointers + stamps.
+### 22.3 Measured facts / rules (also in the skill)
+- **An EW input fill group must total a multiple of the 768 B ring slot**: the core's packet BD completes per slot; 1 KB-padded params
+  (11,264 B per SSM head) left the last slot unfilled -> the step hung (TIMEOUT, recovered; known-good bench fine after).
+- A modulo loop can carry state through memory: load the previous iteration's store by offset, store with post-modify, maxdist
+  (load, last store) <= II - 4 (data land +4, pointer +3), stores in the last stage (drain garbage iterations must not write).
+- cpsched solutions can fail msched.check only with the .p2align pad: re-solve with the colliding op's time forbidden (gen_attkb does
+  it for port collisions); allocation failing at maxlive = budget: `reserve` 1 register in the CP bound.
+- Under the foreign CPU worker dispatch times split into two clusters ~0.17 ms apart; one 60-iteration median can land in either.
+  Compare p10 / median / mean of 200 interleaved iterations.
+- A GEMM drain can split its output into two regions with one TAP when the C objects arrive in a linear order: [2, half, RB, XB].
+### 22.4 Dead ends / not done
+- NPIPE_G 2 (+0.07), 1 KB AL1 (hang). S3 / V1 / K1 / K2: GEMM text 48 B free after S2 (not attempted). FSX, P52 by DMA, EWO bench.

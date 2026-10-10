@@ -14,6 +14,8 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   are absolute symlinks into it. Every `docker run` that mounts `-v $HOME/git/app/.scratch:/work` must ALSO mount
   `-v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx`, or `/work/npu-*` is a dangling link inside the container.
   Commit locally (one commit per kept change or failed experiment, measured ms + predicted vs measured); never push.
+- **All compute on testbox (user, round 17)**: generators, CP-SAT (`nice -n 10`, <= 12 workers), sims and tools run there; edit on
+  testbox (source of truth); the laptop only for ssh / reading and the end-of-round mirror rsync.
 
 - `ssh testbox`. Repo `~/git/app`; scratch work under `~/git/app/.scratch/<project>/` (never in /tmp, never in the
   app package). The laptop is only where code is written: edit locally, `scp` to testbox, run there.
@@ -462,7 +464,34 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - Per-call overhead decides short loops: preamble + (stages - 1) x II + ret ~ 70 cycles bought little for an 8-iteration loop
   (n1p 133 vs 211 C++); fold more work per call or keep state across calls.
 - Timing twins overstate once an op nears its I/O bound (round 16 norms: twin -1.98 ms, real asm -0.2; in_need waits 105 cycles
-  per unit by NPROF stamps): stamp the waits before pricing a compute cut.
+  per unit by NPROF stamps): stamp the waits before pricing a compute cut. **Research rev 12:** N1K's -0.2 was its correct
+  whole-call static price (the miss was rev 11's loop-only price); the twins saved 0.17 / 0.5 ms MORE than their own static
+  compute, which no I/O mechanism explains. UNVERIFIED cause: twins with wrong outputs change downstream data-dependent work (the
+  attention's lazy-max fallback). Read a twin's per-op walls from `step8.py timeline`, never the step delta.
+- **EW ring ports (research rev 12, FITTED, not measured directly; npu-research tools/ewio.py)**: the EW input ring fills at
+  ~6.0 B/cycle and the output ring drains at **~2.35 B/cycle per column** (core MM2S -> shim -> DDR, 768 B slots). One fit
+  reproduces r15i, NRMK, N1K, r15h's n_in invariance and NPROF's in_need waits. So the norms (1,600 B out per unit) are
+  output-port bound since NRMK, and pass 1 / pass 2 serialise against the 15 KB / 9 KB rings: interleave the passes rather
+  than cut compute. The SSM's 6 KB per chunk needs ~2,600 cycles of drain against ~2,950 of compute.
+- **Price with tcall** (npu-research tools/tcall.py): whole-call cycles from the `-z` disassembly, natural loops, delay
+  slots, callees, a per-step call census; `--seg` for phases, `branches` in the spec to pin a mode. It reproduced r15h's norm
+  row blocks within 3 % and the r15h -> r15i delta exactly. A part of a 1 KB-unit stream straddles the 15 KB EW ring end
+  whenever the op params leave the ring position off a 1 KB boundary (SSM: 10,752 B per head, ~47 % of chunks pay a copy).
+- **An EW input fill group must total a multiple of the 768 B ring slot (round 17)**: the shim -> core packet BD completes per
+  slot, so padding the SSM params to 11,264 B (1 KB multiple) left a slot unfilled and the step hung (timeout). Pad to multiples
+  of lcm(slot, alignment) (AL1: 3 KB). Same for any new fill size on the EW rings.
+- **Loop state through memory in a modulo loop (round 17 S2)**: iteration i loads what i - 1 stored (by offset, no post-modify) and
+  stores with post-modify (vst #64, vst.2d dN): maxdist(load, last store) <= II - 4 (data land +4, pointer +3) and the stores in
+  the last stage (drain garbage iterations must not write). msched's spill / fill model does not cover it: assert it in the generator.
+- cpsched + the .p2align pad: a CP schedule can fail msched.check only with the pad; re-solve at the same II with the colliding op's
+  time forbidden (`forbid=[(op, t)]`, r14/gen_attkb.py loops it); when allocation fails at maxlive = budget, `reserve={"x": 1}`.
+- Rotating state instead of copying it (round 17 X1): per-frame runtime sequences (one .bin per phase, swap the instruction bo per
+  dispatch like set_depth) + a phase word in the params header the kernel maps by. A GEMM drain can split its C objects into two
+  regions in one TAP when they arrive in a linear order ([2, half, RB, XB], first stride = the gap).
+- Dispatch-time noise under a foreign CPU load is bimodal (~0.17 ms clusters): compare p10 / median / mean over 200 iterations
+  interleaved with the baseline (step8 SPREAD), never one 60-iteration median.
+- Compute placement (user rule, round 17): every CP-SAT / generator / python run on testbox (`nice -n 10`, <= 12 solver workers;
+  ortools via `~/.local/bin/uv run --no-project --with ortools --with numpy`), never on the laptop.
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
   timeouts per phase; stop if the device does not recover. Never loop retries on a failing design.
@@ -655,6 +684,9 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   popprobe.s + popb.py (FIFO pop probes); nrun.sh (python + NPU in npu-iron-torch), b16.sh, try16.sh (research try.sh + the
   current best's flags), commit.sh (commit with a message file). Flags: EW_DEFS SQK INPART_INLINE XONE GGK SSQ (replaces SSX)
   SIG10 N1K, NPROF (norm-step stamps; PROF no longer fits), twins NORM_TWIN=2 / 4.
+- `npu-tapnext/r17/` (round 17): try17.sh (r16z base), xtry.sh (XROT=4 phase builds + regress / time / sweep), xrotsim.py (state
+  flow of the rotation), cp_attks.sh (CP on testbox), attks.json (S2 schedule). Flags: mm8 ATTKS2MAX (gen_attkb --s2); EW_DEFS XROT
+  (+ plan XROT=4), AL1 (+ plan AL1=1), NPIPE / NPIPE_G, CPROF (conv split stamps); NPROF stamps out_begin too (record word 19).
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);

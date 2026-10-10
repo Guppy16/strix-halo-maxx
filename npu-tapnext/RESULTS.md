@@ -827,3 +827,38 @@ timing (4): pops 8-12 wrong; dense 24 pops without (6) / with (7) a fill every 8
 | 10 | 33.84 (33.43) | 37.06 | 27.0 | 69.90 (91.02); loop 36.3 ms per frame (dispatch 33.96) | 70.07 |
 | 8 | 26.86 (26.74) | 29.12 | 34.3 | not run | 68.22 |
 | 6 | 20.18 (20.11) | 22.53 | 44.4 | not run | 64.77 |
+
+## 26. Round 17 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; a foreign CPU job (another project's python
+worker, 100 % of one core) ran throughout, and for part of the session my own CP-SAT run on testbox (load 7-14): dispatch times are
+bimodal (~0.17 ms apart), so the table gives SPREAD lines (200 iterations after 20 warm-up, interleaved with r16z) where taken)
+### 26.1 Step at depth 12 (every build BIT-IDENTICAL to full12r9a; asmlint 0 errors each)
+| build | change | measured (ms) | predicted | verdict |
+|---|---|---|---|---|
+| full12r16z (re-timed x6) | round 16 best | median 39.94-40.42, p10 39.87-39.91, mean 40.00-40.29 | | |
+| full12r17s2 | + S2 (attkb II 36, running max on the stack) | p10 39.56, median 39.71, mean 39.69 (-0.31 at every percentile) | research -0.38 (-0.29..-0.45); main -0.35 +- 0.08 | hit |
+| full12r17al2 | + AL1 (params padded to 3 KB multiples) | p10 39.82, mean 39.87 (-0.05..-0.15) | research -0.21 +- 0.05 | miss |
+| full12r17al (1 KB padding) | | TIMEOUT (1): a fill group must stay a 768 B slot multiple | | dead |
+| full12r17np (G 2) / np3 / np4 / np6 | + NPIPE, NPIPE_G units per group | p10 39.96-39.98 / 39.89 / 39.82 / 39.80 (G 4-6: -0.05..-0.15; G 2: +0.07) | research -0.55 (-0.54..-0.56) | miss |
+| full12r17x3 (sliding X1, N = 3) | rotating frames vs wrap | rotating 39.67-39.74, wrap 40.00-40.08 (240 iters x2) | main -0.36 +- 0.05 (rotating frame) | hit (-0.33) |
+| full12r17x8 (sliding, N = 8) | sweep | d12 39.71 (cycle mean; rotating 39.61-39.74, wrap 39.92) | | superseded |
+| full12r17c (sliding N 8 + S2 + AL1 + NPIPE 6) | | rotating 39.17-39.21, wrap 39.47, cycle mean 39.23 | | superseded by mod 4 |
+| **full12r17d** | S2 + AL1 + NPIPE_G=6 + X1 mod 4 (XROT=4) | **sweep 39.16 (39.13); time run 39.19**; in a noisier slot p10 39.19, median 39.62, mean 39.55 | X1 research -0.34 alone / -0.26 after AL1 | hit (timeline ssm -0.47 incl. AL1) |
+Timeline (one dispatch, r11/tlcmp): r16z 40.07 -> r17d 39.28 ms: attn 7.08 -> 6.78, ssm 4.45 -> 3.99, norms 4.93 -> 4.87, GEMMs +-0.06.
+Text r17d: GEMM 16,336 / 16,384 (48 free), EW 15,808.
+### 26.2 Probes
+- NPROF (norm unit waits, cycles per unit, all norm ops): r16z in_need 101.5, out_begin 45.0 (new stamp), n1k step 161.5; NPIPE_G=2
+  in_need 61.0, out_begin 46.6, step 160.6. Research rev 12's ewio predicted out_begin 147 (RMS) / 90 (LN) at r16z: the norms are
+  not output-bound at the measured waits; the input side waits ~2x as long.
+- CPROF (r17d config without N1K / NPIPE for text): convk alone in situ 280 cycles per chunk incl. ~25 of stamps (one-core bench 251),
+  part pointers + mapping 101, the rest of the chunk 2,562; SSM op 351 us (r16e PROF 426, with ~14 stamps). The round-16 "conv 440"
+  was convk + pointers + the straddle copy (AL1 removed it) + stamps: no in-situ penalty on convk itself.
+- attkb one-core bench (r13/attkb.py --hashes, S2 vs deployed, 36 cases): P / maxima hashes identical; cycles per call warm
+  unflagged 1,634 vs 1,558, flagged 4,482 / 3,751 vs 5,730 / 4,528, chunk 0 5,772 vs 6,225, last chunk 4,140 vs 4,953 (warm 2,202
+  vs 2,145). The bench's compare against its C++ chunk_k reports BAD P for the deployed attkb as well (pre-existing).
+### 26.3 Depth sweep and DAVIS (full12r17d, one xclbin, 4 phase sequences per depth; `step8.py sweep`, phases p0-p3 within 0.04)
+| depth | dispatch median (min) | whole step | fps (whole step) | DAVIS AJ (OA), 10 videos | CPU bf16 AJ |
+|---|---|---|---|---|---|
+| 12 | 39.16 (39.13) | 41.01 | 24.4 | 70.84 (92.57); loop 42.2 ms per frame (dispatch 39.55) | 70.98 |
+| 10 | 32.78 (32.74) | 34.86 | 28.7 | 69.90 (91.02); loop 35.0 ms per frame (dispatch 32.95) | 70.07 |
+| 8 | 26.29 (26.25) | 28.37 | 35.2 | not run | 68.22 |
+| 6 | 19.79 (19.72) | 21.87 | 45.7 | not run | 64.77 |
