@@ -85,13 +85,17 @@ class Op:
     accumulator as dm in the text but only cml matters -> give "cml" here). mem: ("ld" | "st", stream name) for address
     checks; banks: memory banks the op touches (at most one access per bank per bundle)."""
 
-    def __init__(self, name, slot, fmt, defs=(), uses=(), mem=None, banks=(), after=(), spill=None, fill=None, instr=None):
+    def __init__(self, name, slot, fmt, defs=(), uses=(), mem=None, banks=(), after=(), spill=None, fill=None, instr=None, cuses=()):
         """after: [(op name, min issue distance)] extra edges (memory dependences); spill: (vreg, part) this store writes
         to its stream; fill: (vreg, part) whose spilled value this load must read back (checked through memory)"""
         self.name, self.slot, self.fmt = name, SLOTS[slot], fmt
         self.defs, self.uses, self.mem, self.banks = list(defs), list(uses), mem, tuple(banks)
         self.after, self.spill, self.fill = list(after), spill, fill
         self.instr = instr  # the .td instruction: its itinerary's port resources are reserved too
+        # round 16: carried uses [(vreg, part, stage)]: reads of the PREVIOUS iteration's value (a loop-carried accumulator,
+        # s(i) = s(i - 1) + ...). Loops with carried uses need U = 1 (one register holds the chain), the reading op in the last
+        # stage (the drain's garbage iterations must not update it) and the initial value in the register before the loop.
+        self.cuses = list(cuses)
         self.ports = ports(instr) if instr else []
         self.t = None
 
@@ -115,10 +119,10 @@ class Loop:
         self.vclass = {}
         for o in ops:  # the text must name exactly the registers the def / use lists declare
             named = set(re.findall(r"\{(\w+)\.\w+\}", o.fmt))
-            declared = {v for v, *_ in o.defs + o.uses}
+            declared = {v for v, *_ in o.defs + o.uses + o.cuses}
             assert named == declared, f"{o.name}: text names {sorted(named)}, defs / uses declare {sorted(declared)}"
         for o in ops:
-            for v, p, *_ in o.defs + o.uses:
+            for v, p, *_ in o.defs + o.uses + o.cuses:
                 c = PARTS[p][0]
                 assert self.vclass.setdefault(v, c) == c, (v, p)
         self._edges()
@@ -150,6 +154,12 @@ class Loop:
                 v, p = o.spill
                 self.spilled = getattr(self, "spilled", {})
                 self.spilled[o.name] = {a: last[v, a][0].name for a in PARTS[p][1]}
+        self.cpreds = defaultdict(list)  # round 16: op -> [(def op, lat + VIS - stage)]: t_op + II >= t_def + that
+        for o in self.ops:
+            for v, p, st in o.cuses:
+                for a in PARTS[p][1]:
+                    d, lat = last[v, a]  # the iteration's (last) def of v
+                    self.cpreds[o.name].append((d.name, lat + VIS - st))
         self.succs = defaultdict(list)
         for n, ps in self.preds.items():
             for p, dist in ps:
@@ -206,6 +216,8 @@ class Loop:
         for o in self.ops:
             for p, d in self.preds[o.name]:
                 assert o.t >= self.by_name[p].t + d, f"{o.name}@{o.t} breaks {p}@{self.by_name[p].t} + {d}"
+            for p, d in self.cpreds.get(o.name, []):
+                assert o.t + II >= self.by_name[p].t + d, f"{o.name}@{o.t} + II breaks the carried {p}@{self.by_name[p].t} + {d}"
         tab = defaultdict(set)
         for o in self.ops:
             assert self._free(tab, o, o.t), f"{o.name}@{o.t}: resource taken (II {II})"
@@ -295,6 +307,8 @@ class Loop:
                 lo[v] = min(lo.get(v, 1 << 30), o.t + lat)  # may already be visible at c + w (the mv->mv bypass)
             for v, p, st in o.uses:
                 hi[v] = max(hi.get(v, -(1 << 30)), o.t + st)
+            for v, p, st in o.cuses:  # round 16: read by the NEXT iteration
+                hi[v] = max(hi.get(v, -(1 << 30)), o.t + st + self.II)
         return {v: (lo[v], hi.get(v, lo[v]) + self.slack) for v in lo}
 
     def maxlive(self, lt=None):
@@ -344,6 +358,9 @@ class Loop:
     # ---- register allocation (modulo variable expansion) -----------------------------------------------------
     def allocate(self, U=None, tries=None):
         II = self.II
+        if any(o.cuses for o in self.ops):  # round 16: one register per carried chain
+            assert U in (None, 1), "carried uses need U = 1"
+            U = 1
         lt = self.lifetimes()
         need = max(math.ceil((h - l + 1) / II) for l, h in lt.values())
         need = max(need, math.ceil(MIN_BODY / II))  # round 12: a 2-bundle zero-overhead loop body ran once (r12/cpyb)
@@ -544,6 +561,12 @@ class Loop:
                         assert (cyc + st, k) not in busy, f"cycle {cyc} {o.name} it {i}: port {k[1]} at {cyc + st} taken by {busy[cyc + st, k]}"
                         busy[cyc + st, k] = f"{o.name} it {i}"
                 k = i % self.U
+                for v, p, st in o.cuses:  # round 16: the previous iteration's value; iteration 0 reads the preamble's ("init")
+                    c = self.vclass[v]
+                    for a in PARTS[p][1]:
+                        if 0 <= i < n:
+                            want = (v, i - 1, dict(self.cpreds[o.name])and next(dn for dn, _ in self.cpreds[o.name])) if i else (v, -1, "init")
+                            ev.append((cyc + st, 1, (c, self.alloc[v, 0], a), want, f"cycle {cyc} {o.name} it {i} (carried)"))
                 for ui, (v, p, st) in enumerate(o.uses):
                     c = self.vclass[v]
                     for a in PARTS[p][1]:
@@ -598,6 +621,10 @@ class Loop:
                     else:
                         q["p"] += q["m"]
                         q["dc"] = 0
+        for o in self.ops:  # round 16: carried chains start from the preamble's value
+            for v, p, st in o.cuses:
+                for a in PARTS[p][1]:
+                    ev.append((-1, 0, (self.vclass[v], self.alloc[v, 0], a), (v, -1, "init"), "preamble"))
         # a register write (event time = c + w + 1) may already be seen at c + w (measured: the mv -> mv bypass), so a read
         # at T is certain only if its write is visible by T (time <= T) and no later write could be (time - 1 > T)
         writes = defaultdict(list)

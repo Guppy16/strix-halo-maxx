@@ -149,6 +149,11 @@ def ew_object(flags):
         steps += [["python3", str(HERE / "r15" / "gen_ssx.py"), str(bd / "ssx.s"), "--times", str(HERE / "r15" / "ssx.json"), "--fit"],
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "ssx.s"), "-o", str(bd / "ssx.o")]]
         objs.append(str(bd / "ssx.o"))
+    if "-DN1K" in flags:  # round 16 (research N1): norm pass 1 + statistics per unit (r16/gen_n1k.py, r16/n1k_ln.json / n1k_rms.json)
+        for md in ("ln", "rms"):
+            steps += [["python3", str(HERE / "r16" / "gen_n1k.py"), str(bd / f"n1k_{md}.s"), "--mode", md, "--times", str(HERE / "r16" / f"n1k_{md}.json"), "--fit"],
+                      [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / f"n1k_{md}.s"), "-o", str(bd / f"n1k_{md}.o")]]
+            objs.append(str(bd / f"n1k_{md}.o"))
     if "-DGGK" in flags:  # round 16: both SSM gate GEMMs as one asm loop (r16/gen_ggk.py, schedule r16/ggk2.json)
         steps += [["python3", str(HERE / "r16" / "gen_ggk.py"), str(bd / "ggk.s"), "--times", str(HERE / "r16" / "ggk2.json"), "--fit"],
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "ggk.s"), "-o", str(bd / "ggk.o")]]

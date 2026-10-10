@@ -52,6 +52,9 @@ def solve(lp, II, H=None, budgets=None, reserve=None, slack=0, max_len=None, tim
     for n, ps in lp.preds.items():  # dependences (all intra-iteration in these loops)
         for p, d in ps:
             m.Add(T[n] >= T[p] + d)
+    for n, ps in getattr(lp, "cpreds", {}).items():  # round 16: loop-carried (the next iteration reads): t_n + II >= t_p + d
+        for p, d in ps:
+            m.Add(T[n] + II >= T[p] + d)
     # resources modulo II
     use = defaultdict(list)
     for o in ops:
@@ -68,6 +71,8 @@ def solve(lp, II, H=None, budgets=None, reserve=None, slack=0, max_len=None, tim
             defs[v].append((o.name, lat))
         for v, p, st in o.uses:
             uses[v].append((o.name, st))
+        for v, p, st in getattr(o, "cuses", ()):  # round 16: carried reads happen one II later
+            uses[v].append((o.name, st + II))
     C = H + 16  # cycles a lifetime may reach (last read of the last op)
     prefix = {}  # (op, c) -> [t_op <= c] as a linear expression (sum of one-hot booleans)
 

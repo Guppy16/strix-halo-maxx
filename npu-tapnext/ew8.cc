@@ -346,6 +346,17 @@ static inline const bfloat16 *ring_r(const uint32_t *ring, int base, int off) { 
 // into the output ring (to_x: the LN result replaces X', the encoder norm)
 #ifdef NRMK
 static __attribute__((noinline)) void out_copy(uint32_t *ring, int off, const bfloat16 *__restrict src, int nvec);  // (below)
+#ifdef N1K
+extern "C" {  // r16/gen_n1k.py: _begin / _end once per row block; constants and the accumulators stay in registers between steps
+void n1k_ln_begin(float *, int, int);
+void n1k_ln_step(const bfloat16 *, const bfloat16 *, const bfloat16 *, bfloat16 *, int, int, int, int);
+void n1k_ln_end(float *);
+void n1k_rms_begin(float *, int, int);
+void n1k_rms_step(const bfloat16 *, const bfloat16 *, const bfloat16 *, bfloat16 *, int, int, int, int);
+void n1k_rms_end(float *);
+}
+alignas(64) static float g_nacc[128];  // s0 | s1 | q0 | q1 (fp32, 32 lanes each)
+#endif
 // round 15 (P7-E step 1): ONE norm_rows for both modes (the template's two copies of the pass-1 loop cost ~1 KB of text):
 // pass 1 sums the streams into the stage, the statistics run as a second loop over it in the same order per chain (round 15
 // NORM_SPLIT: same speed, bit-identical), pass 2 is the asm math (nrm_rms / nrm_ln) plus copy_run into the output ring.
@@ -358,10 +369,55 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
   uint8_t *rr = (uint8_t *)g_arena + 15360;  // r | r | rl | rl | nb | nb for the kernels (free during norm ops)
   static_assert(15872 + KB <= sizeof(g_arena));
   for (int rb = 0; rb < RBN; rb++) {
+#ifdef N1K  // round 16 (research N1): pass 1 + the statistics per unit in asm (r16/gen_n1k.py), the accumulators via g_nacc
+    for (int i = 0; i < 128; i += 16) aie::store_v(g_nacc + i, aie::zeros<float, 16>());
+    const int w1b = n_in > 1 ? 0x3F80 : 0, w2b = n_in > 2 ? 0x3F80 : 0;
+    if (ln) n1k_ln_begin(g_nacc, w1b, w2b); else n1k_rms_begin(g_nacc, w1b, w2b);
+    for (int q = 0; q < QS; q++) {
+      in_need(in_ring, unit);
+      const bfloat16 *p[3];
+      int dc[3];
+      for (int s = 0; s < 3; s++) {
+        int qq = g_in_b + (s == 0 ? 0 : s == 1 ? o1 : o2);
+        if (qq >= IN_B) qq -= IN_B;
+        p[s] = (const bfloat16 *)((const char *)in_ring + qq);
+        const int n1 = (IN_B - qq) >> 7;  // 128 B pieces before the ring end
+        dc[s] = n1 >= 8 ? 0 : 8 - n1;
+      }
+#if defined(NORM_TWIN) && (NORM_TWIN & 4)  // round 16 timing twin (outputs wrong): the n1k step calls skipped
+      if (q < 0)
+#endif
+      if (ln)
+        n1k_ln_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
+      else
+        n1k_rms_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
+      in_done(in_ring, unit);
+    }
+    if (ln) n1k_ln_end(g_nacc); else n1k_rms_end(g_nacc);
+    if (ln) {
+      B32 r0, r1, rl0, rl1;
+      A32 nb0, nb1;
+      ln_stats(rowsum8(A32(aie::load_v<32>(g_nacc))), rowsum8(A32(aie::load_v<32>(g_nacc + 64))), eps, r0, rl0, nb0);
+      ln_stats(rowsum8(A32(aie::load_v<32>(g_nacc + 32))), rowsum8(A32(aie::load_v<32>(g_nacc + 96))), eps, r1, rl1, nb1);
+      aie::store_v((bfloat16 *)rr, r0);
+      aie::store_v((bfloat16 *)(rr + 64), r1);
+      aie::store_v((bfloat16 *)(rr + 128), rl0);
+      aie::store_v((bfloat16 *)(rr + 192), rl1);
+      aie::store_v((float *)(rr + 256), FV(nb0));
+      aie::store_v((float *)(rr + 384), FV(nb1));
+    } else {
+      aie::store_v((bfloat16 *)rr, rms_rstd(rowsum8(A32(aie::load_v<32>(g_nacc + 64))), eps));
+      aie::store_v((bfloat16 *)(rr + 64), rms_rstd(rowsum8(A32(aie::load_v<32>(g_nacc + 96))), eps));
+    }
+#else
     for (int q = 0; q < QS; q++) {
       in_need(in_ring, unit);
       const int ib = g_in_b;
       bfloat16 *st = g_stage + q * 512;
+#if defined(NORM_TWIN) && (NORM_TWIN & 2)  // round 16 timing twin (outputs wrong): pass 1 and the statistics skipped (N1's ceiling)
+      (void)ib; (void)st; (void)o1; (void)o2;
+      if (0)
+#endif
       for (int cb = 0; cb < 8; cb++) {
         const bfloat16 *pa = ring_r(in_ring, ib, cb * 128), *pb = ring_r(in_ring, ib, o1 + cb * 128), *pc = ring_r(in_ring, ib, o2 + cb * 128);
         A32 a0 = aie::mul(aie::load_v<32>(pa), ones), a1 = aie::mul(aie::load_v<32>(pa + 32), ones);
@@ -376,6 +432,9 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
     }
     A32 s0 = aie::zeros<accfloat, 32>(), s1 = s0, q0 = s0, q1 = s0;
     const bfloat16 *st = g_stage;
+#if defined(NORM_TWIN) && (NORM_TWIN & 2)
+    if (0)
+#endif
     if (ln) {
       AIE_LOOP_MIN_ITERATION_COUNT(96)
       for (int k = 0; k < QS * 8; k++) {
@@ -407,6 +466,7 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
       aie::store_v((bfloat16 *)rr, rms_rstd(rowsum8(q0), eps));
       aie::store_v((bfloat16 *)(rr + 64), rms_rstd(rowsum8(q1), eps));
     }
+#endif  // N1K
     for (int q = 0; q < QS; q++) {
       out_begin(out_ring, UNIT_B);
       bfloat16 *sq = g_stage + q * 512;
