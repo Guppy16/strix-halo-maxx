@@ -995,12 +995,13 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
     in_need(in_ring, SSM_PARAM_B);
     PH(10);
     const int first = *(const int32_t *)in_at(in_ring, 0);
-#ifdef XROT  // round 17 (X1 full rotation): header word 2 = 1: the SSM area slides by one region per frame, so x, x-1, x-2 already
-    // sit where the next frame reads them: the chunk's output is only [h rows 0-3][h rows 4-7][z panels] (3 KB); 0 = the wrap
-    // frame (every N frames): today's 6 KB output with the x copies, which moves the state back to the top of the area
+#ifdef XROT  // round 17 (X1 full rotation, plan8 XROT=4): header word 2 = 1 + r (r = frame mod 4): parts 1-4 are the history regions
+    // R0..R3 and tap x - k is R[(r - k) mod 4]; the yx GEMM wrote x into R[r], so nothing is copied: the chunk's output is only
+    // [h rows 0-3][h rows 4-7][z panels] (3 KB). 0 = today's layout (6 KB with the x copies)
     static_assert(SLOT_B * 4 == 3 * KB);
+    // (every frame rotates under XROT: the 6 KB copy layout is not compiled)
     const int rot = *(const int32_t *)in_at(in_ring, 8);
-    const int o_slots = rot ? 4 : 8, o_h = rot ? 0 : 3 * KB, o_z = rot ? 2 * KB : 5 * KB;
+    constexpr int o_slots = 4, o_h = 0, o_z = 2 * KB;
 #else
     constexpr int o_slots = 8, o_h = 3 * KB, o_z = 5 * KB;
 #endif
@@ -1025,9 +1026,13 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
           int q = g_in_b + p * KB;
           if (q >= IN_B) q -= IN_B;
           P[p] = (const bfloat16 *)((const char *)in_ring + q);
+#ifndef AL1  // round 17 AL1: the params are 3 KB multiples, so g_in_b is 1 KB aligned and no part straddles the 15 KB ring end
           if (q + KB > IN_B) strad = p;
+#endif
         }
-#ifdef CPY64  // the straddling part by cpy64 (in_part's minsize loops ran ~10 cycles per vector)
+#ifdef AL1
+        (void)strad;
+#elif defined(CPY64)  // the straddling part by cpy64 (in_part's minsize loops ran ~10 cycles per vector)
         if (strad >= 0) {
           in_copy(in_ring, g_ptmp, strad * KB, KB);
           P[strad] = g_ptmp;
@@ -1038,6 +1043,13 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       }
 #else
       for (int p = 0; p < 7; p++) P[p] = in_part(in_ring, p * KB);
+#endif
+#ifdef XROT
+      {  // parts 1-4 = R0..R3 -> x, x-1, x-2, x-3
+        const bfloat16 *R[4] = {P[1], P[2], P[3], P[4]};
+#pragma clang loop unroll(disable)
+        for (int k = 0; k < 4; k++) P[1 + k] = R[(rot - 1 - k) & 3];
+      }
 #endif
       // conv1d: xc = bf16(bf16(sum_t bf16(x_t w_t)) + b), taps x-3 (part 4) .. x (part 1)
 #ifdef CONVK  // round 15: r15/gen_conv.py, the same MACs and roundings (bit-identical); its drain over-reads past the parts / g_tct
@@ -1163,8 +1175,7 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #endif
       PH(8);
 #ifdef XROT
-      if (rot) {
-      } else
+      if (0)
 #endif
 #ifdef XONE  // round 16 (research X1b): x, x-1, x-2 are consecutive 1 KB parts of the input ring unless one straddles: one call
       if (P[2] == P[1] + KB / 2 && P[3] == P[2] + KB / 2)

@@ -76,7 +76,7 @@ class Step8:
 
         bj = json.load(open(f"{HERE}/build/{build}.json"))
         plan8.A_HALF, plan8.P23, plan8.P60G = bool(bj.get("a_half", False)), bool(bj.get("p23", False)), bool(bj.get("p60g", False))
-        # round 17 (X1 full rotation): XROT = N frame phases, each its own runtime sequence (build/full<d><suffix>_p<k>.bin, k >= 1)
+        # round 17 (X1 full rotation): XROT = 4 frame phases, each its own runtime sequence (build/full<d><suffix>_p<k>.bin, k >= 1)
         plan8.XROT, plan8.XPH = int(bj.get("xrot", 0)), 0
         plan8.AL1 = bool(bj.get("al1", False))  # round 17: params fills padded to 1 KB (the per-head SSM stride: op["pstride"])
         self.nph, self.phase = max(plan8.XROT, 1), 0
@@ -192,7 +192,7 @@ class Step8:
                 else:
                     ln = pre + "vit_block." + ("ln_1" if name == "norm2" else "ln_2")
                     put_w(op["params_w"], P.norm_params("ln", sd[ln + ".weight"], sd[ln + ".bias"], n_in=op["n_in"]))
-            elif op.get("fn") == "ssm":  # (round 17: XROT also packs the rotating phases' copy, header word 2 = 1)
+            elif op.get("fn") == "ssm":  # (round 17: XROT also packs the four phases' copies, header word 2 = 1 + phase)
                 pre = f"blocks.{int(op['name'].split('_')[0][1:])}.ssm_block.recurrent_block."
                 cw, cb = sd[pre + "conv_1d.w"], sd[pre + "conv_1d.b"]
                 ap = sd[pre + "rg_lru.a_param"]
@@ -203,10 +203,10 @@ class Step8:
                     prm = P.ssm_params(q, cw[:, sl], cb[sl], ap[sl], wx[q], bx[sl], wa[q], ba[sl], 1)
                     ps = op.get("pstride", SSM_PARAM_BYTES)
                     put_w(op["params_w"] + q * ps, prm)
-                    if op.get("params_rot") is not None:
+                    for r in range(4 if op.get("params_rot") is not None else 0):
                         prm = prm.copy()
-                        prm[2] = 1
-                        put_w(op["params_rot"] + q * ps, prm)
+                        prm[2] = 1 + r
+                        put_w(op["params_rot"] + (r * 12 + q) * ps, prm)
 
     # ---- per-frame host work --------------------------------------------------------------------------------------
     def _sync_to(self, bo, byte_off, nbytes):
@@ -222,8 +222,8 @@ class Step8:
         for op in self.p_all.ops:
             if op["kind"] == "ew" and op["fn"] == "ssm":
                 for q in range(12):
-                    for pw in filter(lambda v: v is not None, (op["params_w"], op.get("params_rot"))):
-                        off = pw + q * op.get("pstride", SSM_PARAM_BYTES)
+                    ps = op.get("pstride", SSM_PARAM_BYTES)
+                    for off in [op["params_w"] + q * ps] + ([op["params_rot"] + (r * 12 + q) * ps for r in range(4)] if op.get("params_rot") is not None else []):
                         self.bo_w.write(one.tobytes(), off)
                         self._sync_to(self.bo_w, off, 64)
         self.first = first
@@ -673,6 +673,7 @@ def timeline(o):
     s.reset()
     for t in range(2):  # warm frames (the probed frame is not the first: the SSMs run their recurrent path)
         s.step(video[t], torch.cat([q[..., :1] - t, q[..., 1:]], -1))
+    s.select(s.phase)  # round 17: the plan of the phase this probe dispatches (step() leaves s.p at the last dispatched one)
     mv = np.frombuffer(s.bo_a.map(), np.uint32)
     ops = s.p.ops
     marks = [op_marks(op) for op in ops]

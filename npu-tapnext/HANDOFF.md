@@ -1,3 +1,11 @@
+# ROUND 17 IN PROGRESS (2026-10-10/11) - working rules from the user (keep for later rounds)
+- **All compute runs on testbox, never the laptop**: CP-SAT / generators / sims / python tools from ~/git/app/.scratch/npu-tapnext
+  with `nice -n 10` and at most 12 solver workers (ortools: `~/.local/bin/uv run --no-project --with ortools --with numpy python ...`,
+  9.15.6755 as on the laptop; r17/cp_attks.sh is the pattern). Edit files on testbox directly (source of truth); the laptop is only
+  ssh + reading; rsync the laptop mirror at round end.
+- Dispatch times are bimodal (~0.17 ms apart) under the foreign CPU worker: compare SPREAD lines (p10 / p25 / median / mean of
+  200 iterations, interleaved with the baseline), not one median.
+
 # ROUND 16 DONE (2026-10-11) - read this block first; the round-15 block below is the base it builds on
 Read the skill (round 16 added: the 576-bit pop-stream underflow and its fill rule, periodic 2D modifiers, #undef-ed flags, 64-lane
 y-pair MACs, msched loop-carried uses, register-resident state across C++ calls, per-call overhead, twins vs I/O bound) and NOTES 21 /

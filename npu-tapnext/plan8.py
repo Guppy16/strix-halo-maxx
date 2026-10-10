@@ -48,13 +48,12 @@ P23 = os.environ.get("P23") == "1"
 # pair {2, 5}: dealt 2 the half-0 halves of natural 2 (positions 0-2) and 5 (3-5), dealt 5 the half-1 halves (r15/deal4.py).
 P60G = os.environ.get("P60G") == "1"
 HQ = 3 * PAN  # a half tile per head: 1,728 B
-# round 17 (X1 full rotation): XROT=N > 0 slides each block's SSM area down by one region S per frame through N frame phases. A
-# column's area spans (N + 7) S; phase k (0 .. N - 2) reads its 7 streams at B_k = top - k S, where the previous frame left x,
-# x-1, x-2 (its own x / x-1 / x-2 regions are this frame's x-1 / x-2 / x-3) and h (written one region down), and writes only h
-# + z (3 streams at B_k + 4 S: over x-3 / Hlo / Hhi of the same chunk, which the chunk read first). Phase N - 1 is the wrap
-# frame: it reads at the bottom (top - (N - 1) S) and writes today's 6 streams (x copies included) at top + 2 S, i.e. the state
-# phase 0 reads. Each phase is its own runtime sequence (XPH = the phase this plan builds); the SSM params of the rotating
-# phases come from a second W copy whose header word 2 is 1 (ew8.cc -DXROT).
+# round 17 (X1 full rotation, research rev 12 design; replaces the round-17 sliding area): XROT=4 keeps the conv history in four
+# regions R0..R3 (where x, C0, C1, C2 sat: B + S .. B + 4 S) and rotates roles instead of copying: frame t (phase r = t mod 4) has
+# the yx GEMM write x(t) into R[r] (its drain splits y | x), the SSM fill stays ONE TAP over [y, R0..R3, Hlo, Hhi], the kernel maps
+# tap x - k to R[(r - k) mod 4] (params header word 2 = 1 + r: four params copies in W), and the drain writes only [h lo, h hi, z]
+# at B + 5 S (h over the Hlo / Hhi this chunk read first). Four runtime sequences per depth (XPH = the phase this plan builds);
+# the layout and the memory stay as they were.
 XROT = int(os.environ.get("XROT", "0") or 0)
 # round 17 (research rev 12 AL1): every EW op's params fill padded to a multiple of 3 KB = lcm(1 KB, the 768 B ring slot: the core's
 # packet BD fills whole slots, so a fill group must stay a slot multiple - 1 KB padding hung the step) (SSM 10,752 -> 12,288 B per
@@ -106,21 +105,14 @@ class Plan:
         return dict(kind="qkv", base=self.alloc(QKV_BYTES, name))
 
     def ssm_area(self, name, phase=0):
+        base = self.alloc(COLS * 8 * S, name)
+        yx = dict(kind="q16", base=base, nq=24, col=8 * S, pan_off=XB)
+        z = dict(kind="q16", base=base + 7 * S, nq=12, col=8 * S, pan_off=0)
         if not XROT:
-            base = self.alloc(COLS * 8 * S, name)
-            yx = dict(kind="q16", base=base, nq=24, col=8 * S, pan_off=XB)
-            z = dict(kind="q16", base=base + 7 * S, nq=12, col=8 * S, pan_off=0)
-            return dict(base=base, yx=yx, z=z, col=8 * S, out=base + 2 * S, rot=False, span=COLS * 8 * S)
-        assert 0 <= phase < XROT
-        col = (XROT + 7) * S
-        area = self.alloc(COLS * col, name)
-        top = area + (XROT - 1) * S
-        wrap = phase == XROT - 1
-        base = top - phase * S  # (the wrap phase: the bottom)
-        yx = dict(kind="q16", base=base, nq=24, col=col, pan_off=XB)
-        z = dict(kind="q16", base=top + 7 * S if wrap else base + 6 * S, nq=12, col=col, pan_off=0)
-        return dict(base=base, yx=yx, z=z, col=col, out=top + 2 * S if wrap else base + 4 * S, rot=not wrap, area=area,
-                    span=COLS * col, top=top)
+            return dict(base=base, yx=yx, z=z, col=8 * S, out=base + 2 * S, rot=None, span=COLS * 8 * S)
+        assert XROT == 4 and 0 <= phase < 4
+        yx["x_at"] = base + (1 + phase) * S  # x(t) -> R[t mod 4]
+        return dict(base=base, yx=yx, z=z, col=8 * S, out=base + 5 * S, rot=phase, span=COLS * 8 * S)
 
     # ---- TAP helpers (bytes) ----------------------------------------------------------------------------------
     @staticmethod
@@ -187,6 +179,10 @@ class Plan:
             assert dst["kind"] == "q16" and dst["nq"] >= N // 64
             st_j, st_r = (3 * KSTEP16, KSTEP16) if rr else (KSTEP16, nt * KSTEP16)  # output k-step of (step j, row r)
             drains = [self.tap("act", dst["base"] + c * dst["col"], [nt, 3, RB, XB], [st_j, st_r, UNIT, 1]) for c in range(COLS)]
+            if "x_at" in dst:  # round 17 XROT: the yx output in k-step order (rr), y (k-steps 0-11) at base, x (12-23) at x_at
+                assert rr and nt == 8
+                drains = [self.tap("act", dst["base"] + c * dst["col"], [2, 12, RB, XB], [dst["x_at"] - dst["base"], KSTEP16, UNIT, 1])
+                          for c in range(COLS)]
         elif epi in ("gated", "gelu_pan"):
             per_row = nobj // 3
             if dst is None:
@@ -285,11 +281,12 @@ class Plan:
         (SSM_PARAM_BYTES) and one chunk fill of the 7 input streams, one drain for the 6 output streams (round 17 XROT: 3
         streams, h and z, in the rotating phases, with the params copy whose header says so)."""
         base, col = area["base"], area["col"]
-        pw = params_rot if area["rot"] else params_w
+        rot = area["rot"] is not None
+        pw = params_rot + area["rot"] * 12 * kb_pad(SSM_PARAM_BYTES) if rot else params_w
         ps = kb_pad(SSM_PARAM_BYTES)  # round 17 AL1: the per-head params stride / fill
         fills = [[(self.tap("w", pw + q * ps, [1, 1, 1, ps], [0, 0, 0, 1]),
                    self.tap("act", base + c * col + q * KSTEP16, [RB, 7, 1, XB], [UNIT, S, 0, 1])) for q in range(12)] for c in range(COLS)]
-        drains = [self.tap("act", area["out"] + c * col, [12, RB, 3 if area["rot"] else 6, XB], [KSTEP16, UNIT, S, 1]) for c in range(COLS)]
+        drains = [self.tap("act", area["out"] + c * col, [12, RB, 3 if rot else 6, XB], [KSTEP16, UNIT, S, 1]) for c in range(COLS)]
         self.ops.append(dict(kind="ew", fn="ssm", name=name, fills=fills, c=drains, dst=area["z"], area=area, params_w=params_w,
                              params_rot=params_rot, pstride=ps))
         return area["z"]
@@ -360,8 +357,8 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
         p.norm(f"b{b}_norm0", "rms", prev, wb["norm0"], dst=r["R0"])
         p.gemm(f"b{b}_yx", r["R0"], 768, 8, epi="gelu", flags=["gelu"] * 12 + ["plain"] * 12, dst=areas[b]["yx"], rr=True)
         wb["ssm"] = p.alloc_w(12 * kb_pad(SSM_PARAM_BYTES))
-        if XROT:  # round 17: the rotating phases' params (header word 2 = 1)
-            wb["ssm_rot"] = p.alloc_w(12 * kb_pad(SSM_PARAM_BYTES))
+        if XROT:  # round 17: the four phases' params (header word 2 = 1 + phase)
+            wb["ssm_rot"] = p.alloc_w(4 * 12 * kb_pad(SSM_PARAM_BYTES))
         if "ssm" not in skip:
             p.ssm(f"b{b}_ssm", areas[b], wb["ssm"], wb.get("ssm_rot"))
         p.gemm(f"b{b}_out", areas[b]["z"], 768, 4, dst=r["R1"])
