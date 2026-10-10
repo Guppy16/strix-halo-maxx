@@ -273,6 +273,7 @@ def run(name, o):
     assert (HERE / "build" / f"{name}.sched").read_text() == p.sched_json(), f"stale build {name}: plan8 changed since"
     meta = json.loads((HERE / "build" / f"{name}.sched.meta").read_text())
     P.B_PAIR4 = P.uses_asm_gemm(HERE / "build" / f"{name}.json")
+    P.B_ROT = P.rot_order(HERE / "build" / f"{name}.json")  # round 18 ROT
     rng = np.random.default_rng(0)
     W = np.zeros(meta["w_words"], np.uint32)
     ACT = np.zeros(meta["act_words"], np.uint32)

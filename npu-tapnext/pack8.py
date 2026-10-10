@@ -20,6 +20,23 @@ def bf(x):
 B_PAIR4 = False
 
 
+B_ROT = None  # round 18 (ROT): the k-step's B panel order (stream position -> pair4 panel index), from r18/mm_rot_g2f.h (mm_rot_border)
+
+
+def rot_order(build_json):
+    """the ROT B order if the build's kdefs have -DMM_ROT, else None"""
+    import json
+    from pathlib import Path
+    if "-DMM_ROT" not in json.load(open(build_json)).get("kdefs", "").replace(",", " ").split():
+        return None
+    import re
+    v = json.load(open(build_json)).get("rot_v", "g2f")
+    h = (Path(__file__).resolve().parent / "r18" / f"mm_rot_{v}.h").read_text()
+    order = [int(v) for v in re.search(r"mm_rot_border\[64\] = \{([^}]*)\}", h).group(1).split(",")]
+    assert sorted(order) == list(range(64)), order
+    return order
+
+
 def uses_asm_gemm(build_json):
     import json
     return "-DMM_ASM" in json.load(open(build_json)).get("kdefs", "").replace(",", " ").split()
@@ -31,6 +48,8 @@ def w_tile_words(ew_tile, pair4=False):
     v = ew_tile.reshape(4, 2, 8, 8, 9).transpose(0, 3, 1, 2, 4)  # [nb][h][i][cb][b] -> [nb][cb][h][i][b]
     if pair4:
         v = v.reshape(2, 2, 8, 2, 8, 9).transpose(0, 2, 1, 3, 4, 5)  # [p][bb][cb][h][i][b] -> [p][cb][bb][h][i][b]
+        if B_ROT is not None:  # round 18 ROT: whole 72 B panels in the rotating k-step's pop order
+            v = np.ascontiguousarray(v).reshape(64, 72)[B_ROT]
     return np.ascontiguousarray(v).reshape(-1).view(np.uint32)
 
 

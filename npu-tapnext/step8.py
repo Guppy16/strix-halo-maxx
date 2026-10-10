@@ -83,6 +83,7 @@ class Step8:
         self.p_all, self.info_all = full_step(MAX_DEPTH)  # every block: the weights are packed once for all depths
         meta = json.load(open(f"{HERE}/build/{build}.sched.meta"))
         P.B_PAIR4 = P.uses_asm_gemm(f"{HERE}/build/{build}.json")
+        P.B_ROT = P.rot_order(f"{HERE}/build/{build}.json")  # round 18 ROT
         assert meta["act_words"] == max(self.p_all.act_bytes, 64) // 4 and meta["w_words"] == max(self.p_all.w_bytes, 64) // 4, ("build/plan mismatch", meta)
         self.model = load_model(MAX_DEPTH)
         t0 = time.perf_counter()

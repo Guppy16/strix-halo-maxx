@@ -207,6 +207,10 @@ static void ks_records(bfp16ebs8 *const slot[3], bfloat16 *c_out) {
 }
 #endif
 #endif
+#ifdef MM_ROT  // round 18 (research pass 14 ROT, E5): the k-step with a rotating accumulator (r18/mm_rot_g2f.s from npu-research r19/
+// gen_rot.py; design8 copies it to build/mm_rot.s / .h / .inc); B packed in mm_rot_border's panel order (pack8 B_ROT)
+#include "build/mm_rot.inc"
+#endif
 #if defined(P35) && defined(KSC)
 // round 18 (research P35): a tile's k-steps in one call. The B objects are taken here by lock id (KS_BCONS / KS_BPROD, +48 = this
 // tile) and address (KS_B0 / KS_B1, checked after the link by design8 ksc_check). The count per tile (K / 64) is even, so IRON's
@@ -220,7 +224,25 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
 #pragma clang loop unroll(disable)
   for (int k = 0; k < nks; k++) {
     acquire_greater_equal((void *)b, 48 + KS_BCONS, 1);
+#ifdef MM_ROT
+#ifdef KSP38  // round 18: the counters around mm_rot (r18/ksp38.py)
+    __builtin_aie2p_sched_barrier();
+    const uint32_t c0 = read_tm(0x31520), c1 = read_tm(0x31524), c2 = read_tm(0x31528), c3 = read_tm(0x340F8);
+    __builtin_aie2p_sched_barrier();
+#endif
+    mm_rot(rot_rec.r, b, pc);
+#ifdef KSP38
+    __builtin_aie2p_sched_barrier();
+    g_kc[0] += read_tm(0x31520) - c0;
+    g_kc[1] += read_tm(0x31524) - c1;
+    g_kc[2] += read_tm(0x31528) - c2;
+    g_kc[3] += read_tm(0x340F8) - c3;
+    g_kc[4]++;
+    __builtin_aie2p_sched_barrier();
+#endif
+#else
     mm_ks(ks_rec.r, b, pc);
+#endif
     release((void *)b, 48 + KS_BPROD, 1);
     b = (const bfp16ebs8 *)((uintptr_t)b ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
   }
@@ -236,7 +258,10 @@ void mm_kstep(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfp16ebs8 *__restrict
   }
 #endif
   bfp16ebs8 *const slot[3] = {a0, a1, a2};
-#if defined(MM_KS) && defined(KSC)
+#if defined(MM_ROT) && defined(KSC)  // round 18: mm_ks is not linked under MM_ROT
+  (void)slot;
+  rot_kstep(a0, a1, a2, pB_in, c_out);
+#elif defined(MM_KS) && defined(KSC)
   (void)slot;
 #ifdef KSP38  // round 18 (research rev 13 E3 / KS-P38): core performance counters 0-2 and the timer around mm_ks (design8 sets the events)
   __builtin_aie2p_sched_barrier();

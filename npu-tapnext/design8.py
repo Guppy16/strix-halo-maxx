@@ -123,11 +123,19 @@ def asm_object(flags):
     if af:
         extra += [["python3", str(HERE / "r13" / "gen_attk.py"), str(bd / "attk.s"), "--times", str(HERE / "r13" / "attk.json")] + fit,
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "attk.s"), "-o", str(bd / "attk.o")]]
+    if "-DMM_ROT" in flags:  # round 18 (research pass 14 ROT): the rotating-accumulator k-step (r18/mm_rot_g2f.*, gen_rot.py output)
+        import shutil
+
+        v = os.environ.get("ROT_V", "g2f")  # round 18: g2a = re-solved with 6 bundles from acq.cond to the A fill (r18/gen_rot.py)
+        rs = f"mm_rot_{v}_rel.s" if "-DMM_ROT_REL" in flags else f"mm_rot_{v}.s"
+        for src, dst in ((rs, "mm_rot.s"), (f"mm_rot_{v}.h", "mm_rot.h"), ("mm8_rot.inc", "mm_rot.inc")):
+            shutil.copy(HERE / "r18" / src, bd / dst)
+        extra += [[f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "mm_rot.s"), "-o", str(bd / "mm_rot.o")]]
     steps = [gen,
              [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(so), "-o", str(so.with_suffix(".o"))]] + extra + [
              [f"{b}/clang++"] + base + flags + [f"-I{HERE}", "-c", str(HERE / "mm8.cc"), "-o", str(bd / "mm8cpp.o")],
-             [f"{b}/ld.lld", "-r", str(bd / "mm8cpp.o"), str(so.with_suffix(".o"))] + ([str(bd / "gelu_ms.o")] if gm else []) + ([str(bd / "gup.o")] if gu else []) + ([str(bd / "cpy32.o")] if cp else []) + ([str(bd / "pan.o")] if pn else []) + ([str(bd / "bgelu.o")] if bg else [])
-             + ([str(bd / "attqk.o"), str(bd / "aexp.o")] if ak else []) + ([str(bd / "attk.o")] if af else []) + ([str(bd / "attkb.o")] if ab else []) + ([str(bd / "attv.o"), str(bd / "attvs.o")] if av else []) + ([str(bd / "vtk.o")] if vk else []) + ([str(bd / "zero2.o")] if za else []) + ([str(bd / "resc.o")] if rk else [])
+             [f"{b}/ld.lld", "-r", str(bd / "mm8cpp.o")] + ([] if "-DMM_ROT" in flags else [str(so.with_suffix(".o"))]) + ([str(bd / "gelu_ms.o")] if gm else []) + ([str(bd / "gup.o")] if gu else []) + ([str(bd / "cpy32.o")] if cp else []) + ([str(bd / "pan.o")] if pn else []) + ([str(bd / "bgelu.o")] if bg else [])
+             + ([str(bd / "attqk.o"), str(bd / "aexp.o")] if ak else []) + ([str(bd / "attk.o")] if af else []) + ([str(bd / "attkb.o")] if ab else []) + ([str(bd / "attv.o"), str(bd / "attvs.o")] if av else []) + ([str(bd / "vtk.o")] if vk else []) + ([str(bd / "zero2.o")] if za else []) + ([str(bd / "resc.o")] if rk else []) + ([str(bd / "mm_rot.o")] if "-DMM_ROT" in flags else [])
              + ["-o", str(bd / "mm8asm.o")]]
     for cmd in steps:
         subprocess.run(cmd, check=True)
@@ -292,11 +300,12 @@ def step8(
                               arg_types=[A_l1, B_l1, C_l1], compile_flags=flags)
     zero = mm.object_file.bind("acc_zero", [C_l1])
     kstep = "-DMM_KSTEP" in flags
-    mmk = mm.object_file.bind("mm_kstep", [A_l1, A_l1, A_l1, B_l1, C_l1]) if kstep else None
     # round 18 (research P35): -DP35 runs a tile's k-steps in one call (mm_ktile: the B locks by id, the buffers by address; the
     # count per tile is even, so IRON's own B index - bias objects, attention - stays right)
     p35 = "-DP35" in flags
     mmt = mm.object_file.bind("mm_ktile", [A_l1, A_l1, A_l1, C_l1, np.int32]) if p35 else None
+    # (with P35 mm_kstep is not bound: an unbound entry point and what only it calls - mm_ks under MM_ROT - leave the elf)
+    mmk = mm.object_file.bind("mm_kstep", [A_l1, A_l1, A_l1, B_l1, C_l1]) if kstep and not p35 else None
     epi = mm.object_file.bind("acc_epilogue", [C_l1, B_l1])
     at_begin = mm.object_file.bind("attn_begin", [C_l1, np.int32])
     at_qcopy = mm.object_file.bind("attn_qcopy", [A_l1, A_l1, A_l1, np.int32, np.int32, np.int32, np.int32])
@@ -517,8 +526,8 @@ def step8(
         def core_fn(a_free, a_full, *rest):
             abufs = rest[:a_ring]
             in_b, out_c, mm, zero, epi, at_begin, at_qcopy, at_chunk_k, at_chunk_v, at_end, bk, bn, bt, ba, bc = rest[a_ring:a_ring + 15]
-            mmk = rest[a_ring + 15] if kstep else None
-            mmt = rest[a_ring + 16] if p35 else None
+            mmk = rest[a_ring + 15] if kstep and not p35 else None
+            mmt = rest[a_ring + 15] if p35 else None
 
             def gemm_seg(i0, n):
                 for i in range_(i0, i0 + n):
@@ -620,7 +629,7 @@ def step8(
             tabs = [Buffer(tile=t, initial_value=a, name=f"tb{n}{r}{c}") for n, a in (("k", tbl_k), ("n", tbl_n), ("t", tbl_t), ("a", tbl_a), ("c", tbl_c))]
             workers.append(Worker(make_core_fn(r), [free, fill, *bufs, b_l1[r].cons(), c_l1[r][c].prod(), mm, zero, epi,
                                                     at_begin, at_qcopy, at_chunk_k, at_chunk_v, at_end, *tabs]
-                                  + ([mmk] if kstep else []) + ([mmt] if p35 else []),
+                                  + ([mmk] if mmk is not None else []) + ([mmt] if p35 else []),
                                   tile=t, stack_size=(0xA00 if "-DGELU_FLAT" in flags else 0xB00) if ks_core else 0xC00,
                                   data_size=28160 + (256 if ks_core else 0) + (256 if "-DGELU_FLAT" in flags else 0)))
             # round 12: the flat-edge tables' ab copies (+256 B) from the stack (stackaudit: 1,664 of 2,816 B used)  # stack: deepest chain 2.24 KB measured (r7); data: +2 KB the GELU tables' ab copies (cd: bank 3), +1.25 KB the exp table (r7)
@@ -941,7 +950,7 @@ def main():
         raise
     if "-DKSC" in o.kdefs:  # round 18: the k-step records were built from these addresses: fail the build if the placement moved
         ksc_check(o.out, o.kdefs)
-    Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT,
+    Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT, rot_v=os.environ.get("ROT_V", "g2f"),
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1")))
 
