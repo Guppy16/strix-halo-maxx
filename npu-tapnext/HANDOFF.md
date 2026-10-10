@@ -1,3 +1,32 @@
+# ROUND 18 DONE (2026-10-11) - read this block first; the round-17 block below is the base it builds on
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: **full12r18m 35.20 ms** at depth 12 (sweep median, min 34.80), 4 phase sequences per depth, BIT-IDENTICAL vs full12r9a
+| depth | dispatch ms (sweep median) | whole step ms | fps | DAVIS AJ (OA) (CPU bf16) |
+|---|---|---|---|---|
+| 12 | 35.20 | 38.44 (DAVIS loop 37.0) | 26.0 | 70.84 (92.57) (70.98) |
+| 10 | 29.11 | 30.99 (DAVIS loop 31.7) | 32.3 | 69.90 (91.02) (70.07) |
+| 8 | 23.30 | 25.31 | 39.5 | not run (68.22) |
+| 6 | 17.53 | 19.61 | 51.0 | not run (64.77) |
+Build: `r18/try18.sh NAME [--sweep] [--ew-add ..] [--k-add ..]` = r17d + EW HRING PTRG ZK NIOC CGF + k V2T KSC (KS_* addresses,
+acc_hi 0x71980) P35 MM_ROT (ROT_V=g2a). ksc_check (design8) fails a build whose layout moved and names the new acc_hi (KS_ACC_HI=..).
+Timing: `r16/nrun.sh LOG python3 r18/ab.py --a BASE --b NEW --rounds 20 --block 22` (one process, interleaved). Commits 52ffad1 ..
+1ffff40 + round end. Timeouts: 1 (V2T, `add #64` wrapped; recovered). Text: GEMM 15,536, EW 15,808 (NIO2 stamps need ZK off).
+## Where the time goes now: GEMM k-step (mm_rot) 1,603 cycles in situ per k-step incl. 168 memory stalls (KS-P38); norms ~4.3 ms;
+SSM ~3.3 ms; attention ~6.6 ms. (A per-op timeline of r18m was not taken this round: take it first in round 19.)
+## Next concrete actions (round 19)
+1. ROT variants g0f (-0.28) / g1f (-0.14): run research's probes PWRAP / PADDA first (PROPOSALS rev 14); re-solve with
+   ROT_ACQ_GAP=6 ROT_REL_GAP=8 (r18/gen_rot.py) - the delivered g2f raced in situ with acq.cond one bundle before the A fill.
+2. GEMM layout vs DMA collisions (DMAB: ~1 cycle per 32 B into the bank in use; 168 stall cycles per k-step left): a hand-built B
+   ring (P35 already takes the B locks by id) to put the two B objects in different banks; A slots 1 / 2 share bank 2 with C.
+3. Norms: N-IO in asm (nrm / n1k over a group per call: the pass-2 unit is ~155 cycles of glue around nrm, NIO2), NS.
+4. Attention: S3 / K1 / K2 (GEMM text has 848 B free now); V1's remaining part (attvs folded into attv).
+5. SSM: ssq two chunks per call (-0.11), FSX (-0.07), params in_copy by DMA.
+## Rules that bit us this round (also in the skill)
+- `add rX, rY, #imm` takes a 7-bit signed immediate: #64 assembles silently as #-64. Read every new preamble's disassembly.
+- A lock acquire must sit >= 6 bundles before the load that depends on it (ROT g2f: 1 bundle raced in situ; one-core benches with
+  pre-released locks cannot see it). Benches of lock-taking kernels need a DMA-fed ring to test the acquire timing.
+- One-core benches that #include build/<k>.h pick up whatever the last design build left there: copy the variant's header first.
+
 # ROUND 17 DONE (2026-10-11) - read this block first; the round-16 block below is the base it builds on
 ## Working rules from the user (keep for every later round)
 - **All compute runs on testbox, never the laptop**: CP-SAT / generators / sims / python tools from ~/git/app/.scratch/npu-tapnext

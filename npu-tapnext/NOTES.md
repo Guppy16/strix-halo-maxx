@@ -775,3 +775,36 @@ r17/cp_attks.sh (CP on testbox), step8 SPREAD / PHASES lines, NPROF out_begin st
 - A GEMM drain can split its output into two regions with one TAP when the C objects arrive in a linear order: [2, half, RB, XB].
 ### 22.4 Dead ends / not done
 - NPIPE_G 2 (+0.07), 1 KB AL1 (hang). S3 / V1 / K1 / K2: GEMM text 48 B free after S2 (not attempted). FSX, P52 by DMA, EWO bench.
+
+## 23. Round 18 (2026-10-11): 39.16 -> 35.20 ms (sweep d12), ROT, P35, KSC, the SSM and norm glue
+### 23.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 27; commits 52ffad1 .. 1ffff40 in strix-halo-maxx)
+1. **HRING + PTRG** (ew8): reck writes h into the output ring (lacq before reck; the 2 KB cross the 9 KB ring end in one chunk of
+   three: reck's second h store is `vst.2d` on d5 whose counter the caller starts at 16 - n1; r15/gen_rec.py --ring, msched check
+   dc0); the chunk's part pointers from g_in_b by offset, taps from the rotation (no stack array / remap loop).
+2. **ZK**: r15/gen_zk.py's z loop (round 15 dropped it against a one-core C++ bench that pipelined; in situ the C++ was serial).
+3. **KSC**: mm_ks records as compile-time data from -DKS_* addresses; design8 ksc_check() verifies acc_hi (llvm-nm) and the A slot /
+   C / B buffers + B locks (lowered MLIR) on all 24 cores after the link and fails the build otherwise (acc_hi moves with .data size).
+4. **NIOC**: the NPIPE norm loop keeps the ring state in locals and inlines the four ring helpers.
+5. **V2T**: attv for both tiles per call (O jump by d2 / d3 every 24 iterations), attvs once per chunk.
+6. **CGF**: convk pushes xc's bfp panels (x1 on p6, push on p2 = g_xcpb_k).
+7. **P35**: mm_ktile runs a tile's k-steps; B cons / prod locks by id, B buffers by address; acc_epilogue records the bias
+   buffer so the next tile starts at the other one (each tile consumes an even count: IRON's own index stays right).
+8. **ROT** (research pass 14 E5): mm_rot (rotating accumulator, 1,383 static vs mm_ks 1,824); pack8 B_ROT panel order; g2a =
+   research's g2f re-solved with acq.cond 6 bundles before the A fill (r18/gen_rot.py ROT_ACQ_GAP=6 ROT_REL_GAP=8).
+Tools: r18/ab.py (one-process A/B), r18/try18.sh (current best's flags), r18/dmab.*, r18/ksp38.py (+ mm8 KSP38), ew8 NIO2 +
+r8/ewprof NIO2 lines, r18/fsize.sh, r18/rotbench.py / rotlocks.py.
+### 23.2 What the numbers say
+- The GEMM k-step dominated: ROT -3.3 ms alone. In situ mm_rot runs 1,603 cycles per k-step with 168 of memory stalls: the DMA
+  collisions (DMAB) remain the next GEMM lever (B into bank 3 where it pops, A slots 1 / 2 in bank 2 with the C object).
+- P35 and NIOC missed their static prices: the k-step gap and the norm pass 1 are mostly waits, not code.
+### 23.3 Facts / rules (also in the skill)
+- `add rX, rY, #imm` is 7-bit signed: #64 assembled silently as #-64 (V2T hung once).
+- A lock acquire needs distance before the dependent load: acq.cond ONE bundle before the A fill raced in situ (bench with
+  pre-released locks passed); 6 bundles (as mm_ks) is bit-identical.
+- DMA writes into the bank the core is using cost the core ~1 cycle per 32 B.
+- Core performance counters: Performance_Control0/1 (0x31500 / 0x31504) with start = stop = event counts occurrences; the core reads
+  0x31520 + 4n by read_tm after the bus enable (TRUE = cycles validates). Lock values at 0x1F000 + 16 id read 0 from the core.
+- One-core benches share headers through build/: mm8_rot.inc includes build/mm_rot.h (the bench picked another variant's border).
+### 23.4 Dead ends / not done
+- K1C (two row blocks per prep trip: -28 per tile-chunk for +96 B), NPIPE_G 4 / 12, N-IO in asm, S3 / K1 / K2, ssq two chunks per
+  call, FSX, the B / A bank layout (needs a hand-built B ring), ROT g0f / g1f (probes PWRAP / PADDA).

@@ -862,3 +862,38 @@ Text r17d: GEMM 16,336 / 16,384 (48 free), EW 15,808.
 | 10 | 32.78 (32.74) | 34.86 | 28.7 | 69.90 (91.02); loop 35.0 ms per frame (dispatch 32.95) | 70.07 |
 | 8 | 26.29 (26.25) | 28.37 | 35.2 | not run | 68.22 |
 | 6 | 19.79 (19.72) | 21.87 | 45.7 | not run | 64.77 |
+
+## 27. Round 18 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the foreign CPU worker ran throughout: A/B
+timing by r18/ab.py = both builds in ONE process, 20-22-dispatch blocks interleaved, 2 discarded per block)
+### 27.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors each)
+| build | change (cumulative) | A/B delta vs previous (p10 / median / mean ms) | predicted | verdict |
+|---|---|---|---|---|
+| full12r18a | r17d + HRING (reck stores h into the output ring, 2D wrap) + PTRG (part pointers) | -0.25 / -0.35 / -0.34 (vs r17d) | tcall -0.20..-0.30 | hit |
+| full12r18b | + ZK (z panels by r15/gen_zk.py, re-solved II 5 U 2) | -0.19 / -0.14 / -0.17 | tcall -0.18 | hit |
+| full12r18d | + KSC (k-step records build-time data) | -0.14 / -0.14 / -0.16 | ~0 (text lever, -288 B) | hit (bonus: per-call check ~16 cycles x 15,552) |
+| full12r18e | + NIOC (norm ring glue inline, ring state in locals) | -0.23 / -0.20 / -0.17 | tcall static -0.55 | miss (pass 1 waits on input) |
+| full12r18g | + V2T (attv / attvs once per chunk for both tiles) | -0.06 / -0.08 / -0.08 | -0.06..-0.10 | hit |
+| full12r18h | + CGF (convk pushes xc's bfp panels) | -0.05 / -0.06 / -0.06 | research -0.10..-0.13, tcall ~-0.06 | miss vs research, hit vs tcall |
+| full12r18j | + P35 (mm_ktile: a tile's k-steps per call, B locks by id) | 30 rounds: -0.11 / -0.10 / -0.08 | research -0.44 +- 0.1 | miss |
+| full12r18r6 = r18m | + ROT g2a (rotating-accumulator k-step, research pass 14 + acq gap 6) | -3.34 / -3.27 / -3.35 (vs r18j) | -3.84 +- 0.4 (calibrated), -3.46 (uncalibrated) | slight miss |
+| r18r4 / r18r5 | ROT g2f as delivered (acq.cond 1 bundle before the A fill) / + plain rel | regress DIFFERENT, run-to-run varying (rms_rel 0.15-0.25) | | race: fixed by g2a |
+| r18hG4 / r18hG12 | NPIPE_G 4 / 12 with NIOC | +0.06..+0.13 | | dead |
+| K1C (not kept) | attention -m prep loop two row blocks per trip | tcall -28 per (tile, chunk), +96 B | | dropped (text) |
+Text at r18m: GEMM 15,536 / 16,384, EW 15,808.
+### 27.2 Probes
+- DMAB (r18/dmab.py): memtile -> core DMA 63 KB at 8.07 B/cycle into bank 3. Core one 64 B access per cycle, 256-access segments:
+  same bank loads 306 -> 364, stores 314 -> 373 cycles (DMA slows to 7.45 / 7.31 B/cycle); bank 1 and nops unchanged. ~1 core
+  cycle per 32 B DMA write into the bank in use.
+- KS-P38 (mm8 -DKSP38, r18/ksp38.py, per k-step, median over 6,240 tiles): mm_ks MEMORY_STALL 173.7, LOCK_STALL 13.3, TRUE 2,046.7,
+  timer 2,056.7. mm_rot (r18r6K): TRUE 1,603.2, MEMORY 167.5, LOCK 13.4, timer 1,613.2.
+- NIO2 (ew8 -DNIO2, cycles incl. stamps): r18d RMS nrm 144.8 / pass-2 unit 341.8 / pass-1 unit 302.0, LN 229.5 / 428.4 / 287.5;
+  r18h (NIOC, ZK off for text) RMS 147.2 / 302.0 / 293.2, LN 231.9 / 390.7 / 248.6.
+- ROT one-core bench (r18/rotbench.py, research's rotb): g2f and g2a 36/36 pieces identical after 1 and 4 k-steps, warm 1,431.
+### 27.3 Depth sweep and DAVIS (full12r18m, one xclbin, 4 phase sequences per depth)
+| depth | dispatch median (min) | whole step | fps (whole step) | DAVIS AJ (OA), 10 videos | r17d dispatch |
+|---|---|---|---|---|---|
+| 12 | 35.20 (34.80) | 38.44 | 26.0 | 70.84 (92.57); loop 37.0 ms per frame (dispatch 34.98) | 39.16 |
+| 10 | 29.11 (29.07) | 30.99 | 32.3 | 69.90 (91.02); loop 31.7 ms per frame (dispatch 29.32) | 32.78 |
+| 8 | 23.30 (23.29) | 25.31 | 39.5 | not run | 26.29 |
+| 6 | 17.53 (17.50) | 19.61 | 51.0 | not run | 19.79 |
+(r18k = r18h + P35 before ROT: 38.11 / 31.91 / 25.57 / 19.23; DAVIS 70.84 / 69.90.)

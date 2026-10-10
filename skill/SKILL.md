@@ -421,6 +421,15 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   costs less text. Run msched.check inside the CP II search (a schedule can fail only with the .p2align pad). Callee-saved p6 / p7
   in a leaf kernel: `paddxm [sp], #64; st p6, [sp, #-64]` ... `lda p6, [sp, #-64]` before ret.
 - **IRON's jit cache key does not include source files**: after editing mm8.cc / ew8.cc / a generator, build under a NEW name.
+  A bench can key on the kernel object instead: `specialize(key=f"{out}_{md5(obj)[:8]}")` (pass 14 rotb.py; the stale elf kept
+  an old placement otherwise).
+- **tcall / asmlint on a generated .s: link it first** (pass 14): in an unlinked .o `movxm ls / le` print `#0x0` (relocations),
+  so tcall sees no ZOL trip count; `ld.lld x.o -e func -o x.elf` then `llvm-objdump -d -z` resolves them. A label without a
+  leading `.` (and not `<func>_start / _last`) starts a new "function" in their .dis parser.
+- `mova` takes an 11-bit signed immediate ([-1024, 1023], assembler error otherwise): larger constants by `movxm`.
+- **Pinning a static in a one-core bench** (pass 14 rotb.cc): `__attribute__((section(".aie.bank3")))` lands in the linker script's
+  bank3 region (the space after IRON's buffers, ~5 KB there); Worker `data_size` must shrink by the pinned bytes or aiecc fails
+  "section '.aie.bank3' will not fit in region 'bank3'". A zero array put in `.data.*` lands at the data region's start (bank 0).
 - An internal state layout only the kernel itself reads back (the SSM's h) may be changed freely: the DMA moves it opaquely.
 - A C++ loop with 4 fp32 accumulator chains (-O2) spills every iteration: a 32-lane bf16 MAC writes a whole dm (5 dm registers).
 - **Lint every generated / hand asm kernel before building** (research rev 11): `npu-research/tools/asmlint.py` (in npu-iron, CPU
@@ -449,6 +458,34 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   that fill (gate_gemm); streams restarted every <= 8 pops (attv, attkb) never hit it. A generated loop with one long pop stream
   needs the fill as a scheduled op (r16/gen_ggk.py FB0 / FB1). Symptom: whole k-terms missing in EVERY block, identical across
   schedules; find it by tapping the operand register at the MAC's cycle (a vst into a free st slot of the emitted body).
+  (Round 17: popprobes 2 / 3 had checked only the lf0 stream; their lf1 stream of 16 dense pops is a true FIFO-POP9 positive.)
+- **The GEMM k-step's largest static item is the accumulator swap** (research rev 13, `npu-research/tools/ksplan.py`): mm_ks runs
+  32 MACs per 47.75 bundles, of which 12.75 are the store / reload of the 4 accumulators, which all end together (459 cycles per
+  k-step). dm4 is unused. With the swap gone, the next bound is the B bank: 8 pops + 1 fill per 8 MACs in one bank. The A port
+  floor is 10,368 B / 7.95 = 1,304 cycles per k-step.
+- **ROT, the rotating-accumulator k-step (research pass 14, `npu-research/r19/gen_rot.py`; [CP + whole-call replay + asmlint;
+  NOT yet run on the device])**: a job = one accumulator over the 8 k-panels (8 dependent vmacs, kp order = mm_ks's: bit-identical),
+  jobs every 9 cycles so 2-3 chains interleave and one dm finishes every 9 cycles (dm[cb % 4]); B is popped in MAC order, so B
+  must be REPACKED on the host (stream position -> pair4 panel, `mm_rot_border`). Bound: the B bank, 72 line reads per row block
+  + the restart gap g: R = 72 + g per row block (CP OPTIMAL for g = 0 / 1 / 2); whole call 1,384 (g 2, deployed restart) vs mm_ks
+  1,824, 0 bank stalls, text -338 B. Recipe and risks: research PROPOSALS rev 14.
+- **Identical job templates at fixed offsets can be structurally infeasible** (pass 14, CP INFEASIBLE + proof): with jobs 9 apart
+  and a 74-cycle row block, the B pass's exact cover wraps a job's pops by 74 mod 9 = 2 and forces its 8 pops into consecutive
+  cycles, which a MAC chain (distance >= 3, 4 B registers) cannot follow. When the loop body is one row block, give every job its
+  own issue cycles (gen_rot `--free`): feasible at the bound.
+- **A skewed pop stream starts mid-pass in the prologue** (pass 14 replay): row block 0's earliest pops sit in pass -1, so the
+  prologue restarts the B stream at the last 576 B boundary before them (`movxm m3, #576 i; padda [p1], m3` in setup = a fresh
+  stream at a line) and runs every B-stream op from there, including the previous row block's pops nobody reads. [UNVERIFIED on
+  hardware; the rotb bench covers it.]
+- The .p2align pad before a modulo body broke ROT's replay at pad 1 (a prologue pop landed a cycle early and clobbered a B register):
+  gen_rot `fit` expands prologue bundles to the full form until the prologue ends 16 B aligned and asserts on the disassembly that
+  no pad bundle precedes the body (the round-12 rule, now automated).
+- `rel.cond #id, rV, r26` (REL_COND, alu slot) releases only when r26 != 0: deployed in mm_rot since round 18 (bit-identical). `vldb.pop.576.2d .., [p1, lf1, r25, dN]` with dnN = 0 post-modifies
+  the pointer by mN instead of the line step (gen_rot g = 0); `padda [p1], mN` reaches the next fill one cycle later (g = 1):
+  probes PWRAP / PADDA in research PROPOSALS rev 14.
+- **DMA writes into the bank the core is using cost the core ~1 cycle per 32 B** (main round 18 DMAB, measured: +58-59 per 256
+  accesses at 8 B/cycle vs the model's 65; other banks 0) and the k-step's in-situ excess is these collisions (KS-P38: MEMORY_STALL
+  173.7, LOCK_STALL 13.3 per k-step vs the model's 221): price layout and kernel changes with ksplan's model x 0.79-0.9.
 - **2D modifiers are periodic** (dn steps of dj, then m, then again): for exactly one jump inside k steps set dn = k - 1 and start
   the counter dc at k - n1 (round 16 ring wrap in r16/gen_n1p.py); dn = n1 - 1 jumps every n1 steps.
 - **A flag can be #undef-ed by an included header** (round 16: -DPIN compiled the old path, same elf md5): after adding a flag,
@@ -468,11 +505,24 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   whole-call static price (the miss was rev 11's loop-only price); the twins saved 0.17 / 0.5 ms MORE than their own static
   compute, which no I/O mechanism explains. UNVERIFIED cause: twins with wrong outputs change downstream data-dependent work (the
   attention's lazy-max fallback). Read a twin's per-op walls from `step8.py timeline`, never the step delta.
-- **EW ring ports (research rev 12, FITTED, not measured directly; npu-research tools/ewio.py)**: the EW input ring fills at
-  ~6.0 B/cycle and the output ring drains at **~2.35 B/cycle per column** (core MM2S -> shim -> DDR, 768 B slots). One fit
-  reproduces r15i, NRMK, N1K, r15h's n_in invariance and NPROF's in_need waits. So the norms (1,600 B out per unit) are
-  output-port bound since NRMK, and pass 1 / pass 2 serialise against the 15 KB / 9 KB rings: interleave the passes rather
-  than cut compute. The SSM's 6 KB per chunk needs ~2,600 cycles of drain against ~2,950 of compute.
+- **EW ring ports (research rev 13 refit on the round-17 out_begin stamps; supersedes rev 12's "R_out 2.35, norms output-bound")**:
+  input ring ~5.75 B/cycle (5.5-6.0, FITTED), output ring **not binding** (>= 3.5 B/cycle; MEASURED out_begin wait ~5 cycles per
+  unit net). After NPIPE G 6 the norms are compute-bound (input waits ~12 per unit in the model); the pass-2 unit runs ~+76 (RMS) /
+  +132 (LN) cycles above static in situ (FITTED, s2 3-5; unlocated: NIO2 stamps). Price norm levers with `ewio.py levers13`.
+- **A stamp interval includes the call it brackets** (rev 13): NPROF's in_need / out_begin numbers contain ~44 / ~40 cycles of
+  static call (jl + delay slots + body + ret + the stamp); net wait = stamped - static. Subtract before fitting.
+- **A fit with a nuisance parameter fixed by assumption mis-assigns the bound** (rev 12 -> 13): R_out 2.35 with the bench's pass-2
+  cost and R_out >= 3.5 with ~4x that cost reproduce r15i / NRMK / N1K equally; only a stamp on the hypothesised wait separated
+  them. Before pricing levers off a fitted bound, stamp the wait itself.
+- (Round 18: the DMA-collision model above is MEASURED by DMAB and KS-P38; research rev 13 had it as unverified.)
+- **All 24 GEMM cores share one L1 placement** (r17d input_with_addresses.mlir: C object 0x78900, A slots 0x77B80 / 0x78000 /
+  0x78480): per-core tables built at run time from those addresses (mm_kstep's ks_records, ~280 B of text) can be build-time
+  data, guarded by a post-link check.
+- **IRON lowers worker loop counters to i64** (opted_main_core_*.ll: `phi i64`, `icmp slt i64`; the endless loop runs to i64 max):
+  each loop pays ~6 extra scalar ops plus hi-word spills in the core's control code. [UNVERIFIED lever] i32 bounds on `range_`.
+- **The same C++ loop can be serial in situ and pipelined in a bench** (rev 13): the SSM z loop is 27 bundles per 64 lanes inside
+  ew_ssm (aliasing pointers, a big function) and ran 97 cycles for all 8 in its one-core bench. Read the deployed disassembly's
+  ZOL body (tcall --func) before trusting a bench of C++.
 - **Price with tcall** (npu-research tools/tcall.py): whole-call cycles from the `-z` disassembly, natural loops, delay
   slots, callees, a per-step call census; `--seg` for phases, `branches` in the spec to pin a mode. It reproduced r15h's norm
   row blocks within 3 % and the r15h -> r15i delta exactly. A part of a 1 KB-unit stream straddles the 15 KB EW ring end
@@ -492,6 +542,25 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   interleaved with the baseline (step8 SPREAD), never one 60-iteration median.
 - Compute placement (user rule, round 17): every CP-SAT / generator / python run on testbox (`nice -n 10`, <= 12 solver workers;
   ortools via `~/.local/bin/uv run --no-project --with ortools --with numpy`), never on the laptop.
+- **`add rX, rY, #imm` takes a 7-bit signed immediate (round 18)**: `#64` assembled SILENTLY as `#-64` (a hang). Pass such
+  constants from C++ and read the disassembly of every new preamble.
+- **A lock acquire needs distance before the load it guards (round 18 ROT)**: research's g2f had `acq.cond` one bundle before the
+  A fill and raced in situ (wrong, run-to-run varying tokens) while the one-core bench passed (it pre-releases every slot); re-solved
+  with 6 bundles (as mm_ks; npu-tapnext r18/gen_rot.py ROT_ACQ_GAP=6) it is bit-identical. A bench of a lock-taking kernel says
+  nothing about acquire timing unless a DMA feeds the ring.
+- **Core performance counters (round 18 KS-P38, measured)**: program Performance_Control0 / 1 (0x31500 / 0x31504: counters 0-1 /
+  2-3, start event bits [6:0] / [22:16], stop [14:8] / [30:24]) from the runtime sequence with `npu_write32`; start = stop = an
+  event counts its occurrences (event 1 TRUE = cycles, matches the timer). The core reads Counter n at 0x31520 + 4n by `read_tm`
+  after the bus enable. 23 MEMORY_STALL, 26 LOCK_STALL. Lock values at 0x1F000 + 16 id read 0 from the core (not usable).
+- **L1 addresses as compile-time constants (round 18 KSC / P35)**: constexpr record tables from -D addresses, verified after the
+  link (design8 ksc_check: llvm-nm for statics, input_with_addresses.mlir for buffers and lock ids, all 24 cores) and the build
+  fails if anything moved (acc_hi moves whenever .data grows). A kernel may take an IRON ObjectFifo's locks by id and its buffers
+  by address when each call consumes an even count of the 2-deep fifo (IRON's own index stays right; record the buffer IRON hands
+  out elsewhere, e.g. the bias object, to know the parity).
+- Linked-but-unused entry points stay in the elf (no --gc-sections): leave unused asm objects out of the merge (design8 drops
+  mm_ks.o under MM_ROT; an unbound mm_kstep still dragged mm_ks in).
+- A/B timing (round 18): both builds in ONE process, interleaved blocks (npu-tapnext r18/ab.py), 300-600 kept dispatches each.
+- A one-core bench that #includes build/<k>.h gets whatever the last design build left there: copy the variant's header first.
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
   timeouts per phase; stop if the device does not recover. Never loop retries on a failing design.
@@ -687,6 +756,10 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
 - `npu-tapnext/r17/` (round 17): try17.sh (r16z base), xtry.sh (XROT=4 phase builds + regress / time / sweep), xrotsim.py (state
   flow of the rotation), cp_attks.sh (CP on testbox), attks.json (S2 schedule). Flags: mm8 ATTKS2MAX (gen_attkb --s2); EW_DEFS XROT
   (+ plan XROT=4), AL1 (+ plan AL1=1), NPIPE / NPIPE_G, CPROF (conv split stamps); NPROF stamps out_begin too (record word 19).
+- `npu-tapnext/r18/` (round 18): try18.sh (current best's flags), ab.py (one-process A/B), dmab.py/.cc/.s (DMA-vs-core bank bench),
+  ksp38.py (+ mm8 -DKSP38), gen_rot.py (research's ROT generator + ROT_ACQ_GAP / ROT_REL_GAP), mm_rot_g2a.s/.h (deployed ROT),
+  mm8_rot.inc, rotbench.py, fsize.sh, convkp.json, zk.json. Flags: EW HRING PTRG ZK NIOC CGF NIO2 (norm-unit stamps); mm8 KSC
+  (+ KS_* addresses) P35 MM_ROT (+ ROT_V env) V2T KSP38; pack8 B_ROT.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);
@@ -705,6 +778,13 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   sides), `r15/slots.py` (per-slot op counts of the zero-overhead loops in a -z disassembly), `r15/prereg17.py`.
   Rev 11: `tools/asmlint.py` (+ `--zolstats`, `--calib`), `tools/asmlint_hist.py` + `r16/hist/` (historic bad / fixed kernels),
   `tools/try.sh` (one-command experiment), `tools/asmfit_tmp.patch` (build lock), `tools/sim18.py` (attention levers on r15m).
+  Rev 12: `tools/tcall.py` (whole-call static cycles + per-step census from a `-z` disassembly), `tools/ewio.py` (EW ring I/O model).
+  Rev 13: `ewio.py fit13 / levers13` (the refit on round-17 stamps; the rev-12 `fit` kept), `tools/ksplan.py` (GEMM k-step budget,
+  variants, collision model), `r18/` (r17d / r18a disassemblies, fit and lever outputs).
+  Pass 14 (`r19/`): `gen_rot.py` (ROT: CP-SAT `solve [--free] [--place ..]`, `fit` (emit + prologue alignment, npu-iron),
+  `check [--place ..]` (whole-call value-level replay of any emitted .s on any L1 placement: correctness, bank stalls, busy per
+  bank)), mm_rot_{g2f,g1f,g0f,g0u}.s / .h / .dis + rot_*.json, `build_all.sh`, `price.py`, `rotb.py` / `rotb.cc` (one-core ks vs rot
+  bench), `mm8_rot.inc` (the mm8.cc side: constexpr records under KSC).
 - `npu-tapnext/` design8 (round 3, the fused step): `plan8.py` (memory plan + op list: Q16 / APAN / QKV layouts,
   deps), `design8.py` (the frame: table-driven GEMM cores, attention op, EW ops, BD accounting), `mm8.cc` (GEMM +
   flag-driven epilogues + attention), `ew8.cc` (norm / patch / ssm on the row-3 cores), `nk8.h` (exp32, recip,
