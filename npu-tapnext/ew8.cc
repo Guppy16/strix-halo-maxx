@@ -993,7 +993,14 @@ static_assert(22592 + 1024 <= sizeof(g_arena));
 #ifdef GGK
 #include "build/ggk.h"
 extern "C" void ggk(const bfp16ebs8 *xcp, const bfp16ebs8 *wt, const void *tbx, bfloat16 *dst, const void *tba);
+#ifdef CGF  // round 18: convk pushes the panels itself (r15/gen_conv.py --push addresses it by name)
+extern "C" {
+__attribute__((section(".aie.bank2"))) alignas(64) uint8_t g_xcpb_k[576 + 64];  // + a line of FIFO read-ahead
+}
+#define g_xcpb g_xcpb_k
+#else
 __attribute__((section(".aie.bank2"))) alignas(64) static uint8_t g_xcpb[576 + 64];  // + a line of FIFO read-ahead
+#endif
 #endif
 // the SSM's 6 KB output per chunk is exactly 8 output slots and always starts on a slot: reserve them once, store
 // the 96 vectors straight into the ring, release them once
@@ -1190,8 +1197,10 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
       PH(1);
 #ifdef GGK  // round 16 (research G1): both gate GEMMs in one asm loop (r16/gen_ggk.py), bit-identical; xc's panels in bank 2 (B is bank 1)
       {
+#ifndef CGF  // (CGF: convk pushed them)
         OutS ps((bfp16ebs8 *)g_xcpb);
         for (int cb = 0; cb < 8; cb++) ps.push(A64(aie::load_v<64>(g_xc + cb * 64)).template to_vector<bfp16ebs8>());
+#endif
       }
       static_assert(4608 == 4608 * 1 && 13376 == 12352 + 1024, "ggk walks Wx | Wa (arena 0 / 4608) and gx | ga (12352 / 13376) as one each");
       ggk((const bfp16ebs8 *)g_xcpb, g_wx, g_tbx, g_gx, g_tba);

@@ -169,7 +169,8 @@ def ew_object(flags):
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "sqk.s"), "-o", str(bd / "sqk.o")]]
         objs.append(str(bd / "sqk.o"))
     if "-DCONVK" in flags:  # round 15: the SSM conv as one asm loop (r15/gen_conv.py, schedule r15/convk.json)
-        steps += [["python3", str(HERE / "r15" / "gen_conv.py"), str(bd / "convk.s"), "--times", str(HERE / "r15" / "convk.json"), "--fit"],
+        steps += [["python3", str(HERE / "r15" / "gen_conv.py"), str(bd / "convk.s"), "--fit"]  # round 18 CGF: + the bfp push (r18/convkp.json)
+                  + (["--push", "--times", str(HERE / "r18" / "convkp.json")] if "-DCGF" in flags else ["--times", str(HERE / "r15" / "convk.json")]),
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "convk.s"), "-o", str(bd / "convk.o")]]
         objs.append(str(bd / "convk.o"))
     if "-DRECK" in flags:  # round 15: the SSM recurrence as one asm loop (r15/gen_rec.py, schedule r15/reck4.json: U 4, II 11)

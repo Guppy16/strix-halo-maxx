@@ -33,6 +33,15 @@ DM_FREE = [0, 1, 2, 3, 4]
 ROWB = 320  # table bytes per column block
 BANK = dict(x=(3,), tab=(2,), out=(1,))  # in situ: the input ring (bank 3), the arena's table (2), g_xc (1)
 R_MAC = "r1"
+# round 18 (CGF, research rev 13): convk also pushes xc as the gate GEMMs' bfp panels (the C++ push loop + its glue go). The push
+# pointer must be p2, so part x1 moves to p6 (callee-saved: kept on the stack) and p2 = g_xcpb_k (a symbol); xc is rounded to bf16
+# once (vconv), stored, and widened back (vconv.fp32.bf16, mv slot) into one accumulator for the push: the bf16 values' panels,
+# as the C++ A64(load(xc)).to_vector<bfp16ebs8>()
+PUSH = False
+PART_PTR = {0: "p0", 1: "p1", 2: "p2", 3: "p3"}
+VST_X = "VST_dmx_sts_x_pstm_nrm_imm"
+UPS = "VCONV_fp32_bf16_mv_ups_xbf"
+PUSH_I = "VST_PUSH_576_CONV_bfp16ebs8_fp32"
 
 VMUL = "VMUL_f_vmul_bf_vmul_bf_core_X_X"
 VMAC = "VMAC_f_vmac_bf_vmul_bf_core_X_X"
@@ -57,7 +66,7 @@ def ops(xslots="abab", wslots="bbbbb", banks=True):
     for h in (0, 1):
         for t in range(4):
             s = xslots[t]
-            o.append(Op(f"X{t}{h}", "lda" if s == "a" else "ldb", f"vld{s} {{x{t}{h}.x}}, [p{t}], #64", defs=[(f"x{t}{h}", "x", 7)],
+            o.append(Op(f"X{t}{h}", "lda" if s == "a" else "ldb", f"vld{s} {{x{t}{h}.x}}, [{PART_PTR[t]}], #64", defs=[(f"x{t}{h}", "x", 7)],
                         mem=("ld", f"x{t}"), banks=bk("x"), instr=LDA_X if s == "a" else LDB_X,
                         after=[(f"X{t}0", 1)] if h else []))
         for t in range(4):
@@ -75,8 +84,18 @@ def ops(xslots="abab", wslots="bbbbb", banks=True):
                     uses=[(f"bs{h}", "x", 1)], instr=VMUL))
         o.append(Op(f"AB{h}", "vec", f"vmac.f {{y{h}.dm}}, {{m{h}.dm}}, {{w4.x}}, x{C_ONE}, {R_MAC}", defs=[(f"y{h}", "dm", 6)],
                     uses=[(f"m{h}", "cml", 4), ("w4", "x", 1)], instr=VMAC))
+        if PUSH:
+            o.append(Op(f"CX{h}", "st", f"vconv.bf16.fp32 {{xb{h}.x}}, {{y{h}.cml}}", defs=[(f"xb{h}", "x", 2)], uses=[(f"y{h}", "cml", 1)],
+                        instr=CONV))
+            o.append(Op(f"ST{h}", "st", f"vst {{xb{h}.x}}, [p5], #64", uses=[(f"xb{h}", "x", 1)], mem=("st", "out"), banks=bk("out"),
+                        instr=VST_X, after=[("ST0", 1)] if h else []))
+            o.append(Op(f"U{h}", "mv", f"vconv.fp32.bf16 {{zz.{'cml' if h == 0 else 'cmh'}}}, {{xb{h}.x}}",
+                        defs=[("zz", "cml" if h == 0 else "cmh", 2)], uses=[(f"xb{h}", "x", 1)], instr=UPS))
+            continue
         o.append(Op(f"ST{h}", "st", f"vst.conv.bf16.fp32 {{y{h}.cml}}, [p5], #64", uses=[(f"y{h}", "cml", 1)], mem=("st", "out"),
                     banks=bk("out"), instr=ST_CONV, after=[("ST0", 1)] if h else []))
+    if PUSH:
+        o.append(Op("PU", "st", "vst.push.576.conv.bfp16ebs8.fp32 {zz.dm}, [p2, sf, r26]", uses=[("zz", "dm", 1)], instr=PUSH_I))
     return topo(o)
 
 
@@ -121,7 +140,8 @@ def build(II=None, times=None, cp=None, max_ii=26, U=1, xslots="abab", wslots="b
     import cpsched
     for ii in range(II or 20, (II or max_ii) + 1):
         lp = mk(xslots, wslots, banks)
-        res = cpsched.solve(lp, ii, last_stage=["ST0", "ST1"], max_life=U * ii, H=6 * ii, maxdist=maxdist(ii), **(cp or {}))
+        res = cpsched.solve(lp, ii, last_stage=["ST0", "ST1"] + (["PU"] if PUSH else []), max_life=U * ii, H=6 * ii, maxdist=maxdist(ii),
+                            **(cp or {}))
         if res is None:
             print(f"II {ii}: CP-SAT found none", file=sys.stderr)
             continue
@@ -129,10 +149,11 @@ def build(II=None, times=None, cp=None, max_ii=26, U=1, xslots="abab", wslots="b
         lp.place(ii, res[0])
         try:
             lp.allocate(U)
-        except Infeasible as e:
+            side_effects_last(lp)
+            check(lp)
+        except (Infeasible, AssertionError) as e:
             print(f"II {ii}: {e}", file=sys.stderr)
             continue
-        side_effects_last(lp)
         lp.times = {"II": ii, "t": res[0], "xslots": xslots, "wslots": wslots, "U": U}
         return lp
     raise Infeasible("none")
@@ -150,13 +171,16 @@ def check(lp, n=NCB):
 
 def function(lp, name="convk"):
     L = [f"\t.section\t.text.{name},\"ax\",@progbits", f"\t.globl\t{name}", "\t.p2align\t4", f"\t.type\t{name},@function", f"{name}:"]
-    pre = [
+    push = ["paddxm\t[sp], #64", "st\tp6, [sp, #-64]", "mov\tp6, p2", "movxm\tp2, #g_xcpb_k", "mova\tr26, #0"] if PUSH else []
+    pre = push + [
         f"movxm\tr0, #16256", f"vbcst.16\tx{C_ONE}, r0", "mova\tr1, #828",
         f"movxm\tls, #{name}_start", f"movxm\tle, #{name}_last", f"mova\tr0, #{NCB // lp.U}", "add.nc\tlc, r0, #0",
         "nop", "nop", "nop", "nop", "nop", "nop",
     ]
     L += ["\t" + x for x in pre]
     L += lp.emit_loop(name, drain=0)
+    if PUSH:
+        L += ["\tvst.flush.512.conv\t[p2, sf, r26]", "\tlda\tp6, [sp, #-64]", "\tpaddxm\t[sp], #-64"]
     L += ["\tret\tlr", "\tnop", "\tnop", "\tnop", "\tnop", "\tnop", f".Lfunc_end_{name}:", f"\t.size\t{name}, .Lfunc_end_{name}-{name}"]
     return L
 
@@ -173,9 +197,15 @@ def main():
     ap.add_argument("--wslots", default="bbbbb")
     ap.add_argument("--func", default="convk")
     ap.add_argument("--fit", action="store_true")
+    ap.add_argument("--push", action="store_true", help="round 18 CGF: also push xc's bfp panels to g_xcpb_k (part x1 on p6)")
+    ap.add_argument("--workers", type=int, default=4)
     o = ap.parse_args()
+    global PUSH
+    PUSH = o.push
+    if PUSH:
+        PART_PTR[2] = "p6"
     times = json.loads(Path(o.times).read_text()) if o.times else None
-    lp = build(o.ii, times, cp=dict(time_limit=o.time), U=o.u, xslots=o.xslots, wslots=o.wslots)
+    lp = build(o.ii, times, cp=dict(time_limit=o.time, workers=o.workers), U=o.u, xslots=o.xslots, wslots=o.wslots)
     cyc, land = check(lp)
     print(f"II {lp.II} (bound {lp.res_mii()}: {dict(list(lp.res_mii(detail=True).items())[:6])}), U {lp.U}, stages {lp.stages()}, "
           f"maxlive {lp.maxlive()}; check OK ({cyc} cycles, {NCB} column blocks)")
