@@ -10,6 +10,10 @@ below was learned over the moondream phases 1-12 and the TAPNext++ port (2026-10
 the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 
 ## 1. Environment
+- **Repo (2026-10-10):** the NPU work lives in the git repo `~/git/app/strix-halo-maxx/` on testbox; `.scratch/npu-{tapnext,research,moondream}`
+  are absolute symlinks into it. Every `docker run` that mounts `-v $HOME/git/app/.scratch:/work` must ALSO mount
+  `-v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx`, or `/work/npu-*` is a dangling link inside the container.
+  Commit locally (one commit per kept change or failed experiment, measured ms + predicted vs measured); never push.
 
 - `ssh testbox`. Repo `~/git/app`; scratch work under `~/git/app/.scratch/<project>/` (never in /tmp, never in the
   app package). The laptop is only where code is written: edit locally, `scp` to testbox, run there.
