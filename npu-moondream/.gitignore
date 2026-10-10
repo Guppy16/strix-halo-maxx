@@ -1,0 +1,21 @@
+# Track only hand-written source and docs; builds, runs, the vendored mlir-aie checkout and debs stay on disk untracked.
+*
+!.gitignore
+!*/
+!*.py
+!*.cc
+!*.cpp
+!*.h
+!*.s
+!*.md
+!*.sh
+!*.json
+!Dockerfile
+!*requirements.txt
+mlir-aie/
+runs/
+build/
+*.prj/
+debs/
+__pycache__/
+aie2p_lat.json

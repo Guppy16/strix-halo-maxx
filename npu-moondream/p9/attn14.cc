@@ -1,0 +1,276 @@
+// Fused attention v14 = v13 with the core's elementary-function unit: AIE2P has a native bf16 exp2 of an fp32
+// vector (aie::exp2) and a native bf16 reciprocal (aie::inv), so e = exp2(d log2e) is 3 vector ops (v13's
+// magic-add / Horner exp was ~20), and 1/sum is one vector op instead of 48 scalar divide libcalls.
+// The per-item work is vectorised too (hardware trace of v13: the item boundary - begin, end, Q copy - cost 21.6k
+// cycles, a quarter of the item): masks and the ones panel are built once per core, the Q copy and the
+// accumulator zeroing use vector loads/stores.
+// Numerics otherwise as v9/v13 (bfp16ebs8 operands, fp32 accumulation, online softmax, ones-panel row sums, RNE).
+#include <stdint.h>
+
+#include <aie_api/aie.hpp>
+
+#include "aie_kernel_utils.h"
+
+constexpr int QT = 48, HD = 72, KC = 48;
+constexpr int NB = HD / 8, RB = QT / 8, CB = KC / 8;
+constexpr int NKEYS = ATTN_KEYS;
+constexpr int NCH = (NKEYS + KC - 1) / KC;  // 16
+constexpr float NEG = -64.0f;               // "minus infinity" for masked keys and the initial running max
+
+using MM = aie::mmul<8, 8, 8, bfp16ebs8>;
+using BP = aie::block_vector<bfp16ebs8, 64>;
+template <aie_dm_resource R>
+using InS = aie::block_vector_restrict_input_buffer_stream<bfp16ebs8, 64, R>;
+using OutS = aie::block_vector_output_buffer_stream<bfp16ebs8, 64, aie_dm_resource::none>;
+constexpr int PB = 72;    // bytes per bfp16ebs8 8x8 panel
+constexpr int GQ = 704;   // Q / K group: 9 panels (648 B) padded to 704 B (the streams need 64 B-aligned seeks)
+constexpr int GV = 448;   // V^T group: 6 panels (432 B) padded to 448 B
+constexpr int OBJB = RB * GQ;  // 4224 B per Q / K / V object
+using B32 = aie::vector<bfloat16, 32>;
+using B64 = aie::vector<bfloat16, 64>;
+using I32 = aie::vector<int32_t, 32>;
+using A32 = aie::accum<accfloat, 32>;
+using A64 = aie::accum<accfloat, 64>;
+#define BF(e) ((e).template to_vector<bfloat16>())
+
+alignas(64) static float o_hi[(QT / 2) * HD];   // fp32 O rows 24..47; rows 0..23 live in the bf16 output object
+alignas(64) static float o_sum[RB * 64];         // fp32 row sums of the bfp-rounded P (10th O block, column 0 of each row)
+alignas(64) static bfp16ebs8 ones_grp[CB * PB];  // V^T panel group whose dim 0 is all ones
+alignas(64) static bfloat16 g_maxb[RB * 16];     // running row max, bf16 (exact: scores are bf16); 16 lanes per row block so the
+                                                 // 16-lane loads stay 32 B-aligned (lanes 8..15 duplicate 0..7)
+alignas(64) static bfloat16 mask_full[64], mask_last[CB * 64];  // P masks: full chunk = one row of ones (stride 0)
+alignas(64) static bfloat16 s_rb[CB * 64];       // scores of one row block, [cb][64]
+alignas(64) static bfp16ebs8 e_rb[RB * GV];      // P of the chunk as bfp16 panels, [rb][cb]; 448 B per row block (64 B-aligned streams)
+alignas(64) static bfloat16 m_buf[64];           // the row block's max, one value per 8-lane row
+static bfloat16 g_scale;
+static int g_chunk;
+static float *g_o_lo;
+
+static inline float *o_rows(int rb) { return rb < RB / 2 ? g_o_lo + rb * NB * 64 : o_hi + (rb - RB / 2) * NB * 64; }
+
+using I16 = aie::vector<int16_t, 32>;
+struct ExpC {};  // (no constants left)
+#ifdef DEBUG_EXP
+alignas(64) static bfloat16 dbg_n[32], dbg_f[32], dbg_zr[32];
+#endif
+// e = bf(exp(d)) for 32 bf16 lanes: z = d log2e (two bf16 MACs into fp32), then the elementary unit's exp2
+static inline B32 exp32(B32 d, const ExpC &) {
+  const bfloat16 L_HI = 1.4426950408889634f;
+  const bfloat16 L_LO = 1.4426950408889634f - (float)L_HI;
+  A32 za = aie::mul(d, L_HI);
+  za = aie::mac(za, d, L_LO);
+#ifdef DEBUG_EXP
+  aie::store_v(dbg_zr, BF(za));
+#endif
+  return aie::exp2<bfloat16>(za.template to_vector<float>());
+}
+
+// e = bf(exp(bf(s - m))) for one row block: s_rb (bf16) -> P panels e_rb (bfp16, masked)
+static inline void exp_rb(int rb, B64 mrow, const bfloat16 *maskv, int mstride, const ExpC &k) {
+  aie::store_v(m_buf, mrow);
+  OutS es(e_rb + rb * GV);
+#pragma unroll
+  for (int cb = 0; cb < CB; cb++) {
+    B32 e0 = exp32(aie::sub(aie::load_v<32>(s_rb + cb * 64), aie::load_v<32>(m_buf)), k);
+    B32 e1 = exp32(aie::sub(aie::load_v<32>(s_rb + cb * 64 + 32), aie::load_v<32>(m_buf + 32)), k);
+    B64 e = BF(aie::mul(aie::concat(e0, e1), aie::load_v<64>(maskv + cb * mstride)));
+    es.push(A64(e).template to_vector<bfp16ebs8>());
+  }
+}
+
+static inline B64 rows8(const bfloat16 *v8) {
+  return aie::concat(aie::concat(aie::broadcast<bfloat16, 8>(v8[0]), aie::broadcast<bfloat16, 8>(v8[1]),
+                                 aie::broadcast<bfloat16, 8>(v8[2]), aie::broadcast<bfloat16, 8>(v8[3])),
+                     aie::concat(aie::broadcast<bfloat16, 8>(v8[4]), aie::broadcast<bfloat16, 8>(v8[5]),
+                                 aie::broadcast<bfloat16, 8>(v8[6]), aie::broadcast<bfloat16, 8>(v8[7])));
+}
+using B16 = aie::vector<bfloat16, 16>;
+static inline B16 rowmax8(B64 v) {  // row maxima of an 8x8 block in lanes 0..7 (lanes 8..15 duplicate them)
+  B64 t = aie::transpose(v, 8, 8);
+  B16 m = aie::max(t.template extract<16>(0), t.template extract<16>(1));
+  m = aie::max(m, aie::max(t.template extract<16>(2), t.template extract<16>(3)));
+  return aie::max(m, aie::shuffle_down_rotate(m, 8));
+}
+
+// rescale O and the sums of one row block by bf(exp(dm)), dm = m_old - m_new <= 0 in bf16 (lanes 0..7)
+static __attribute__((noinline)) void rescale_rb(int rb, B16 dm) {
+  ExpC k;
+  B32 d = aie::concat(dm, aie::zeros<bfloat16, 16>());  // bf16 dm: the factor's error is common to O and the sum, so it cancels
+  alignas(64) bfloat16 sc8[32];
+  aie::store_v(sc8, exp32(d, k));
+  B64 srow = rows8(sc8);
+  float *orow = o_rows(rb);
+  for (int j = 0; j <= NB; j++) {  // 9 O blocks + the sum block, bf16 hi/lo products in the MAC unit
+    float *oj = j < NB ? orow + j * 64 : o_sum + rb * 64;
+    A64 a(aie::load_v<64>(oj));
+    B64 hi = BF(a);
+    B64 lo = BF(aie::mac(a, hi, (bfloat16)-1.0f));
+    A64 pr = aie::mul(hi, srow);
+    pr = aie::mac(pr, lo, srow);
+    aie::store_v(oj, pr.template to_vector<float>());
+  }
+}
+
+extern "C" {
+
+static bool g_init = false;
+void attn_begin(bfp16ebs8 *q, bfloat16 *o) {  // o: the output object, hosts fp32 O rows 0..23 during the item
+  if (!g_init) {  // once per core: rounding mode, masks, the ones panel
+    g_init = true;
+    aie::set_rounding(aie::rounding_mode::conv_even);  // the core's conversions default to floor
+    uint8_t *p = (uint8_t *)ones_grp;  // panel rows [exponent][8 mantissas], value = m * 2^(E - 133): 1.0 = 64 * 2^(127 - 133)
+    for (int i = 0; i < CB * PB; i++) p[i] = 0;
+    for (int cb = 0; cb < CB; cb++) { p[cb * PB] = 127; for (int l = 1; l < 9; l++) p[cb * PB + l] = 64; }
+    const int valid_last = NKEYS - (NCH - 1) * KC;
+    for (int cb = 0; cb < CB; cb++)
+      for (int i = 0; i < 8; i++)
+        for (int l = 0; l < 8; l++) {
+          const int idx = cb * 64 + i * 8 + l;
+          if (cb == 0) mask_full[idx] = (bfloat16)1.0f;
+          mask_last[idx] = cb * 8 + l < valid_last ? (bfloat16)1.0f : (bfloat16)0.0f;
+        }
+    g_scale = (bfloat16)ATTN_SCALE;
+  }
+  g_o_lo = (float *)o;
+  for (int i = 0; i < RB * 16 / 32; i++) aie::store_v(g_maxb + 32 * i, aie::broadcast<bfloat16, 32>(NEG));
+  for (int i = 0; i < (QT / 2) * HD / 32; i++) { aie::store_v(g_o_lo + 32 * i, aie::zeros<float, 32>()); aie::store_v(o_hi + 32 * i, aie::zeros<float, 32>()); }
+  for (int i = 0; i < RB * 64 / 32; i++) aie::store_v(o_sum + 32 * i, aie::zeros<float, 32>());
+  g_chunk = 0;
+}
+
+// one 48-key chunk: per row block: scores -> chunk max -> rescale if the running max grew -> P -> P [V | 1]
+void attn_chunk_k(bfp16ebs8 *q, bfp16ebs8 *kt) {  // scores, max, rescale, P for the 6 row blocks
+  event0();
+#ifdef PROF_NOKERNEL
+  if (++g_chunk == NCH) g_chunk = 0;
+  event1();
+  return;
+#endif
+  const bool last = g_chunk == NCH - 1;
+  const bfloat16 *maskv = last ? mask_last : mask_full;
+  const int mstride = last ? 64 : 0;
+  const ExpC ek;
+  for (int rb = 0; rb < RB; rb++) {
+    B64 mx;
+#ifndef PROF_NOSCORES
+    BP qreg[NB];  // the Q row block stays in block-vector registers for all 6 key blocks
+    {
+      InS<aie_dm_resource::a> qs(q);
+      qs.seek_byte(rb * GQ);
+#pragma unroll
+      for (int j = 0; j < NB; j++) qreg[j] = qs.pop();
+    }
+    for (int cb = 0; cb < CB; cb += 2) {  // s_rb[cb] = bf(bf(Q[rb] K[cb]^T) * scale); two key blocks x even/odd dims = 4 chains
+      MM acc0, acc1, acc2, acc3;
+      InS<aie_dm_resource::b> ks0(kt), ks1(kt);
+      ks0.seek_byte(cb * GQ);
+      ks1.seek_byte((cb + 1) * GQ);
+#pragma unroll
+      for (int j = 0; j < NB; j += 2) {
+        BP b0 = ks0.pop(), b1 = ks1.pop();
+        if (j == 0) { acc0.mul(qreg[j], aie::op_transpose(b0)); acc1.mul(qreg[j], aie::op_transpose(b1)); }
+        else { acc0.mac(qreg[j], aie::op_transpose(b0)); acc1.mac(qreg[j], aie::op_transpose(b1)); }
+        if (j + 1 < NB) {
+          BP b2 = ks0.pop(), b3 = ks1.pop();
+          if (j == 0) { acc2.mul(qreg[j + 1], aie::op_transpose(b2)); acc3.mul(qreg[j + 1], aie::op_transpose(b3)); }
+          else { acc2.mac(qreg[j + 1], aie::op_transpose(b2)); acc3.mac(qreg[j + 1], aie::op_transpose(b3)); }
+        }
+      }
+      A64 t0 = aie::add(acc0.to_accum(), acc2.to_accum()), t1 = aie::add(acc1.to_accum(), acc3.to_accum());
+      B64 s0 = BF(aie::mul(BF(t0), g_scale)), s1 = BF(aie::mul(BF(t1), g_scale));
+      aie::store_v(s_rb + cb * 64, s0);
+      aie::store_v(s_rb + (cb + 1) * 64, s1);
+      B64 m2 = aie::max(s0, s1);
+      mx = cb == 0 ? m2 : aie::max(mx, m2);
+    }
+#else
+    mx = aie::load_v<64>(s_rb);
+#endif
+    B16 m_old = aie::load_v<16>(g_maxb + rb * 16);
+    B16 m_new = aie::max(rowmax8(mx), m_old);
+    if (!aie::lt(m_old, m_new).empty()) {  // some row's max grew
+      aie::store_v(g_maxb + rb * 16, m_new);
+      rescale_rb(rb, BF(aie::mac(aie::accum<accfloat, 16>(m_old), m_new, (bfloat16)-1.0f)));  // dm = m_old - m_new
+    }
+#ifndef PROF_NOEXP
+    exp_rb(rb, rows8(g_maxb + rb * 16), maskv, mstride, ek);
+#endif
+  }
+  event1();
+}
+
+void attn_chunk_v(bfp16ebs8 *vc) {  // O += P [V | 1] for the 6 row blocks
+  event0();
+  for (int rb = 0; rb < RB; rb++) {
+    BP preg[CB];  // the P row block in block-vector registers
+    {
+      InS<aie_dm_resource::a> ps(e_rb + rb * GV);
+#pragma unroll
+      for (int cb = 0; cb < CB; cb++) preg[cb] = ps.pop();
+    }
+    float *orow = o_rows(rb);
+    for (int j = 0; j <= NB; j += 2) {  // 9 V^T dim blocks + the ones block (row sums of the P the mmul sees), in pairs
+      float *o0 = orow + j * 64;
+      float *o1 = j + 1 < NB ? orow + (j + 1) * 64 : o_sum + rb * 64;
+      MM acc0((A64(aie::load_v<64>(o0)))), acc1((A64(aie::load_v<64>(o1)))), acc2, acc3;  // even / odd key blocks
+#ifndef PROF_NOPV
+      InS<aie_dm_resource::b> vs0(vc), vs1(j + 1 < NB ? vc : ones_grp);
+      vs0.seek_byte(j * GV);
+      vs1.seek_byte(j + 1 < NB ? (j + 1) * GV : 0);
+#pragma unroll
+      for (int cb = 0; cb < CB; cb += 2) {
+        acc0.mac(preg[cb], aie::op_transpose(vs0.pop()));
+        acc1.mac(preg[cb], aie::op_transpose(vs1.pop()));
+        if (cb == 0) { acc2.mul(preg[cb + 1], aie::op_transpose(vs0.pop())); acc3.mul(preg[cb + 1], aie::op_transpose(vs1.pop())); }
+        else { acc2.mac(preg[cb + 1], aie::op_transpose(vs0.pop())); acc3.mac(preg[cb + 1], aie::op_transpose(vs1.pop())); }
+      }
+      aie::store_v(o0, aie::add(acc0.to_accum(), acc2.to_accum()).template to_vector<float>());
+      aie::store_v(o1, aie::add(acc1.to_accum(), acc3.to_accum()).template to_vector<float>());
+#else
+      aie::store_v(o0, acc0.template to_vector<float>());
+      aie::store_v(o1, acc1.template to_vector<float>());
+#endif
+    }
+  }
+  if (++g_chunk == NCH) g_chunk = 0;
+  event1();
+}
+
+void attn_copyq(bfp16ebs8 *q, bfp16ebs8 *a) {  // the Q object (6 groups, 4224 B) -> resident Q tile
+  const uint32_t *s = (const uint32_t *)a; uint32_t *d = (uint32_t *)q;
+  for (int i = 0; i < OBJB / 64; i++) aie::store_v(d + 16 * i, aie::load_v<16>(s + 16 * i));
+}
+
+void attn_end(bfloat16 *o) {  // o = bf(O * bf(1/sum)); rows 24..47 from o_hi, rows 0..23 in place (fp32 at 4i -> bf16 at 2i)
+#ifdef DEBUG_EXP
+  {  // o[0..1536) = exp32 of a ramp d = -i/64 (i = 0..1535): the host checks the integer/fraction split
+    ExpC k;
+    for (int v = 0; v < 48; v++) {
+      alignas(64) bfloat16 d32[32];
+      for (int l = 0; l < 32; l++) d32[l] = (bfloat16)(-(float)(v * 32 + l) / 64.0f);
+      aie::store_v(o + v * 32, exp32(aie::load_v<32>(d32), k));
+      if (v < 16) { aie::store_v(o + 1536 + v * 32, aie::load_v<32>(dbg_n)); aie::store_v(o + 2048 + v * 32, aie::load_v<32>(dbg_f)); aie::store_v(o + 2560 + v * 32, aie::load_v<32>(dbg_zr)); }
+    }
+    return;
+  }
+#endif
+  alignas(64) bfloat16 rinv[QT];
+  for (int rb = 0; rb < RB; rb++) {  // 1/sum from the sum block's column 0 (elementary unit's bf16 reciprocal)
+    alignas(64) bfloat16 blk[64];
+    aie::store_v(blk, aie::inv(BF(A64(aie::load_v<64>(o_sum + rb * 64)))));
+    for (int i = 0; i < 8; i++) rinv[rb * 8 + i] = blk[i * 8];
+  }
+  for (int rb = 0; rb < RB; rb++) {
+    B64 rrow = rows8(rinv + rb * 8);
+    const float *src = o_rows(rb);
+    for (int j = 0; j < NB; j++) {
+      A64 a(aie::load_v<64>(src + j * 64));
+      B64 hi = BF(a);
+      B64 lo = BF(aie::mac(a, hi, (bfloat16)-1.0f));
+      A64 pr = aie::mul(hi, rrow);
+      pr = aie::mac(pr, lo, rrow);
+      aie::store_v(o + (rb * NB + j) * 64, BF(pr));
+    }
+  }
+}
+}
