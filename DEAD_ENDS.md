@@ -1,6 +1,6 @@
 # DEAD_ENDS.md — ideas tried and refuted on the TAPNext++ NPU port (check before proposing)
 
-Last updated 2026-10-11 (research pass 18; 173 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
+Last updated 2026-10-11 (research pass 19; 178 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
 Source keys: RFM = `npu-research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `npu-tapnext/*.md` (§ = section number); revN/P, revN/A = `npu-research/revN/PROPOSALS.md` / `ANALYSIS.md` (rev 16 = the top-level files); MACHINE Rx.y = `npu-research/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `.scratch/npu-moondream/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
@@ -165,6 +165,11 @@ Not listed: proposals that were built and hit or merely missed their price but w
 | H26 | NUMERICS-30F | method | SSM numerics judged by 30-frame max deviations |
 | H27 | HALF-BUILT | method | a half-built proposal scored as a whole (P43) |
 | H28 | STAMP-CONTAINS-CALL | method | stamp intervals include the call's own cycles |
+| K1 | KTL-MULMASK | GEMM k-step | lock condition flag x counter: acq.cond tests bit 0, acquires skipped: the KTL hang |
+| K2 | MUL-LATENCY | asm | scalar mul / add latency in a ZOL body as the .td says: not the KTL cause |
+| K3 | STALE-HEADER | method | kernel run with another schedule's record header: a timeout |
+| K4 | ATTVS-II | attention | attvs II 18 -> 11: 6 iterations per call, <= -0.02 ms |
+| K5 | S3 | attention | S3 on the new attention loops: -0.01..-0.04 ms |
 | J1 | RADD / KSUM | GEMM / norms | residual add or K-split sum in the GEMM epilogue: no third core input port |
 | J2 | EW-PRESUM | norms | EW presum during the second K half: no DDR headroom there |
 | J3 | KCONCAT | GEMM | mlp3 / down as K = 3072: A slot 497 KB |
@@ -601,3 +606,28 @@ LUT-bound).
 **J6 — B-ALT: alternate the popped B bank per k-step so the DMA writes the idle one** (pass 18) [MODEL]. Would cut E7'''s B write
 collisions (~70 cycles per k-step in bank 3 at 0.9 busy), but both banks would need a whole 4,032 B Y buffer; bank 0 has no room (A24 /
 A25).
+
+## K. Added by research pass 19 (2026-10-11)
+
+**K1 — KTL-MULMASK: lock conditions as flag x counter** (rev 17 KTL, research's own) [MEAS RELC + KTLP-NL]. KTL masked its A / B
+acquires with r26 = flag x r27 (the remaining-row-block counter) so the trip after the last would not acquire. acq.cond / rel.cond test
+BIT 0 of r26 (RELC: r26 = 2 did not release, 3 did), so every A acquire at an even counter was skipped (all of them for an even trip
+count, e.g. KTL1's 18) while every release ran: the locks drifted and the step hung in situ (main round 22, twice; KTL1 too). The
+replay modelled "non-zero" and passed. Fixed with boolean masks (nez + and; r24/mm_e7k_r70b): lock-free bench 9 / 9 A and
+nks - 1 / nks B per tile, pieces bit-identical against E7. Lesson: a lock condition is one bit; the replays now reject any other
+value.
+
+**K2 — MUL-LATENCY: "scalar results need one more cycle inside a ZOL body"** (pass 19 suspect for K1) [MEAS MULLAT]. mul -> st at 2
+bundles and add -> st at 1 bundle see the new value in a ZOL body and in straight code. Not the KTL cause.
+
+**K3 — STALE-HEADER: a generated kernel run with another schedule's record header** (pass 19, research's bench) [MEAS]. The record
+loads read fields out of order (pointers as flags, flags as jumps): a timeout in the lock-free bench (device recovered). Lesson: the
+kernel .s and its .h travel together (r24/ktlpb.py asserts --kh).
+
+**K4 — ATTVS-II: attvs from II 18 towards its resource bound 11** (pass 19) [MODEL]. One call is 6 iterations, so the loop pays
+(6 + S - 1) x II: II 18 / 2 stages = 126 cycles, II 11 / 4 stages = 99 (more stages, MVE text). -27 cycles per call x ~1,280 calls
+per step = <= -0.02 ms. Not proposed.
+
+**K5 — S3 on the new attkb / attv** (pass 19) [MODEL]. ~220 flagged row blocks per core per step (chunk 0's 144 + ~2.3 % after it)
+x -60 cycles, even with a x6 lockstep amplification: -0.01..-0.04 ms. K2 (-0.02 measured) already said chunk 0 is hidden. Not
+proposed except as a text lever (~400 B of k_rb C++).

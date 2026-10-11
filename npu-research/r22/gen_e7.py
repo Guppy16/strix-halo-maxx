@@ -89,7 +89,9 @@ def cfg_of(info):
 
 
 # KTL (one modulo loop over a tile's k-steps 1..nks-1, research pass 17): per-row-block ops beside ROT's
-KTL_ALU = ("CNT", "MA", "MB", "MB2")  # counter, A-acquire mask, B-acquire mask (r27 - 1) x flag
+KTL_ALU = ("CNT", "NZA", "MA", "MB", "NZB", "MB2")  # counter; A mask = flag & (r27 != 0); B mask = flag & (r27 - 1 != 0)
+# pass 19 (RELC, MEASURED): acq.cond / rel.cond test BIT 0 of r26 only, so every lock condition must be 0 / 1: the masks are
+# booleans (nez + and), never flag x counter (rev 17's mul masks skipped every acquire at an even counter: the KTL hang)
 # lock conditions must be in r26 (acq.cond / rel.cond take r26 only): MA = mul r26, r26, r27 (A acquire), RQ1 -> r26 (A release),
 # MB2 = mul r26, r29, r30 (B acquire), CB = mov r26, r29 (B release); the four r26 groups may not overlap
 RESTART = dict(X="XP", Y="YP", L="BP", N="NP")
@@ -349,7 +351,9 @@ def solve(cfg, time_limit=600.0, workers=12, emax=6, nb=4, margin=1, hard_banks=
     if cfg.ktl:
         # A acquire masked by the row-block counter (zero on the trip after the last): r28 = r26 x r27
         m.Add(T["MA"] >= T["RQ0"] + SCL)
-        m.Add(T["ACQ"] >= T["MA"] + 2)  # mul latency 2
+        m.Add(T["MA"] >= T["NZA"] + 2)  # and r26, r26, r28 after nez r28, r27 (alu -> alu >= 2 in a ZOL body)
+        m.Add(T["MA"] <= T["NZA"] + R - 1)
+        m.Add(T["ACQ"] >= T["MA"] + 2)
         m.Add(T["CB"] >= T["RQ2"] + SCL)
         m.Add(T["RELB"] >= T["CB"] + 2)
         groups26 = [("RQ0", "ACQ"), ("RQ1", "REL"), ("MB2", "ACQB"), ("CB", "RELB")]
@@ -361,10 +365,11 @@ def solve(cfg, time_limit=600.0, workers=12, emax=6, nb=4, margin=1, hard_banks=
                     o = m.NewBoolVar("")
                     m.Add(T[a1] <= T[b0] + k * R).OnlyEnforceIf(o)
                     m.Add(T[b1] + k * R <= T[a0]).OnlyEnforceIf(o.Not())
-        for x in ("MA", "MB"):  # read this row block's counter value: after the previous CNT landed (alu -> alu >= 2), not after this one
+        for x in ("NZA", "MB"):  # read this row block's counter value: after the previous CNT landed (alu -> alu >= 2), not after this one
             m.Add(T[x] <= T["CNT"])
             m.Add(T[x] >= T["CNT"] - R + 2)
-        m.Add(T["MB2"] >= T["MB"] + 2)  # r30 = (r27 - 1) x r29: zero on the last k-step's rb 17 (no B beyond the tile)
+        m.Add(T["NZB"] >= T["MB"] + 2)  # r30 = (r27 - 1 != 0); r26 = r29 & r30: zero on the last k-step's rb 17
+        m.Add(T["MB2"] >= T["NZB"] + 2)
         m.Add(T["MB2"] >= T["RQ2"] + SCL)
         m.Add(T["MB2"] <= T["MB"] + R - 2)
         m.Add(T["ACQB"] >= T["MB2"] + 2)
@@ -814,6 +819,12 @@ def check(text, info, order, order_b, pl=PLACE, buf=0, pad=0, name="mm_e7", verb
         wr(c, pos, "S", 1)
         return val, p
 
+    def lockcond(c):  # pass 19 RELC: acq.cond / rel.cond test bit 0 of r26 only
+        v = rd(c, "r26")
+        if v not in (0, 1):
+            err(c, f"lock condition r26 = {v}: the hardware tests bit 0 only (RELC)")
+        return v & 1
+
     c = -1
     for bund, frame in seq:
         c += 1
@@ -930,7 +941,7 @@ def check(text, info, order, order_b, pl=PLACE, buf=0, pad=0, name="mm_e7", verb
                 writes.append(("p2", p + 4, 1, 1))
                 st.setdefault("scalar_at", []).append(c)
             elif ins == "acq.cond #53, r4, r26":
-                if rd(c, "r26"):
+                if lockcond(c):
                     if rd(c, "r4") != -1:
                         err(c, "acq r4 != -1")
                     s = len(st["acq"])
@@ -938,7 +949,7 @@ def check(text, info, order, order_b, pl=PLACE, buf=0, pad=0, name="mm_e7", verb
                     st["pending_acq"] = c
                     st["slot_owner"][s % 3] = (s, False)
             elif ins == "rel.cond #52, r5, r26":
-                if rd(c, "r26"):
+                if lockcond(c):
                     s = len(st["rel"])
                     st["rel"].append(c)
                     if st["slot_owner"].get(s % 3, (None,))[0] != s:

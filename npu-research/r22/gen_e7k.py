@@ -81,8 +81,8 @@ def all_ops(times, cfg, pr, prologue):
             txt = f"lda {dst}, [p2], #4" if prologue(t) else f"lda.2d {dst}, [p2], d2"
         out.append((t, sl, n, txt, fld, fifo, ispop))
     T = times
-    x = dict(CNT=("alu", "add r27, r27, #-1"), MA=("alu", "mul r26, r26, r27"), MB=("alu", "add r30, r27, #-1"),
-             MB2=("alu", "mul r26, r29, r30"), CB=("mv", "mov r26, r29"), ACQB=("alu", "acq.cond #49, r4, r26"),
+    x = dict(CNT=("alu", "add r27, r27, #-1"), NZA=("alu", "nez r28, r27"), MA=("alu", "and r26, r26, r28"),
+             MB=("alu", "add r30, r27, #-1"), NZB=("alu", "nez r30, r30"), MB2=("alu", "and r26, r29, r30"), CB=("mv", "mov r26, r29"), ACQB=("alu", "acq.cond #49, r4, r26"),
              RELB=("alu", "rel.cond #48, r5, r26"), ZX=("alu", "xor r31, r29, r4"), ZA=("alu", "and r6, r6, r31"))
     for n, (sl, txt) in x.items():
         out.append((T[n], sl, n, txt, None, None, False))
@@ -348,6 +348,12 @@ def check(text, info, head, period, order_b, nks=4, pl=PLACE, pad=0, name="mm_e7
             wr(c, "p2", p + 4, 1)
         return v, p
 
+    def cond(c):  # pass 19 RELC: acq.cond / rel.cond test bit 0 of r26 only
+        v = rd(c, "r26")
+        if v not in (0, 1):
+            err(c, f"lock condition r26 = {v}: the hardware tests bit 0 only (RELC)")
+        return v & 1
+
     c = -1
     for bund, frame in seq:
         c += 1
@@ -376,6 +382,8 @@ def check(text, info, head, period, order_b, nks=4, pl=PLACE, pad=0, name="mm_e7
                 writes.append((mm.group(1), rd(c, mm.group(2)) + rd(c, mm.group(3)), 1, 1))
             elif (mm := re.fullmatch(r"mul (r\d+), (r\d+), (r\d+)", ins)):
                 writes.append((mm.group(1), rd(c, mm.group(2)) * rd(c, mm.group(3)), 2, 2))
+            elif (mm := re.fullmatch(r"nez (r\d+), (r\d+)", ins)):
+                writes.append((mm.group(1), int(rd(c, mm.group(2)) != 0), 1, 1))
             elif (mm := re.fullmatch(r"and (r\d+), (r\d+), (r\d+)", ins)):
                 writes.append((mm.group(1), rd(c, mm.group(2)) & rd(c, mm.group(3)), 1, 1))
             elif (mm := re.fullmatch(r"xor (r\d+), (r\d+), (r\d+)", ins)):
@@ -457,13 +465,13 @@ def check(text, info, head, period, order_b, nks=4, pl=PLACE, pad=0, name="mm_e7
                 writes.append((mm.group(2), v, 1, SCL))
                 st.setdefault("scalar_at", []).append(c)
             elif ins == "acq.cond #53, r4, r26":
-                if rd(c, "r26"):
+                if cond(c):
                     s = len(st["acq"])
                     st["acq"].append(c)
                     st["pending_acq"] = c
                     st["slot_owner"][s % 3] = (s, False)
             elif ins == "rel.cond #52, r5, r26":
-                if rd(c, "r26"):
+                if cond(c):
                     s = len(st["rel"])
                     st["rel"].append(c)
                     if st["slot_owner"].get(s % 3, (None,))[0] != s:
@@ -473,7 +481,7 @@ def check(text, info, head, period, order_b, nks=4, pl=PLACE, pad=0, name="mm_e7
                     if c < st["last_read"].get(s, -99) + REL_GAP:
                         err(c, f"release of stripe {s} {c - st['last_read'][s]} cycles after its last A read")
             elif ins == "acq.cond #49, r4, r26":
-                if rd(c, "r26"):
+                if cond(c):
                     k = next_acq["k"]
                     b = k % 2
                     if buf[b]["held"] or buf[b]["k"] != k:
@@ -483,7 +491,7 @@ def check(text, info, head, period, order_b, nks=4, pl=PLACE, pad=0, name="mm_e7
                     next_acq["k"] = k + 1
                     st["bacq"].append(c)
             elif ins == "rel.cond #48, r5, r26":
-                if rd(c, "r26"):
+                if cond(c):
                     if not held_q:
                         err(c, "B release with nothing held")
                     else:
@@ -526,9 +534,9 @@ def check(text, info, head, period, order_b, nks=4, pl=PLACE, pad=0, name="mm_e7
     return st
 
 
-def fit(times, info, work, name="mm_e7k"):
+def fit(times, info, work, name="mm_e7k", pl=PLACE):
     """gen_e7.fit's prologue alignment on the KTL emission"""
-    text, head, period, order_b = emit(times, info, name=name)
+    text, head, period, order_b = emit(times, info, name=name, pl=pl)
     _, dis, addr = E.G.assemble(text, work, name)
     offs = E.G.bundle_addrs(dis)
     ls = text.splitlines()
@@ -554,7 +562,7 @@ def fit(times, info, work, name="mm_e7k"):
         best = nxt
     assert need in best
     full = best[need][1]
-    text, head, period, order_b = emit(times, info, name=name, full_pro=full)
+    text, head, period, order_b = emit(times, info, name=name, full_pro=full, pl=pl)
     o, dis, addr = E.G.assemble(text, work, name)
     offs = E.G.bundle_addrs(dis)
     i0 = offs.index(pro[0])
@@ -571,6 +579,7 @@ def main():
         b.add_argument("json")
         b.add_argument("--out", required=True)
         b.add_argument("--nks", type=int, default=4)
+        b.add_argument("--place", help="the L1 placement the buffer toggles assume (default: the deployed E7L)")
     c = sub.add_parser("check")
     c.add_argument("s")
     c.add_argument("--json", required=True)
@@ -581,10 +590,11 @@ def main():
     cfg = cfg_of(d["info"])
     if o.cmd in ("emit", "fit"):
         out = Path(o.out)
+        pl = E.parse_place(o.place)
         if o.cmd == "emit":
-            text, head, period, order_b = emit(d["times"], d["info"])
+            text, head, period, order_b = emit(d["times"], d["info"], pl=pl)
         else:
-            text, head, period, order_b, fi = fit(d["times"], d["info"], out.parent)
+            text, head, period, order_b, fi = fit(d["times"], d["info"], out.parent, pl=pl)
             out.with_suffix(".dis").write_text(fi.pop("dis"))
             d["fit"] = fi
         out.write_text(text)
@@ -592,7 +602,7 @@ def main():
         d["head"], d["period"], d["order_b"] = head, period, order_b
         Path(o.json).write_text(json.dumps(d, indent=1))
         for nks in sorted({1, 2, 3, o.nks}):
-            st = check(text, d["info"], head, period, order_b, nks=nks, verbose=True)
+            st = check(text, d["info"], head, period, order_b, nks=nks, pl=pl, verbose=True)
             print(f"nks {nks}: {st['cycles']} cycles per call ({nks} k-steps: {(st['cycles']) / nks:.1f} per k-step; "
                   f"setup + prologue {st['bundles_pre']}), {st['macs']} MACs checked, {st['stores']} stores, bank stalls "
                   f"{st['stalls']} {dict(st['stall_where'])}, busy {dict((k, round(v / st['body_cycles'], 2)) for k, v in sorted(st['busy'].items()))}")
