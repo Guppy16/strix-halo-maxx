@@ -32,7 +32,7 @@ Chapters cite sources this way (paths from the repo root):
 | RFM round n | `tapnext/research/RESULTS_FROM_MAIN.md` |
 | ANALYSIS / PROPOSALS rev n | `tapnext/research/`; older revisions in `git log --follow -p` or `git show bbff6a1:npu-research/revN/<file>` |
 | MD NOTES / MD RESULTS phase n | `moondream/npu/{NOTES,RESULTS}.md` |
-| A1 … M3 | entries in [negative-results.md](negative-results.md) |
+| A1 … N36 | entries in [negative-results.md](negative-results.md) |
 | 7 hex digits | a commit in this repo |
 | round n, rNN/ | a TAPNext round; its tools and logs are in `tapnext/npu/rNN/` (implementer) or `tapnext/research/rNN/` (research) |
 
