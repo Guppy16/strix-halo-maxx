@@ -7,7 +7,7 @@ cd ~/git/app/.scratch/npu-tapnext || exit 1
 SW=0; for a in "$@"; do [ "$a" = --sweep ] && SW=1; done
 R21=()
 CSA="--core-rel 1"
-if [ "${CSUB:-0}" = 1 ]; then R21+=(--k-add -DCSUB); CSA="$CSA --sub ${CSUB_AT:-1728,3456}"; fi
+if [ "${CSUB:-1}" = 1 ]; then R21+=(--k-add -DCSUB); CSA="$CSA --sub ${CSUB_AT:-1728,3456}"; fi
 NOREG=1 NOTIME=1 NOCS=1 r20/try20.sh "$name" "${R21[@]}" --k-add -DCSPLIT --k-add -DCS_Z=6 --k-add -DEPLR --k-add -DCS_CONS=3 --k-add -DKPREP "$@" || exit 1
 NRESFIX=1 CSARGS="$CSA" r20/csplit20.sh "$name" | tail -3 || exit 1
 [ "${NOREG:-0}" = 1 ] || { r16/nrun.sh ${name}_reg python3 step8.py regress --build full12$name --depth 12 --ref full12r9a | grep "^REGRESS BIT\|^REGRESS DIFF\|^REGRESS frame 3\|rc="; }
