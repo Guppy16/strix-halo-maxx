@@ -59,6 +59,7 @@ YX_PERM = [0, 4, 1, 5, 2, 6, 3, 7]
 # p // 2 (y) or 12 + p // 2 (x); the C join's stream is then [head][y | x][18 rb] and design8 drains it in per-step groups
 YXH = os.environ.get("YXH") == "1"
 ZDROP = os.environ.get("ZDROP") == "1"  # round 24: SRES SSMs drain h only (ew8 -DZDROP)
+RRTWIN = os.environ.get("RRTWIN") == "1"  # round 25 timing twin (outputs wrong): norms skip their residual input (a norm's output)
 MS_RB = 6  # row blocks of the first pass (3 A stripes: the A ring's slot order repeats every k-step)
 # round 20 (research rev 16 NRES): the named norms (e.g. "norm1,norm3") send their panels from the EW core's MM2S 1 straight into
 # memtile c's A slot half 0 (rb-major: unit (rb, q) at rb 6,912 + q 576); only X' goes to DDR; the GEMM after the norm loads no A
@@ -104,6 +105,7 @@ class Plan:
         self.ops = []
         self.regions = {}
         self.writer = {}  # region key -> name of the last gemm/attn op that wrote it (EW ops are synchronous)
+        self.norm_dsts = set()  # (round 25 RRTWIN: the bases norms write = the residual inputs of later norms)
 
     # ---- allocation --------------------------------------------------------------------------------------------
     def alloc(self, nbytes, name=None, align=4096):
@@ -321,6 +323,10 @@ class Plan:
         """Elementwise norm op on the row-3 cores: X' = sum(srcs) (bf16); panels = norm(X') or (none) X'; mode ln_out
         writes the LN result into the X' part. `srcs`: 1-3 Q16 regions at equal distances (their X' parts)."""
         srcs = sorted(srcs, key=lambda s: s["base"])  # the sum is commutative: stream order = address order
+        if RRTWIN and len(srcs) > 1:  # round 25 timing twin: the residual (an earlier norm's X') not read
+            keep = [s for s in srcs if s["base"] not in self.norm_dsts]
+            assert len(keep) == len(srcs) - 1, (name, [s["base"] for s in srcs])
+            srcs = keep
         n_in = len(srcs)
         if n_in > 1:
             d = srcs[1]["base"] - srcs[0]["base"]
@@ -330,6 +336,7 @@ class Plan:
             d = 0
         if dst is None:
             dst = self.q16(name + "_out")
+        self.norm_dsts.add(dst["base"])
         if params_bytes is None:
             params_bytes = kb_pad(3 * SLOT if mode in ("rms", "none") else 5 * SLOT)  # header slot + vectors (AL1: padded)
         fills = [[self.tap("w", params_w, [1, 1, 1, params_bytes], [0, 0, 0, 1]),
