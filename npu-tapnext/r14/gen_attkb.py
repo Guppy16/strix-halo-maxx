@@ -70,7 +70,8 @@ VLT = "VLT_bf16"
 ST_FLAG = ST_X  # the scalar st has no itinerary in the .td: reserve a vector store's ports (conservative)
 C_HI, C_LO, C_BASE = 9, 10, 11
 X_FREE = [0, 1, 2, 3, 4, 5, 6, 7, 8]  # pops (ex_n = x_n) and the exp's temporaries share these
-DM_FREE = [0, 1, 2, 3, 4]
+DM_FREE = [int(v) for v in __import__("os").environ.get("ATTKB_DM", "0,1,2,3,4").split(",")]  # round 22: the II 33 schedule
+# allocated vshuffle bm targets to dm4, which the assembler refuses ("invalid operand"): ATTKB_DM=0,1,2,4,3 avoids it
 R_MM, R_ADD, CFG = "r5", "r6", "r1"  # mmul config 780, accumulator add 60, bf16 mac 828 (r2 / r3 = shuffle modes)
 HI_BITS, LO_BITS, SHIFT, BIAS_B = 17023, -15696, 3, 44 * 16  # bf16 63.75 (= TAU - 0.25 SU, the flag bound), -88; 2^3 B per 1/8
 # modifier register sets: (dn, dj, m) per op that steps its pointer by a 2D modifier
@@ -84,6 +85,7 @@ MAXSRC = "s"  # round 17: the max takes the scores as computed ("s") or as reloa
 USE_BANKS = True
 FORBID_TRIES = [6]
 S2 = False  # round 17: the running max (see the module doc)
+LIFE = 2  # round 22: register life bound in IIs (1 forces U = 1: mm8.cc static_asserts ATTKB_U == 1)
 STAGES = 3  # schedule length bound in IIs (round 14: 2 = a 34-bundle-shorter prologue, for text)
 
 
@@ -225,7 +227,7 @@ def build(II=None, times=None, cp=None, max_ii=40):
     import cpsched
     for ii in range(II or 29, max(max_ii, II or 0) + 1):
         lp = mk()
-        res = cpsched.solve(lp, ii, maxdist=maxdist(ii), last_stage=last_ops(), max_len=STAGES * ii - 1, max_life=2 * ii, **(cp or {}))
+        res = cpsched.solve(lp, ii, maxdist=maxdist(ii), last_stage=last_ops(), max_len=STAGES * ii - 1, max_life=LIFE * ii, **(cp or {}))
         if res is None:
             print(f"II {ii}: CP-SAT found none", file=sys.stderr)
             continue
@@ -337,12 +339,14 @@ def main():
     ap.add_argument("--nobanks", action="store_true")
     ap.add_argument("--drain", type=int, default=8)
     ap.add_argument("--stages", type=int, default=3)
+    ap.add_argument("--life", type=int, default=2, help="round 22: register life bound in IIs (1: U = 1)")
     ap.add_argument("--s2", action="store_true", help="round 17: the running max per row block (module doc)")
     ap.add_argument("--maxsrc", default="s", choices=["s", "sr"])
     ap.add_argument("--workers", type=int, default=4, help="round 17: CP-SAT workers (the laptop stays usable)")
     ap.add_argument("--reserve-x", type=int, default=0, help="round 17: x registers kept free in the CP pressure bound (allocation slack)")
     o = ap.parse_args()
-    global USE_BANKS, DRAIN, STAGES, S2, MAXSRC
+    global USE_BANKS, DRAIN, STAGES, S2, MAXSRC, LIFE
+    LIFE = o.life
     S2, MAXSRC = o.s2, o.maxsrc
     STAGES = o.stages
     USE_BANKS, DRAIN = not o.nobanks, o.drain

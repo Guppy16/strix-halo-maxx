@@ -1,0 +1,108 @@
+II 33: with 1 padding bundle(s) after the prologue: cycle 68 C1 it 1: port QEY_WA_L0_PORT at 69 taken by MB0 it 0
+II 33: forbid ('MB0', 63), re-solve
+II 33: {'status': 'FEASIBLE', 'peak': {'x': 9, 'dm': 4}, 'length': 98}
+II 33 (resource bound 31: {('port', 'DM_ADA'): 31, 'b': 27, ('port', 'QEY_WB_L0_PORT'): 26, 'm': 25, ('port', 'QEY_RS_L0_PORT'): 24, ('port', 'QEY_WA_L0_PORT'): 20, ('bank', 2): 20, ('bank', 0): 20, 'a': 16, ('port', 'AGUA__AGI_I'): 16}), U 1, stages 3, maxlive {'x': 9, 'dm': 4}
+  t   0 (stage 0, slot  0) b F     vldb.fill.512 [p1, lf1, r25]
+  t   2 (stage 0, slot  2) a QF    vlda.fill.512 [p0, lf0, r24]
+  t   2 (stage 0, slot  2) b K0    vldb.pop.576 ex5, [p1, lf1, r25]
+  t   3 (stage 0, slot  3) a Q0    vlda.pop.576 ex8, [p0, lf0, r24]
+  t   3 (stage 0, slot  3) b K1    vldb.pop.576 ex1, [p1, lf1, r25]
+  t   5 (stage 0, slot  5) a Q1    vlda.pop.576 ex6, [p0, lf0, r24]
+  t   5 (stage 0, slot  5) b K2    vldb.pop.576 ex5, [p1, lf1, r25]
+  t   6 (stage 0, slot  6) a Q2    vlda.pop.576 ex8, [p0, lf0, r24]
+  t   6 (stage 0, slot  6) b K3    vldb.pop.576 ex0, [p1, lf1, r25]
+  t   7 (stage 0, slot  7) a Q3    vlda.pop.576 ex1, [p0, lf0, r24]
+  t  11 (stage 0, slot 11) v M0    vmul.f dm3, ex8, ex5, r5
+  t  13 (stage 0, slot 13) a Q4    vlda.pop.576 ex4, [p0, lf0, r24]
+  t  13 (stage 0, slot 13) b K4    vldb.pop.576 ex5, [p1, lf1, r25]
+  t  13 (stage 0, slot 13) v M1    vmul.f dm2, ex6, ex1, r5
+  t  14 (stage 0, slot 14) a Q5    vlda.pop.576 ex3, [p0, lf0, r24]
+  t  14 (stage 0, slot 14) b K5    vldb.pop.576 ex7, [p1, lf1, r25]
+  t  14 (stage 0, slot 14) v M2    vmac.f dm3, dm3, ex8, ex5, r5
+  t  15 (stage 0, slot 15) a Q6    vlda.pop.576 ex4, [p0, lf0, r24]
+  t  15 (stage 0, slot 15) b K6    vldb.pop.576 ex5, [p1, lf1, r25]
+  t  16 (stage 0, slot 16) a Q7    vlda.pop.576 ex3, [p0, lf0, r24]
+  t  16 (stage 0, slot 16) b K7    vldb.pop.576 ex6, [p1, lf1, r25]
+  t  17 (stage 0, slot 17) v M3    vmac.f dm2, dm2, ex1, ex0, r5
+  t  21 (stage 0, slot 21) v M4    vmac.f dm3, dm3, ex4, ex5, r5
+  t  22 (stage 0, slot 22) v M5    vmac.f dm2, dm2, ex3, ex7, r5
+  t  24 (stage 0, slot 24) v M6    vmac.f dm3, dm3, ex4, ex5, r5
+  t  25 (stage 0, slot 25) v M7    vmac.f dm2, dm2, ex3, ex6, r5
+  t  27 (stage 0, slot 27) s PK    padds.2d [p1], d1
+  t  27 (stage 0, slot 27) a MA0   vlda.conv.fp32.bf16 cml0, [p3], #64
+  t  28 (stage 0, slot 28) v AD    vadd.f dm1, dm3, dm2, r6
+  t  29 (stage 0, slot 29) a PQ    padda.2d [p0], d0
+  t  34 (stage 1, slot  1) s C0    vconv.bf16.fp32 x6, cml1
+  t  35 (stage 1, slot  2) s C1    vconv.bf16.fp32 x4, cmh1
+  t  35 (stage 1, slot  2) v AR0   vadd.f dm1, dm1, dm0, r6
+  t  36 (stage 1, slot  3) s W0    vst x6, [p4], #64
+  t  36 (stage 1, slot  3) m SU0   vconv.fp32.bf16 cml1, x6
+  t  37 (stage 1, slot  4) s W1    vst.2d x4, [p4], d4
+  t  37 (stage 1, slot  4) a MA1   vlda.2d.conv.fp32.bf16 cml1, [p3], d2
+  t  37 (stage 1, slot  4) m SU1   vconv.fp32.bf16 cml2, x4
+  t  41 (stage 1, slot  8) s DH0   vconv.bf16.fp32 x6, cml1
+  t  43 (stage 1, slot 10) m MN0   vmin_ge.bf16 x0, r16, x9, x6
+  t  43 (stage 1, slot 10) v AR1   vadd.f dm2, dm2, dm1, r6
+  t  44 (stage 1, slot 11) m CM0   vlt.bf16 r18, x9, x6
+  t  45 (stage 1, slot 12) m MX0   vmax_lt.bf16 x3, r16, x10, x0
+  t  47 (stage 1, slot 14) s F01   vfloor.s32.bf16 x6, wh3, s0
+  t  48 (stage 1, slot 15) s F00   vfloor.s32.bf16 x3, wl3, s0
+  t  49 (stage 1, slot 16) m A01   vadd.32 x8, x6, x11
+  t  49 (stage 1, slot 16) s DH1   vconv.bf16.fp32 x6, cml2
+  t  51 (stage 1, slot 18) b LA01  vldb.4x64.lo wl0, wl8
+  t  52 (stage 1, slot 19) b LD01  vldb.4x64.hi wh4, wh8
+  t  53 (stage 1, slot 20) m A00   vadd.32 x1, x3, x11
+  t  53 (stage 1, slot 20) b LC01  vldb.4x64.lo wl4, wh8
+  t  54 (stage 1, slot 21) b LB01  vldb.4x64.hi wh0, wl8
+  t  54 (stage 1, slot 21) m MN1   vmin_ge.bf16 x8, r16, x9, x6
+  t  55 (stage 1, slot 22) b LA00  vldb.4x64.lo wl5, wl1
+  t  55 (stage 1, slot 22) m CM1   vlt.bf16 r19, x9, x6
+  t  56 (stage 1, slot 23) b LB00  vldb.4x64.hi wh5, wl1
+  t  56 (stage 1, slot 23) m MX1   vmax_lt.bf16 x2, r16, x10, x8
+  t  57 (stage 1, slot 24) b LD00  vldb.4x64.hi wh6, wh1
+  t  58 (stage 1, slot 25) a MB0   vlda x7, [p7], #64
+  t  58 (stage 1, slot 25) s F10   vfloor.s32.bf16 x3, wl2, s0
+  t  59 (stage 1, slot 26) b LC00  vldb.4x64.lo wl6, wh1
+  t  60 (stage 1, slot 27) b R0    vldb x1, [p5], #64
+  t  60 (stage 1, slot 27) m A10   vadd.32 x1, x3, x11
+  t  61 (stage 1, slot 28) m SS01  vshuffle x8, x0, x4, r2
+  t  61 (stage 1, slot 28) s F11   vfloor.s32.bf16 x2, wh2, s0
+  t  61 (stage 1, slot 28) b R1    vldb.2d x2, [p5], d5
+  t  61 (stage 1, slot 28) a XL0   vlda x3, [p6, #0]
+  t  62 (stage 1, slot 29) b LC10  vldb.4x64.lo wl5, wh1
+  t  63 (stage 1, slot 30) m SO01  vshuffle bmlh4, x0, x4, r3
+  t  63 (stage 1, slot 30) b LD10  vldb.4x64.hi wh5, wh1
+  t  64 (stage 1, slot 31) b LB10  vldb.4x64.hi wh6, wl1
+  t  64 (stage 1, slot 31) m A11   vadd.32 x0, x2, x11
+  t  65 (stage 1, slot 32) b LA10  vldb.4x64.lo wl6, wl1
+  t  66 (stage 2, slot  0) m SS00  vshuffle x4, x5, x6, r2
+  t  66 (stage 2, slot  0) a XL1   vlda x4, [p6, #64]
+  t  67 (stage 2, slot  1) m SO00  vshuffle bmll4, x5, x6, r3
+  t  67 (stage 2, slot  1) b LA11  vldb.4x64.lo wl7, wl0
+  t  68 (stage 2, slot  2) m MV0   vmov wl8, wh4
+  t  71 (stage 2, slot  5) m XM0   vmax_lt.bf16 x3, r16, x3, x1
+  t  72 (stage 2, slot  6) v Q0L   vmac.f dm3, dm4, x8, x7, r1
+  t  72 (stage 2, slot  6) m SO10  vshuffle bmll0, x6, x5, r3
+  t  73 (stage 2, slot  7) m XM1   vmax_lt.bf16 x3, r16, x4, x2
+  t  73 (stage 2, slot  7) s XS0   vst x3, [p6], #64
+  t  74 (stage 2, slot  8) m SS10  vshuffle x4, x6, x5, r2
+  t  74 (stage 2, slot  8) b LB11  vldb.4x64.hi wh7, wl0
+  t  74 (stage 2, slot  8) x FO    or r4, r18, r19
+  t  75 (stage 2, slot  9) v P0    vmac.f dm1, dm3, x8, x1, r1
+  t  75 (stage 2, slot  9) b LD11  vldb.4x64.hi wh5, wh0
+  t  76 (stage 2, slot 10) b LC11  vldb.4x64.lo wl5, wh0
+  t  78 (stage 2, slot 12) a MB1   vlda.2d x1, [p7], d3
+  t  78 (stage 2, slot 12) s XS1   vst.2d x3, [p6], d7
+  t  83 (stage 2, slot 17) m SS11  vshuffle x0, x7, x5, r2
+  t  84 (stage 2, slot 18) m MV1   vmov wl0, wh4
+  t  85 (stage 2, slot 19) m SO11  vshuffle bmlh0, x7, x5, r3
+  t  86 (stage 2, slot 20) v Q1L   vmac.f dm0, dm0, x0, x1, r1
+  t  89 (stage 2, slot 23) v P1    vmac.f dm0, dm0, x0, x2, r1
+  t  95 (stage 2, slot 29) m MVH   vmov cmh1, cml0
+  t  97 (stage 2, slot 31) s PU    vst.push.576.conv.bfp16ebs8.fp32 dm1, [p2, sf, r26]
+  t  97 (stage 2, slot 31) x FA    or r17, r17, r4
+  t  98 (stage 2, slot 32) s FL    vst.flush.512.conv.2d [p2, sf, r26, d6]
+check OK (36 iterations): 1254 cycles, last write lands at 1261
+check OK (6 iterations): 264 cycles, last write lands at 271
+check OK (2 iterations): 132 cycles, last write lands at 139
+wrote build/r22/attks_ii3.s
