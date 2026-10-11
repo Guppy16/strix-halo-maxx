@@ -1,0 +1,38 @@
+[
+ {
+  "W": 256,
+  "img_tokens": 1024,
+  "q": 8,
+  "ms_median": 260.0,
+  "ms_min": 243.4,
+  "gflop": 436.4,
+  "threads": 8
+ },
+ {
+  "W": 192,
+  "img_tokens": 576,
+  "q": 8,
+  "ms_median": 140.0,
+  "ms_min": 133.2,
+  "gflop": 237.3,
+  "threads": 8
+ },
+ {
+  "W": 160,
+  "img_tokens": 400,
+  "q": 8,
+  "ms_median": 99.5,
+  "ms_min": 92.3,
+  "gflop": 163.2,
+  "threads": 8
+ },
+ {
+  "W": 128,
+  "img_tokens": 256,
+  "q": 8,
+  "ms_median": 70.9,
+  "ms_min": 68.9,
+  "gflop": 104.2,
+  "threads": 8
+ }
+]
