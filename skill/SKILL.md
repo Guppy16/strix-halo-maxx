@@ -662,6 +662,20 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   (differences by row block and column block) in one dispatch.
 - E7'' (B split over two FIFOs / banks): the replay's bank stalls are real: R 64 with 129 stalls per call was neutral against R 68
   with 0 (1,373 vs 1,338 effective cycles). Price a kernel by static + replayed stalls.
+- **Scalar `lda.2d` works (round 22 LDA2D probe, npu-tapnext r22/lda2d.s)**: `lda.2d rX / pX / mX, [p], dN` post-modifies by the 2D rule
+  (dn 4, dj 4, m -16 -> offsets 0, 4, 8, 12, 16, 0, ...); p and m registers hold 20 bits. A record table can wrap inside a modulo loop.
+- **`vshuffle bmXXn` refuses n = 4** (assembler "invalid operand for instruction"): keep vshuffle bm targets in dm0-3 (gen_attkb ATTKB_DM
+  reorders the allocation). A CP schedule with max_life 2 II may come out U 2; kernels whose C++ asserts U 1 need max_life = II.
+- **Re-solve old modulo schedules with more CP time (round 22)**: attkb II 36 -> 33 (resource bound 31) and attv II 21 -> 20 (3 stages)
+  were there for 1,800 s per II; each attkb II cycle was worth ~-0.065 ms at depth 12 (the attention's body chunks are compute-bound).
+  Scan II against the resource bound of every deployed generator (RESULTS 31.2) before inventing new levers.
+- **A third memtile A region (round 22 3A)**: a K = 1536 op that is not dependent can take k 12-23 from a region loaded during the
+  previous op (two shim fills, k 12-23 first; middle sends as one 3D TAP with the region stride): -0.075 for down_b + mlp3_b. IRON
+  re-packs the memtile around a larger Buffer by itself.
+- **Timing twins that change a data-dependent path are useless (round 22 K0TWIN)**: skipping chunk 0's fast pass changed every later
+  chunk's lazy-max flags (-0.79 and +0.5 ms for the same lever). Twins only where the downstream work is data-independent (NTWIN is).
+- **The GEMM -> norm boundary is real waiting (round 22 NTWIN)**: norms not waiting for their producer's drains ran 30-50 us earlier with
+  unchanged walls: -0.92 ms for norm0 + norm2 (upper bound of any row-split of the producer's last tile).
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
   timeouts per phase; stop if the device does not recover. Never loop retries on a failing design.
@@ -877,6 +891,10 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   E7PATCH=1), e7dbg.py (two builds' yx output diffed by column block / row block), poplf0* (lf0 pop probe), latec.diff /
   mklatec.py (the hung LATEC), patch_csubg.py / patch_acsub.py (dead variants). Flags: mm8 CSUB ZLOAD E7 (+ KS_X0 / KS_X1) AEXP3;
   design8 env E7; r19/csplit.py --sub / --latec.
+- `npu-tapnext/r22/` (round 22): try22.sh (current best: try21 + A3 + TXT18 + attkb II 33 + attv II 20), gen_attkq.py (K2: QK-only chunk-0
+  loop, off by default), attks33.json / attks34.json, attv20.json, mkktl.py (research's KTL kernel into the ROT slot; hangs, see NOTES
+  27), lda2d.s + lda2db.* (scalar lda.2d probe), gen_e7m.py (gen_e7 with the bank-3 weight E7_W3), solve_*.sh. Env: design8 A3, NTWIN
+  (twin), ATTKS_JSON, ATTV_JSON, ATTKB_DM; mm8 -DK2, -DK0TWIN (twin), -DKTL1 (bisect); gen_attkb --life, gen_attv --stages / --life.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);

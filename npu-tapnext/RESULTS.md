@@ -1011,3 +1011,42 @@ research CP-SAT 4 workers + the background job)
 | 8 | 21.06 (21.00) | 24.11 | 21.53 (21.47) | not run |
 | 6 | 16.16 (15.76) | 19.44 | 16.23 (16.17) | not run |
 (an earlier same-session sweep of r21v4 = r21k1 without K0B: 31.32 / 26.25 / 21.04 / 15.93 vs r20z 32.02 / 26.86 / 21.83 / 16.26)
+
+## 31. Round 22 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks; box load 2.5-16
+(my CP-SAT up to 8 workers + research's 4 early on; 1.81 GHz on every A/B's fast mode; final sweep quiet, r7/clk.py 1.806 GHz))
+### 31.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 2 (KTL))
+| build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
+|---|---|---|---|---|
+| full12r22k0t | r21k1 + K0TWIN 1 (chunk 0 skipped, wrong) | -0.794 / -0.793 / -0.846 | -0.06..-0.12 | twin, data-dependent |
+| full12r22k0u | r21k1 + K0TWIN 2 (exact path kept, wrong) | +0.229 / +0.501 / +0.081 | -0.10..-0.25 | twin, data-dependent |
+| full12r22b | r21k1 + K2 (attkq II 14) | -0.025 / -0.020 / -0.061 (30 x 20) | -0.05..-0.10 | miss, OFF (608 B text) |
+| full12r22d6 / d4 | r21k1 + --l2-depth 6 / 4 | +0.004 / +0.005 / +0.100; -0.025 / -0.023 / -0.039 | ~0 | neutral |
+| full12r22c | r21k1 + 3A | -0.076 / -0.080 / +0.027 (30 x 20); -0.081 / -0.070 / +0.064 (40 x 20) | -0.07..-0.10 | hit, kept |
+| full12r22k2 | r22c + KTL (research mm_e7k_r70) | first dispatch TIMED OUT (recovered) | -0.50..-0.70 | open |
+| full12r22k3 | r22c + KTL1 (KTL kernel once per k-step) | TIMED OUT (recovered) | (bisect) | open |
+| full12r22t | r22c + TXT18 | -0.072 / -0.076 / -0.117 (30 x 20); -0.076 / -0.072 / -0.055 (40 x 20) | 0 +- 0.02 | kept (miss, good side) |
+| full12r22n | r22t + NTWIN norm0, norm2 (wrong) | -0.951 / -0.920 / -0.927 (20 x 20) | MSPLIT gate | walls shift: gate passed |
+| full12r22s | r22t + attkb II 34 | -0.134 / -0.126 / -0.134 (40 x 20) | -0.04..-0.14 | hit, kept |
+| full12r22v | r22s + attv II 20 (3 stages) | -0.034 / -0.043 / -0.008 (40 x 20) | <= -0.046 | hit, kept |
+| full12r22w2 | r22v + attkb II 33 (U 1) | -0.023 / -0.043 / -0.037; -0.034 / -0.042 / -0.061 (40 x 20 twice) | -0.04..-0.07 | low end, kept |
+| **full12r22z** | **= r22w2 rebuilt with depth builds (the round's best)** | **-0.408 / -0.488 / -0.422 vs r21k1** (30 x 20) | sum of parts ~-0.35 | |
+Text at r22z: GEMM 15,856 / 16,384 (528 free), EW 15,824 (560 free).
+### 31.2 Probes and solves
+- LDA2D (r22/lda2d.s + lda2db.*, one core): scalar lda.2d (dn 4, dj 4, m -16) reads offsets 0, 4, 8, 12, 16, 0, ... for r / p / m
+  destinations (p / m values 20-bit). Plain lda into p4 / m0 the same.
+- NTWIN timeline (r22t vs r22n, blocks 3-6): norm0 / norm2 first word 30-50 us before the producer's last word, walls 0.08-0.10 ms in both.
+- E7'' CP (gen_e7 / gen_e7m, 4 workers, 1,800 s, hinted): nx 10 R 64 excess 4 + 91, R 65 2 + 71; W3 1,800 nx 8 R 64 4 + 59, R 65 2 + 43;
+  research's R 64 x8 replay: 1,244 + 129 stalls, R 65 1,277 + 79, R 68 1,338 + 0.
+- attkb CP: II 31-33 none at 600 s (life 2), II 32 none at 1,800 s, II 33 U 2 at 1,800 s (life 2), II 33 U 1 at 1,800 s (life 1, one forbid).
+  attv --two --stages 3: II 15-19 infeasible (proved), II 20 optimal. attkq: II 14 (3 stages, U 2: 602 B), II 14 U 1 (474 B), II 18 2 stages (394 B).
+- Resource-bound scan of deployed generators: bgelu 12 / 11, gup 6 / 6, pan 16 / 16, vt 13 / 6, resc 8 / 8, reck 11 / 10, convk 20 / 20,
+  ggk 24 / 22, n1k_ln 11 / 8, nrm_ln 13 / 12, ssq 30 / 21, sig10 10 / 10, attkb 36 / 31, attv 21 / 15, attvs 18 / 11.
+- Clock: r7/clk.py 1.8057 GHz (median fit) at the round-end sweep.
+### 31.3 Depth sweep (full12r22z, one xclbin, 4 phase sequences; r21k1 re-swept the same session; quiet box, load 2.5-4)
+| depth | r22z dispatch median (min) | whole step | r21k1 same session median (min) | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 30.78 (30.74) | 32.53 | 31.20 (31.13) | 70.84 (92.57), bit-identical |
+| 10 | 25.79 (25.75) | 27.55 | 26.14 (26.10) | 69.90 (91.02), bit-identical |
+| 8 | 20.71 (20.61) | 23.39 | 20.95 (20.90) | not run |
+| 6 | 15.58 (15.54) | 18.01 | 15.79 (15.72) | not run |
+(the sweep inside r22z's own build, minutes earlier: d12 31.26 / whole 34.49, d10 25.81, d8 20.67, d6 15.56: d12 in a slow-mode window)

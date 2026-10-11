@@ -923,3 +923,38 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - E7'' R 64 (fitted, exact): neutral vs R 68 (+0.04 / -0.04 / -0.08).
 - CSUB4 for plain (a 4th sub-part) needs 1-trip bias_pcs calls: MIN_ITERATION_COUNT(1) changes the loop (752 -> 448 B): not built.
 - bgelu at II 12 is at its port bound (ldb 11 / DM_ADA ~12 incl. the LUT loads): no epilogue lever there.
+
+## 27. Round 22 (2026-10-11): -0.41..-0.49 ms vs r21k1 (A/B), 30.78 ms at depth 12 (quiet sweep; r21k1 31.20 same session): 3A, TXT18, attention IIs
+### 27.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 31; build `r22/try22.sh NAME`, everything below on by default)
+1. **3A** (plan8 / design8 env A3=1): the memtile A slot grows to 36 chunks (373,248 B; region 3 = chunks 24-35, locks E3 / F3).
+   down_b and mlp3_b (K = 1536, not dependent) take k 0-11 from half 0 and k 12-23 from region 3; their fill sends k 12-23 first (two
+   shim fills), so region 3 loads during down_a / mlp3_a; the middle tiles' send is one 3D TAP [2][32][972] with a 24-chunk stride.
+   IRON re-packed memtiles 0-2 itself (3,584 B left, C joins still 64 KB aligned). A/B -0.07..-0.08.
+2. **TXT18** (research pass 18, npu-research/r23/mk_txt18.py, -DTXT18 in ew8.cc): norm twins by function pointer, a 2-trip stats loop,
+   one ring copy. EW text 16,272 -> 15,824; and -0.07 ms (pre-registered 0: cause not measured).
+3. **attkb at II 33** (was 36; r14/gen_attkb.py --s2 --maxsrc sr, CP 600-1,800 s per II): II 34 -0.13, II 33 (U 1 via --life 1, dm order
+   ATTKB_DM=0,1,2,4,3) -0.035 more. design8 env ATTKS_JSON.
+4. **attv at II 20** (was 21; gen_attv --two --stages 3; CP proves II 15-19 infeasible): -0.04. design8 env ATTV_JSON. GEMM text +144.
+### 27.2 What the numbers say
+- The attention's K loop is on the critical path (II 36 -> 34 landed at the top of its static price), but chunk 0's fast pass is not
+  (K2 removed ~850 cycles per (tile, chunk 0) for -0.02 of a predicted -0.05..-0.10).
+- **NTWIN** (norm0 / norm2 skip the producer wait; outputs wrong): -0.92 ms; the norms start 30-50 us earlier with unchanged walls
+  (0.08-0.10 ms): the GEMM -> norm boundary wait is ~38 us per boundary of real time. Research's MSPLIT-P gate passed.
+- KTL (research's one loop per tile): hangs even as one call per k-step, so the bug is inside a single k-step call.
+### 27.3 Facts / rules (also in the skill)
+- Scalar `lda.2d rX / pX / mX, [p], dN` post-modifies exactly as the 2D rule (LDA2D probe: dn 4, dj 4, m -16 wraps every 5 loads); p and
+  m registers read back 20-bit.
+- `vshuffle bmXXn` with n = 4 is refused by the assembler; an allocation that puts a vshuffle bm target in dm4 needs another dm order.
+- A modulo schedule with max_life 2 II can come out U 2; mm8's attkb (ring + flags layout) needs U 1: solve with max_life = II.
+- IRON packs a larger memtile Buffer around the ObjectFifo objects by itself (3A: the B fifo objects moved, nothing pinned).
+- --l2-depth 6 / 4 (B fifo objects per memtile): neutral (+0.005 / -0.023 median).
+### 27.4 Dead ends / not done
+- **K2** (QK-only chunk-0 pass, r22/gen_attkq.py II 14): bit-identical, -0.02 ms for 608 B of GEMM text: kept OFF (-DK2).
+- Twins K0TWIN 1 / 2 (chunk 0 skipped): data-dependent (later chunks' flags change): -0.79 / +0.23..+0.50, no price.
+- E7'' nx = 10 (n1 30, ny 24) and the bank-3 excess reweighted (E7_W3 1,800, r22/gen_e7m.py): R 64 / 65 stay at 4 / 2 excess residues +
+  55-91 modelled stalls (CP stays at its hints); R 66 / 67 stopped when research said R < 68 only after KTL.
+- **KTL** (research r22/mm_e7k_r70): TIMEOUT on the first dispatch (full12r22k2) and as one call per k-step (full12r22k3, -DKTL1).
+  Record table equals research's table(); call arguments as specified. Open (research KTLP).
+- attv / n1k / ggk / vt / ssq gaps to their resource bounds (scan this round): attv taken; ssq (30 vs 21) is register-bound (DEAD_ENDS E16);
+  n1k 11 vs 8 at 8 iterations per call and vt 13 vs 6 are worth < 0.02.
+- Not built: OPPRE-W / OPPRE-lag, S3, SSM glue (text now there), MSPLIT-P (L), CLKLOAD.

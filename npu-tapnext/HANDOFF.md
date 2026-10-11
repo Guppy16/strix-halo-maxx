@@ -1,3 +1,33 @@
+# ROUND 22 DONE (2026-10-11) - read this block first; the round-21 block below is the base it builds on
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: **full12r22z**, A/B in one process vs r21k1 **-0.41..-0.49 ms** (30 x 20: -0.408 / -0.488 / -0.422), BIT-IDENTICAL vs full12r9a
+| depth | r22z sweep median (min) | whole step | r21k1 same session | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 30.78 (30.74) | 32.53 | 31.20 (31.13) | 70.84 (92.57) (bit-identical: not re-run) |
+| 10 | 25.79 (25.75) | 27.55 | 26.14 (26.10) | 69.90 (91.02) (bit-identical) |
+| 8 | 20.71 (20.61) | 23.39 | 20.95 (20.90) | not run |
+| 6 | 15.58 (15.54) | 18.01 | 15.79 (15.72) | not run |
+Quiet box for the sweep (load 2.5-4, no CP running; r7/clk.py 1.806 GHz). (A first r22z sweep inside its build had d12 31.26 /
+whole 34.49: a slow-mode window; the re-sweep minutes later is the number.)
+Build: `r22/try22.sh NAME [--sweep]` = r21/try21.sh + A3=1 + -DTXT18 + ATTKS_JSON=r22/attks33.json (ATTKB_DM=0,1,2,4,3) +
+ATTV_JSON=r22/attv20.json (each with an env switch: A3=0, TXT18=0, ATTKS_JSON=r17/attks.json, ATTV_JSON=r14/attv.json). Never dispatch
+*.unpatched.xclbin. Text: GEMM 15,856 / 16,384 (528 B free), EW 15,824 (560 free). Timeouts this round: 2 (KTL; both recovered).
+## What changed (NOTES 27, RESULTS 31): 3A (third A slot region: down_b / mlp3_b k 12-23 load during the previous op) -0.075,
+TXT18 (research's EW text patch) -0.07, attkb (attention K loop) II 36 -> 34 -> 33 -0.13 / -0.035, attv II 21 -> 20 (3 stages) -0.04.
+## Where the time goes: attention IS compute-bound in its body chunks (attkb II cuts land 1:1; chunk 0 is hidden: K2 -0.02),
+GEMM k-steps (E7 R 68), the GEMM -> norm boundaries (NTWIN: norm0 / norm2 not waiting = -0.92 ms, walls shift, not grow), SSM glue.
+## Next concrete actions (round 23)
+1. KTL: research's mm_e7k_r70 HANGS in situ, also called once per k-step (KTL1 bisect): research's KTLP one-core DMA-fed bench
+   decides (in-kernel B release, movs restarts, mul masks, no tail). Main side is ready (E7_V=k70 KS_ACC_HI=0x719C0 r22/try22.sh).
+2. MSPLIT-P (research rank 4): NTWIN passed its gate (-0.92 upper bound for norm0 + norm2): the producer's last tile in row halves.
+3. SSM glue (ssq2 / FSX / reck2 / ggk2, -0.25..-0.45): EW text is there now (560 B).
+4. Attention: attvs (II 18 vs bound 11, 2 stages), attkb II 32 (none in 1,800 s at life 2), S3 re-priced -0.05..-0.10.
+5. E7'' at R 64-66: the CP stays at its hints (nx 10 and the reweighted objective did not help); research: only after KTL.
+## Rules that bit us this round (also in the skill)
+- A modulo schedule can come out U 2 when lifetimes may reach 2 II: kernels whose C++ asserts U 1 need max_life = II (gen_attkb --life 1).
+- `vshuffle bmXXn` refuses dm4 as the target ("invalid operand", assembler): allocators must keep vshuffle bm targets in dm0-3.
+- A text lever can be a time lever (TXT18 -0.07 for "0 +- 0.02"): time every refactor.
+
 # ROUND 21 DONE (2026-10-11) - read this block first; the round-20 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r21k1**, A/B in one process vs r20z **-0.70 ms** (30 x 20: -0.686 / -0.705 / -0.721), BIT-IDENTICAL vs full12r9a
