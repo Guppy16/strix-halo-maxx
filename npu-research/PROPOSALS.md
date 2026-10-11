@@ -81,7 +81,7 @@ Revision 15, 2026-10-11, research pass 15, written during main's round 19.
 | 1 | **SEQPRE** | design8 sequence: pre-issue a dependent op's memtile slot loads + sends, drains, B fills, EW params fills before its producer wait; norms pushed to `pending` instead of `finish()`ed at once | M (design8 sequence code only) | medium (queue / BD budgets, ordering) | **−1.4 ± 0.5** (cpseq: −1.37..−2.31 before realisation) | regress BIT-IDENTICAL; timeline gaps: yx / out / qkv / out_proj / mlp0 / mlp3_a −10..−18 µs each, norms −6..−9 µs each |
 | 0' | **DDRCAP** | probe: the NPU's aggregate DDR ceiling with 2 shim MM2S channels per column streaming (+ the 8 drains) | S | none | gates rank 2's price | aggregate read GB/s; today's 3-input norms already move ≥ 84 GB/s (in + out) |
 | 2 | **NIN2 + N-IO-ASM** | the norms' inputs over TWO shim channels (a second packet flow into the EW core's free S2MM 1; B on shims 0–2 becomes a hand-built packet ring) + the norm unit loops in asm | L | medium | **−0.7..−1.5** (DDR-ceiling dependent; each alone −0.26..−0.52) | per-unit cycles below; norms' timeline share −0.7..−1.5 |
-| 3 | **CSPLIT4** | after main's CSPLIT: release the C object's 12,288 B part in 4 sub-parts as an rb-major epilogue writes them | M | medium | −0.4..−0.5 | TPROF hand after the epilogue: plain ≤ 900, gated / gelu_pan / qkv ≤ 750 (today ~2,240 = 1,555 + zero / loop) |
+| 3 | **CSPLIT4** | after main's CSPLIT + EPLR (plain epilogues release part 1 early, −0.12, main r19): the gated / gelu_pan / qkv epilogues rb-major + part 1 released in 4 sub-parts as written | M | medium | −0.3..−0.35 (the plain share went to EPLR) | TPROF hand after the epilogue: plain ≤ 900, gated / gelu_pan / qkv ≤ 750 (today ~2,240 = 1,555 + zero / loop) |
 | 4 | attention S3 / K1 / K2 | rev 10 / 11 prices; GEMM text has ~0.3–0.8 KB free | M | low | ~−0.5 (±30 %) | rev 11 checks |
 | 5 | **DAPRE** | down_a's A load during up_b (the only non-dependent op still paying; overhead 0.52 ms vs down_b 0.26) | S–M | medium | −0.2..−0.3 | down_a gap → ~0, per-tile period ≈ down_b's |
 | 6 | SSM ssq2 / FSX | rev 13 | M | low | −0.11 / −0.07 | rev 13 |
@@ -96,7 +96,7 @@ Ceiling from ≈ 34.6, stacked:
 |---|---|
 | SEQPRE −1.4 | 33.2 |
 | NIN2 + N-IO-ASM −1.0 | 32.2 |
-| CSPLIT4 −0.45 | 31.75 |
+| CSPLIT4 −0.3 (after EPLR −0.12) | 31.8 |
 | attention −0.5 | 31.25 |
 | DAPRE + SSM −0.4 | 30.85 |
 | LATE-C −0.3 | **~30.5** |
@@ -228,6 +228,8 @@ if os.environ.get("CPRATE") and op["name"].endswith("_mlp3_a"):
   | qkv (1,941) | 1,555 | ~65 |
 
 - **Price:** per block per core 32 · 975 + 32 · 1,555 + 12 · 1,490 ≈ 99k cycles, × 12 = 0.66 ms; realised ~0.75 → **−0.4..−0.5**.
+  Main's EPLR (round 19, −0.12) has since taken the plain share (32 · 975), which leaves **−0.3..−0.35** for the gated /
+  gelu_pan / qkv epilogues.
 - **Cost:** every epilogue variant (bias_pcs, bgelu3 / bgelu, gup, pan, vtk) must become rb-major for rb < 12. pan / gup write bfp
   panels: check that their drained layout is rb-ordered. Text: one loop per variant, a few hundred bytes. **Bit-identical by
   construction** (the same values, written in another order).
