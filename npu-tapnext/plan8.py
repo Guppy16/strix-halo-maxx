@@ -45,6 +45,7 @@ P23 = os.environ.get("P23") == "1"
 # step 8 (group "<name>#0" = steps 0-7 = mlp3_a's whole A), and mlp3_a's A loaded half 1 first (chunks 12-23 into the half mlp0
 # leaves free, while mlp0 still runs), then half 0 as mlp0's last sends free it (design8: per-half full locks).
 IL = os.environ.get("IL") == "1"
+DAPRE = os.environ.get("DAPRE") == "1"  # round 20 (research rev 15 R4 / DAPRE): down_a's A half 1 first too (it loads during up_b)
 # round 15 (research rev 10 P60g): P60G=1 deals the attention's query half tiles (3 row blocks, 1,728 B per head) across the
 # columns in the two GATHERS only (the attention Q fill and out_proj's A fill; drains, K / V, cores, host unchanged), so the
 # lazy-max slow rows (clustered in the lower image) spread over the columns that the K / V multicast keeps in lockstep.
@@ -383,7 +384,7 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
         p.norm(f"b{b}_norm1", "rms", [r["R1"], r["R0"]], wb["norm1"], dst=r["R2"])
         p.gemm(f"b{b}_up_a", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=0))
         p.gemm(f"b{b}_up_b", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=24), reuse_a=True)
-        p.gemm(f"b{b}_down_a", dict(r["G"], q0=0), 1536, 4, dst=r["D1"])
+        p.gemm(f"b{b}_down_a", dict(r["G"], q0=0), 1536, 4, dst=r["D1"], h1first=DAPRE)
         p.gemm(f"b{b}_down_b", dict(r["G"], q0=24), 1536, 4, dst=r["D2"], bias_in=False)
         wb["norm2"] = p.alloc_w(kb_pad(5 * SLOT))
         p.norm(f"b{b}_norm2", "ln", [r["D1"], r["D2"], r["R2"]], wb["norm2"], dst=r["R3"])

@@ -751,7 +751,7 @@ def step8(
             if a_rt and not op.get("reuse_a"):
                 hs = list(range(op.get("K", 768) // 768))
                 if op.get("h1first"):  # round 20 IL: the fill sends chunks 12-23 first
-                    assert os.environ.get("IL") == "1"
+                    assert os.environ.get("IL") == "1"  # (the per-half full locks)
                     hs = hs[::-1]
                 for c in range(COLS):
                     for h in hs:
@@ -1047,7 +1047,7 @@ def main():
     Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT, rot_v=os.environ.get("ROT_V", "g2f"),
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
-                                                     il=os.environ.get("IL") == "1")))
+                                                     il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1")))
 
 
 if __name__ == "__main__":
