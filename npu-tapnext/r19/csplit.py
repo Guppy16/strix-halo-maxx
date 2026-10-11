@@ -18,6 +18,8 @@ ap.add_argument("--z", type=int, default=6)
 ap.add_argument("--split", type=int, default=6144)
 ap.add_argument("--core-rel", type=int, default=2, help="the core's IRON release of the C cons lock (1 with -DEPLR: the kernel releases part 1)")
 ap.add_argument("--cons-id", type=int, default=3, help="the C cons lock id every GEMM tile must have (mm8.cc CS_CONS)")
+ap.add_argument("--latec", default="", help="round 21 LATEC: lock ids (one per --sub boundary, init 1): sub-part 1's BD releases the prod "
+                "lock, sub-part q + 1's BD releases latec[q] (mm_rot acquires them in a tile's first k-step: mm8.cc -DLATEC)")
 ap.add_argument("--sub", default="", help="round 21 CSUB: comma-separated bf16 offsets inside part 1 where acquire-only BDs end (each "
                 "takes one more C cons release per object: mm8.cc -DCSUB releases them as the epilogue finalises each sub-part)")
 o = ap.parse_args()
@@ -39,6 +41,10 @@ for buf, c, i, tile in cbufs:
     k = next(j for j, ln in enumerate(out) if ln.lstrip().startswith(f"{cons} = aie.lock(%{tile},"))
     zname = f"%csz_{tile[5:]}"
     out.insert(k + 1, f'    {zname} = aie.lock(%{tile}, {o.z}) {{init = 1 : i32, sym_name = "csz_{tile[5:]}"}}')
+    lates = [int(v) for v in o.latec.split(",") if v]
+    for lid in lates:
+        assert lid not in ids and lid != o.z, (tile, lid, ids)
+        out.insert(k + 2, f'    %csl{lid}_{tile[5:]} = aie.lock(%{tile}, {lid}) {{init = 1 : i32, sym_name = "csl{lid}_{tile[5:]}"}}')
     # the tile's DMA region
     m0 = next(j for j, ln in enumerate(out) if re.search(rf"= aie\.mem\(%{tile}\) \{{", ln))
     m1 = next(j for j in range(m0 + 1, len(out)) if out[j].startswith("    }"))
@@ -74,7 +80,11 @@ for buf, c, i, tile in cbufs:
             if q:
                 head.append(f"  ^csu{q}_{tile[5:]}:")
             head += [acq, bdq]
-            if q == len(subs):
+            if lates:  # LATEC: sub-part 1 frees the object for IRON's acquire, the later ones for mm_rot's first k-step
+                assert len(lates) == len(subs)
+                head += [rel if q == 0 else re.sub(rf"{prod}", f"%csl{lates[q - 1]}_{tile[5:]}", rel)]
+                head.append(f"{ind}aie.next_bd {blk}{loc}" if q == len(subs) else f"{ind}aie.next_bd ^csu{q + 1}_{tile[5:]}{loc}")
+            elif q == len(subs):
                 head += [rel, f"{ind}aie.next_bd {blk}{loc}"]
             else:  # a BD block needs one acquire AND one release (the MLIR verifier): release the prod lock by 0 (a no-op)
                 head += [re.sub(r"Release, %\w+\)", "Release, %csu_zero)", rel), f"{ind}aie.next_bd ^csu{q + 1}_{tile[5:]}{loc}"]

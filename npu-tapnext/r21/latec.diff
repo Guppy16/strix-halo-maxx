@@ -1,0 +1,116 @@
+diff --git a/npu-tapnext/mm8.cc b/npu-tapnext/mm8.cc
+index 322c26e..0ccb02d 100644
+--- a/npu-tapnext/mm8.cc
++++ b/npu-tapnext/mm8.cc
+@@ -126,6 +126,9 @@ static int32_t g_hi_clean = 0;
+ // 18,431 drain during the next tile and then release lock CS_Z (init 1). Anything that writes part 2 takes CS_Z first, once per
+ // object (g_zh; cleared after the object's release: acc_zero_hi, attn_end). The core releases the C cons lock by 2 (patched).
+ static int32_t g_zh = 0;
++#ifdef LATEC  // round 21: the C object was released since the last first k-step (a gated object's second tile is not fresh)
++static int32_t g_cfresh = 1;
++#endif
+ static inline __attribute__((always_inline)) void cs_take(void *c) {
+   if (!g_zh) {
+     acquire_greater_equal(c, 48 + CS_Z, 1);
+@@ -138,6 +141,9 @@ void acc_zero_hi() {
+ #ifdef CSPLIT
+   g_zh = 0;
+ #endif
++#ifdef LATEC
++  g_cfresh = 1;
++#endif
+ #ifdef ZLOAD  // round 21: nothing reads a zeroed accumulator (mm_ktile's first k-step zero-loads)
+   return;
+ #endif
+@@ -147,6 +153,9 @@ void acc_zero_hi() {
+ #if defined(CSUB) && (!defined(CSPLIT) || !defined(EPLR) || !defined(BGELU) || !defined(PAN) || !defined(VTK) || !defined(MM_PIECES))
+ #error "CSUB: the sub-part releases are written for CSPLIT + EPLR with the BGELU / PAN / VTK / MM_PIECES epilogues"
+ #endif
++#if defined(LATEC) && (!defined(ZLOAD) || !defined(CSUB) || !defined(KSC))
++#error "LATEC: written on ZLOAD + CSUB + KSC (r21/mklatec.py kernel, csplit --latec)"
++#endif
+ #if defined(ZLOAD) && (!defined(P35) || !defined(MM_ROT) || !defined(ZHI) || !defined(ZASM))
+ #error "ZLOAD: written for P35's mm_ktile with MM_ROT, ZHI and ZASM"
+ #endif
+@@ -290,6 +299,13 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
+   (void)a0, (void)a1, (void)a2;
+   const bfp16ebs8 *b = g_bnext;
+   float *pc = piece(c_out, 0, 0);
++#ifdef LATEC  // round 21: a fresh object's first k-step waits for C sub-parts 2 / 3 at rb 3 / 5 only (IRON's acquire = sub-part 1)
++  if (g_cfresh) {
++    rot_rec.r[ROT_I3] = 48 + CS_LB;
++    rot_rec.r[ROT_I5] = 48 + CS_LC;
++  }
++  g_cfresh = 0;
++#endif
+ #ifdef TPROF
+   g_t0 = tst();
+ #ifndef CPST
+@@ -318,6 +334,10 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
+ #endif
+ #ifdef ZLOAD  // round 21: the first k-step's MACs ignore the loaded accumulators (no zeroing anywhere)
+     mm_rot(rot_rec.r, b, pc, k == 0 ? 781 : 780);
++#ifdef LATEC
++    rot_rec.r[ROT_I3] = 0;
++    rot_rec.r[ROT_I5] = 0;
++#endif
+ #else
+     mm_rot(rot_rec.r, b, pc);
+ #endif
+@@ -1610,6 +1630,11 @@ __attribute__((minsize)) void attn_begin(bfloat16 *c_out, int32_t ntiles) {  //
+ #endif
+ #ifdef CSPLIT
+   cs_take(c_out);
++#endif
++#ifdef LATEC  // round 21: the attention writes the whole object: wait for C sub-parts 2 / 3 too
++  acquire_greater_equal(c_out, 48 + CS_LB, 1);
++  acquire_greater_equal(c_out, 48 + CS_LC, 1);
++  g_cfresh = 0;
+ #endif
+   using namespace at;
+ #ifdef ATTN_STUB
+@@ -1777,6 +1802,9 @@ __attribute__((minsize))  // the counting build: program memory (timing irreleva
+ #endif
+ void attn_end(bfloat16 *c_out) {  // -O2 (round 7)
+   using namespace at;
++#ifdef LATEC
++  g_cfresh = 1;  // (IRON releases the object right after)
++#endif
+ #ifdef ATPROF
+   g_at[4] = atst();
+ #endif
+diff --git a/npu-tapnext/r18/mm8_rot.inc b/npu-tapnext/r18/mm8_rot.inc
+index 1fafe51..135cbb6 100644
+--- a/npu-tapnext/r18/mm8_rot.inc
++++ b/npu-tapnext/r18/mm8_rot.inc
+@@ -32,7 +32,11 @@ constexpr int32_t rot_record(int rb, int f, int32_t c, int32_t hi, int32_t a0, i
+     case 2:  // jump into (rb, pair 1)
+       return real ? rot_piece(c, hi, rb, 1) - rot_piece(c, hi, rb, 0) - 1024 : 0;
+     case 3:  // acquire the stripe's A slot (even row blocks)
++#ifdef LATEC  // round 21 (r21/mklatec.py): the field is the lock id (53 = 48 + the A slot's full lock 5), 0 = none
++      return real && rb % 2 == 0 ? 53 : 0;
++#else
+       return real && rb % 2 == 0;
++#endif
+     default:  // release it (odd row blocks)
+       return real && rb % 2 == 1;
+   }
+@@ -41,7 +45,18 @@ constexpr int32_t rot_record(int rb, int f, int32_t c, int32_t hi, int32_t a0, i
+ struct RotRec {
+   int32_t r[MM_ROT_NREC];
+ };
++#ifdef LATEC  // round 21: mm_ktile writes the C sub-part locks into rb 3 / 5's (free, odd) acquire fields for a fresh object's first k-step
++constexpr int rot_idx(int rb, int f) {
++  for (int i = 0; i < MM_ROT_NREC; i++)
++    if (mm_rot_order[i][0] == rb && mm_rot_order[i][1] == f) return i;
++  return -1;
++}
++constexpr int ROT_I3 = rot_idx(3, 3), ROT_I5 = rot_idx(5, 3);
++static_assert(ROT_I3 >= 0 && ROT_I5 >= 0);
++static RotRec rot_rec = [] {
++#else
+ static constexpr RotRec rot_rec = [] {
++#endif
+   RotRec t{};
+   for (int i = 0; i < MM_ROT_NREC; i++)
+     t.r[i] = rot_record(mm_rot_order[i][0], mm_rot_order[i][1], (int32_t)KS_C, (int32_t)KS_ACC_HI, (int32_t)KS_A0,
