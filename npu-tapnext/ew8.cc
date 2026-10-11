@@ -227,6 +227,21 @@ static __attribute__((noinline, minsize)) void copy_run(const bfloat16 *s, bfloa
   if (m) cpy64(s, d, m / CPY64_U);  // (its drain over-reads <= 7 vectors past s + m: ring / bank 3, readable)
   for (int i = m; i < n; i++) aie::store_v(d + 32 * i, aie::load_v<32>(s + 32 * i));
 }
+#ifdef TXT18  // research pass 18: one wrap-aware copy for both directions (the same copy_run calls, same order)
+static __attribute__((noinline, minsize)) void wrap_copy(const uint32_t *ring, int ring_b, int p, bfloat16 *lin, int n, int to_ring) {
+  if (p >= ring_b) p -= ring_b;
+  int n1 = (ring_b - p) / 64;  // at most one wrap
+  if (n1 > n) n1 = n;
+  bfloat16 *r = (bfloat16 *)((char *)ring + p), *r0 = (bfloat16 *)ring;
+  if (to_ring) copy_run(lin, r, n1); else copy_run(r, lin, n1);
+  if (n1 < n) {
+    if (to_ring) copy_run(lin + 32 * n1, r0, n - n1); else copy_run(r0, lin + 32 * n1, n - n1);
+  }
+}
+static inline void in_copy(const uint32_t *ring, void *dst, int off, int bytes) {  // ring -> L1 copy
+  wrap_copy(ring, IN_B, g_in_b + off, (bfloat16 *)dst, bytes / 64, 0);
+}
+#else
 static __attribute__((noinline, minsize)) void in_copy(const uint32_t *ring, void *dst, int off, int bytes) {  // ring -> L1 copy
   int p = g_in_b + off;
   if (p >= IN_B) p -= IN_B;
@@ -236,6 +251,7 @@ static __attribute__((noinline, minsize)) void in_copy(const uint32_t *ring, voi
   copy_run((const bfloat16 *)((const char *)ring + p), (bfloat16 *)dst, n1);
   if (n1 < n) copy_run((const bfloat16 *)ring, (bfloat16 *)dst + 32 * n1, n - n1);
 }
+#endif
 #else
 static __attribute__((noinline, minsize)) void in_copy(const uint32_t *ring, void *dst, int off, int bytes) {  // ring -> L1 copy
   bfloat16 *d = (bfloat16 *)dst;
@@ -392,7 +408,11 @@ static inline const bfloat16 *ring_r(const uint32_t *ring, int base, int off) { 
 // the statistics run on 32 lanes (every lane holds its row's value), pass 2 writes per k-step [X' | panels] straight
 // into the output ring (to_x: the LN result replaces X', the encoder norm)
 #ifdef NRMK
+#if !(defined(TXT18) && defined(CPY64))
 static __attribute__((noinline)) void out_copy(uint32_t *ring, int off, const bfloat16 *__restrict src, int nvec);  // (below)
+#else
+static inline void out_copy(uint32_t *ring, int off, const bfloat16 *__restrict src, int nvec);
+#endif
 #ifdef N1K
 extern "C" {  // r16/gen_n1k.py: _begin / _end once per row block; constants and the accumulators stay in registers between steps
 void n1k_ln_begin(float *, int, int);
@@ -443,6 +463,16 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
   // inline (the asm steps never touch it; out_copy reads g_out_b, synced before it). NIO2 stamps (r18dM) put ~190 cycles of glue
   // around every pass-2 nrm call and ~150 around every pass-1 n1k step.
   int ob = g_out_b, osb = g_out_slot_b, ib = g_in_b, iav = g_in_avail, icn = g_in_consumed;
+#endif
+#ifdef TXT18  // research pass 18: one call site per kernel (the ln / rms twins have one argument list)
+  typedef void (*N1B)(float *, int, int);
+  typedef void (*N1S)(const bfloat16 *, const bfloat16 *, const bfloat16 *, bfloat16 *, int, int, int, int);
+  typedef void (*N1E)(float *);
+  typedef void (*NRM)(bfloat16 *, const bfloat16 *, bfp16ebs8 *, const void *, const bfloat16 *, bfloat16 *);
+  const N1B f_begin = ln ? n1k_ln_begin : n1k_rms_begin;
+  const N1S f_step = ln ? n1k_ln_step : n1k_rms_step;
+  const N1E f_end = ln ? n1k_ln_end : n1k_rms_end;
+  const NRM f_nrm = ln ? (NRM)nrm_ln : (NRM)nrm_rms;
 #endif
   for (int rb = -1; rb < RBN; rb++) {
     const bool more = rb + 1 < RBN;
@@ -495,10 +525,14 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
 #ifdef NIO2
           const uint32_t tr0 = stamp();
 #endif
+#ifdef TXT18
+          f_nrm(sq, g_p0 + q * 64, pd, rr, ln ? g_p1 + q * 64 : xd, xd);  // nrm_rms: p4 = xdst, p5 unused
+#else
           if (ln)
             nrm_ln(sq, g_p0 + q * 64, pd, rr, g_p1 + q * 64, xd);
           else
             nrm_rms(sq, g_p0 + q * 64, pd, (const bfloat16 *)rr, xd);
+#endif
 #ifdef NIO2
           g_nio[ln][0] += stamp() - tr0;
 #endif
@@ -534,7 +568,11 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
 #endif
         }
       if (!more) continue;
+#ifdef TXT18
+      f_begin(g_nacc, w1b, w2b);
+#else
       if (ln) n1k_ln_begin(g_nacc, w1b, w2b); else n1k_rms_begin(g_nacc, w1b, w2b);
+#endif
       for (int q = q0; q < q0 + NPIPE_G; q++) {
 #ifdef NIO2
         const uint32_t tp0 = stamp();
@@ -574,10 +612,14 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
 #if defined(NORM_TWIN) && (NORM_TWIN & 4)  // round 16 timing twin (outputs wrong): the n1k step calls skipped
         if (q < 0)
 #endif
+#ifdef TXT18
+        f_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
+#else
         if (ln)
           n1k_ln_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
         else
           n1k_rms_step(p[0], p[1], p[2], g_stage + q * 512, dc[0], dc[1], dc[2], 64 - IN_B);
+#endif
 #if defined(PROF) || defined(NPROF)
         g_nst += stamp() - ts0;
         g_ncnt++;
@@ -600,9 +642,29 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
         g_nio[ln][4]++;
 #endif
         }
+#ifdef TXT18
+      f_end(g_nacc);
+#else
       if (ln) n1k_ln_end(g_nacc); else n1k_rms_end(g_nacc);
+#endif
     }
     if (!more) continue;
+#ifdef TXT18  // the two halves in a loop: one ln_stats / rms_rstd call site (same calls, same order)
+#pragma clang loop unroll(disable)
+    for (int h = 0; h < 2; h++) {
+      const A32 q = rowsum8(A32(aie::load_v<32>(g_nacc + 64 + 32 * h)));
+      if (ln) {
+        B32 r, rl;
+        A32 nb;
+        ln_stats(rowsum8(A32(aie::load_v<32>(g_nacc + 32 * h))), q, eps, r, rl, nb);
+        aie::store_v((bfloat16 *)(rr + 64 * h), r);
+        aie::store_v((bfloat16 *)(rr + 128 + 64 * h), rl);
+        aie::store_v((float *)(rr + 256 + 128 * h), FV(nb));
+      } else {
+        aie::store_v((bfloat16 *)(rr + 64 * h), rms_rstd(q, eps));
+      }
+    }
+#else
     if (ln) {
       B32 r0, r1, rl0, rl1;
       A32 nb0, nb1;
@@ -618,6 +680,7 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
       aie::store_v((bfloat16 *)rr, rms_rstd(rowsum8(A32(aie::load_v<32>(g_nacc + 64))), eps));
       aie::store_v((bfloat16 *)(rr + 64), rms_rstd(rowsum8(A32(aie::load_v<32>(g_nacc + 96))), eps));
     }
+#endif
   }
 #ifdef NIOC
   g_out_b = ob;
@@ -1078,6 +1141,11 @@ static __attribute__((noinline)) void copy_v(bfloat16 *__restrict d, const bfloa
 #else
 #define COPY_V(d, s, n) copy_v(d, s, n)
 #endif
+#if defined(TXT18) && defined(CPY64)
+static inline void out_copy(uint32_t *ring, int off, const bfloat16 *__restrict src, int nvec) {
+  wrap_copy(ring, OUT_B, g_out_b + off, (bfloat16 *)src, nvec, 1);
+}
+#else
 static __attribute__((noinline)) void out_copy(uint32_t *ring, int off, const bfloat16 *__restrict src, int nvec) {
   int p = g_out_b + off;
   if (p >= OUT_B) p -= OUT_B;
@@ -1086,6 +1154,7 @@ static __attribute__((noinline)) void out_copy(uint32_t *ring, int off, const bf
   COPY_V((bfloat16 *)((char *)ring + p), src, n1);
   if (n1 < nvec) COPY_V((bfloat16 *)ring, src + 32 * n1, nvec - n1);
 }
+#endif
 // the SSM's gate GEMM: gemm8 for one weight tile with its two-rounding epilogue, constant trip counts (gemm8's runtime
 // nt kept its k loop a 24-bundle branch loop: ~1,190 cycles per call). The same MAC order: bit-identical.
 static __attribute__((noinline)) void gate_gemm(const bfp16ebs8 *apan, const bfp16ebs8 *wt, const B64 *__restrict btab,
