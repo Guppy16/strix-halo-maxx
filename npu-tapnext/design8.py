@@ -822,8 +822,13 @@ def step8(
                     # (the usual chunk-major half 0: the op's sends and the last tile's chunk-wise release stay as they are; an rb-major
                     # half let the next op's chunk-0 load overwrite every chunk's first row blocks while the last tile still read them)
                     zh = 1 if yxssm else 0  # round 23 YXSSM: the z panels into half 1 (half 0 holds yx's A until its last tile)
-                    t["ldz"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH * zh, [1, 1, 216, 144], [0, 0, 144, 1]),
-                                                                    acquires=[Acquire(E[zh], value=12)], releases=[Release(F[zh], value=12)]))
+                    if os.environ.get("ZCH") == "1":  # round 23 ZCH: one chunk (head) per run, released as it lands: out's k-step q follows head q
+                        t["ldz"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH * zh, [1, 1, 1, CH], [0, 0, 0, 1]),
+                                                                        acquires=[Acquire(E[zh])], releases=[Release(F[zh])],
+                                                                        iteration=BdIteration(size=12, stride=CH)), runs=12)
+                    else:
+                        t["ldz"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH * zh, [1, 1, 216, 144], [0, 0, 144, 1]),
+                                                                        acquires=[Acquire(E[zh], value=12)], releases=[Release(F[zh], value=12)]))
                     if yxssm:  # (out's middle tiles from half 1)
                         t["mid"]["h1"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH, [1, 1, 1, 12 * CH], [0, 0, 0, 1])))
                     # (SRES: the SSM's z panels arrive head-major = chunk-major already)
