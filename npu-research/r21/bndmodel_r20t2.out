@@ -1,0 +1,18 @@
+block b11; us; W = previous GEMM-core op's last epilogue end -> this op's median first-k-step end
+op        prev     W_meas  ks1/k  pace_meas  pace_cap(A only)  first-tile compute
+out       ssm      322.34   2835      7.65          7.01        10.45
+up_a      norm1    106.47   2977      8.52          7.01        10.45
+up_b      None       1.48   1576      0.00          0.00        10.45
+down_a    None       1.49   2473     11.40         14.03        20.90
+down_b    None       1.25   2021      5.65         14.03        20.90
+qkv       norm2    133.04   2655      6.56          7.01        10.45
+out_proj  attn     490.72   2650      6.53          7.01        10.45
+mlp0      norm3    117.07   2787      7.36          7.01        10.45
+mlp3_a    mlp0      24.01   2626     13.34         14.03        20.90
+mlp3_b    None       1.24   2003      5.42         14.03        20.90
+
+mlp3_a (GEMM -> GEMM, CPST-anchored) decomposition, us after mlp0's last epilogue end:
+  tail 12.2 + tct 1.0 + issue to column 0's sends 2.50 (BD write + patch ~0.10 us INFERRED) + chunk 0 + k-step ~1.6 = 17.3 (CPST core 0_2: 19.99 - 2.71 = 17.3)
+  per column +5 sends x 0.17 = 0.85 us: median core (column ~3.5) +3.0 (CPST: +2.7)
+
+first-tile A pacing, sum over the block's GEMMs: 72.4 us -> x12 = 0.87 ms per step

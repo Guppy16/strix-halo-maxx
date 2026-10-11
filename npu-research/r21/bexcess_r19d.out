@@ -1,0 +1,20 @@
+r19d: us per op (blocks 1-11 mean of 3 runs); T = steady tile
+op         K    nt  T_tile  nt*T    gap    span   share  excess
+yx          768   8   13.13  105.0   34.5   100.2   134.7    29.7
+out         768   4   12.24   49.0   43.7    43.3    87.1    38.1
+up_a        768  16   12.96  207.4   49.5   186.3   235.9    28.5
+up_b        768  16   12.96  207.4   20.6   198.6   219.1    11.8
+down_a     1536   4   22.69   90.8   13.6    90.4   104.0    13.2
+down_b     1536   4   22.69   90.8    5.5    75.3    80.8    -9.9
+qkv         768  12   12.59  151.1   38.5   148.1   186.6    35.6
+out_proj    768   4   12.24   49.0   27.0    44.8    71.8    22.8
+mlp0        768  16   14.23  227.7   41.2   219.5   260.6    32.9
+mlp3_a     1536   4   22.69   90.8   52.0    89.5   141.5    50.7
+mlp3_b     1536   4   22.69   90.8    4.0    73.9    78.0   -12.8
+GEMM excess per block 240.5 us -> 2.89 ms per step
+attn      gap   97.8 span  456.7
+ssm       gap   10.3 span  279.5
+norm0     gap   16.1 span   92.1
+norm1     gap    9.2 span   73.2
+norm2     gap   11.0 span   93.1
+norm3     gap    9.6 span   82.0
