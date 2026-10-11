@@ -13,7 +13,7 @@ References: bf16 CPU 70.54 (10 videos); round-24 DAVIS 70.84 (92.57) d12, 69.90 
 ## Exact build (from a clean checkout of strix-halo-maxx; .scratch/npu-tapnext is a symlink into it; ~10 min CPU, docker only):
     cd ~/git/app/.scratch/npu-tapnext && r24/try24.sh NAME [--sweep]
   (--sweep also builds depths 10 / 8 / 6 and times them; NOREG=1 / NOTIME=1 skip regress / time). The chain is r24/try24.sh ->
-  r23/try23.sh -> r22/try22.sh -> r21/try21.sh -> r20/try20.sh -> r18/try18.sh -> r17/xtry.sh -> npu-research/tools/try.sh, then
+  r23/try23.sh -> r22/try22.sh -> r21/try21.sh -> r20/try20.sh -> r18/try18.sh -> r17/xtry.sh -> common/tools/try.sh, then
   r20/csplit20.sh (lowered-MLIR patch: CSPLIT / CSUB sub-parts 1728,3456, NRESFIX route, E7PATCH B split) rebuilds the xclbin;
   **never dispatch build/*.unpatched.xclbin**. Run: `r16/nrun.sh LOG python3 step8.py {regress|time|sweep|timeline} --build full12NAME`,
   DAVIS: `TMO=3000 ./s8.sh LOG davis --build full12NAME --depth 12 --videos 10`.
@@ -37,7 +37,7 @@ the residual), 2-input norms compute-bound at ~500 (RMS) / ~560 (LN) cycles per 
 117 / 177 static. RRES (residual rows on chip) designed and coded, blocked at aiecc. C hand-offs priced ~28 us per block.
 ## Known risks
 - **CPU vector load drops the NPU clock**: 12 AVX-512 numpy threads -> 1.41 GHz (x1.27 slower) at the same package power that 12 spin
-  threads run at 1.81 (CLKLOAD, round 23; cause unseparated, npu-research/r25/clkload2.sh not run). Keep <= 6 vector threads beside it.
+  threads run at 1.81 (CLKLOAD, round 23; cause unseparated, tapnext/research/r25/clkload2.sh not run). Keep <= 6 vector threads beside it.
 - **The NPU with the GPU busy is untested**: every number here is gpu_busy 0. An LLM on the GPU shares DDR (the norms and the SSM sit at
   the 55-59 GB/s read cap) and maybe power: expect slower steps; measure before relying on 28 ms.
 - Dispatch-time noise under foreign CPU load is bimodal (p90 ~32 ms with a busy box): compare A/Bs in one process (r18/ab.py).
@@ -176,7 +176,7 @@ GEMM k-steps (E7 R 68), the GEMM -> norm boundaries (NTWIN: norm0 / norm2 not wa
 Quiet box for the sweep (crop_study finished; research CP-SAT 4 workers + the background job; 1.81 GHz).
 Build: `r21/try21.sh NAME [--sweep]` = r20/try20.sh + CSUB + CSUB-QK + ZLOAD + E7'' (E7_V=e7r68b) + K0B (each with an env =0 switch;
 IV32 is design8's default), then csplit20 with CSUB sub-parts + NRESFIX + E7PATCH. Never dispatch *.unpatched.xclbin. A new E7 kernel:
-`python3 r21/mke7.py ../npu-research/r22/mm_e7_<x>.s r21/mm_rot_<v>.s` (FITTED .s only) then `E7_V=<v> r21/try21.sh NAME`.
+`python3 r21/mke7.py ../research/r22/mm_e7_<x>.s r21/mm_rot_<v>.s` (FITTED .s only) then `E7_V=<v> r21/try21.sh NAME`.
 Text: GEMM 15,760 / 16,384 (624 B free), EW 16,272 (112 free). Timeouts this round: 1 (LATEC; recovered).
 ## What changed (NOTES 26, RESULTS 30): the C drain overlaps the epilogue (CSUB) and the first k-step needs no zeroing (ZLOAD);
 B is popped from both FIFOs out of two banks (E7'', research's generator, main's layout + BD split); i32 loop counters (IV32).
@@ -331,7 +331,7 @@ RESULTS 25 (every number of this round). Research rev 11 tools are in use (try.s
 | 8 | 26.86 | 29.1 | 34.3 | not run (68.22) |
 | 6 | 20.18 | 22.5 | 44.4 | not run (64.77) |
 Build: `r16/try16.sh NAME [--ew-add ...] [--sweep]` = r15m's flags with EW_DEFS - -DSSX + -DSQK -DINPART_INLINE -DXONE -DGGK -DSSQ
--DSIG10 -DN1K (kdefs and design args = r15m's). Commits this round (local repo holding npu-tapnext/): SQK, P-IN, XONE, GGK, SSQ, SIG10,
+-DSIG10 -DN1K (kdefs and design args = r15m's). Commits this round (local repo holding tapnext/npu/): SQK, P-IN, XONE, GGK, SSQ, SIG10,
 N1K, NPROF, round end. Timeouts this round: 0. Text: GEMM 16,192 / 16,384; EW 15,600 / 16,384 (NPROF adds ~460; PROF no longer fits).
 ## Where the time goes now (EW, cycles per SSM chunk, r16eP + SIG10): conv 440, gates 365, sigk ~440, ssq 715, recur 313, z 264,
 rest 213, par 151, cp_h_pan 192, cp_x 269 (SSM ~420 us per op x 12). Norms: n1k step 161.5 per unit (in situ = bench), in_need 105

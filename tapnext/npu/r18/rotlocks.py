@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent.parent / "npu-research" / "r19"))
+sys.path.insert(0, str(HERE.parent.parent / "research" / "r19"))
 import rotb  # noqa: E402
 
 rotb.FLAGS.append("-DROTB_LOCKS")

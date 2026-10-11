@@ -1,7 +1,7 @@
 """Round 22 KTL: take research's one-loop-per-tile kernel (npu-research r22/gen_e7k.py -> mm_e7k_<v>.s / .h) into design8's ROT slot
 (ROT_V=<v>: design8 copies r22/mm_rot_<v>.s / .h). The symbol stays mm_e7k (mm8 -DE7 calls it from mm_ktile when the header defines
 MM_E7K_NPER); the header gains mm_rot_border (pack8.rot_order reads the B order under that name).
-usage: python3 r22/mkktl.py ../npu-research/r22/mm_e7k_r70.s r22/mm_rot_k70.s"""
+usage: python3 r22/mkktl.py ../research/r22/mm_e7k_r70.s r22/mm_rot_k70.s"""
 import re
 import sys
 from pathlib import Path

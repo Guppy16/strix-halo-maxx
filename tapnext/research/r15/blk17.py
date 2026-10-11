@@ -9,7 +9,7 @@ import numpy as np
 import attsim17 as A
 from fit17 import kappa_att
 
-TLB = Path(__file__).resolve().parents[2] / "npu-tapnext" / "build"
+TLB = Path(__file__).resolve().parents[2] / "npu" / "build"
 
 
 def walls(tag):

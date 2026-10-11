@@ -13,7 +13,7 @@ merged objects, generated .s files or `llvm-objdump -d -z` text. Nothing runs on
     asmlint.py --rules               the rule table: id, severity, status (verified / from the .td / unverified), source
 
 Needs Peano (llvm-objdump, clang, ld.lld) for .elf / .o / .s inputs: run it in the npu-iron container (CPU only):
-    docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron python3 /work/npu-research/tools/asmlint.py ...
+    docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron python3 $HOME/git/app/strix-halo-maxx/common/tools/asmlint.py ...
 A .dis input needs no toolchain (made with `llvm-objdump -d -z --no-show-raw-insn`; -z matters: without it runs of
 2-byte nops print as `...` and every distance is wrong).
 
@@ -565,7 +565,7 @@ def check_zol(f, rep, stats):
 
 # The bad and the good zero2 have the SAME bundle count from the lc write to le (10) and differ only in bytes (52 vs 132):
 # the limit is in instruction bytes (fetch runs ahead of issue), not cycles. Peano's own loops go down to 7 bundles / 96 B.
-SETUP_BAD_BYTES = 52   # r14 zero2 v1 (reconstructed: npu-research/r16/hist/zero2_v1.s)
+SETUP_BAD_BYTES = 52   # r14 zero2 v1 (reconstructed: tapnext/research/r16/hist/zero2_v1.s)
 SETUP_SAFE_BYTES = 80  # the smallest over every loop of full12r15m (cpy32: 17 bundles / 80 B)
 
 

@@ -33,7 +33,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - Python inside the container is 3.13: a module written for 3.14's lazy annotations (app's `model.py`) needs
   `-> "Cls"` quoting or `exec` with a text patch.
 - Host driver amdxdna 2.21 (Jan 2026) works with mlir-aie 1.4.4. **Core clock 1.81 GHz in Turbo** (measured round 7,
-  npu-tapnext/r7/clk.py: pure-register loops, host-timed slope and the core timer agree; the driver's top DPM level is
+  tapnext/npu/r7/clk.py: pure-register loops, host-timed slope and the core timer agree; the driver's top DPM level is
   1.8 GHz; the old "1.43" was a stalled spin loop). `xrt-smi examine -r all` (with --ulimit memlock) shows the mode;
   the user sets it with sudo - say which mode every number was taken in.
 
@@ -159,7 +159,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   ~2.5 KB of their former 6 KB; round 6 gave the freed 2 KB to LUT tables via data_size).
 - **-O2, not -Oz/-Os, by default**: design8's EW object at -Oz was LARGER than at -O2 and 2.4x slower (non-inlined
   AIE-API helpers such as `concat` become calls that spill every live vector). Use `minsize` on cold functions.
-  Measure size with `llvm-size`/`llvm-nm --size-sort -S` on a standalone `clang++ -c` (npu-tapnext/build/asm/cc.sh).
+  Measure size with `llvm-size`/`llvm-nm --size-sort -S` on a standalone `clang++ -c` (tapnext/npu/build/asm/cc.sh).
 - **`aie::inv` is scalar** (32 lane extracts + scalar inverses per bf16 vector): for 1/x in vector code use an int16
   bit-trick seed (`0x7EF3 - bits(bf16 x)`, |err| < 5.3%) + two Newton corrections in hi/lo bf16 MACs (nk8 recip1p_i).
 - **Reductions and exact constants without fp32 vector math** (round 5, ew8.cc): sum the 8 lanes of each row of a
@@ -178,7 +178,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - **Peano does not software-pipeline long dependency chains** (exp, sigmoid, GELU: every MAC-latency slot is a nop).
   Two independent chains in one basic block interleave: loop bundles per vector exp 73 -> 38, sigmoid 140 -> 77,
   gelu 199 -> 111 (nk8 `*_n`, `exp32x2`, `gelu32x2`); four chains spill and gain nothing. Count bundles with
-  npu-tapnext/build/asm/loopcount.py before and after.
+  tapnext/npu/build/asm/loopcount.py before and after.
 - **Attention exp by table (round 7)**: 80 segments of 1/4 on [-11, 9) (zero below -10), line in the s domain
   (off - slope m) + slope s with bf16 s, m (no hi/lo split), P to bfp16 straight from fp32: as accurate as the
   arithmetic exp on real scores (r7/expemu.py), 49 bundles per 64 incl. the push. Each 16-lane lookup is 4 vldb on
@@ -193,11 +193,11 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   `__attribute__((section(".aie.bankN")))` (the linker script maps .aie.bank0-3 onto each bank's FREE space after
   IRON's buffers: check `ldScripts_*.ld.script`) or in the data area (raise Worker `data_size`). A 64-segment
   piecewise-linear s(x) with gelu = x s(x) (s hi/lo into the product) is 3.9x faster than the arithmetic GELU at the
-  same real-data rms error (`npu-tapnext/mm8.cc gelu_lut_i`, `r6/lutgen.py`). Linear tables have ABSOLUTE error:
+  same real-data rms error (`tapnext/npu/mm8.cc gelu_lut_i`, `r6/lutgen.py`). Linear tables have ABSOLUTE error:
   for anything whose small values need relative accuracy (sigmoid feeding a = exp(-8 sp sigma)), check the tail.
 - Hardware `aie::tanh` (vtanh) is crude (identity for |x| <= 0.5, 2-7% off up to |x| = 2) and `aie::exp2` has p99
   10 ulp; `aie::inv` is correctly rounded but scalar. Characterise any primitive on every bf16 input first
-  (`npu-tapnext/r6/kprobe.py`).
+  (`tapnext/npu/r6/kprobe.py`).
 - **Core timer (round 7, npu-research P15)**: `read_tm(0x340F8)` hangs the core UNLESS its processor bus is enabled
   first: in the IRON runtime sequence function, `from aie.dialects.aiex import npu_maskwrite32;
   npu_maskwrite32(address=0x32038, value=1, mask=1, column=c, row=r)` per core before the fills that release it, and
@@ -211,7 +211,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   r25]`; Peano picks lda for an `aie_dm_resource::a` stream when two streams are live). The C++ GEMM loop (28 bundles
   per 16 mmuls) is bound by its 2 accumulator chains at distance 3, not by ldb. C++ 4-chain variants are SLOWER under
   Peano (A held in 8 of 12 ex registers, no pipelining across column blocks): the asm route
-  (npu-tapnext/r7/gen_mm.py: 4 chains over 2 column blocks, B repacked [q][4 col blocks] on the host, 225 vs 321
+  (tapnext/npu/r7/gen_mm.py: 4 chains over 2 column blocks, B repacked [q][4 col blocks] on the host, 225 vs 321
   bundles per call, bit-identical). Popping the "held" operand instead of holding it helped the attention QK^T
   (70 -> 53 bundles) but hurt PV (42 -> 67): measure both.
 - **L1 banks (round 8, npu-tapnext r8/mmb.py): a core's 64 KB are 4 banks of 16 KB (0x70000 + 16 KB i); two
@@ -357,7 +357,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   shim side, so why l2-depth 8 helped is still open (research PROPOSALS Q1). Price any non-uniform per-unit cost behind a
   multicast as the max over the destinations per object (npu-research `tools/attsim.py`, calibrated on the round-13 twins, per-
   block corr 0.97), never as its mean; a cost every column pays at once (chunk 0 / 22) passes 1:1.
-- **The lazy-max fallback is spatially clustered (rev 9, CPU map `npu-research/r14/lazymap.py`; [model, not yet measured])**:
+- **The lazy-max fallback is spatially clustered (rev 9, CPU map `tapnext/research/r14/lazymap.py`; [model, not yet measured])**:
   flagged = really moved (flag-not-move 0.055 %), 2.3 % of row blocks after chunk 0, mostly in columns 5-6 (lower image rows).
   Dealing query row blocks to the columns round robin is bit-identical (rows are independent) and removes most of the lockstep
   (research P60). A row's self-score q_i . k_i is nearly always its max (a numerics-changing seed option).
@@ -434,10 +434,10 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   "section '.aie.bank3' will not fit in region 'bank3'". A zero array put in `.data.*` lands at the data region's start (bank 0).
 - An internal state layout only the kernel itself reads back (the SSM's h) may be changed freely: the DMA moves it opaquely.
 - A C++ loop with 4 fp32 accumulator chains (-O2) spills every iteration: a 32-lane bf16 MAC writes a whole dm (5 dm registers).
-- **Lint every generated / hand asm kernel before building** (research rev 11): `npu-research/tools/asmlint.py` (in npu-iron, CPU
+- **Lint every generated / hand asm kernel before building** (research rev 11): `common/tools/asmlint.py` (in npu-iron, CPU
   only; `--prj build/X.prj` for a build's GEMM + EW elfs, or the generator's `.s`; `--rules` lists the 22 rules and what cannot be
-  checked statically). It flags all 18 historic bugs kept in `npu-research/r16/hist/` (`tools/asmlint_hist.py`) and is clean on
-  full12r15m. `npu-research/tools/try.sh NAME --ew-add .. --k-add .. --env K=V [--sweep]` = build (fresh name) + lint + regress +
+  checked statically). It flags all 18 historic bugs kept in `tapnext/research/r16/hist/` (`tools/asmlint_hist.py`) and is clean on
+  full12r15m. `common/tools/try.sh NAME --ew-add .. --k-add .. --env K=V [--sweep]` = build (fresh name) + lint + regress +
   time in one command (`--print-only` shows the commands).
 - **ZOL setup distance is in BYTES to the loop END** (rev 11: the bad and the good zero2 both have 10 bundles from the lc write to
   le, 52 vs 132 B). Peano writes lc 2 bundles before ls when the body is long. Keep >= 80 B from the last lc / ls / le write to le
@@ -452,7 +452,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - Linker-script `bankN` regions are the space for `.aie.bankN` sections, not free space: free = LENGTH minus the sections there
   (`llvm-nm -S`). Per-call scratch fits on the stack (`paddxm [sp], #N` in a leaf asm kernel): the GEMM cores' deepest path uses
   832 of 2,560 B (stackaudit; its ASM_FRAMES table lacks the r13-r15 kernels' own frames).
-- Parallel design8 builds: serialise them (`npu-research/tools/asmfit_tmp.patch`: a flock on build/.design8.lock). Per-build
+- Parallel design8 builds: serialise them (`common/tools/asmfit_tmp.patch`: a flock on build/.design8.lock). Per-build
   object dirs are NOT a fix: mm8.cc includes the generated headers as "build/<k>.h", which resolves next to mm8.cc first.
 - **A dense 576-bit FIFO pop stream underflows at its 9th pop (round 16, npu-tapnext r16/popprobe.s probes 6 / 7)**: each pop
   brings one 64 B line but consumes 72 B; without an extra `vldb.fill.512 [p, lf, r]` (or vlda.fill) at the SAME position (no
@@ -461,11 +461,11 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   needs the fill as a scheduled op (r16/gen_ggk.py FB0 / FB1). Symptom: whole k-terms missing in EVERY block, identical across
   schedules; find it by tapping the operand register at the MAC's cycle (a vst into a free st slot of the emitted body).
   (Round 17: popprobes 2 / 3 had checked only the lf0 stream; their lf1 stream of 16 dense pops is a true FIFO-POP9 positive.)
-- **The GEMM k-step's largest static item is the accumulator swap** (research rev 13, `npu-research/tools/ksplan.py`): mm_ks runs
+- **The GEMM k-step's largest static item is the accumulator swap** (research rev 13, `common/tools/ksplan.py`): mm_ks runs
   32 MACs per 47.75 bundles, of which 12.75 are the store / reload of the 4 accumulators, which all end together (459 cycles per
   k-step). dm4 is unused. With the swap gone, the next bound is the B bank: 8 pops + 1 fill per 8 MACs in one bank. The A port
   floor is 10,368 B / 7.95 = 1,304 cycles per k-step.
-- **ROT, the rotating-accumulator k-step (research pass 14, `npu-research/r19/gen_rot.py`; [CP + whole-call replay + asmlint;
+- **ROT, the rotating-accumulator k-step (research pass 14, `tapnext/research/r19/gen_rot.py`; [CP + whole-call replay + asmlint;
   NOT yet run on the device])**: a job = one accumulator over the 8 k-panels (8 dependent vmacs, kp order = mm_ks's: bit-identical),
   jobs every 9 cycles so 2-3 chains interleave and one dm finishes every 9 cycles (dm[cb % 4]); B is popped in MAC order, so B
   must be REPACKED on the host (stream position -> pair4 panel, `mm_rot_border`). Bound: the B bank, 72 line reads per row block
@@ -600,7 +600,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - **A_RT chunk locks are identity-free** (rev 16, from design8): the slot loads release ONE lock F for both halves and the t0
   sends acquire F per chunk, so loading half 1 before half 0 would let half-0 sends go before their data. Any reordered slot load
   (DAPRE, MLPRR) needs per-half F locks.
-- **DDR bytes (rev 16, `npu-research/r21/ddrbudget.py`, plan8 TAPs vs r19d shares)**: a step reads 914 MB and writes 676 MB;
+- **DDR bytes (rev 16, `tapnext/research/r21/ddrbudget.py`, plan8 TAPs vs r19d shares)**: a step reads 914 MB and writes 676 MB;
   every EW op reads at 48-55 GB/s inside its span (norms, SSM: at or near the cap), GEMM steady tiles 13-24 GB/s. APAN outputs
   (gated / gelu_pan) drain whole 18,432 B objects with 10,368 B of data: 74 MB of junk writes per step.
 - **An acquire-only DMA BD is legal hardware-wise** (DOC aie-rt BD layout, as txn_trace decodes it): lock acquire enable /
@@ -708,7 +708,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   12 numpy threads at the same ~99 W and Tctl 59-71 C drop the NPU to 1.408 GHz: not thermal, not package power alone (vector load:
   INFERRED). Keep CPU vector work below ~6 threads while timing. UNVERIFIED cause (research pass 20): the round-23 numpy load is AVX-512 and
   L2 / L3-resident (512 x 512 fp32, ~3 MB per thread), so it is vector current or fabric / L3 traffic, not DRAM bandwidth;
-  `npu-research/r25/clkload2.sh` (vec / vec_l1 / avx2 / mem at 12 threads, not run yet) separates them.
+  `tapnext/research/r25/clkload2.sh` (vec / vec_l1 / avx2 / mem at 12 threads, not run yet) separates them.
 - **Price a bound over the binding op's own span, with the cap of the same kind** (research pass 20, a corrected mistake): over the
   whole yx / SSM window reads + writes average 78 GB/s and look under norm0's 90; inside the SSM's own 288 us span its reads (13.57 MB
   + ~2.0 MB of the overlapping yx) are 54 GB/s, at the 55-59 GB/s read cap. After YXSSM the SSM span is read-capped (INFERRED; main's
@@ -763,7 +763,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 ## 4. The asm route (when a loop must beat Peano)
 
 - `clang++ -O2 -std=c++20 -D__AIE_API_AIE_ADF_HPP__ -Wno-attributes --target=aie2p-none-unknown-elf -I<aie_api>
-  -I<aie_kernels> ... -S k.cc` emits the schedule; `npu-moondream/p10/asmfix.py` fixes the three dialect gaps
+  -I<aie_kernels> ... -S k.cc` emits the schedule; `moondream/npu/p10/asmfix.py` fixes the three dialect gaps
   (`##sym` -> `#sym`, `.word` -> `.4byte`, `event #n` is unassemblable - compile events out) and
   `clang --target=aie2p-none-unknown-elf -c k.s` (Peano's integrated assembler; no llvm-mc, no inline asm)
   reproduces the object byte for byte (`p10/objcmp.sh`). Hand-written `.s` is assembled alone and merged with the
@@ -807,14 +807,14 @@ value = m * 2^(E - 133) (E = the block's max biased fp32 exponent; mantissas rou
 127); `decode` inverts. **The device's own conversion (`to_vector<bfp16ebs8>()`, `vst.push.conv`) differs: a
 mantissa that would round to +128 bumps the shared exponent and re-rounds every mantissa from the exact values,
 and -128 is kept** - ~2.5% of panels differ from the host codec by one mantissa step. Reference anything a kernel
-converts with `npu-tapnext/pack7.py:encode_hw` (bit-exact against the device on 13,824 panels); host-encoded GEMM
+converts with `tapnext/npu/pack7.py:encode_hw` (bit-exact against the device on 13,824 panels); host-encoded GEMM
 operands stay with the codec (the mmul consumes either). An 8x8
 panel = 8 rows of 9 B = 72 B; the GEMM program's operand orders are `pack.py` (`pack_a(..., half=True)` =
 `[c][K/k][rho][m_a/16][2][k/8][8 rows][9B]`, `pack_w` = `[j][K/k][n/16][k/8][2][8 cols][9B]`); the attention
 program's are `qk_obj`/`v_obj` in `runattn*.py` (K natural `[keys][dims]`, V transposed per 8x8 block). Accuracy:
 bfp16 operands with an fp32 accumulator over the whole K are fine (moondream 99.6% vs 99.4%; TAPNext DAVIS
 70.68 vs 70.54); bf16 C every 64 K cost 1.4 points; Hadamard rotation hurts with per-8 scales. GPU emulation of
-the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quantize`).
+the numerics: `moondream-opt/bfpemu.py`, `tapnext/npu/davis_npu.py` (`bfp_quantize`).
 
 ## 7. Performance facts
 
@@ -848,11 +848,11 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   reference, vs the bfp-operand reference, by tile/head/dim; `--save` for offline models).
 - Elementwise kernels: compare to `moondream-opt/bf16emu.py` numerics (every op in fp32 then bf16 RNE); aim for
   bit-exact or <= 1 ulp and say which.
-- Tracking accuracy: TAP-Vid DAVIS 'first' AJ (`tapnet/davis.py` metrics; `npu-tapnext/davis_npu.py` for
-  emulated numerics on the GPU - only when GPU use is allowed; `npu-tapnext/npu_step.py davis N` runs the real
+- Tracking accuracy: TAP-Vid DAVIS 'first' AJ (`tapnet/davis.py` metrics; `tapnext/npu/davis_npu.py` for
+  emulated numerics on the GPU - only when GPU use is allowed; `tapnext/npu/npu_step.py davis N` runs the real
   NPU kernels inside the vendored model on the CPU, 10 videos ~1 h). References: bf16 70.54 (10 videos) / 66.35
   (30), fp32 66.3; stay within ~1 point. Check tracked POSITIONS against the frame (the heads had x/y swapped once).
-- **Host-polled op timeline** (`npu-tapnext/step8.py timeline`): while one dispatch runs, poll the first and last
+- **Host-polled op timeline** (`tapnext/npu/step8.py timeline`): while one dispatch runs, poll the first and last
   word each op writes (64 B `bo.sync(FROM_DEVICE, 64, off)` per probe - host_only bos are CPU-cached, mapped reads
   alone never see device writes) and assign the k-th change of an address to the k-th op writing it: a per-op
   wall-clock timeline of the real multi-column program at ~17 us resolution, no trace hardware. It found the
@@ -861,23 +861,23 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   or `EW_DEFS`), take the timeline, compare the op's wall time. Round 5 split attention (exp / rescale / PV / K
   phase), SSM (transcendentals / ring I/O) and the GELU chain this way in minutes. Outputs are wrong: timing only.
 - **Emulate a numeric formulation before building it**: a numpy model of the exact op sequence (fp32 accumulate,
-  bf16 round at every conversion) against the current kernel's accuracy (npu-tapnext/r5/gelufit3.py) rejected a
+  bf16 round at every conversion) against the current kernel's accuracy (tapnext/npu/r5/gelufit3.py) rejected a
   "cheap" GELU in minutes (26-37% bf16 mismatches vs 15%).
 - DAVIS 10 videos on the NPU takes ~7 min at ~90 ms per step: run it for every accuracy-relevant change.
 - CPU timings: say the torch thread count (torch's default in the container is 16; step8 uses 8) and median over
   many runs; a "0.2 ms" conv was 0.28 ms at 8 threads and 0.93 ms on one.
 - Random-weight tests miss large-value bugs (a GELU that clamped its multiplicand passed every one): compare a
   depth-1 build with real weights against the torch block region by region (`step8.py blocks`).
-- **Bit-level regression between builds** (`npu-tapnext/step8.py regress --save NAME` / `--ref NAME`): final tokens of
+- **Bit-level regression between builds** (`tapnext/npu/step8.py regress --save NAME` / `--ref NAME`): final tokens of
   all 1152 rows + tracks over 4 frames; a refactor must print BIT-IDENTICAL. Changing a numeric then shows its size
   against the NPU-vs-CPU noise (smoke).
 - **Compute- vs data-movement-bound: twin builds** (npu-research P1): the kernel compiled with no MACs (`-DMM_NOCOMPUTE`,
   locks and DMA untouched) and with 2x MACs (`-DMM_TWICE`); full-step timelines of both. Round 6: -16.1 / +24.7 ms of
   84.0: the GEMMs are compute-bound (data movement ~1.0 us per k-step vs ~1.56 us of compute).
-- **Numerics on real activations** (`npu-tapnext/r6/capture.py` + `numh.py` + `emu.py`): judge an approximation by
+- **Numerics on real activations** (`tapnext/npu/r6/capture.py` + `numh.py` + `emu.py`): judge an approximation by
   the bfp ratio rms(approx - exact) / rms(bfp16(exact) - exact) of the tensor it lands in, not by bf16 ulps alone,
   and use each site's true reference (torch's ViT MLP is the erf GELU; everything else the tanh form).
-- `npu-tapnext/r6/tlview.py tl_A.json [tl_B.json] --html out.html`: per-op roofline (MAC / loop / DDR / A-port
+- `tapnext/npu/r6/tlview.py tl_A.json [tl_B.json] --html out.html`: per-op roofline (MAC / loop / DDR / A-port
   models against the measured share) and a Gantt; `step8.py timeline` writes the JSON.
 - Timing method: median and min over >= 20 timed dispatches after warm-up, kernel time (`run.wait`) separate
   from host sync; per-op cost by differential builds (`-DPROF_NO...`) only as a first look - the hardware trace is
@@ -897,9 +897,14 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   short timeout for every new design; separate measured from extrapolated in every report and label the power
   mode and GPU contention.
 
-## 10. Where things are (testbox, `~/git/app/.scratch/`)
+## 10. Where things are (testbox, the repo `~/git/app/strix-halo-maxx/`)
 
-- `npu-moondream/`: NOTES.md + RESULTS.md per phase (1-12), `p6/design6.py` (the GEMM frame program: memtile A
+In `~/git/app/.scratch/`, `npu-tapnext`, `npu-research` and `npu-moondream` are symlinks to the repo's `tapnext/npu`,
+`tapnext/research` and `moondream/npu`; Docker mounts .scratch at /work, so `/work/npu-tapnext/...` paths still work.
+Shared tools and the timing table are in `common/tools/`, the hardware model in `common/MACHINE.md`, the dead-ends
+catalogue in `common/book/negative-results.md`.
+
+- `moondream/npu/`: NOTES.md + RESULTS.md per phase (1-12), `p6/design6.py` (the GEMM frame program: memtile A
   ring, static BD chains; its constraints: `[K, nt]` = N tiles per CORE (4 cores split N, 8 columns split M),
   `wa == 288` words so m_a = 16 (m = 16 * rho, rho % a_ring == 0), `RA_K` = the cached A depth must equal the
   small K and other K's must be multiples of 2*RA_K, lock values 2*nt <= 63, <= 22 A-chain BDs), `pack.py`,
@@ -909,94 +914,94 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   (asm route: asmfix, asmcheck, td/, gen_scores.py, buildmerge.sh); `p11/`
   (gen_gemm.py, the stage-3 finding); `p12/` (GELU staged experiments); `mlir-aie/aie_kernels` headers.
 - `moondream-opt/`: GPU side (bench.py, gpu_safe.sh, bf16emu.py, bfpemu.py).
-- `npu-tapnext/step8.py` (round 4, 5): the real-weights runner of a design8 build (`Step8(build, depth)`: W from the
+- `tapnext/npu/step8.py` (round 4, 5): the real-weights runner of a design8 build (`Step8(build, depth)`: W from the
   safetensors, ACT resident, `step(frame, queries)`, `set_depth(d)` swaps the runtime sequence on one xclbin;
   smoke / blocks / davis / time / timeline / sweep). HANDOFF.md there (state + ordered next actions), REDESIGN.md
   (the activation-stationary design, estimated, not built), `r4src/` (round-4 sources), `r5/` (round-5 probes).
-- `npu-tapnext/r7/` (round 7 tools): clk.py/.cc (clock + timer probe), prof.py (in-situ GEMM cycles), t4var.sh,
+- `tapnext/npu/r7/` (round 7 tools): clk.py/.cc (clock + timer probe), prof.py (in-situ GEMM cycles), t4var.sh,
   expemu.py / explut.py (attention exp by table on real scores), gen_mm.py (asm GEMM call); twins -DATTN_KTWICE /
   VTWICE / ETWICE. A host layout switch (pack8 B_PAIR4) must reach only the consumers that changed: `step8.py blocks`
   localises a wrong region in one run.
-- `npu-tapnext/r8/` (round 8 tools): mmb.py/.cc (GEMM-call bank bench), gprof.py (GEMM tile + attention stamps of
+- `tapnext/npu/r8/` (round 8 tools): mmb.py/.cc (GEMM-call bank bench), gprof.py (GEMM tile + attention stamps of
   a -DPROF build: run8 tests via `PROF_OUT=X.npy`, or `--step BUILD`), ewprof.py (SSM phase stamps, EW_DEFS=-DPROF),
   cmpact.py (bit-compare two run8 ACT images). design8 env: `A_BANKS` (A ring banks), `ONE_SEG` (one op loop).
-- `npu-tapnext/r9/` (round 9): ssmemu.py (RG-LRU numerics on real gates vs torch), ssmlut.py + ssm9.h (table sigmoid /
+- `tapnext/npu/r9/` (round 9): ssmemu.py (RG-LRU numerics on real gates vs torch), ssmlut.py + ssm9.h (table sigmoid /
   exact sqrt / exp passes), lprobe.py (primitive probe), cpuemu.py (CPU model with emulated numerics: track noise of a
   numeric change without a build), gen_ks.py (pipelined asm GEMM k-step + checker + `--banks` model), ksb.py (one-core
   k-step bench). Flags: ew8 SSM_LUT / SSM_EXP3, mm8 MM_KSTEP / MM_PIECES / MM_KS; run8 MISMAP=1.
-- `npu-tapnext/r11/` (round 11): msched.py (reads common/tools/aie2p_isa_timing.json) the modulo-schedule generator, gen_gelu.py, apb.py/.cc (one-core
+- `tapnext/npu/r11/` (round 11): msched.py (reads common/tools/aie2p_isa_timing.json) the modulo-schedule generator, gen_gelu.py, apb.py/.cc (one-core
   asm bench), asmx.py (Peano functions -> probes), mk_copy.py, mk_haz.py + haz.py / rd.py / mid.py (register-timing probes),
   stackaudit.py (bb.sh runs it; aiecc's measured_stack_sizes warnings agree), hostprof.py, q16bench.py, tlcmp.py (timeline
   per-op diff). Flags: mm8 GELU_MS / GELU_II, design8 P43, step8 HOST_FAST / HEAD_THREADS.
-- `npu-tapnext/r13/` (round 13): gen_attk.py (the fused attention K loop: QK^T + exp(s - stored max) + push + flag, CP
+- `tapnext/npu/r13/` (round 13): gen_attk.py (the fused attention K loop: QK^T + exp(s - stored max) + push + flag, CP
   schedule attk.json), gen_attqk.py / gen_aexp.py (the split loops: superseded), attkb.cc / attkb.py (one-core bench of
   chunk_k vs the fused driver, bit-exact, skip modes), lazycount*.py (the lazy-max fallback rate on captured / model scores),
   attkcount.py (+ mm8 `-DATTK_COUNT`: in-situ slow-unit counts over the attention output), textmap.py, push.sh. Flags: mm8
   `-DATTKF` (fused K phase), `-DATTK_FORCE=bits` (timing twins), design8 env `ASM_FIT=1` (asmfit on the asm kernels), `--l2-depth`.
-- `npu-tapnext/r14/` (round 14): gen_attkb.py (batched fused K loop, attkb.json), gen_attv.py (V phase pairs, attv.json; `--sums`
+- `tapnext/npu/r14/` (round 14): gen_attkb.py (batched fused K loop, attkb.json), gen_attv.py (V phase pairs, attv.json; `--sums`
   the row sums, attvs.json), gen_vt.py (qkv V^T epilogue, vt.json), zero2.s, csize.sh (per-function GEMM text of mm8.cc),
   deal.py / deal2.py (P60 TAP feasibility), ssm_exp_deployed.s (the SSM exp chain as deployed). Flags: mm8 ATTKE, ATTKB, KFOLD,
   ZASM, ATTV, VTK (+ twins ATTK_FORCE=128, KRB_STAMP); r13/attkb.py `--defs / --hname / --extra-asm / --krb / --vphase / --zero`;
   msched: per-op 2D / 3D modifiers and pointer-only ("pa") stream ops in check().
-- `npu-tapnext/r15/` (round 15): generators gen_ssx (SSM log_a + exp + 1 - a^2, constants by reload), gen_cpy64 (II-1 copy),
+- `tapnext/npu/r15/` (round 15): generators gen_ssx (SSM log_a + exp + 1 - a^2, constants by reload), gen_cpy64 (II-1 copy),
   gen_conv (SSM conv), gen_rec (SSM recurrence, U 4), gen_resc (attention rescale O update), gen_nrm (norm pass 2 RMS / LN with
   direct ring stores), gen_zk; one-core benches ssxb / cpyb / convb / recb / rescb / nrmb / zkb (.py + .cc vs verbatim C++);
   endrun.sh (depth builds + sweep + DAVIS for a suffix). Flags: EW_DEFS SSX, CPY64, CONVK, RECK, NRMK, ZRING (+ twin NORM_TWIN);
   kdefs RESCK; plan P60G=1 (query half-tile deal in the gathers, research rev 10 P60g). r8/ewprof.py has 14 phases.
-- `npu-tapnext/r16/` (round 16): generators gen_sqk (exact sqrt, exponent folded into the table), gen_ggk (both SSM gate GEMMs,
+- `tapnext/npu/r16/` (round 16): generators gen_sqk (exact sqrt, exponent folded into the table), gen_ggk (both SSM gate GEMMs,
   B fills every 8 pops), gen_ssq (ssx + sqk fused), gen_n1p / gen_n1k (norm pass 1 + loop-carried statistics, _begin / _step /
   _end), sig10.json (r12/gen_sig.py --umax 4); benches sqkb / ggkb (+ ggkref.py host bfp reference) / ssqb / n1pb / n1kb;
   popprobe.s + popb.py (FIFO pop probes); nrun.sh (python + NPU in npu-iron-torch), b16.sh, try16.sh (research try.sh + the
   current best's flags), commit.sh (commit with a message file). Flags: EW_DEFS SQK INPART_INLINE XONE GGK SSQ (replaces SSX)
   SIG10 N1K, NPROF (norm-step stamps; PROF no longer fits), twins NORM_TWIN=2 / 4.
-- `npu-tapnext/r17/` (round 17): try17.sh (r16z base), xtry.sh (XROT=4 phase builds + regress / time / sweep), xrotsim.py (state
+- `tapnext/npu/r17/` (round 17): try17.sh (r16z base), xtry.sh (XROT=4 phase builds + regress / time / sweep), xrotsim.py (state
   flow of the rotation), cp_attks.sh (CP on testbox), attks.json (S2 schedule). Flags: mm8 ATTKS2MAX (gen_attkb --s2); EW_DEFS XROT
   (+ plan XROT=4), AL1 (+ plan AL1=1), NPIPE / NPIPE_G, CPROF (conv split stamps); NPROF stamps out_begin too (record word 19).
-- `npu-tapnext/r18/` (round 18): try18.sh (current best's flags), ab.py (one-process A/B), dmab.py/.cc/.s (DMA-vs-core bank bench),
+- `tapnext/npu/r18/` (round 18): try18.sh (current best's flags), ab.py (one-process A/B), dmab.py/.cc/.s (DMA-vs-core bank bench),
   ksp38.py (+ mm8 -DKSP38), gen_rot.py (research's ROT generator + ROT_ACQ_GAP / ROT_REL_GAP), mm_rot_g2a.s/.h (deployed ROT),
   mm8_rot.inc, rotbench.py, fsize.sh, convkp.json, zk.json. Flags: EW HRING PTRG ZK NIOC CGF NIO2 (norm-unit stamps); mm8 KSC
   (+ KS_* addresses) P35 MM_ROT (+ ROT_V env) V2T KSP38; pack8 B_ROT.
-- `npu-tapnext/r19/` (round 19): try19.sh (current best: g0a + SEQPRE=1 + ZHI + CSPLIT + EPLR + KPREP, then csplit + regress /
+- `tapnext/npu/r19/` (round 19): try19.sh (current best: g0a + SEQPRE=1 + ZHI + CSPLIT + EPLR + KPREP, then csplit + regress /
   sweep), csplit.py / csplit.sh (lowered-MLIR patch + aiecc rebuild), tlsum.py (timeline per kind + k-step model), tprof.py (mm8
   -DTPROF tile stamps), wrapgen.py / wrapb.* (pop-wrap probes), build_rot.sh (mm_rot_g0a / g1a with the lock gaps), kcc.sh (mm8.cc
   alone with a build's kdefs + one function's disassembly), ddrcap.py (DDR rate probe), cbytes.py. Flags: mm8 ZHI CSPLIT (+ CS_Z)
   EPLR (+ CS_CONS) KPREP TPROF; design8 env SEQPRE (bits) CPRATE / CPRATE_POLL; design8 / pack8 take ROT variants from r19/.
-- `npu-tapnext/r20/` (round 20): try20.sh (current best: r19z + IL DAPRE NSEQ NRES x4 SRES AQPRE AKVPRE, csplit20.sh with the
+- `tapnext/npu/r20/` (round 20): try20.sh (current best: r19z + IL DAPRE NSEQ NRES x4 SRES AQPRE AKVPRE, csplit20.sh with the
   NRESFIX route patch), tprof20.py / tpan.py / tpgap.py (TPROF records + core tile counter: first-tile pace, gaps), cpst.py / cpst2.py
   (mm8 -DCPST + design8 CPST_OP / CPST_ADDR), binpatch.py (.bin re-ordering), cpdump.py (CP instructions per sync segment), ddrw.py
   (DDR write cap), nresfix.py, poplf1gen.py / poplf1b.* (lf1 pop probe), atprof.py (mm8 -DATPROF attention stamps), actdiff.py (two
   builds' ACT images diffed by region / column / k-step). design8 env: IL DAPRE NSEQ NRES (list) SRES AQPRE AKVPRE EOUTPKT CPST_*.
-- `npu-tapnext/r21/` (round 21): try21.sh (current best: r20z + CSUB + ZLOAD + E7; CSUB=0 / ZLOAD=0 / E7=0, E7_V=<kernel>), csprobe.sh
+- `tapnext/npu/r21/` (round 21): try21.sh (current best: r20z + CSUB + ZLOAD + E7; CSUB=0 / ZLOAD=0 / E7=0, E7_V=<kernel>), csprobe.sh
   (csplit + aiecc compile probe), hand.py (TPROF hands per op), mtmap.py (memtile buffer map / holes), mkzload.py (kp-0 MACs -> r6
   config), mke7.py (research's mm_e7 into the ROT slot), e7patch.py (B object split Y / X + X buffers + stack, via csplit20
   E7PATCH=1), e7dbg.py (two builds' yx output diffed by column block / row block), poplf0* (lf0 pop probe), latec.diff /
   mklatec.py (the hung LATEC), patch_csubg.py / patch_acsub.py (dead variants). Flags: mm8 CSUB ZLOAD E7 (+ KS_X0 / KS_X1) AEXP3;
   design8 env E7; r19/csplit.py --sub / --latec.
-- `npu-tapnext/r22/` (round 22): try22.sh (current best: try21 + A3 + TXT18 + attkb II 33 + attv II 20), gen_attkq.py (K2: QK-only chunk-0
+- `tapnext/npu/r22/` (round 22): try22.sh (current best: try21 + A3 + TXT18 + attkb II 33 + attv II 20), gen_attkq.py (K2: QK-only chunk-0
   loop, off by default), attks33.json / attks34.json, attv20.json, mkktl.py (research's KTL kernel into the ROT slot; hangs, see NOTES
   27), lda2d.s + lda2db.* (scalar lda.2d probe), gen_e7m.py (gen_e7 with the bank-3 weight E7_W3), solve_*.sh. Env: design8 A3, NTWIN
   (twin), ATTKS_JSON, ATTV_JSON, ATTKB_DM; mm8 -DK2, -DK0TWIN (twin), -DKTL1 (bisect); gen_attkb --life, gen_attv --stages / --life.
-- `npu-tapnext/r23/` (round 23): try23.sh (current best: try22 + KTL k70p + MSPLIT down_b / mlp3_b / out_proj + YXSSM + YXR + OUTPRE
+- `tapnext/npu/r23/` (round 23): try23.sh (current best: try22 + KTL k70p + MSPLIT down_b / mlp3_b / out_proj + YXSSM + YXR + OUTPRE
   / ZCH + OPH1, l2-depth 3), mm_rot_k70b / k70p (research's KTL; k70p takes the record period), mm_rot_e7r68t (E7 with trips in r1),
   tlcmp.py (per-op wall / gap means of timeline JSONs), clkload12.sh / .out, solve_k_r68.log. Env: plan8 MSPLIT YXR, design8 YXSSM
   ZCH OUTPRE OPH1 SEQLOG; mm8 -DMSPLIT.
-- `npu-tapnext/r24/` (round 24): try24.sh (current best: try23 + STATS64 + OPPRE2 + SSMPRE + CPPRE), tl3.sh / tlcmp.py (N full timelines,
+- `tapnext/npu/r24/` (round 24): try24.sh (current best: try23 + STATS64 + OPPRE2 + SSMPRE + CPPRE), tl3.sh / tlcmp.py (N full timelines,
   per-op means incl. pass-1 offsets), tlo.sh / tlo.py (TL_ONLY fast boundary timelines), tld.sh (DETAIL), lint.sh (asmlint + text),
   ewsize.sh (EW compile + sizes with TXT18), ssmin.py (SSM input waits + column skew of an -DSSMIN build), tpk.py (TPROF per tile on a
   KTL build: MSPLIT= for text), cpsegs.py / cprest.py (CP instructions after each sync of a .bin). Env: design8 OPPRE2 (OPPRE2_SENDS)
   SSMPRE CPPRE (CPPRE_OP off) MSDEFER YXH ZDROP (off), step8 TL_ONLY; ew8 -DSTATS64 -DSSMIN -DZDROP.
-- `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
+- `tapnext/npu/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);
   EW_DEFS SIGK (design8 `ew_object` then builds the EW object itself: ExternalFunction cannot link asm).
-- `npu-tapnext/r10/` (round 10): gdist.py (per-tile medians of PROF records), rtm.py/.cc (runtime memtile task bench +
+- `tapnext/npu/r10/` (round 10): gdist.py (per-tile medians of PROF records), rtm.py/.cc (runtime memtile task bench +
   memtile->core rate), pf*.mlir (router multicast bug), gx.cc / gxb.py (GELU loop bundles / one-core cycles), mmasm.sh
   (mm8.cc -> asm with the deployed flags). design8 / plan8 flags: A_HALF (plan: single A fills, reuse_a), A_RT (memtile
   A slot by runtime tasks), P23 (round-robin tiles for yx / qkv); builds record them in build/<name>.json and step8 /
   run8 apply them (`stale build` asserts otherwise). `PROF_OUT=name.npy` lands in build/.
-- `npu-tapnext/r6/` (round 6 tools): asmstat.py, ccs.sh, tlview.py, kprobe.py/.cc, emu.py, capture.py, numh.py,
-  lutgen.py; `npu-research/RESULTS_FROM_MAIN.md` holds the measured verdicts on the research proposals.
-- `npu-research/PROPOSALS.md` (once it exists): experiments and tools proposed by a research agent; read each round.
+- `tapnext/npu/r6/` (round 6 tools): asmstat.py, ccs.sh, tlview.py, kprobe.py/.cc, emu.py, capture.py, numh.py,
+  lutgen.py; `tapnext/research/RESULTS_FROM_MAIN.md` holds the measured verdicts on the research proposals.
+- `tapnext/research/PROPOSALS.md` (once it exists): experiments and tools proposed by a research agent; read each round.
   Rev 9 tools: `tools/attsim.py` (attention multicast-lockstep event sim), `tools/sim16.py` (block model on r13f with it),
   `r14/lazymap.py` (lazy-max flag map on the NPU layout, CPU container), `r14/attcal.py` / `attblk.py` (twin fit, per-block check).
   Rev 10: `tools/attsim17.py` + `tools/sim17.py` (r14f, kappa 0.6), `r15/deal4.py` (P60g gather deal, checks single-TAP both
@@ -1018,12 +1023,12 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   Pass 16 (`r21/`): `tlhist21.py` (per-op gap means + poll-quantum histograms), `bexcess.py` (per-op excess over steady tiles),
   `ddrbudget.py` (DDR bytes per op from plan8 TAPs vs the timeline), `cpsig.py` / `cpdump.py` / `bduse.py` (.bin segment
   signatures, instruction dumps, shim BD usage; npu-iron), `bndmodel.py` (boundary decomposition against main's TPROF npz).
-- `npu-tapnext/` design8 (round 3, the fused step): `plan8.py` (memory plan + op list: Q16 / APAN / QKV layouts,
+- `tapnext/npu/` design8 (round 3, the fused step): `plan8.py` (memory plan + op list: Q16 / APAN / QKV layouts,
   deps), `design8.py` (the frame: table-driven GEMM cores, attention op, EW ops, BD accounting), `mm8.cc` (GEMM +
   flag-driven epilogues + attention), `ew8.cc` (norm / patch / ssm on the row-3 cores), `nk8.h` (exp32, recip,
   sigmoid, gelu, sqrt), `pack8.py` (host packing + numpy references), `run8.py` (tests t1..t5, g11, full12*),
   `attn_dbg.py`; builds `build/t*.xclbin`, `g11*.xclbin`, `full12r.xclbin` (the whole 12-block step).
-- `npu-tapnext/` design7 (round 2): NOTES.md, RESULTS.md, HANDOFF.md (the plan), **`design7.py` + `mm7.cc` + `ew7.cc` + `pack7.py` +
+- `tapnext/npu/` design7 (round 2): NOTES.md, RESULTS.md, HANDOFF.md (the plan), **`design7.py` + `mm7.cc` + `ew7.cc` + `pack7.py` +
   `run7.py`** (the fused-step frame: 3 GEMM rows + an elementwise core per column, packet-shared shim channel,
   hand-built rings, `encode_hw`), `pkt_test.py` (packet/BD-iteration probes), `xfer*.py` (transfer costs),
   `davis_cpu.py`, `design6.py` (+ `RA_K` env), `attn_tn.*` (attention for 12 heads x 1072 x 64), `npu_step.py`

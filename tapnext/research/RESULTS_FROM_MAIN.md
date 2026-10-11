@@ -95,7 +95,7 @@ clock. P10 (port-rate microbenchmarks) plus one timing of a known-bundle loop sh
 All numbers: testbox, Turbo, gpu_busy 0, pyxrt kernel time, MEASURED unless marked. Cycles at 1.81 GHz (P10 below).
 
 ## P10 (clock part) — DONE: 1.81 GHz in Turbo
-`npu-tapnext/r7/clk.py` + `clk.cc`: pure-register hardware loops (scalar LCG 4 bundles/trip, dependent bf16 vmac 3
+`tapnext/npu/r7/clk.py` + `clk.cc`: pure-register hardware loops (scalar LCG 4 bundles/trip, dependent bf16 vmac 3
 bundles/trip; no loads or stores in the loop, so nothing can stall) with a runtime trip count, host-timed at 0..32M
 trips: slope 1.8086 / 1.8076 GHz (fit on medians), ratio of the two loops 1.3329 vs 4/3. With P15's timer (below) the
 same loops read exactly bundles x trips (+48 / +59 cycles of call overhead). Agrees with the driver table (1.8 GHz).
@@ -107,7 +107,7 @@ IRON sequence function: `from aie.dialects.aiex import npu_maskwrite32`), `__bui
 `read_tm(0x340F8)` (objdump: each `lda.tm` alone in its bundle). One core (clk.py --stamp): timer = bundles x trips
 exactly. 24 GEMM cores in the full step (design8 with `--kdefs=...,-DPROF`): no hang, 3 dispatches. 0 timeouts.
 
-## P16-lite — DONE (stamps, not the counters): `npu-tapnext/r7/prof.py`
+## P16-lite — DONE (stamps, not the counters): `tapnext/npu/r7/prof.py`
 mm8.cc `-DPROF`: per tile, cycles inside mm_acc, calls, acc_zero -> epilogue wall, epilogue cycles, written over the
 tile's first 20 bytes (timing build only); prof.py finds the records in ACT after 3 frames and maps them to ops.
 Block 11 (b0 for yx), full12r7p:
@@ -133,7 +133,7 @@ Block 11 (b0 for yx), full12r7p:
 ## P17 — REFUTED by the stamps (not built)
 No in-call stalls exist to remove (333 measured vs 321 static + stamps). Bank placement would not change the k-step.
 
-## P12 (attention) — partly done; see npu-tapnext/RESULTS.md 16.2
+## P12 (attention) — partly done; see tapnext/npu/RESULTS.md 16.2
 Measured split (t4, twins): K phase 0.60 ms (exp + push 0.30, QK^T + max 0.30), V phase 0.19, data/control floor
 ~0.18 (barely overlapped), per-head-group fixed costs ~25-35 us (pass 0) / ~15 (pass 1).
 Done: exp by table fused with the bfp push (accuracy better than the arithmetic exp on real scores), -O2
@@ -147,7 +147,7 @@ popped per block via an opaque seek (round 6's loop: 28). Peano keeps A in 8 of 
 pipeline across column blocks. The hand-asm route is needed (in progress / next).
 
 ## P18 — DONE (first schedule, asm), verdict: bit-identical, -1.9 ms measured; the call is no longer the whole story
-`npu-tapnext/r7/gen_mm.py` emits `mm_core` (exact-cycle straight-line schedule: 4 accumulator chains over 2 column
+`tapnext/npu/r7/gen_mm.py` emits `mm_core` (exact-cycle straight-line schedule: 4 accumulator chains over 2 column
 blocks, A held in ex0-7, B on ldb through a 4-register conveyor, accumulator quarters on lda / st, EDF placement,
 built-in conveyor checks). B packed [q][4 col blocks] per column-block pair on the host (pack8 B_PAIR4).
 225 bundles per call vs 321; directed tests and the full-step regress BIT-IDENTICAL; step 73.10 -> 71.19 ms.
@@ -158,7 +158,7 @@ Group boundaries cost 12 cycles per 32 MACs (16 serialised stores + loads on 5 a
 
 # Round 8 (main agent), keyed by proposal id
 All numbers: testbox, Turbo, gpu_busy 0, pyxrt kernel time, MEASURED unless marked; cycles at 1.81 GHz. Details:
-npu-tapnext/RESULTS.md §17, NOTES.md §13.
+tapnext/npu/RESULTS.md §17, NOTES.md §13.
 
 ## P18 follow-up — the -1.9 vs -7 ms gap, MEASURED: L1 bank conflicts inside mm_core
 g11 -DPROF in situ: C++ 361, asm 337 cycles per call (PROF window ~+40). r8/mmb.py (one core, no DMA): 238 conflict
@@ -199,7 +199,7 @@ Per head group (full step, 192 records): pass 0 = Q copies 5.5 + begin 1.0 + K 9
 
 # Round 9 (main agent), keyed by proposal id
 All numbers: testbox, Turbo, gpu_busy 0, pyxrt kernel time, MEASURED unless marked; cycles at 1.81 GHz. Details:
-npu-tapnext/RESULTS.md §18, NOTES.md §14. Step 67.89 (r8c) -> 58.14 ms (full12r9s), d10 48.5 ms, AJ 70.84 / 69.90.
+tapnext/npu/RESULTS.md §18, NOTES.md §14. Step 67.89 (r8c) -> 58.14 ms (full12r9s), d10 48.5 ms, AJ 70.84 / 69.90.
 
 ## P20 (rev 4) — DONE, all three stages; -6.4 ms measured vs -8.2 predicted
 - (b) first, as a C++ loop with the locks inside (mm_kstep): -2.0 ms (g11 35.72 -> 33.93).
@@ -232,7 +232,7 @@ A range-reduced 2^f table was as accurate as exp32a and not faster (measured). P
 All numbers: testbox, Turbo, gpu_busy 0, pyxrt kernel time, MEASURED unless marked; cycles at 1.81 GHz.
 
 ## The A-port-bound claim of round 9 — REFUTED by its own data (early note)
-Per-tile distribution of the round-9 g11 PROF records (npu-tapnext/r10/gdist.py on build/g11sp.npy): the **median** busy per
+Per-tile distribution of the round-9 g11 PROF records (tapnext/npu/r10/gdist.py on build/g11sp.npy): the **median** busy per
 k-step is 2,050-2,065 cycles for EVERY op (out, out_proj, down_a/b, mlp3_a/b, yx plain tiles, qkv), wall 2,130 with the B
 acquire. The 2,588-3,320 of round 9 were means: one tile per op (the first) carries the op-start A-slot wait inside its
 first mm_kstep acquire (max 4,170-7,300 per k-step averaged over that tile). In steady state A arrives at >= 10,368 B /
@@ -250,7 +250,7 @@ plain 0.71; op-start waits ~30-40 us per GEMM op (A slot load, 248 KB per column
   stride 0, so a "write twice into half 1" pattern was not possible); up_b (reuse_a) loads nothing.
 - **Router bug found:** IRON 1.4.4's pathfinder silently drops a multicast destination when unicast packet flows share the
   same two DMA master ports (ids 1 -> DMA0, 3 -> DMA5, 4 -> both gave DMA5 no rule for id 4; reproduced in isolation,
-  npu-tapnext/r10/pf1.mlir vs pf2.mlir; order-independent). That first version hung one dispatch (timeout 1 of the round;
+  tapnext/npu/r10/pf1.mlir vs pf2.mlir; order-independent). That first version hung one dispatch (timeout 1 of the round;
   known-good t2-r9k ran right after). Multicast-only routes correctly (shared amsel).
 - Measured: t2 2.09 -> 1.95 ms, t4 1.34 -> 1.30, g11 29.72 -> 27.85 ms (-156 us per block), full12 58.11 -> 56.76 ms;
   t2 / t4 checks identical, full-step regress BIT-IDENTICAL vs full12r9a.
@@ -291,7 +291,7 @@ strides; qkv: step j = kind j // 4 for heads 3 (j % 4) + r). g11 27.85 -> 27.58 
   P10 (memtile->core rate) answered: 7.95 B/cycle. Not attempted this round: P38, P7 / P7a, P27, P42, P35, P24b, P34, P37, P14.
 - Parked items (two-channel A, neighbour-memory A, wider N tiles): agree, 0 ms today.
 - New lever measured for the research side: GELU epilogues ~3.3 ms per step on the GEMM critical path (see above); a hand
-  modulo schedule is the next main-agent item. sim12 may want the r10r timeline: npu-tapnext/build/tl_full12r10r_d12.json.
+  modulo schedule is the next main-agent item. sim12 may want the r10r timeline: tapnext/npu/build/tl_full12r10r_d12.json.
 
 # Round 11 (main agent), keyed by proposal id (2026-10-10)
 All numbers: testbox, Turbo, gpu_busy 0, pyxrt kernel time, MEASURED unless marked; cycles at 1.81 GHz. Baseline full12r10r
@@ -581,7 +581,7 @@ depth 12 / 10 (unchanged). Details: npu-tapnext NOTES 20, RESULTS 24. Testbox, T
 Best **full12r16z: 39.94 ms** at depth 12 (min 39.83; r15m re-timed 41.50-41.52), regress BIT-IDENTICAL vs full12r9a, asmlint 0
 errors on every build. Sweep d12 / 10 / 8 / 6: 40.30 / 33.84 / 26.86 / 20.18 ms (medians, one xclbin). Details: npu-tapnext NOTES
 21, RESULTS 25. Testbox, Turbo, gpu_busy 0, a foreign CPU worker (100 % of one core) throughout. Your tools were adopted: the
-build-lock patch is applied, every experiment after r16b ran through tools/try.sh (via npu-tapnext/r16/try16.sh, which adds the
+build-lock patch is applied, every experiment after r16b ran through tools/try.sh (via tapnext/npu/r16/try16.sh, which adds the
 current best's flags), asmlint ran on every build (clean, no false positives on the new kernels).
 ### SQK (main, rev 11 range -0.31..-0.35) - DONE: -0.18..-0.25 (miss)
 - sqrt 493 -> 321 per chunk in situ (bench 311, static loop 247). The miss is the whole-call rule again: the ~30-bundle preamble
@@ -664,7 +664,7 @@ npu-tapnext NOTES 23, RESULTS 27. Timeouts: 1 (V2T: `add r1, r1, #64` assembled 
   36/36, in situ BIT-IDENTICAL. rel.cond itself works (now deployed).
 - KS-P38 around mm_rot (per k-step, 6,240 tiles): TRUE 1,603 (pre-reg 1,610 +- 45, hit), MEMORY_STALL 167.5 (212 +- 40, low edge),
   LOCK 13.4 (13). acc_hi moved to 0x71980 with rot_rec (ksc_check caught it). GEMM text 15,536.
-- Note for the bench: mm8_rot.inc includes "build/mm_rot.h", which -I npu-tapnext resolves to npu-tapnext/build/mm_rot.h (the last
+- Note for the bench: mm8_rot.inc includes "build/mm_rot.h", which -I npu-tapnext resolves to tapnext/npu/build/mm_rot.h (the last
   design build's variant) before r19/build: a g2a bench first ran with g2f's border (0/36).
 ### KSC (rev 13 -270..-290 B) - DONE: -288 B (hit), and -0.14 ms (the per-call check ~16 cycles per k-step; predicted ~0)
 ### P35 (rev 13 -0.44 +- 0.1) - DONE: -0.10..-0.13 (miss); B locks by id (0 / 1), B buffers by address, even count per tile
@@ -685,7 +685,7 @@ npu-tapnext NOTES 23, RESULTS 27. Timeouts: 1 (V2T: `add r1, r1, #64` assembled 
 
 # Round 19 (main), in progress (2026-10-11)
 ## Timeline of full12r18m (MEASURED: testbox Turbo, gpu_busy 0, foreign CPU worker running; step8 timeline, 3 runs, median; the
-## JSONs are npu-tapnext/build/tl_r18m_run{1,2,3}.json; summary by npu-tapnext/r19/tlsum.py; dispatch 34.8-35.1 ms)
+## JSONs are tapnext/npu/build/tl_r18m_run{1,2,3}.json; summary by tapnext/npu/r19/tlsum.py; dispatch 34.8-35.1 ms)
 span = first..last output word, gap = first word - previous op's last word, share = last - previous last (sums to the dispatch).
 model = nt x K/64 k-steps per core x 1,613 cycles (KS-P38 timer per k-step in mm_rot, r18r6K) at 1.81 GHz, no gaps / epilogues.
 | kind | ops | span | gap | share | k-steps per core (12 ops) | k-step model | share - model |

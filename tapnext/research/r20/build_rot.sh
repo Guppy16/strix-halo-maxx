@@ -13,9 +13,9 @@ for v in "$@"; do
     $B/ld.lld r20/build/mm_rot_$v.o -e mm_rot -o r20/build/mm_rot_$v.elf && \
     $B/llvm-objdump -d -z --no-show-raw-insn r20/build/mm_rot_$v.elf > r20/mm_rot_$v.dis && \
     $B/llvm-nm -S r20/build/mm_rot_$v.o | grep \" T mm_rot\" && \
-    python3 tools/asmlint.py r20/mm_rot_$v.s --zolstats | grep -v \"^  \" ; \
+    python3 ../../common/tools/asmlint.py r20/mm_rot_$v.s --zolstats | grep -v \"^  \" ; \
     rm -f r20/.fit_mm_rot.* ; chmod -R a+rw r20"
-  python3 tools/tcall.py "r20/mm_rot_$v.dis" --func mm_rot | head -2
+  python3 ../../common/tools/tcall.py "r20/mm_rot_$v.dis" --func mm_rot | head -2
   for a in 0x71980 0x71940 0x719c0; do
     echo -n "  acc_hi=$a: "; python3 r20/gen_rot.py check "r20/mm_rot_$v.s" --json "r20/rot_$v.json" --place "$P,acc_hi=$a"
   done

@@ -1,7 +1,7 @@
 """rotb.py - one-core bench of ROT (npu-research pass 14, E1) after npu-tapnext r9/ksb.py: r19/rotb.cc built twice, `ks` (the
 deployed mm_kstep -> mm_ks, B in pair4 order) and `rot` (mm_rot from r19/gen_rot.py, B repacked by mm_rot_border). Hashes of
 all 36 accumulator pieces must match (bit-identical); cycles of the last k-step from the core timer. Objects and xclbins go to
-r19/build/ (main's npu-tapnext/build/mm_ks.s / .h are only read).
+r19/build/ (main's tapnext/npu/build/mm_ks.s / .h are only read).
 
 build (npu-iron, CPU only):  python3 r19/rotb.py build [--v g2f]
 run   (npu-iron, the NPU):   python3 r19/rotb.py run [--v g2f] [--calls 1,4]
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
-HERE = Path(__file__).resolve().parent  # npu-research/r19
-ROOT = HERE.parents[1] / "npu-tapnext"
+HERE = Path(__file__).resolve().parent  # tapnext/research/r19
+ROOT = HERE.parents[1] / "npu"
 BD = HERE / "build"
 INC = "/work/npu-moondream/mlir-aie/aie_kernels"
 PEANO = "/opt/ironenv/lib/python3.13/site-packages/llvm-aie"

@@ -2,13 +2,13 @@
 
 Optimising models on AMD Strix Halo (Ryzen AI Max): the XDNA2 NPU (AIE2P) and the gfx1151 GPU.
 
-- npu-tapnext/: TAPNext++ point tracking on the NPU, one fused dispatch per frame, bit-exact against the round-9
+- tapnext/npu/: TAPNext++ point tracking on the NPU, one fused dispatch per frame, bit-exact against the round-9
   reference: design8.py, plan8.py, mm8.cc, step8.py, per-round experiments (rN/), HANDOFF.md / NOTES.md / RESULTS.md.
-- npu-research/: offline analysis of the NPU (MACHINE.md, ANALYSIS.md, PROPOSALS.md, RESULTS_FROM_MAIN.md), simulators,
+- tapnext/research/: offline analysis of the NPU (MACHINE.md, ANALYSIS.md, PROPOSALS.md, RESULTS_FROM_MAIN.md), simulators,
   asmlint and try.sh in tools/.
-- npu-moondream/: moondream on the NPU (phases 1-12), NOTES.md / RESULTS.md.
+- moondream/npu/: moondream on the NPU (phases 1-12), NOTES.md / RESULTS.md.
 - moondream-gpu/, moondream3-eval/: snapshots of the GPU moondream work and the moondream3 evaluation (see SOURCES.md).
-- skill/SKILL.md: snapshot of the hardware/toolchain rules (live copy: ~/.claude/skills/xdna2-npu on the laptop).
+- .claude/skills/xdna2-npu/SKILL.md: snapshot of the hardware/toolchain rules (live copy: ~/.claude/skills/xdna2-npu on the laptop).
 
 Only hand-written code, generators, docs and small result tables are tracked: builds, weights, venvs and logs stay out.
 One commit per experiment or round: the message carries the measured result and predicted-vs-measured verdicts.

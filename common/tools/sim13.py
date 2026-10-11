@@ -1,7 +1,7 @@
 """sim13: per-block model of design8 at round 10 (full12r10r, 53.89 ms at depth 12), npu-research rev 6.
 
 What changed from sim12:
-  - The block is composed from the MEASURED full-step timeline (npu-tapnext/build/tl_full12r10r_d12.json, host-polled,
+  - The block is composed from the MEASURED full-step timeline (tapnext/npu/build/tl_full12r10r_d12.json, host-polled,
     ~17 us resolution): per op the mean last-to-last wall over blocks 1..11 (block 0 has missed polls).
   - Every GEMM op's wall is split into the per-core composition of the g11-r10rp PROF records (tools/g11comp.py on
     build/g11-r10rp.npy: steady k-steps, B gaps, first wait, coupling, epilogue, handoff, acc_zero) plus a BOUNDARY term
@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 F = 1.81e3  # cycles per us
-B = Path(__file__).resolve().parents[2] / "npu-tapnext" / "build"
+B = Path(__file__).resolve().parents[2] / "tapnext" / "npu" / "build"
 TL = Path(sys.argv[1]) if len(sys.argv) > 1 else B / "tl_full12r10r_d12.json"
 TL9 = B / "tl_full12r9s_d12.json"
 SWEEP = {12: 53.83, 10: 45.35, 8: 35.98, 6: 27.07}  # build/sweep_r10r.out, dispatch medians

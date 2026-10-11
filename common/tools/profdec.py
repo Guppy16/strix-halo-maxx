@@ -1,6 +1,6 @@
-"""Rev 5: decode the GEMM-core PROF records of a saved ACT image (npu-tapnext/build/g11*p.npy) without the device.
+"""Rev 5: decode the GEMM-core PROF records of a saved ACT image (tapnext/npu/build/g11*p.npy) without the device.
 
-Same mapping as npu-tapnext/r7/prof.py (records found by magic, owner = the last op in plan order whose column
+Same mapping as tapnext/npu/r7/prof.py (records found by magic, owner = the last op in plan order whose column
 drains cover the record), but the plan comes from the build's .sched JSON, so no pyxrt / Step8 is needed.
 Prints per op kind: k-step cycles (busy / k-steps, incl. the A waits inside mm_ks), the gap between k-steps
 (B acquire + IRON code), the first-k-step wait, and the per-column / per-row spread of the k-step.
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-B = Path(__file__).resolve().parents[2] / "npu-tapnext" / "build"
+B = Path(__file__).resolve().parents[2] / "tapnext" / "npu" / "build"
 MAGIC = 0x464F5250
 GHZ = 1.81
 RHO = 9

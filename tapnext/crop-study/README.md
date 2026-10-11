@@ -132,9 +132,9 @@ be rebuilt for a smaller M, and fixed per-op costs may not shrink in proportion.
 
 ## Reproduce
 
-    crop-study/run.sh main run --variants base,a128s,a128n,a160s,a160n,a192s,a192n,b128,b160,b192,c256   # ~2.6 h on the loaded box
-    crop-study/run.sh speed speed --q 8 --reps 3 --iters 8
-    crop-study/run.sh rep report        # results.json + results_*.csv need out/runs.jsonl and out/pred/*.npz
+    tapnext/crop-study/run.sh main run --variants base,a128s,a128n,a160s,a160n,a192s,a192n,b128,b160,b192,c256   # ~2.6 h on the loaded box
+    tapnext/crop-study/run.sh speed speed --q 8 --reps 3 --iters 8
+    tapnext/crop-study/run.sh rep report        # results.json + results_*.csv need out/runs.jsonl and out/pred/*.npz
 
 Run time: about 2.6 h wall for all variants on 10 videos (4,026 group-frames per variant). Base with attention recording runs
 at ~0.5 s/frame, the full-frame crop path at ~0.26, W=128 at ~0.07, B at ~0.26.

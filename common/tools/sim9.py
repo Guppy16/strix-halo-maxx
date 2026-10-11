@@ -1,7 +1,7 @@
 """Per-op cost model of design8, refitted to the round-6 host-polled timelines (step8.py timeline JSON).
 
 Successor of sim8.py (round 5). Pure python + numpy, no device. Usage:
-    python3 sim9.py                      # fit every round-6 build found in ../../npu-tapnext/build
+    python3 sim9.py                      # fit every round-6 build found in ../../tapnext/npu/build
     python3 sim9.py tl_a.json tl_b.json  # fit the given timelines
 
 What changed from sim8:
@@ -136,7 +136,7 @@ def report(path, fixed=None):
 
 def main():
     if sys.argv[1:2] == ["gantt"]:  # steady-state window of the 2-frames-in-flight schedule, 2x2-loop scenario
-        d, ops = load(Path(__file__).resolve().parent.parent.parent / "npu-tapnext/build/tl_full12r6e_d12.json")
+        d, ops = load(Path(__file__).resolve().parent.parent.parent / "tapnext/npu/build/tl_full12r6e_d12.json")
         p = fit(ops)[0]
         for name in ("today (r6e)", "serial fixes, 2x2 loop"):
             q = dict(p, **scenarios(p)[name])
@@ -147,7 +147,7 @@ def main():
             gantt(q, t0, t0 + 2 * block_us(q), frames=6, inflight=2)
         return
     here = Path(__file__).resolve().parent
-    bdir = here.parent.parent / "npu-tapnext" / "build"
+    bdir = here.parent.parent / "tapnext" / "npu" / "build"
     files = sys.argv[1:] or [str(bdir / f"tl_full12{b}_d12.json") for b in ("m", "r6a", "r6b", "r6e", "p1n", "p1t")]
     fits = {}
     for f in files:

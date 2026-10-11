@@ -1,7 +1,7 @@
 """sim16 (npu-research rev 9): sim15's block model on the deployed full12r13f (49.21 ms), with the attention op replaced by
 attsim's lockstep simulation (tools/attsim.py), calibrated on the round-13 twins (r14/attcal.py).
 
-Inputs (no device): timeline npu-tapnext/build/tl_full12r13f_d12.json; the r13f depth sweep (49.22 / 41.25 / 33.44 / 25.16);
+Inputs (no device): timeline tapnext/npu/build/tl_full12r13f_d12.json; the r13f depth sweep (49.22 / 41.25 / 33.44 / 25.16);
 the GEMM composition of sim15 (g11-r12gc + PAN / BGELU: round 13 left the GEMM ops unchanged, timelines agree within +-5 us);
 the flag / move map r14/lazymap.npz (primary: thinned to the in-situ per-core range, `Att.thinned(0.109)`, R 450;
 alternative: the raw map, R 300). Attention levers are attsim deltas against the modelled r13f, added to the measured wall.

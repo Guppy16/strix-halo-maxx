@@ -19,9 +19,9 @@ for v in "$@"; do
     $B/ld.lld r19/build/mm_rot_$v.o -e mm_rot -o r19/build/mm_rot_$v.elf && \
     $B/llvm-objdump -d -z --no-show-raw-insn r19/build/mm_rot_$v.elf > r19/mm_rot_$v.dis && \
     $B/llvm-nm -S r19/build/mm_rot_$v.o | grep ' T mm_rot' && \
-    python3 tools/asmlint.py r19/mm_rot_$v.s --zolstats | grep -v '^  ' && \
+    python3 ../../common/tools/asmlint.py r19/mm_rot_$v.s --zolstats | grep -v '^  ' && \
     rm -f r19/.fit_mm_rot.* && chmod a+rw r19/mm_rot_$v.* r19/rot_$v.json"
-  python3 tools/tcall.py "r19/mm_rot_$v.dis" --func mm_rot | head -2
+  python3 ../../common/tools/tcall.py "r19/mm_rot_$v.dis" --func mm_rot | head -2
   for pl in "acc_hi=0x718c0" "$P,acc_hi=0x71900" "$P,acc_hi=0x71980" "$P,acc_hi=0x719c0" "$P,acc_hi=0x71a00"; do
     echo -n "  $pl: "; python3 r19/gen_rot.py check "r19/mm_rot_$v.s" --json "r19/rot_$v.json" --place "$pl"
   done

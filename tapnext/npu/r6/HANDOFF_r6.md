@@ -2,7 +2,7 @@
 
 Read `~/.claude/skills/xdna2-npu/SKILL.md` first (round 6 added rules to sections 2, 3, 7, 8, 10). Then
 `~/git/app/.scratch/npu-research/PROPOSALS.md` (the research agent's ranked proposals) and
-`npu-research/RESULTS_FROM_MAIN.md` (what round 6 measured against them: P1, P2, P8, P9, P11 + the LUT work).
+`tapnext/research/RESULTS_FROM_MAIN.md` (what round 6 measured against them: P1, P2, P8, P9, P11 + the LUT work).
 RESULTS.md section 15 has every round-6 number, NOTES.md section 11 the changes, dead ends and tools. Round 5's
 hand-off is in r5/HANDOFF_r5.md. All timings: testbox, Turbo, GPU idle (gpu_busy 0), pyxrt `run.wait` kernel time.
 No deadline (the maintainer, 2026-10-09): research project, measured understanding over quick wins.

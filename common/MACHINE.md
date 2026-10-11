@@ -1,13 +1,16 @@
 # MACHINE.md — the XDNA2 / AIE2P NPU in testbox, as a performance model
 
-Revision 10 additions at the end; Revision 9 additions at the end (2026-10-10 evening, after round 13; rev 8 in rev8/). Revision 8 additions before them (after round 12; rev 7 in rev7/). Revision 7 additions before them (after round 11): register timing, itinerary ports, the slot model reconciled. Revision 6 additions before them; rev 6 is in `rev6/`. Revision 5, 2026-10-10: section 3 corrects the round-9 reading of the A path. The k-step is not A-port-bound: its
+Moved from npu-research/ on 2026-10-11; bare rNN/ and tools/ paths below are relative to `tapnext/research/` and
+`common/`. Earlier revisions: `git log --follow -p common/MACHINE.md`, or `git show bbff6a1:npu-research/revN/<file>`.
+
+Revision 10 additions at the end; Revision 9 additions at the end (2026-10-10 evening, after round 13). Revision 8 additions before them (after round 12). Revision 7 additions before them (after round 11): register timing, itinerary ports, the slot model reconciled. Revision 6 additions before them. Revision 5, 2026-10-10: section 3 corrects the round-9 reading of the A path. The k-step is not A-port-bound: its
 steady state is 2,055 + 67 cycles, and the ~4 B/cycle figures were a mean that includes the op-start wait, plus the
 DDR-bound slot load. Section 2.4 (perf counters and DMA events for P38) and section 2.5 (the L1 maps of the GEMM and
-EW cores) are new. Revision 4 is in `rev4/`.
+EW cores) are new.
 
 Revision 4, 2026-10-09 night: section 2.2 now states the L1 bank rule exactly (fitted to every round-8 mmb placement
 with zero error) and what it implies for scheduling; section 2.3 (vector slot classes) is new; open question 6 is
-partly answered. Revision 3 is in `rev3/`, revision 2 in `rev2/`. Revision 3 measured the clock at 1.81 GHz and added
+partly answered. Revision 3 measured the clock at 1.81 GHz and added
 the first bank table. Revision 1 (round 5) had two wrong constants, the clock (1.43 GHz) and the memtile -> core stream
 rate (4 B/cycle); ANALYSIS rev 2 section 0 explains how they misled the analysis.
 
@@ -21,8 +24,8 @@ Sources on disk (read without a device):
 - In the `npu-iron` image: mlir-aie 1.4.4's `AIETargetModel.h` (TM), aie-rt's `xaie2pgbl_params.h` (PARAMS) and
   `xaie_events_aie2p.h` (EVENTS), Peano's `aie2pintrin.h`, the AIE API headers.
 - On testbox's host: the amdxdna 2.21 driver source in `/usr/src/xrt-amdxdna-2.21.0/driver/amdxdna/` (DRV).
-- llvm-aie's AIE2P TableGen files, `npu-moondream/p10/td/` (TD).
-- The mlir-aie main checkout of 2026-10-06, `npu-moondream/mlir-aie/` (UPSTREAM).
+- llvm-aie's AIE2P TableGen files, `moondream/npu/p10/td/` (TD).
+- The mlir-aie main checkout of 2026-10-06, `moondream/npu/mlir-aie/` (UPSTREAM).
 
 Web sources are AMD AM020 (AIE-ML) and AM027 (AIE-ML v2).
 
@@ -78,7 +81,7 @@ tables (DRV `amdxdna_pci_drv.c`, `npu5_regs.c`).
 - Over the whole step, 15,552 k-steps x 2,718 bundles = 23.5 ms at 1.8 GHz and 29.6 ms at 1.43 GHz; measured
   +24.7 ms. The 1.43 GHz clock cannot produce that number.
 - The GELU kprobe: 110 bundles per vector in 63 ns, so f >= 1.75 GHz.
-- The main agent's round-7 clock probe (`npu-tapnext/r7/clk.cc`: pure-register loops of known bundle count, several
+- The main agent's round-7 clock probe (`tapnext/npu/r7/clk.cc`: pure-register loops of known bundle count, several
   trip counts) will measure it directly. Expect 1.80 GHz.
 
 ## 2. Compute tile (core + 64 KB memory module)
@@ -121,7 +124,7 @@ tables (DRV `amdxdna_pci_drv.c`, `npu5_regs.c`).
 | item | value | tag |
 |---|---|---|
 | L1 banks | 4 x 16 KB: 0x70000, 0x74000, 0x78000, 0x7C000 (the linker script's bank0-3) | [DOC ld script] |
-| **the bank rule (exact)** | **A bundle costs max(1, max over banks of the number of its memory accesses in that bank) cycles.** n accesses to one bank issued in one bundle serialise into n cycles (n - 1 stall cycles). Accesses in different bundles never conflict: there is no adjacent-bundle penalty. There is no read / write asymmetry: load + load, load + store and pop + store each cost exactly 1. Ops on the same slot never co-issue, so A pops and accumulator loads (both lda) are free together. The offset inside a bank does not matter (16 KB granularity; offsets 0-10 KB apart tested) | [MEAS: `tools/bankmodel.py` reproduces all 207 placements of the round-8 mmb sweep (`npu-tapnext/build/mmb_run.out`) to 0.0 cycles with one constant, 13 = loop + call] |
+| **the bank rule (exact)** | **A bundle costs max(1, max over banks of the number of its memory accesses in that bank) cycles.** n accesses to one bank issued in one bundle serialise into n cycles (n - 1 stall cycles). Accesses in different bundles never conflict: there is no adjacent-bundle penalty. There is no read / write asymmetry: load + load, load + store and pop + store each cost exactly 1. Ops on the same slot never co-issue, so A pops and accumulator loads (both lda) are free together. The offset inside a bank does not matter (16 KB granularity; offsets 0-10 KB apart tested) | [MEAS: `tools/bankmodel.py` reproduces all 207 placements of the round-8 mmb sweep (`tapnext/npu/build/mmb_run.out`) to 0.0 cycles with one constant, 13 = loop + call] |
 | why each mmb pair cost what it did | co-issued bundles in `mm_core_split` (225 bundles): B-Cs 42, B-Cl 36, Cl-Cs 33, A-B 14, A-Cs 3, A-Cl 0; triples B+Cl+Cs 27, A+B+Cs 3. Each pair costs exactly its co-issue count, and a triple costs 2 (B+Cl+Cs in one bank: 33 + 36 + 42 - 27 = 84, measured 84) | [DOC count (`bankmodel.py --pairs`) = MEAS] |
 | deployed placement (full12r8c core 0,2) | B fifo 0xD100 / 0xE300 (bank 3); A ring 0x7B80 / 0x8000 / 0x8480 (banks 1, 2, 2; contiguous, stride 1152); C object 0x8900 (its 12 KB of fp32 rows = stripes 0-2 in bank 2); `acc_hi` 0x1900-0x78FF (stripes 3-5 bank 0, stripe 5 straddles, 6-8 bank 1); offsets from 0x70000. Rule: 33 cycles per call (C loaded and stored in place), +3 on stripes whose A slot shares C's bank: **34 per call** | [DOC input_with_addresses.mlir, llvm-nm] [INF rule] |
 | DMA writes | in situ the call runs ~12 cycles above the rule (r8c: ~283 vs 271 + 0), ~17 with the round-7 placement (A slots in B's bank 3). DMA writes into a bank the core uses in that cycle cost the core cycles; whether the DMA or the core yields is not measured | [MEAS g11 stamps - mmb] [INF] |
@@ -272,7 +275,7 @@ Sources (web): [AM020 memory tile](https://docs.amd.com/r/en-US/am020-versal-aie
 
 ## Revision 7 additions (2026-10-10, after round 11)
 
-### R7.1 Register timing (measured by the main agent, `npu-tapnext/r11/mk_haz.py`; SKILL section 3)
+### R7.1 Register timing (measured by the main agent, `tapnext/npu/r11/mk_haz.py`; SKILL section 3)
 | rule | value | tag |
 |---|---|---|
 | visibility | a register written by an op with .td latency w is seen by an operand read at .td stage r of an op issued **>= w - r + 1** cycles later (LLVM's latency). Before that, readers see the OLD value (no interlocks). Measured for vlda, vldb.4x64 (w 7), vadd.32, vconv, vfloor, vshuffle, vmin_ge (w 2) with a vst reader | [MEAS r11] |

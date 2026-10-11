@@ -7,7 +7,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE.parent / "tools"))
+sys.path.insert(0, str(HERE.parents[2] / "common" / "tools"))
 import gen_rot as G  # noqa: E402
 import ksplan as K  # noqa: E402
 

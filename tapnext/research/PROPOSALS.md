@@ -1,6 +1,6 @@
 # PROPOSALS.md — state at pause: the ranked queue for the TAPNext++ NPU port
 
-Revision 20 is archived in `rev20/`. This is revision 21, 2026-10-11, research pass 21, the last pass before the NPU work pauses.
+Earlier revisions: `git log --follow -p tapnext/research/PROPOSALS.md`, or `git show bbff6a1:npu-research/revN/<file>`. This is revision 21, 2026-10-11, research pass 21, the last pass before the NPU work pauses.
 
 - **Base:** full12r24z, 28.43 ms at d12 (quiet sweep, MEASURED; r25z rebuilt byte-identical, 28.42); DAVIS d12 AJ 70.84 (OA 92.57),
   d10 69.90 (91.02), bit-identical to full12r9a.

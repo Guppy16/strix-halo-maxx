@@ -26,8 +26,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
-for p in (HERE.parent, HERE.parents[1] / "npu-tapnext" / "r11", HERE.parents[1] / "npu-tapnext" / "r12",
-          HERE.parent / "r11", HERE.parent / "r12", HERE.parents[1] / "r11", HERE.parents[1] / "r12"):
+for p in (HERE.parent, HERE.parents[2] / "tapnext" / "npu" / "r11", HERE.parents[2] / "tapnext" / "npu" / "r12",
+          HERE.parents[2] / "tapnext" / "research" / "r11", HERE.parents[2] / "tapnext" / "research" / "r12"):
     sys.path.insert(0, str(p))
 from msched import Infeasible, Loop, Op  # noqa: E402
 

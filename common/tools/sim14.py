@@ -1,7 +1,7 @@
 """sim14 (npu-research rev 7): sim13's block model refitted on round 11.
 
 Inputs (no device):
-  - timeline npu-tapnext/build/tl_full12r11b_d12.json (full12r11b, 52.43 ms: GELU_MS, before P43);
+  - timeline tapnext/npu/build/tl_full12r11b_d12.json (full12r11b, 52.43 ms: GELU_MS, before P43);
   - per-core GEMM composition from the g11-r11gp PROF records (r12/g11comp_r11gp.out);
   - P43 as its measured step delta (r11b 52.43 -> r11c 52.08 ms), spread as a constant per block;
   - the depth line from the full12r11d sweep (52.07 / 43.52 / 34.84 / 26.23 ms).

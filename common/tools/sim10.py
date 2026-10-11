@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-BUILD = HERE.parent.parent / "npu-tapnext" / "build"
+BUILD = HERE.parent.parent / "tapnext" / "npu" / "build"
 F = 1.81e9  # MEASURED (npu-tapnext r7/clk.py, Turbo)
 IRON_KS = 89  # DOC: bundles 0x170-0x35f of core_0_2 (r7a, r7f, r7g, r7p identical)
 CALL = {"full12r7a": 321, "full12r7g": 34 + 225}  # DOC: C++ mm_acc dynamic path; asm = wrapper + mm_core

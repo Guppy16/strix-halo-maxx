@@ -12,9 +12,9 @@ for v in "$@"; do
     $B/ld.lld r22/build/mm_e7_$v.o -e mm_e7 -o r22/build/mm_e7_$v.elf && \
     $B/llvm-objdump -d -z --no-show-raw-insn r22/build/mm_e7_$v.elf > r22/mm_e7_$v.dis && \
     $B/llvm-nm -S r22/build/mm_e7_$v.o | grep \" T mm_e7\" ; \
-    python3 tools/asmlint.py r22/mm_e7_$v.s --zolstats | grep -v \"^  \" ; \
+    python3 ../../common/tools/asmlint.py r22/mm_e7_$v.s --zolstats | grep -v \"^  \" ; \
     rm -f r22/.fit_mm_e7.* ; chmod -R a+rw r22"
-  python3 tools/tcall.py "r22/mm_e7_$v.dis" --func mm_e7 | head -2 || true
+  python3 ../../common/tools/tcall.py "r22/mm_e7_$v.dis" --func mm_e7 | head -2 || true
   for a in 0x71900 0x71940 0x71980; do
     echo -n "  acc_hi=$a: "; python3 r22/gen_e7.py check "r22/mm_e7_$v.s" --json "r22/e7_$v.json" --place "acc_hi=$a" | tail -1
   done

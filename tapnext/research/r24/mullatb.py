@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[1] / "npu-tapnext" / "r11"))
+sys.path.insert(0, str(HERE.parents[1] / "npu" / "r11"))
 import apb  # noqa: E402
 
 ap = argparse.ArgumentParser()

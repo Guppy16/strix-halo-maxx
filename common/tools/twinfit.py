@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sim9  # noqa: E402
 
-B = Path(__file__).resolve().parents[2] / "npu-tapnext" / "build"
+B = Path(__file__).resolve().parents[2] / "tapnext" / "npu" / "build"
 F = 1.81e9
 
 for build in ("p1n", "r6a"):

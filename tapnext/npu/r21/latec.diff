@@ -1,7 +1,7 @@
-diff --git a/npu-tapnext/mm8.cc b/npu-tapnext/mm8.cc
+diff --git a/tapnext/npu/mm8.cc b/tapnext/npu/mm8.cc
 index 322c26e..0ccb02d 100644
---- a/npu-tapnext/mm8.cc
-+++ b/npu-tapnext/mm8.cc
+--- a/tapnext/npu/mm8.cc
++++ b/tapnext/npu/mm8.cc
 @@ -126,6 +126,9 @@ static int32_t g_hi_clean = 0;
  // 18,431 drain during the next tile and then release lock CS_Z (init 1). Anything that writes part 2 takes CS_Z first, once per
  // object (g_zh; cleared after the object's release: acc_zero_hi, attn_end). The core releases the C cons lock by 2 (patched).
@@ -79,10 +79,10 @@ index 322c26e..0ccb02d 100644
  #ifdef ATPROF
    g_at[4] = atst();
  #endif
-diff --git a/npu-tapnext/r18/mm8_rot.inc b/npu-tapnext/r18/mm8_rot.inc
+diff --git a/tapnext/npu/r18/mm8_rot.inc b/tapnext/npu/r18/mm8_rot.inc
 index 1fafe51..135cbb6 100644
---- a/npu-tapnext/r18/mm8_rot.inc
-+++ b/npu-tapnext/r18/mm8_rot.inc
+--- a/tapnext/npu/r18/mm8_rot.inc
++++ b/tapnext/npu/r18/mm8_rot.inc
 @@ -32,7 +32,11 @@ constexpr int32_t rot_record(int rb, int f, int32_t c, int32_t hi, int32_t a0, i
      case 2:  // jump into (rb, pair 1)
        return real ? rot_piece(c, hi, rb, 1) - rot_piece(c, hi, rb, 0) - 1024 : 0;

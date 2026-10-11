@@ -1,6 +1,6 @@
 """Round 21 E7'': take research's generated mm_e7 kernel (npu-research r22/gen_e7.py fit -> mm_e7_<v>.s / .h) into design8's ROT slot:
 symbol / labels / arrays renamed to mm_rot's (design8 ROT_V=<v> copies r21/mm_rot_<v>.s / .h; mm8.cc -DE7 calls it with the X buffer).
-usage: python3 r21/mke7.py ../npu-research/r22/mm_e7_r68try.s r21/mm_rot_e7r68.s"""
+usage: python3 r21/mke7.py ../research/r22/mm_e7_r68try.s r21/mm_rot_e7r68.s"""
 import re
 import sys
 from pathlib import Path

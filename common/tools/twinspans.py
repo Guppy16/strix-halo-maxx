@@ -9,7 +9,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sim9  # noqa: E402
 
-B = Path(__file__).resolve().parents[2] / "npu-tapnext" / "build"
+B = Path(__file__).resolve().parents[2] / "tapnext" / "npu" / "build"
 for build in ("r6a", "p1n", "p1t"):
     _, ops = sim9.load(B / f"tl_full12{build}_d12.json")
     d = defaultdict(list)

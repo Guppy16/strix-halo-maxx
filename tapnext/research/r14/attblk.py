@@ -10,11 +10,11 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "common" / "tools"))
 import attsim as A  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-TLB = HERE.parents[1] / "npu-tapnext" / "build"
+TLB = HERE.parents[1] / "npu" / "build"
 
 
 def attn_walls(tag):  # as tools/tlops.walls: last(op) - last(previous op), blocks 1-11

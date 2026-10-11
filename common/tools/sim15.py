@@ -1,7 +1,7 @@
 """sim15 (npu-research rev 8): sim13's block model refitted on round 12 (full12r12e, 50.05 ms).
 
 Inputs (no device):
-  - timeline npu-tapnext/build/tl_full12r12e_d12.json (the deployed build; prices start from it, never from older rounds);
+  - timeline tapnext/npu/build/tl_full12r12e_d12.json (the deployed build; prices start from it, never from older rounds);
   - per-core GEMM composition from the g11-r12gc PROF records (GUP + CPY32: r13/g11comp_r12gc.out), with the two later
     epilogue changes applied as measured: PAN from the PAN_NOPUSH differential (g11-r12gnp) + the pan bench (161 cycles per
     6 row blocks), BGELU as the r12c -> r12d timeline deltas;

@@ -688,7 +688,7 @@ Best: **full12r15m** = r14f + P60G=1, kdefs + -DRESCK, EW_DEFS + "-DSSX -DCPY64 
 - SSM sqrt in asm: mv-bound (~14 mv ops per vector after v = b - 16256, k7 = srs(v, 1) & 0xFF80): ~-0.29 ms, not built.
 
 ## 21. Round 16 (2026-10-10/11): 41.52 -> ~40.0 ms, the SSM's sqrt / gates / input glue and the norm pass 1 in asm
-### 21.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 25; one commit each in the repo holding npu-tapnext/)
+### 21.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 25; one commit each in the repo holding tapnext/npu/)
 1. **SQK** (r16/gen_sqk.py, sqk.json, sqkb): exact bf16 sqrt, II 13 (the mv bound), U 2. Peano's LUT index path (band, ups by
    2, two vmov out of the accumulator, + lane bases, 8 vldb.4x16, three shuffles) with the exponent bias folded into the table:
    t' = t - ((64 - p) << 7), r = t' + ((b & 0xFF00) >> 1) (band + ups + srs + add instead of three ups / srs pairs). r9/ssm_lut.h
@@ -930,7 +930,7 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
    down_b and mlp3_b (K = 1536, not dependent) take k 0-11 from half 0 and k 12-23 from region 3; their fill sends k 12-23 first (two
    shim fills), so region 3 loads during down_a / mlp3_a; the middle tiles' send is one 3D TAP [2][32][972] with a 24-chunk stride.
    IRON re-packed memtiles 0-2 itself (3,584 B left, C joins still 64 KB aligned). A/B -0.07..-0.08.
-2. **TXT18** (research pass 18, npu-research/r23/mk_txt18.py, -DTXT18 in ew8.cc): norm twins by function pointer, a 2-trip stats loop,
+2. **TXT18** (research pass 18, tapnext/research/r23/mk_txt18.py, -DTXT18 in ew8.cc): norm twins by function pointer, a 2-trip stats loop,
    one ring copy. EW text 16,272 -> 15,824; and -0.07 ms (pre-registered 0: cause not measured).
 3. **attkb at II 33** (was 36; r14/gen_attkb.py --s2 --maxsrc sr, CP 600-1,800 s per II): II 34 -0.13, II 33 (U 1 via --life 1, dm order
    ATTKB_DM=0,1,2,4,3) -0.035 more. design8 env ATTKS_JSON.

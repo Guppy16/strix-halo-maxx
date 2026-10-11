@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-B = Path(__file__).resolve().parents[2] / "npu-tapnext" / "build"
+B = Path(__file__).resolve().parents[2] / "tapnext" / "npu" / "build"
 
 
 def walls(tag):

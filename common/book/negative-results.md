@@ -1,8 +1,8 @@
-# DEAD_ENDS.md — ideas tried and refuted on the TAPNext++ NPU port (check before proposing)
+# Negative results (was DEAD_ENDS.md) — ideas tried and refuted on the TAPNext++ NPU port (check before proposing)
 
 Last updated 2026-10-11 (research pass 21; 187 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
-Source keys: RFM = `npu-research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `npu-tapnext/*.md` (§ = section number); revN/P, revN/A = `npu-research/revN/PROPOSALS.md` / `ANALYSIS.md` (rev 16 = the top-level files); MACHINE Rx.y = `npu-research/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `.scratch/npu-moondream/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
+Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show bbff6a1:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Rx.y = `common/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
 Not listed: proposals that were built and hit or merely missed their price but were kept (ZHI, CSPLIT, EPLR, P60g, ROT g2a, NRES, …), unless their stated mechanism was refuted.
 

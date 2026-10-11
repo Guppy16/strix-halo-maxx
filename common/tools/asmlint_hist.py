@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """asmlint_hist.py - asmlint against the bugs that taught its rules (npu-research rev 11).
 
-Each case is a historic artefact (copied into npu-research/r16/hist/; two are reconstructions, marked) with the rule that
+Each case is a historic artefact (copied into tapnext/research/r16/hist/; two are reconstructions, marked) with the rule that
 must fire, or a fixed / deployed version on which it must NOT fire. The deployed build must be clean (no error, no warning).
 Run in npu-iron (Peano):
-    docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron python3 /work/npu-research/tools/asmlint_hist.py
+    docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron python3 $HOME/git/app/strix-halo-maxx/common/tools/asmlint_hist.py
         [--prj /work/npu-tapnext/build/full12r15m.prj]
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import asmlint  # noqa: E402
 
-HIST = Path(os.path.abspath(__file__)).parent.parent / "r16" / "hist"
+HIST = Path(os.path.abspath(__file__)).parents[2] / "tapnext" / "research" / "r16" / "hist"
 
 # (file, must fire, must not fire, what happened)
 CASES = [
@@ -70,7 +70,7 @@ def main():
         ok &= good
         print(f"{'PASS' if good else 'FAIL'}  {fn:22s} fires {sorted(fired) or '-'}" + (f"  MISSING {miss}" if miss else "")
               + (f"  UNEXPECTED {extra}" if extra else "") + f"  | {what}")
-    prj = o.prj or asmlint.find_file("npu-tapnext/build/full12r15m.prj")
+    prj = o.prj or asmlint.find_file("tapnext/npu/build/full12r15m.prj")
     if prj:
         paths = [str(Path(prj) / f"elfs_main_core_{c}" / f"elfs_main_core_{c}.elf") for c in ("0_2", "0_5")]
         items = run(paths, model, tools)

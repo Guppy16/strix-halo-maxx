@@ -3,7 +3,7 @@
 # usage: ab.sh TAG ROUNDS A B [B ...]
 tag=$1; rounds=$2; shift 2
 a=$1; shift
-f=~/git/app/strix-halo-maxx/npu-research/RESULTS_FROM_MAIN.md
+f=~/git/app/strix-halo-maxx/tapnext/research/RESULTS_FROM_MAIN.md
 busy=$(docker ps --format '{{.Names}}' | grep -v 'othersvc2\|othersvc')
 [ -n "$busy" ] && { echo "NPU/docker busy: $busy - not timing"; exit 1; }
 echo "- WINDOW OPEN $(date +%H:%M) (main A/B $tag: $a vs $*)" >> $f

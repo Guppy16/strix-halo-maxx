@@ -1,5 +1,5 @@
 """rev 7: G1 (fused bias + GELU (+ gate product) + output) and the other LUT / chain loops, scheduled with the main agent's
-modulo scheduler (npu-tapnext/r11/msched.py, imported read-only) at the round-11 rules (LLVM visibility, mv bypass,
+modulo scheduler (tapnext/npu/r11/msched.py, imported read-only) at the round-11 rules (LLVM visibility, mv bypass,
 itinerary ports). No device, no build: it answers "what II does the generator reach for this op list, with which binding
 resource, how many registers and stages, and how much text".
 
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
-sys.path.insert(0, str(HERE.parents[2] / "npu-tapnext" / "r11"))
+sys.path.insert(0, str(HERE.parents[2] / "tapnext" / "npu" / "r11"))
 from msched import Infeasible, Loop  # noqa: E402
 from msched import Op  # noqa: E402
 

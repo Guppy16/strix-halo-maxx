@@ -22,8 +22,8 @@ from pathlib import Path
 
 import numpy as np
 
-HERE = Path(__file__).resolve().parent  # npu-research/r20
-ROOT = HERE.parents[1] / "npu-tapnext"
+HERE = Path(__file__).resolve().parent  # tapnext/research/r20
+ROOT = HERE.parents[1] / "npu"
 BD = HERE / "build"
 INC = "/work/npu-moondream/mlir-aie/aie_kernels"
 PEANO = "/opt/ironenv/lib/python3.13/site-packages/llvm-aie"
