@@ -298,6 +298,7 @@ def step8(
     C_l1 = np.ndarray[(m * n,), np.dtype[bfloat16]]
     B_l2 = np.ndarray[(wb,), np.dtype[np.uint32]]
     C_l2 = np.ndarray[(ROWS_G * m * n,), np.dtype[bfloat16]]
+    yxssm = os.environ.get("YXSSM") == "1"  # round 23 (main): the SSM starts during yx; z panels into half 1
     a3 = os.environ.get("A3") == "1"  # round 22 (research 3A): a third half-slot region after the slot (chunks 24-35)
     ra_buf = ra * 3 // 2 if a3 else ra  # slot buffer words (TAP shapes over it)
     slot_ty = np.ndarray[(ra_buf,), np.dtype[np.uint32]]
@@ -820,8 +821,11 @@ def step8(
                 if p_flow:  # round 20 NRES: the norm's units arrive rb-major (rb, q); a 3D TAP puts unit (rb, q) at chunk q, row block rb
                     # (the usual chunk-major half 0: the op's sends and the last tile's chunk-wise release stay as they are; an rb-major
                     # half let the next op's chunk-0 load overwrite every chunk's first row blocks while the last tile still read them)
-                    t["ldz"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 1, 216, 144], [0, 0, 144, 1]),
-                                                                    acquires=[Acquire(lk["Elo"], value=12)], releases=[Release(lk["F"], value=12)]))
+                    zh = 1 if yxssm else 0  # round 23 YXSSM: the z panels into half 1 (half 0 holds yx's A until its last tile)
+                    t["ldz"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH * zh, [1, 1, 216, 144], [0, 0, 144, 1]),
+                                                                    acquires=[Acquire(E[zh], value=12)], releases=[Release(F[zh], value=12)]))
+                    if yxssm:  # (out's middle tiles from half 1)
+                        t["mid"]["h1"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH, [1, 1, 1, 12 * CH], [0, 0, 0, 1])))
                     # (SRES: the SSM's z panels arrive head-major = chunk-major already)
                     t["ldn"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 18, 12, 144], [0, 144, CH, 1]),
                                                                     acquires=[Acquire(lk["Elo"], value=12)], releases=[Release(lk["F"], value=12)]))
@@ -854,14 +858,17 @@ def step8(
             hs = [1] if op["kind"] == "attn" and aqpre else list(range(K // 768))
             if op.get("r3"):  # round 22 3A: k order = half 0, then region 3
                 hs = [0, 2]
-            assert not (nmid and hs == [1])  # (the attention: two passes = t0 + last, no whole-slot mid send)
+            z1 = yxssm and op.get("nres") and i > 0 and slot_ops[i - 1]["name"].endswith("_yx")  # round 23 YXSSM: out's A (the z panels) in half 1
+            if z1:
+                hs = [1]
+            assert not (nmid and hs == [1]) or z1  # (the attention: two passes = t0 + last, no whole-slot mid send)
             for c in range(COLS):
                 t = rt_tasks[c]
                 if not op.get("reuse_a"):
                     for h in hs:
                         t["t0"][h].start()
                 if nmid:
-                    t["mid"]["r3" if op.get("r3") else K].start(repeat_count=nmid - 1)
+                    t["mid"]["h1" if z1 else "r3" if op.get("r3") else K].start(repeat_count=nmid - 1)
                 if op.get("msplit"):  # round 23 MSPLIT-P: the last tile's rows 0-5, then rows 6-17 with the chunk releases
                     assert not reused_next and hs == [0, 2]
                     t["pa"].start()
@@ -899,6 +906,7 @@ def step8(
         p43 = os.environ.get("P43") == "1"
         seqpre = os.environ.get("SEQPRE", "0") != "0"
         ms_names = {o["name"] for o in ops if o.get("msplit")}
+        assert not yxssm or (os.environ.get("SRES") == "1" and os.environ.get("IL") == "1" and seqpre)
         MS_RB = 6  # (plan8.MS_RB: mm8.cc's first row pass)
         assert not ms_names or seqpre and os.environ.get("NSEQ") == "1"
         sp_mode = int(os.environ.get("SEQPRE", "0"))  # round 19: bit 1 = slot loads before the wait, bit 2 = drains before it  # round 11 (research P43): a GEMM's B (weights) leaves before its dependency wait
@@ -973,6 +981,18 @@ def step8(
                                 drain(C_conses[c], t_, group=g_, wait=True)
                         push(op["name"] + "#0", tg0)
                         push(op["name"], tg)
+                        continue
+                    if yxssm and op["name"].endswith("_yx"):  # round 23 YXSSM: y + x steps 4 / 5 / 6 / 7 (heads 0-2 / 3-5 / 6-8 / 9-11)
+                        assert p43 and not sp_mode & 2 and not qkv and op.get("rr") and op["c"][0]["sizes"] == [2, 12, 18, 1024], op["c"][0]
+                        gs = [G(), G(), G(), tg]
+                        for c in range(COLS):
+                            t_ = op["c"][c]
+                            drain(C_conses[c], dict(t_, sizes=[1, 12, 18, 1024]), group=gs[0], wait=True)
+                            for g in range(4):
+                                drain(C_conses[c], dict(t_, sizes=[1, 3, 18, 1024], off=t_["off"] + t_["strides"][0] + 3 * g * t_["strides"][1]),
+                                      group=gs[g], wait=True)
+                        push(op["name"] + "#0", gs[0])
+                        pending.extend([(op["name"] + "#1", gs[1]), (op["name"] + "#2", gs[2]), (op["name"], gs[3])])  # (past the lookahead)
                         continue
                     if op.get("msplit"):  # round 23 MSPLIT-P: the norm after it waits only for "#0" before its rows 0-5
                         assert p43 and not sp_mode & 2 and not qkv
@@ -1067,7 +1087,13 @@ def step8(
                 push(op["name"], tg)
             elif op["kind"] == "ew":
                 nseq = op["fn"] == "norm" and os.environ.get("NSEQ") == "1"
-                if not nseq:
+                yxg = [(n_, g_) for n_, g_ in pending if yxssm and op["fn"] == "ssm" and n_.split("#")[0].endswith("_yx")]
+                if yxg:  # round 23 YXSSM: everything but yx's groups now; yx's group g before head 3 g's fill
+                    for n_, g_ in list(pending):
+                        if (n_, g_) not in yxg:
+                            g_.finish()
+                            pending.remove((n_, g_))
+                elif not nseq:
                     finish_all()
                 if op["fn"] == "norm":
                     tg = G()
@@ -1117,6 +1143,12 @@ def step8(
                         drain(e_out[c], op["c"][c], group=tgd, wait=True)
                     groups = []
                     for q in range(len(op["fills"][0])):
+                        if yxg and q % 3 == 0:  # (yx's group q // 3: "#0" .. "#2", then the op's own name)
+                            want = yxg[0][0].split("#")[0] + (f"#{q // 3}" if q < 9 else "")
+                            for n_, g_ in list(pending):
+                                if n_ == want:
+                                    g_.finish()
+                                    pending.remove((n_, g_))
                         tg = G()
                         for c in range(COLS):
                             for f in op["fills"][c][q]:
