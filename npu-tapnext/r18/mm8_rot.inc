@@ -4,7 +4,13 @@
 // in k-panel order 0..7 on the same panels.
 // Include after mm8.cc's MM_PIECES helpers (piece(), rho) with -DMM_ROT; with -DKSC the records are build-time data.
 #include "build/mm_rot.h"
+#ifdef ZLOAD  // round 21 (r21/mkzload.py): the kp-0 MACs take their config from the 4th argument (781 = zero_acc: a tile's first k-step)
+extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pB, float *piece0, int32_t conf0);
+#define MM_ROT_CONF0 , 780
+#else
 extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pB, float *piece0);
+#define MM_ROT_CONF0
+#endif
 
 // piece(rb, pair) on integer addresses (mm8.cc piece())
 constexpr int32_t rot_piece(int32_t c, int32_t hi, int rb, int pair) {
@@ -43,7 +49,7 @@ static constexpr RotRec rot_rec = [] {
   return t;
 }();
 static inline void rot_kstep(bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *pB, bfloat16 *c_out) {
-  mm_rot(rot_rec.r, pB, piece(c_out, 0, 0));
+  mm_rot(rot_rec.r, pB, piece(c_out, 0, 0) MM_ROT_CONF0);
 }
 // with P35 (round 18 mm_ktile): replace `mm_ks(ks_rec.r, b, pc);` in mm_ktile's loop by `mm_rot(rot_rec.r, b, pc);` (both B
 // buffers sit in bank 3 as the schedule assumes; mm_rot takes B by pointer)
@@ -61,6 +67,6 @@ __attribute__((noinline, minsize)) static void rot_records(bfp16ebs8 *const slot
 static inline void rot_kstep(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfp16ebs8 *pB, bfloat16 *c_out) {
   bfp16ebs8 *const slot[3] = {a0, a1, a2};
   if (c_out != g_rot_for) rot_records(slot, c_out);
-  mm_rot(g_rot_tab, pB, piece(c_out, 0, 0));
+  mm_rot(g_rot_tab, pB, piece(c_out, 0, 0) MM_ROT_CONF0);
 }
 #endif

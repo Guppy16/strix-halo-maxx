@@ -138,11 +138,17 @@ void acc_zero_hi() {
 #ifdef CSPLIT
   g_zh = 0;
 #endif
+#ifdef ZLOAD  // round 21: nothing reads a zeroed accumulator (mm_ktile's first k-step zero-loads)
+  return;
+#endif
   zero2(acc_hi, acc_hi + 2048, 128);  // 8 KB at a + 16 KB at b (a tail call: no frame)
 }
 #endif
 #if defined(CSUB) && (!defined(CSPLIT) || !defined(EPLR) || !defined(BGELU) || !defined(PAN) || !defined(VTK) || !defined(MM_PIECES))
 #error "CSUB: the sub-part releases are written for CSPLIT + EPLR with the BGELU / PAN / VTK / MM_PIECES epilogues"
+#endif
+#if defined(ZLOAD) && (!defined(P35) || !defined(MM_ROT) || !defined(ZHI) || !defined(ZASM))
+#error "ZLOAD: written for P35's mm_ktile with MM_ROT, ZHI and ZASM"
 #endif
 #if defined(CSPLIT) && !defined(ZHI)
 #error "CSPLIT clears its per-object flag in acc_zero_hi (ZHI)"
@@ -157,6 +163,10 @@ void acc_zero(bfloat16 *c_out) {
     const int32_t cl = g_hi_clean;
     g_hi_clean = 0;
     g_stripe = 0;
+#ifdef ZLOAD
+    (void)cl;
+    return;
+#endif
     zero2((float *)c_out, cl ? (float *)c_out + 1024 : acc_hi, cl ? 64 : ACC_LO * n * 4 / 64);
     return;
   }
@@ -306,7 +316,11 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
     const uint32_t c0 = read_tm(0x31520), c1 = read_tm(0x31524), c2 = read_tm(0x31528), c3 = read_tm(0x340F8);
     __builtin_aie2p_sched_barrier();
 #endif
+#ifdef ZLOAD  // round 21: the first k-step's MACs ignore the loaded accumulators (no zeroing anywhere)
+    mm_rot(rot_rec.r, b, pc, k == 0 ? 781 : 780);
+#else
     mm_rot(rot_rec.r, b, pc);
+#endif
 #ifdef KSP38
     __builtin_aie2p_sched_barrier();
     g_kc[0] += read_tm(0x31520) - c0;
