@@ -18,6 +18,8 @@ ap.add_argument("--z", type=int, default=6)
 ap.add_argument("--split", type=int, default=6144)
 ap.add_argument("--core-rel", type=int, default=2, help="the core's IRON release of the C cons lock (1 with -DEPLR: the kernel releases part 1)")
 ap.add_argument("--cons-id", type=int, default=3, help="the C cons lock id every GEMM tile must have (mm8.cc CS_CONS)")
+ap.add_argument("--sub", default="", help="round 21 CSUB: comma-separated bf16 offsets inside part 1 where acquire-only BDs end (each "
+                "takes one more C cons release per object: mm8.cc -DCSUB releases them as the epilogue finalises each sub-part)")
 o = ap.parse_args()
 src = open(o.inp).read()
 lines = src.split("\n")
@@ -56,8 +58,29 @@ for buf, c, i, tile in cbufs:
     bd1 = re.sub(r"len = 9216\) \{bd_id = (\d+) : i32, next_bd_id = \d+ : i32\}",
                  rf"len = {o.split}) {{bd_id = \1 : i32, next_bd_id = {newid} : i32}}", bd)
     blk = f"^cs{tile[5:]}"
-    new = [acq, bd1, rel, f"{ind}aie.next_bd {blk}{loc}",
-           f"  {blk}:",
+    subs = [int(v) for v in o.sub.split(",") if v]
+    assert all(a < b for a, b in zip([0] + subs, subs + [o.split])), subs
+    head = []
+    if subs:  # acquire-only BDs [0, s1), [s1, s2), ... then [s_last, split) with part 1's release
+        ids = [old_id]
+        for _ in subs:
+            ids.append(next(b for b in range(16) if b not in used and b != newid and b not in ids))
+        bounds = [0] + subs + [o.split]
+        for q in range(len(subs) + 1):
+            nb = newid if q == len(subs) else ids[q + 1]
+            bdq = re.sub(r"offset = 0 len = 9216\) \{bd_id = (\d+) : i32, next_bd_id = \d+ : i32\}",
+                         f"offset = {bounds[q]} len = {bounds[q + 1] - bounds[q]}) {{bd_id = {ids[q]} : i32, next_bd_id = {nb} : i32}}", bd)
+            assert bdq != bd, bd
+            if q:
+                head.append(f"  ^csu{q}_{tile[5:]}:")
+            head += [acq, bdq]
+            if q == len(subs):
+                head += [rel, f"{ind}aie.next_bd {blk}{loc}"]
+            else:  # a BD block needs one acquire AND one release (the MLIR verifier): release the prod lock by 0 (a no-op)
+                head += [re.sub(r"Release, %\w+\)", "Release, %csu_zero)", rel), f"{ind}aie.next_bd ^csu{q + 1}_{tile[5:]}{loc}"]
+        out.insert(m0 + 1, f"      %csu_zero = arith.constant 0 : i32")
+        j += 1
+    new = (head if subs else [acq, bd1, rel, f"{ind}aie.next_bd {blk}{loc}"]) + [f"  {blk}:",
            acq,
            f"{ind}aie.dma_bd(%{buf} : memref<9216xbf16> offset = {o.split} len = {9216 - o.split}) {{bd_id = {newid} : i32, next_bd_id = {old_id} : i32}}{loc}",
            re.sub(rf"{prod}", zname, rel),
@@ -83,4 +106,4 @@ for buf, c, i, tile in cbufs:
     out.insert(k0 + 1, f"      {cname} = arith.constant 2 : i32")
     n_core += cnt
 open(o.out, "w").write("\n".join(out))
-print(f"csplit: {n_bd} C MM2S chains split at {2 * o.split} B, {n_core} core releases -> {o.core_rel}, lock id {o.z}")
+print(f"csplit: {n_bd} C MM2S chains split at {2 * o.split} B (sub-parts at {o.sub or 'none'}), {n_core} core releases -> {o.core_rel}, lock id {o.z}")

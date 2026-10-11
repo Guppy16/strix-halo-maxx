@@ -141,6 +141,9 @@ void acc_zero_hi() {
   zero2(acc_hi, acc_hi + 2048, 128);  // 8 KB at a + 16 KB at b (a tail call: no frame)
 }
 #endif
+#if defined(CSUB) && (!defined(CSPLIT) || !defined(EPLR) || !defined(BGELU) || !defined(PAN) || !defined(VTK) || !defined(MM_PIECES))
+#error "CSUB: the sub-part releases are written for CSPLIT + EPLR with the BGELU / PAN / VTK / MM_PIECES epilogues"
+#endif
 #if defined(CSPLIT) && !defined(ZHI)
 #error "CSPLIT clears its per-object flag in acc_zero_hi (ZHI)"
 #endif
@@ -506,7 +509,11 @@ static __attribute__((noinline)) void bias_pass(const float *__restrict src, bfl
 static __attribute__((noinline)) void bias_pcs(const float *__restrict src, bfloat16 *__restrict dst, const bfloat16 *__restrict bias,
                                                int npc, int dstride) {
   const B32 ones = aie::broadcast<bfloat16, 32>(1.0f);
+#ifdef CSUB  // round 21: 4-piece calls (2 trips)
+  AIE_LOOP_MIN_ITERATION_COUNT(2)
+#else
   AIE_LOOP_MIN_ITERATION_COUNT(3)
+#endif
   for (int i = 0; i < npc; i += 2) {  // two pieces per trip (npc even): 16 independent vectors, as bias_pass's row block
 #pragma unroll
     for (int v = 0; v < 8; v++) {
@@ -524,8 +531,13 @@ static inline void bias_rows(bfloat16 *c_out, const bfloat16 *bias) {
   bias_pcs(acc_hi + 256 * 6, (bfloat16 *)(acc_hi + 256 * 6), bias + 256, 18, 512);  // pair 1
 }
 // -> the drained layout: row block rb at C byte 1024 rb, half h at + 512 h
+#ifdef CSUB
+static void csub_rows(bfloat16 *c_out, const bfloat16 *bias, int gelu);  // round 21 (after the bgelu declaration)
+#endif
 static inline void bias_to_c(bfloat16 *c_out, const bfloat16 *bias) {
-#if defined(CSPLIT) && defined(EPLR)
+#if defined(CSUB)
+  csub_rows(c_out, bias, 0);
+#elif defined(CSPLIT) && defined(EPLR)
   // round 19: rb 0..11 (both halves) first: they are the C object's part 1 (bytes 0 .. 12,287), released here so its drain overlaps
   // rb 12..17; the same values op for op (each pass reads only what no earlier pass wrote over)
   bias_pcs((const float *)c_out, c_out, bias, 12, 512);
@@ -639,6 +651,28 @@ static __attribute__((noinline)) void bgelu3(bfloat16 *c_out, const bfloat16 *bi
   if (o2) bgelu(acc_hi + 256 * 6, o2, 8 * 18 / BGELU_U, ab, cd, bias + 256);
 }
 #endif
+#ifdef CSUB
+// round 21: part 1 drains in three sub-parts [0, 3,456), [3,456, 6,912), [6,912, 12,288) (r19/csplit.py --sub 1728,3456), one C cons
+// release each. Flags 0 / 1 (plain / yx GELU) into the drained layout in groups of row blocks 0-3, 4-7, 8-11 (both halves; 4 / 8 /
+// 12 KB cover the sub-part ends, each released when written), then 12-17 (part 2). In place as bias_to_c's one-call order: pair 1 of
+// rb lands on pair 0's consumed fp32 blocks 2-3 in C slot rb.
+static __attribute__((noinline)) void csub_rows(bfloat16 *c_out, const bfloat16 *bias, int gelu) {
+#pragma clang loop unroll(disable)
+  for (int g = 0; g < 4; g++) {
+    const float *s0 = g < 3 ? (const float *)c_out + 1024 * g : acc_hi, *s1 = acc_hi + 256 * (6 + 4 * g);
+    bfloat16 *d = c_out + 2048 * g;
+    const int npc = g < 3 ? 4 : 6;
+    if (gelu) {
+      bgelu(s0, d, 8 * npc / BGELU_U, sgelu_ab, sgelu_cd, bias);
+      bgelu(s1, d + 256, 8 * npc / BGELU_U, sgelu_ab, sgelu_cd, bias + 256);
+    } else {
+      bias_pcs(s0, d, bias, npc, 512);
+      bias_pcs(s1, d + 256, bias + 256, npc, 512);
+    }
+    if (g < 3) release(c_out, 48 + CS_CONS, 1);
+  }
+}
+#endif
 #ifdef PAN  // round 12: r12/gen_pan.py -> build/pan.s / .h (schedule from r12/pan.json)
 #include "build/pan.h"
 extern "C" void pan(const bfloat16 *v, const bfloat16 *u, bfp16ebs8 *dst, int trips, int jump, int group_m1);
@@ -680,7 +714,11 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
 #endif
 #if defined(BGELU)  // round 12: yx's GELU tiles: bias + GELU fused into the drained layout (bias_to_c's order: pair 0 first,
     if (flag == 1)  // then pair 1 onto the second halves of the C slots, whose fp32 pair 0 has consumed)
+#ifdef CSUB
+      csub_rows(c_out, bias, 1);
+#else
       bgelu3(c_out, bias, false, c_out + 512 * 12, c_out + 256);
+#endif
     else
       bias_to_c(c_out, bias);
     return;
@@ -700,6 +738,9 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
       vtk(piece(c_out, obj * 6, 1), bias + 256, g_stash + 4 * 448, 24);
       static_assert(CPY32_U == 3 && 3 * 38 * 32 >= 3584 && 3 * 38 * 32 <= 4608);  // (3,648 B: 64 B into the object's junk tail)
       cpy32(g_stash, c_out + obj * 4608 / 2, 38, 32, 32, 3 * 38 - 1);
+#ifdef CSUB  // round 21: object obj covers sub-part obj ([0, 3,648) / [4,608, 8,256) / [9,216, ..))
+      release(c_out, 48 + CS_CONS, 1);
+#endif
     }
 #else
     const B32 ones = aie::broadcast<bfloat16, 32>(1.0f);
@@ -769,9 +810,13 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
   }
 #endif
 #ifdef BGELU  // round 12: mlp0 (erf): bias + GELU fused over its three segments; flags 5 / 6 keep bias_rows
+#ifdef CSUB
+  if (flag != 4)
+#else
   if (flag == 4) {
     bgelu3(c_out, bias, true, (bfloat16 *)acc_hi, (bfloat16 *)(acc_hi + 256 * 6));  // both pairs in place
   } else
+#endif
 #endif
   bias_rows(c_out, bias);
 #ifndef GUP
@@ -833,6 +878,21 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
 #ifdef PAN  // round 12: the panel pushes as one modulo-scheduled asm loop per segment (r12/gen_pan.py, bit-identical)
   {  // flag 4: one contiguous k-step chunk; 5 / 6: 3 objects of 6 row blocks (3,456 B) at 4,608 B
     const int jump = flag == 4 ? 0 : 4608 - 6 * 8 * PB;
+#ifdef CSUB  // round 21: groups of rb 0-5 / 6-11 / 12-17; their panels end at 3,456 / 6,912 (flag 4) or are the objects at 0 / 4,608 /
+    // 9,216 (5 / 6): one release per group. Flag 4 runs bias + GELU per group; pan rb r writes over C piece r - 4 at the nearest, as
+    // in the one-call order.
+#pragma clang loop unroll(disable)
+    for (int g = 0; g < 3; g++) {
+      bfloat16 *v = g < 2 ? c_out + 3072 * g : (bfloat16 *)acc_hi, *u = (bfloat16 *)(acc_hi + 256 * (6 + 6 * g));
+      if (flag == 4) {
+        bgelu((const float *)v, v, 8 * 6 / BGELU_U, serf_ab, serf_cd, bias);
+        bgelu((const float *)u, u, 8 * 6 / BGELU_U, serf_ab, serf_cd, bias + 256);
+      }
+      pan(v, u, (bfp16ebs8 *)((uint8_t *)c_out + (flag == 4 ? 3456 : 4608) * g), 6 / PAN_U, jump, 5);
+      release(c_out, 48 + CS_CONS, 1);
+    }
+    return;
+#endif
     pan(c_out, (const bfloat16 *)(acc_hi + 256 * 6), (bfp16ebs8 *)c_out, 12 / PAN_U, jump, 5);
     pan((const bfloat16 *)acc_hi, (const bfloat16 *)(acc_hi + 256 * 18),
         (bfp16ebs8 *)((uint8_t *)c_out + (flag == 4 ? 12 * 8 * PB : 2 * 4608)), 6 / PAN_U, jump, 5);
@@ -869,7 +929,11 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
 #endif
   {  // the C cons lock's first release per object (part 1); IRON's out_c.release is the second (part 2). Plain tiles (flag 0) released
     const int flag = ((const int *)bias)[256];  // in bias_to_c; a gated object's first tile (flag 2) not at all
+#ifdef CSUB  // round 21: every other epilogue released its three sub-parts itself
+    if (flag == 3) release(c_out, 48 + CS_CONS, 3);
+#else
     if (flag != 0 && flag != 2) release(c_out, 48 + CS_CONS, 1);
+#endif
   }
 #endif
 #ifdef TPROF  // record over the tile's first output words (timing build): magic 'TPRF'
@@ -1756,7 +1820,11 @@ void attn_end(bfloat16 *c_out) {  // -O2 (round 7)
 #ifdef CSPLIT
   g_zh = 0;
 #ifdef EPLR
+#ifdef CSUB
+  release(c_out, 48 + CS_CONS, 3);  // round 21: part 1's three sub-parts (IRON's out_c.release is part 2)
+#else
   release(c_out, 48 + CS_CONS, 1);  // part 1 (IRON's out_c.release is part 2)
+#endif
 #endif
 #endif
 }
