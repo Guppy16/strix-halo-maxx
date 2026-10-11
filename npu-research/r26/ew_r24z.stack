@@ -1,0 +1,60 @@
+
+File: elfs_main_core_0_5.elf
+Format: elf32-aie
+Arch: aie2p
+AddressSize: 32bit
+LoadName: <Not found>
+StackSizes [
+  Entry {
+    Functions: [core_0_5, main]
+    Size: 0x40
+  }
+  Entry {
+    Functions: [ew_norm]
+    Size: 0x80
+  }
+  Entry {
+    Functions: [_ZL7in_needPKji]
+    Size: 0x0
+  }
+  Entry {
+    Functions: [_ZL7in_donePji]
+    Size: 0x0
+  }
+  Entry {
+    Functions: [_ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEiPh]
+    Size: 0x140
+  }
+  Entry {
+    Functions: [_ZL8bias_tabPK8bfloat16PN3aie6vectorIS_Lj64EEE]
+    Size: 0x0
+  }
+  Entry {
+    Functions: [ew_ssm]
+    Size: 0x80
+  }
+  Entry {
+    Functions: [_ZL10ssm_tablesv]
+    Size: 0x40
+  }
+  Entry {
+    Functions: [ew_op]
+    Size: 0x40
+  }
+  Entry {
+    Functions: [_ZL9wrap_copyPKjiiP8bfloat16ii]
+    Size: 0x40
+  }
+  Entry {
+    Functions: [_ZL8copy_runPK8bfloat16PS_i]
+    Size: 0x40
+  }
+  Entry {
+    Functions: [_ZL7stats64PKfN3aie6vectorI8bfloat16Lj32EEEPhi]
+    Size: 0x480
+  }
+  Entry {
+    Functions: [_main_init]
+    Size: 0x40
+  }
+]

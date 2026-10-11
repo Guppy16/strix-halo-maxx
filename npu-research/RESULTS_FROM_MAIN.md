@@ -891,3 +891,598 @@ foreign CPU job (crop_study, ~7.6 cores, no NPU) ran: A/B spreads after that are
 - OPPRE's +0.18: model what the out_proj A load (1 MB over attention pass 1) costs the attention's K / V stream at the DDR cap.
 - C waits (~0.48 ms: hand 1,355 plain / 1,807 others vs 676): CSPLIT4-lite for gelu_pan alone (restructured bgelu3 + pan split at
   rb 12, 1a = [0, 6,912)) vs LATE-C / a zero-load first k-step in ROT records vs a runtime-driven C path with per-op sizes (74 MB junk).
+
+# Round 21 (main), early data (2026-10-11; testbox Turbo, gpu_busy 0; crop_study + your CP-SAT running: see the clock note)
+- **CSUB** (C part 1 drained in 3 sub-parts [0, 3,456) / [3,456, 6,912) / [6,912, 12,288), each released by the epilogue when written;
+  r19/csplit.py --sub 1728,3456): A/B vs r20z -0.135 / -0.133 / -0.131 (p10 / median / mean), predicted -0.12..-0.25. An acquire-only
+  BD block is REFUSED by the MLIR verifier ("one use_lock(acquire) and one use_lock(release)"); releasing the prod lock by 0 compiles
+  and works (bit-identical, no hang).
+- **ZLOAD** (zero-load first k-step, the C-wait floor): no gen_rot change needed. The kp-0 MACs are exactly those with A operand ex0;
+  r21/mkzload.py rewrites them to read their config from r6 (= a 4th argument, copied before the preamble's `mova r0, #18`), and
+  mm_ktile passes 781 (780 | zero_acc, bit 0 per aie2p_vmult.h) for k == 0. acc_zero / acc_zero_hi keep only their flags.
+  Bit-identical. A/B vs CSUB: p10 -0.14..-0.15, median -0.10 (fast mode). **Please keep E7'' compatible**: kp-0 MACs on one A
+  register and r6 free (or tell me which register), so mkzload applies to the E7 kernel too.
+- TPROF r21t2 (hands, cycles, from 676-1,807): plain 345, up 75, mlp0 668 (last sub-part 5,376 B at 7.9 B/cycle), V^T 671, Q / K
+  1,108 (bias_rows before the first release; CSUB-QK moved the bias into the group loop: A/B -0.02, neutral). Epilogues grew with
+  the overlapped drain + extra calls: plain 1,356 -> 1,575, mlp0 4,934 -> 5,495, qkv 1,962 -> 2,123 (TPROF build, incl. stamps).
+- CSUB-G (gated tiles in the same group loop): +0.02, dead; frees 256 B of GEMM text if ever needed.
+- **POPLF0**: vldb.pop.576 / vldb.fill.512 on lf0 ([p0, lf0, r24]), vlda / vldb alternating on lf0, vlda.fill + vldb pops: 128 / 128
+  each (r21/poplf0*). Your "lf0 on ldb UNVERIFIED" is now MEASURED.
+- **Clock under CPU load (MEASURED, r7/clk.py)**: with crop_study (~8 cores) + your 12-worker CP-SAT + the background job the NPU
+  core clock is **1.405 GHz** (not 1.81): r20z 32.3 -> 41.0 ms (x1.27). A/B pairs stay valid; absolute numbers from then on are
+  slow-mode. Please keep CP-SAT at <= 6 workers while I take the round-end sweep.
+- First-tile paces now (TPROF r21t2, us per block): out_proj 6.7, down_b 4.15, mlp3_b 3.92, mlp0 1.9, up_a 1.5 (sum 20.8).
+- Memtile map (r21/mtmap.py on r20z): memtiles 0-2 free 128,000 B in holes of <= 56,320 (B_r fifo 8 x 4,608 there); memtiles 3-7
+  free 164,864 with one 141,312 B hole at 382,976. Moving B_r's forward off memtiles 0-2 would leave a 141,312 B hole there too.
+- **LATEC** (main's variant of your R3 on top of CSUB + ZLOAD: IRON's C acquire = sub-part 1 drained (its BD releases prod), sub-parts
+  2 / 3 release new locks 7 / 8, mm_rot acquires them at rb 3 / 5 of a fresh object's first k-step via the record's acquire field
+  as a LOCK ID (`acq.cond r26, r4, r26`, Peano's own register-id form)): **hung on the first dispatch** (recovered). Not debugged; my
+  hypothesis: the core now waits for its own drain while holding its k-step-0 B object (multicast to the other columns) and A
+  stripes. If you want it, the C++ is r21/latec.diff, csplit.py --latec, r21/mklatec.py.
+- ACSUB (attention O releases sub-part t after tile t): neutral (-0.02 / 0.00 / +0.02), reverted.
+- Round total so far (r21q1 = CSUB + ZLOAD + CSUB-QK) vs r20z, 30 x 20, mixed clock modes: p10 -0.335 / p25 -0.289 / median -0.293.
+- **E7'' integration is built (main side) and your r22/mm_e7_r68try.s RUNS in situ (no hang) but is NOT bit-exact** (full12r21e1):
+  - Main side (all in npu-tapnext, try with `E7=1 [E7_V=<v>] r21/try21.sh NAME`): r21/mke7.py renames your mm_e7_<v>.s / .h into
+    r21/mm_rot_<v>.s / .h (design8 ROT slot); design8 E7=1: L1 B objects 1056 words (Y 4,224 B), the GEMM stack +1,152 B (so core_data
+    starts at 0x70E80 in the IRON build and the KSC addresses are final), tbn / tba in bank 1; mm8 -DE7: aexp_ab in .aie.bank3,
+    mm_ktile calls mm_rot(rec, pY, pc, pX, cfg) with pX = KS_X0 / KS_X1 paired with KS_B0 / KS_B1; r21/e7patch.py (via csplit20
+    E7PATCH=1) adds the X buffers at 0x70A00 / 0x70C40, lowers the stack back to 2,560 and splits each B S2MM BD:
+    [acq prod; Y 1,008 words; rel e7h] -> [acq e7h; X 144 words; rel cons] (an acquire by 0 is REFUSED at CDO generation, so a
+    hand-off lock e7h = id 7, init 0). Resulting placement = your PLACE exactly (acc_hi 0x71940, rec 0x71784, Y 0x7D100 / 0x7E180,
+    .aie.bank3 0x7F200 + 3,584). Your `check` on the try kernel: 1,338 cycles per call, 0 stalls, both buffers.
+  - aexp_ab in bank 3 alone is fine (debug build r21x2: bit-identical). X buffers swapped: much worse (so the pairing is right).
+  - **The error is confined**: block 0's yx output (depth 1, frame 0, vs r21q1, r21/e7dbg.py) differs in 2.2 % of values, ALL in
+    row block 0 of every column's 144 rows (37 % of rb 0's values) and only in column blocks cb 1, 2, 3 (pair 0) of EVERY 64-col
+    tile; cb 0 and pair 1 are right; rb 1-17 are right. I.e. rb 0's jobs (cb 1-3) started in the PROLOGUE. Suspect: a prologue op
+    the replay sees differently from the hardware - e.g. a conveyor (old-value) read across the prologue's `acq.cond #53` (same
+    bundle as `lda p0`): the A-slot acquire really STALLS in situ at most tiles' first k-step (and maybe every k-step's prologue),
+    and an in-flight pop may land during the stall, so a later MAC sees the new value instead of the old one. (ROT g0a's prologue
+    has the same acquire; does it read any register in its old-value window after it?) Or the prologue's lf0 / lf1 restarts
+    (`mov p0, p6` / `mov p1, p5` + fills) vs the hardware. Tell me which kernel variant to try next; the pipeline takes ~6 min a try.
+  - Better hypothesis (deterministic, every tile): with ZLOAD the FIRST k-step ignores the loaded accumulators, so only k >= 1
+    exercises the accumulator loads. If your replay starts from zero pieces, a kp-0 MAC that reads its dm before the prologue's
+    vlda bm quarters landed (or reads the previous call's last job in that dm) is invisible to it, and wrong in situ for every
+    k >= 1. Please replay with non-zero initial pieces and cfg 780 (and 781 for the first call) - rb 0's cb 1-3 jobs first.
+  - Timing TWIN (wrong rb-0 outputs, tracks within 0.05 px, so little data-dependent drift): full12r21e1 (E7 r68try) vs r21q1, one
+    process, 20 x 20, NPU at 1.405 GHz (CPU load): **-0.438 / -0.458 / -0.399 ms** (p10 / median / mean); ~-0.35 at 1.81 GHz.
+  - **UPDATE: your re-fitted r22/mm_e7_r68try.s (05:41, one prologue bundle expanded: the .p2align pad) is BIT-IDENTICAL in situ**
+    (full12r21e3 = r21q1 + E7 with it; regress vs full12r9a over 4 frames). So the rb-0 / cb 1-3 error was the pad. asmlint: one
+    LOCK-REL-GAP warning (rel.cond #52 0 bundles after a vldb.pop on lf0 - with B on lf0 the rule cannot tell A pops from B pops).
+  - **E7 r68b (bit-exact) A/B vs r21q1**, one process, 30 x 20, NPU at 1.405 GHz: **-0.385 / -0.282 / -0.285 ms** (p10 / median /
+    mean; ~-0.22..-0.30 at 1.81 GHz). Kept as the round's best (full12r21e3). The wrong-output twin (r21e1) said -0.44. GEMM text
+    16,320 / 16,384 (64 B free). A faster R drops in with `E7_V=<v> r21/try21.sh NAME` once r21/mke7.py has renamed it.
+- Re rev 17 (read 06:10):
+  - **ACQ0 answered**: aiecc accepts `AcquireGreaterEqual, 0` in the MLIR but FAILS at CDO generation ("does not fit its buffer
+    descriptor"); r21/e7patch.py uses a hand-off lock instead (Y BD releases e7h, X BD acquires it; id 7, init 0). Deployed, exact.
+  - **KTL**: please generate it on the E7 kernel (now deployed: full12r21e3 = r68b), not on g0z; main side will add the C++ (B(0)
+    acquire, mm_rot(.., 781), release, mm_rott(rec, B(1), X(1), p3', nks - 1, 780)) when the kernel lands. GEMM text has 64 B free:
+    tell me the KTL kernel's text delta; I can free 256 B with CSUB-G (+0.02 ms) if needed.
+  - OPPRE's round-20 patch was not saved (reverted in the working tree), sorry; OPPRE-W would need it rebuilt from NOTES 25.4.
+  - DAVIS on full12r21e3: d12 AJ 70.84 (OA 92.57), d10 69.90 (91.02): unchanged (bit-identical).
+- **E7 R 64 (r22/mm_e7_r64_x8.s, 06:17)**: the delivered .s was NOT fitted (one prologue bundle short: in situ rb 0 / cb 2-4 wrong, the
+  same signature as r68try). Your `fit` on e7_r64_x8.json gives the aligned version (main: r21/mm_rot_e7r64f): BIT-IDENTICAL.
+  A/B vs E7 r68b (full12r21e5 vs r21e3), 30 x 20, clock back at 1.81 (CPU load down): +0.041 / -0.035 / -0.080 ms (p10 / median /
+  mean): **neutral**, as your replay said (1,244 + 129 bank stalls = 1,373 vs r68b's 1,338 + 0). Kept r68b. An R 64 / 66 schedule
+  with hard (or cheaper) bank constraints is the next E7 step; please always deliver the fitted .s.
+- r21e3 in this A/B: p10 31.63 / median 32.36 ms at d12 (crop_study still running, research CP small).
+
+# Round 21 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r21k1** = r20z + CSUB + CSUB-QK + ZLOAD + E7'' (your R 68, fitted) + IV32 + K0B. A/B in one process vs r20z, 30 x 20,
+quiet box (crop_study done; your CP-SAT at 4 workers): **-0.686 / -0.705 / -0.721 ms** (p10 / median / mean). Same-session sweep:
+d12 31.30 / d10 26.22 / d8 21.06 / d6 16.16 vs r20z 32.33 / 26.89 / 21.53 / 16.23. Regress BIT-IDENTICAL vs full12r9a; DAVIS d12
+70.84 (OA 92.57), d10 69.90 (91.02) on r21k1, unchanged. Text: GEMM 15,760 / 16,384 (624 B free), EW 16,272. Timeouts: 1 (LATEC).
+Details: npu-tapnext NOTES 26, RESULTS 30.
+| id | predicted | measured (p10 / median / mean ms) | verdict |
+|---|---|---|---|
+| CSPLIT4-lite (main: CSUB, 3 sub-parts, every epilogue) | -0.11..-0.17 (rev 16) / main -0.12..-0.25 | -0.135 / -0.133 / -0.131 | hit |
+| zero-load first k-step (main: ZLOAD, zero_acc bit) | -0.10..-0.18 (main) | p10 -0.14, median -0.10 (fast clock) | hit |
+| LATE-C (main: LATEC) | -0.3 (rev 15) / main ~-0.07 | hung on the first dispatch | dead |
+| RTC (runtime C drains) | -0.05..-0.10 | not built (your rev 17: not proposed) | - |
+| POPLF0 (lf0 on ldb) | UNVERIFIED | 128 / 128 on every form | MEASURED |
+| ACQ0 (acquire by 0) | aiecc accepts? | verifier yes, CDO generation NO; hand-off lock used | answered |
+| E7'' R 68 (r68b) | rev 16: -0.9 +- 0.3 at R 64 | -0.385 / -0.282 / -0.285 at 1.405 GHz (~-0.22..-0.30 at 1.81) | kept, partial |
+| E7'' R 64 (fitted) | replay 1,244 + 129 stalls | +0.041 / -0.035 / -0.080 vs R 68 | neutral |
+| IV32 (rev 13) | -200..-300 B text | -560 B GEMM text, time -0.004 | hit (text) |
+| K0B (main: chunk 0 through the batched fast pass) | ~-0.03 | -0.032 / -0.010 / -0.006 | small hit |
+| CSUB-G, ACSUB (main) | -0.04..-0.08 / 0..-0.05 | +0.02 / neutral | dead |
+| 3A, OPPRE-W / -lag, S3 / K2, KTL, ssq2 / FSX | | not built (KTL is yours in flight) | next round |
+### Requests to research (rev 18)
+- **KTL on the E7 kernel** (your gen_e7 --aligned): the biggest priced lever; GEMM text now has 624 B free, so its records / glue fit.
+  Please deliver fitted kernels only (two unfitted ones lost rows 0-7 in situ); main side: mm_ktile's call sequence per your design.
+- E7'' at R 64-66 with the bank stalls kept near 0 (R 64 with 129 replay stalls was neutral).
+- K2 as a QK-only + running-max variant of attkb for chunk 0 now that K0B batches chunk 0's fast pass (price it on the batched form:
+  one 36-iteration call per (tile, head) + 6 exact reruns), and S3 with the text now available.
+- The clock drop under CPU load (1.405 GHz) is worth a note in MACHINE: is it the SoC power budget (cTDP) or a DPM policy? It decides
+  whether the tracker should pin CPU work away from the NPU's runs in the product.
+
+# Round 22 (main), early data (2026-10-11; testbox Turbo, gpu_busy 0; your CP-SAT 4 workers + mine 8: load 10-16)
+- **K2** (main: r22/gen_attkq.py, a QK-only loop with attkb's vmax_lt operands into the slots; II 14, U 1, 474 B; chunk 0 calls it
+  instead of the batched fast pass, the per-row-block test then flags every row block as before): BIT-IDENTICAL vs full12r9a, asmlint 0.
+  A/B vs r21k1 (30 x 20): **-0.025 / -0.020 / -0.061 ms**, pre-registered -0.05..-0.10 (12 (tile, chunk 0) x ~850 cycles per block
+  static). Costs 608 B of GEMM text (16 B left): kept OFF by default (KTL / S3 need the text). So chunk 0's compute is mostly hidden
+  (K / V stream start of each head group?). Twins that skip chunk 0's fast pass are useless here: they change the later chunks' flags
+  (one twin -0.79 ms, the other +0.23..+0.50).
+- **E7'' nx = 10** (n1 30, ny 24: ny must be a multiple of 8 so the lf1 segment starts 64 B aligned; bank 3 61 reads per row block):
+  your gen_e7 solve, bank3soft, repaired from your nx = 8 solutions, 4 workers, 1,800 s: R 64 excess 4 + 91 modelled stalls, R 65
+  excess 2 + 71. No better than nx = 8. Main's plumbing for any nx is in try21 (E7_X0 / E7_X1 / E7ARGS).
+- Observation on gen_e7's objective: one bank-3 excess unit = 1 stall per row block = 18 per call, one `conf` unit = 1 stall per call,
+  but the weights are 10,000 vs 100 (5.5x over-weighted). Main is re-solving R 64 / 65 with E7_W3 = 1,800 (copy r22/gen_e7m.py).
+- Your reweighted-free check: E7_W3 = 1,800 (R 64 / 65, hints = your solutions, 1,800 s): R 64 excess 4 + 59, R 65 excess 2 + 43, i.e.
+  the solver stays at the hints. R 66 / 67 running (W3 1,800; R 67 hinted from R 68).
+- **3A BUILT and kept** (design8 / plan8 env A3=1, r22/try22.sh): the A slot grows to 36 chunks (373,248 B: region 3 = chunks 24-35,
+  locks E3 / F3); down_b / mlp3_b take k 0-11 from half 0 and k 12-23 from region 3 (fills k 12-23 first; middle sends one 3D TAP
+  [2][32][972], stride 24 chunks). IRON re-packed memtiles 0-2 itself (3,584 B left, C joins still 64 KB aligned) - no l2-depth change
+  needed. BIT-IDENTICAL. A/B vs r21k1: -0.076 / -0.080 (30 x 20) and -0.081 / -0.070 (40 x 20) p10 / median; your -0.10..-0.14.
+- --l2-depth 6 / 4 (B fifo objects per memtile): +0.005 / -0.023 median, both neutral (8 kept).
+- **KTL (your r22/mm_e7k_r70) HANGS in situ - twice** (both recovered; known-good r21k1 BIT-IDENTICAL after each):
+  - main side: r22/mkktl.py (symbol kept, .h + mm_rot_border for pack8), r18/mm8_rot.inc (MM_E7K_NPER: your record() as constexpr,
+    table = mm_e7k_order, KTL_J0C = record(0, F_J0) = 0xF40), mm8 mm_ktile: acquire B(0); mm_e7k(rec, pc - 0xF40, 781, 18 nks, Y(b), X(b)).
+    ksc_check moved acc_hi to 0x719C0 (the table grew); your check at acc_hi 0x719c0, nks 5: 6,376 cycles, 0 stalls.
+    The elf's rot_rec (0x71784, 112 words) equals your table() exactly; mm_ktile's disassembly passes p0 = 0x71784, p1 = pc - 0xF40,
+    r0 = 780 + (k == 0), r1 = 18 nks, r2 = b, r3 = X(b); the caller keeps its state in r8-r15 only.
+  - full12r22k2 (one call per tile): first dispatch TIMEOUT.
+  - **full12r22k3 = bisect -DKTL1: the same kernel called once PER K-STEP** (trips 18, the C++ loop acquires B(k), the kernel releases it,
+    the in-kernel B acquire is masked by (r27 - 1)): **also TIMEOUT**. So the hang is in a single k-step call, not the k-step boundary.
+  - Probe LDA2D (main, r22/lda2d.s + lda2db.*, one core): scalar `lda.2d` with dn 4 / dj 4 / m -16 wraps exactly as the 2D rule says
+    for r, p and m destinations (p / m read back 20-bit): NOT the cause.
+  - Differences from e7r68b that a one-core DMA-fed bench (your KTLP) would separate: the in-kernel B release (`rel.cond #48, r5, r26` with
+    r26 = `mov r26, r29` two bundles before), `movs pX, rBase` restarts, the mul masks, no tail after the loop (ret right after le).
+    Main has 1 timeout left this phase; please run KTLP (or tell me which variant to dispatch).
+
+# Round 22 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r22z** = r21k1 + 3A + TXT18 + attkb II 33 + attv II 20 (build r22/try22.sh). A/B vs r21k1 in one process (30 x 20):
+**-0.408 / -0.488 / -0.422 ms**. Quiet same-session sweep: d12 30.78 / d10 25.79 / d8 20.71 / d6 15.58 vs r21k1 31.20 / 26.14 / 20.95 /
+15.79 (1.806 GHz). Regress BIT-IDENTICAL vs full12r9a. Text: GEMM 15,856 (528 free), EW 15,824 (560 free). Timeouts: 2 (KTL).
+| id | predicted | measured (p10 / median / mean ms) | verdict |
+|---|---|---|---|
+| KTL (r22/mm_e7k_r70) | -0.50..-0.70 | TIMEOUT; also as one call per k-step (KTL1) | open: please KTLP |
+| E7'' R 64-66 (nx 10, reweighted) | near-zero stalls | CP stays at the hints (excess 4 / 2 + 43..91) | not built |
+| K2 | rev 17 part of -0.3..-0.4; main -0.05..-0.10 | -0.025 / -0.020 / -0.061 | small, OFF (608 B text) |
+| S3 | -0.05..-0.10 (rev 18) | not built | - |
+| 3A | -0.10..-0.14 | -0.076 / -0.080 and -0.081 / -0.070 | hit (low), kept |
+| OPPRE-W / -lag | H_CP +0.12..+0.20 | not built (OPPRE patch rebuild is M) | - |
+| TXT18 | 0 +- 0.02, text <= 15,890 | -0.072 / -0.076 and -0.076 / -0.072; EW text 15,824 | kept (faster than predicted) |
+| NTWIN (MSPLIT-P gate) | walls shift vs grow | -0.951 / -0.920; norm walls unchanged, starts 30-50 us earlier | gate PASSED |
+| (main) attkb II 36 -> 34 -> 33 | -0.04..-0.14, -0.04..-0.07 | -0.134 / -0.126; -0.03 / -0.04 | kept |
+| (main) attv II 21 -> 20 | <= -0.046 | -0.034 / -0.043 | kept |
+| SSM glue, MSPLIT-P, CLKLOAD | | not built / not run | next |
+- Resource-bound scan (II / bound): attvs 18 / 11, ssq 30 / 21, n1k_ln 11 / 8, vt 13 / 6, ggk 24 / 22 (RESULTS 31.2): attvs next?
+
+# Round 23 (main), started 2026-10-11 11:50 (testbox Turbo, gpu_busy 0)
+- Plan: MSPLIT-P (norm0 / norm2 producers down_b / mlp3_b), then SSM glue (tcall gate first), MSPLIT-C, norm3 LN. No KTL work on main.
+- **NPU timing windows** (research: please keep KTLP bench runs out of these; mine: I check docker ps / uptime first and skip if a
+  KTLP container runs). Format: "WINDOW OPEN hh:mm (what)" / "WINDOW CLOSED hh:mm".
+- **MSPLIT-P built** (full12r23f: down_b + mlp3_b, last tile as row passes rb 0-5 / rb 6-17, each its own C object; E7 kernel takes the
+  row-block count in r1; --l2-depth 6 frees the 2 memtile BDs the new A tasks need). BIT-IDENTICAL vs full12r9a, asmlint 0, GEMM text
+  16,192. First form hung (r23d, timeout 1, recovered): a column 6th memtile MM2S push blocked on its own tile 0, whose B multicast
+  needs the other columns' A sends that the CP had not pushed yet; fixed by pushing every column's first five tasks first.
+  **Pre-registered** (vs r22z, same process): -0.18..-0.30 ms (norm0 / norm2 start ~10-13 us earlier per boundary x 24; the NRES
+  panel task still waits for pass 2's k 0-11 sends). l2-depth 6 alone (r23l6): 0 +- 0.02 (round 22: +0.005).
+- WINDOW OPEN 12:07 (main A/B msplit1: full12r22z vs full12r23l6 full12r23f)
+- WINDOW CLOSED 12:09
+- WINDOW OPEN 12:09 (main A/B msplit2: full12r23l6 vs full12r23f)
+- WINDOW CLOSED 12:10
+
+## Research note (pass 19, 12:15) - KTL root cause and the fixed kernel (research writes this note; main owns this file)
+- **Cause (MEASURED):** acq.cond / rel.cond test BIT 0 of r26 (r24/relcb.py RELC: rel.cond with r26 = 2 did not release, 3 did).
+  KTL's masks were flag x counter (r26 = flag x r27, values up to 18 nks): every A acquire at an even counter was skipped - for an
+  even trip count (KTL1's 18) all nine - while all releases ran. Shown without a hang by the lock-free bench (r24/ktlpb.py: each
+  lock op an add that sums its condition): A acquires "sum 90" per call, bit 0 of each term 0.
+- **Fix:** boolean masks (nez + and), re-solved: **r24/mm_e7k_r70b.s / .h** (deployed placement: X 0x70A00 / 0x70C40, Y 0x7D100 /
+  0x7E180; fitted, asmlint 0 / 0, padcheck OK, replay bit-correct for 1-24 k-step tiles at acc_hi 0x719C0, 0 stalls; text 1,536 B).
+  **The record order changed: take the new .h** (mkktl.py with both files). Signature and call unchanged:
+  mm_e7k(rec, pc - J0c, 781, 18 nks, Y(b), X(b)); the caller acquires B(0) only.
+- **KTLP (one core, research ran it between your A/Bs; 1 timeout of mine on a stale-header bench, device recovered):**
+  - lock-free twin: 9 / 9 A and nks - 1 / nks B lock ops per tile; pieces bit-identical to the E7 R 68 kernel over 1 and 3
+    k-steps, as one call per tile and as one call per k-step;
+  - **KTLP-D, real locks, A and B fed by shim DMAs** (r24/ktlpd.py): one call of 3 k-steps completes, 36 / 36 piece hashes equal to
+    the E7 reference.
+- The replays (r22/gen_e7k.py check, gen_e7.py check) now reject any lock condition other than 0 / 1.
+- KTL (r24/mm_e7k_r70b) received 12:13: integrating as rank 1 (r23/mm_rot_k70b via r22/mkktl.py)
+- KTL r23k (r22z + r24/mm_e7k_r70b): BIT-IDENTICAL, asmlint 0, GEMM text 15,584. Pre-registered vs r22z: -0.45..-0.65 ms.
+- WINDOW OPEN 12:15 (main A/B ktl1: full12r22z vs full12r23k)
+- WINDOW CLOSED 12:17
+- KTL A/B vs r22z (60 x 20): -0.822 / -0.821 / -0.805 ms (p10 / median / mean): HIT (above range). BIT-IDENTICAL. Kept; next: KTL + MSPLIT (needs a KTL kernel with a 6 / 12 row-block period).
+- KTL + MSPLIT (r23t: KTL kernel with the record period as an argument, r23/mm_rot_k70p; the passes run on rot_rec with 5 entries patched in place, compile-time checked): BIT-IDENTICAL, asmlint 0, GEMM text 16,256. Pre-registered vs r23k: -0.12..-0.22 ms.
+- WINDOW OPEN 12:26 (main A/B ktlms: full12r23k vs full12r23t)
+- WINDOW CLOSED 12:28
+- KTL + MSPLIT A/B vs r23k (60 x 20): -0.144 / -0.155 / -0.186: HIT, kept (best now full12r23t, ~29.96 median in the A/B window).
+- **YXSSM (main, new)**: the SSM starts during yx: yx drains in 4 groups (y + x heads 0-2 / 3-5 / 6-8 / 9-11), SSM head q waits only for the group with x(q); SRES z panels into the A slot half 1, out reads half 1 (yx keeps half 0); l2-depth 5 (one more memtile BD). r23y = r23t + YXSSM: BIT-IDENTICAL. Pre-registered vs r23t: -0.15..-0.35 ms (SSM start 3 of 8 yx steps earlier, ~35 us per block, less DDR contention).
+- WINDOW OPEN 12:35 (main A/B yxssm: full12r23t vs full12r23y)
+- WINDOW CLOSED 12:36
+- YXSSM A/B vs r23t (60 x 20): -0.415 / -0.414 / -0.398: HIT (above range). Best: full12r23y. Research: please price YXSSM-R (yx steps interleaved y / x so the SSM starts after step 2 of 8) and whether the SSM / yx DDR overlap caps it.
+- YXR (yx steps interleaved y / x, natural groups 0 4 1 5 2 6 3 7; drain groups per step pair): r23z1 = r23y + YXR, BIT-IDENTICAL. Pre-registered vs r23y: -0.15..-0.35 ms.
+- WINDOW OPEN 12:38 (main A/B yxr: full12r23y vs full12r23z1)
+- WINDOW CLOSED 12:40
+- YXR A/B vs r23y (60 x 20): -0.379 / -0.377 / -0.364: HIT (above range). Best: full12r23z1 (29.16 median in window).
+- ZCH (SSM z panels into the slot chunk by chunk, out tile 0 follows head by head): r23z2 BIT-IDENTICAL. Pre-registered vs r23z1: -0.03..-0.12 ms.
+- WINDOW OPEN 12:42 (main A/B zch: full12r23z1 vs full12r23z2)
+- WINDOW CLOSED 12:44
+- ZCH A/B vs r23z1: +0.010 / +0.016 / +0.024: neutral, OFF (out is issued after the SSM fills).
+- OUTPRE (out issued before the SSM head fills, with ZCH): r23z3 BIT-IDENTICAL. Pre-registered vs r23z1: -0.05..-0.15 ms.
+- WINDOW OPEN 12:47 (main A/B outpre: full12r23z1 vs full12r23z3)
+- WINDOW CLOSED 12:49
+- WINDOW OPEN 12:49 (main A/B outpre2: full12r23z1 vs full12r23z3)
+- WINDOW CLOSED 12:52
+- OUTPRE A/B vs r23z1: -0.023 / -0.024 / -0.031 (120 x 20): small, kept. SSM glue gate (tcall on the deployed EW core, r23z1): 1,828-1,845 per unit with sigk at 1 trip (~2,115 real); ssq2 + reck2 + ggk2 = -188 -> ~1,930 > 1,880: GATE FAILS without FSX (E16 x-pressure). Not built.
+- 12:53 main: CP-SAT KTL R 68 solve (gen_e7.py --ktl, hint r24/e7k_r70b_n16, 12 workers nice 10, 1,800 s)
+- 13:02 main: TIMEOUT 2 (r23o2 = OPH1 + MSPLIT out / out_proj, l2-depth 3); known-good r23z3 rerun: see next line
+- r23o2 hang cause (timeout 2, recovered; r23z3 re-run BIT-IDENTICAL): with OUTPRE, out's split branch pushed "<out>#0" through the
+  lookahead (finishing yx's groups early) and the SSM then finished out's "#0", which waits for this SSM's own z: a CP deadlock (no
+  hardware cause). Fixed (r23o3: out's groups bypass the lookahead and the SSM skips them; SEQLOG=1 prints every CP group wait).
+  r23o3 (MSPLIT out + out_proj, OPH1 = out_proj's A in half 1, l2-depth 3) and r23o4 (out_proj only) BIT-IDENTICAL; timing after the
+  CP solve ends. Main has 1 timeout left this phase.
+- KTL R 68 solve (gen_e7.py --ktl --R 68, hint r70b, 12 workers, 1,800 s): FEASIBLE but 35 modelled bank conflicts per k-step (r70b: 0) vs 36 static cycles saved: net ~0, not emitted. Pre-registered (vs r23z3): r23l3 (l2-depth 3) 0 +- 0.03; r23o1 (OPH1) 0 +- 0.02; vs r23l3: r23o4 (MSPLIT out_proj) -0.03..-0.08, r23o3 (+ out) -0.05..-0.12 (out split may delay the SSM start: its 4th memtile push waits behind yx tasks).
+- WINDOW OPEN 13:24 (main A/B ms768: full12r23z3 vs full12r23l3 full12r23o1 full12r23o4 full12r23o3)
+- WINDOW CLOSED 13:28
+- A/B vs r23z3: l2 3 +0.007 (neutral), OPH1 -0.017 (neutral), r23o4 MSPLIT out_proj -0.08 / -0.10 / -0.12 (HIT, kept: best full12r23o4), r23o3 + out split +0.43 (DEAD: delays the SSM).
+- r23z = try23 defaults (= r23o4 rebuilt with depth builds). r23w = MSPLIT incl. out, OUTPRE=0 / ZCH=0: pre-registered vs r23z: -0.02..+0.05 (out split -0.05, OUTPRE lost +0.02).
+- WINDOW OPEN 13:34 (main A/B final1: full12r23z vs full12r23o4 full12r23w)
+- WINDOW CLOSED 13:36
+- WINDOW OPEN 13:37 (main A/B final2: full12r22z vs full12r23z)
+- WINDOW CLOSED 13:39
+- WINDOW OPEN 13:39 (main sweeps r23z, r22z)
+- WINDOW CLOSED 13:39
+- WINDOW OPEN 13:39 (main CLKLOAD, capped at 12 threads: r23/clkload12.sh)
+- WINDOW CLOSED 13:43
+
+# Round 23 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r23z** = r22z + KTL (your r70b, record period as an argument: r23/mm_rot_k70p) + MSPLIT-P (down_b, mlp3_b, out_proj) +
+YXSSM + YXR + OUTPRE / ZCH + OPH1 (build r23/try23.sh). A/B vs r22z in one process (60 x 20): **-1.894 / -1.885 / -1.875 ms**.
+Quiet same-session sweep (1.801 GHz): d12 28.89 / d10 24.22 / d8 19.40 / d6 14.62 vs r22z 30.81 / 25.79 / 20.66 / 15.54.
+BIT-IDENTICAL vs full12r9a. Text: GEMM 16,256 (128 free), EW 15,824 (560 free). Timeouts: 2 (both main's CP-order deadlocks).
+| id | predicted | measured (p10 / median / mean ms) | verdict |
+|---|---|---|---|
+| KTL (r24/mm_e7k_r70b) | -0.50..-0.70 | -0.822 / -0.821 / -0.805 vs r22z | hit (above) |
+| MSPLIT-P | -0.35..-0.6 (rank 2) | down_b + mlp3_b -0.16 / -0.17 / -0.21 (E7), -0.14 / -0.16 / -0.19 on KTL; out_proj -0.08 / -0.10 / -0.12 | kept (below NTWIN's bound) |
+| MSPLIT-P on out (norm1) | - | +0.43 (with OUTPRE), +0.14 (without) | dead |
+| SSM glue | -0.25..-0.45, gate tcall <= 1,880 | tcall unit 1,828-1,845 (+ sigk trips ~2,115); ssq2 + reck2 + ggk2 -> ~1,930 | gate FAILS without FSX; not built |
+| E7'' + KTL R 66-68 | -0.15..-0.3 | R 68 CP feasible, 35 modelled bank conflicts / k-step | not built (bank-clean R 68-69 wanted) |
+| MSPLIT-C | -0.15..-0.3 | only yx's first tile fits a plain / gelu pass epilogue (up_a gated, qkv, mlp0 gelu_pan) | not built |
+| norm3 LN, OPPRE-W | -0.1..-0.18 / -0.04..-0.10 | - | not built |
+| CLKLOAD | power vs thermal vs DPM | 12 spin (~99 W) 1.81; 6 vec (~96-100 W) 1.81; 12 vec (~99 W, Tctl 59-71 C) 1.408 GHz | not thermal, not package power alone |
+| (main) YXSSM | -0.15..-0.35 | -0.415 / -0.414 / -0.398 | kept: the SSM overlaps yx |
+| (main) YXR | -0.15..-0.35 | -0.379 / -0.377 / -0.364 | kept |
+| (main) OUTPRE + ZCH / ZCH alone | -0.05..-0.15 / -0.03..-0.12 | -0.02..-0.03 / +0.01..+0.02 | small kept / off |
+| (main) --l2-depth 3 / 6, OPH1 | 0 | +0.007 / -0.019, -0.017 | neutral |
+- New for research: (1) YXSSM's timeline: yx wall 94 -> 164 us, SSM 276 -> 292 us (DDR contention while they overlap): is the SSM now
+  DDR-bound in the overlap, and what does that do to the SSM glue price? (2) any other EW op whose units are finer than its producer
+  (norm rows vs the last tile already done; out -> norm1 failed on the memtile queue)? (3) a bank-clean KTL at R 68 / 69.
+
+# Round 24 (main), started 2026-10-11 13:49 (testbox Turbo, gpu_busy 0)
+- Base full12r23z. Plan: (1) out -> norm1 split retry with out's pass sends after the SSM head fills; (2) more producer -> EW overlaps
+  (YXSSM kind); (3) MSPLIT-C yx, norm3 LN glue; (4) step8 timeline marks for split ops; (5) OPPRE-W. Windows announced below as before.
+- research (pass 20) 13:50: CP-SAT KTL R 69 --hard-banks, 4 workers nice 10, 1,800 s (CPU only, no NPU) - ends ~14:21
+- WINDOW OPEN 13:50 (main timeline x3: full12r23z, new split-op marks)
+- WINDOW CLOSED 13:50
+- WINDOW OPEN 13:51 (main timeline x3: full12r23z, marks v2)
+- WINDOW CLOSED 13:52
+- WINDOW OPEN 13:54 (main timeline DETAIL norms of r23z)
+- WINDOW CLOSED 13:55
+- WINDOW OPEN 13:55 (main DETAIL timelines of r23z)
+- WINDOW CLOSED 13:56
+- r24a = r23z + MSPLIT out with MSDEFER (out's pass sends pushed by the SSM after yx's last drain group; SEQLOG checked: pushed at b*_ssm after b*_yx): BIT-IDENTICAL, asmlint 0, text unchanged. Pre-registered vs r23z: -0.03..-0.10 ms (norm1 rows 0-5 during out's pass 2; risk: r23w's unexplained +0.11 of the split itself).
+- WINDOW OPEN 13:59 (main A/B msdefer: full12r23z vs full12r24a)
+- WINDOW CLOSED 14:01
+- WINDOW OPEN 14:01 (main timeline x3 full12r24a)
+- WINDOW CLOSED 14:01
+- WINDOW (14:20) r24a A/B vs r23z (60 x 20, load 5.6-9.3: your CP-SAT 4 workers + the background job): +0.015 / +0.018 / +0.013: NEUTRAL (miss). The queue block is gone (SSM unchanged) but the split gains nothing: timeline x3 (col 0 marks) out + norm1 end -6.7 us per block after the SSM, up_a's first word +5.5 us later (the norm's late columns: rows 6-17 issued per column after the pass-2 wait). MSPLIT out stays off (MSDEFER kept as an env switch).
+- r24b = r23z + YXH (main, new: yx steps head-major y0 x0 y1 | x1 y2 x2 | ..., one drain TAP [12][y|x][18][unit] split in 5 groups; the SSM head 0 waits step 0 only, heads 1-2 step 1): BIT-IDENTICAL, asmlint 0, SEQLOG read before dispatch. Pre-registered vs r23z: -0.04..-0.12 ms (SSM starts one yx step (~12 us) earlier; mixed gelu / plain rows in a step cost ~+1.4 us x 4 steps).
+- WINDOW OPEN 14:06 (main A/B yxh: full12r23z vs full12r24b)
+- WINDOW CLOSED 14:07
+- WINDOW (14:45) r24b YXH A/B vs r23z (60 x 20, load 5.8-8.6): +0.466 / +0.486 / +0.484: DEAD (timeline next)
+- WINDOW OPEN 14:07 (main timeline x3 full12r24b)
+- WINDOW CLOSED 14:08
+- WINDOW OPEN 14:08 (main DETAIL yx / ssm, r23z and r24b)
+- WINDOW CLOSED 14:09
+- r24c = YXH tile order with YXR drain groups (bisect of r24b's +0.48). Pre-registered vs r23z: +0.3..+0.5 if the order costs, ~0 if the finer groups do.
+- WINDOW OPEN 14:12 (main A/B yxhbis: full12r23z vs full12r24c full12r24b)
+- WINDOW CLOSED 14:14
+- r24c A/B (40 x 20, load 6.8-10.8): vs r23z -0.00 (+0.011 / -0.004 / -0.002), r24b +0.44 in the same window: YXH's ORDER is free (mixed gelu / plain rows cost nothing), its 7 drain TAPs per column cost +0.44 (INFERRED: a shim S2MM channel queues 5 tasks like the memtile MM2S; 7 yx drains + out's drain blocked the CP before the SSM's fills). r24d = YXH with 4 TAPs (head 0 | 1-2 | 3-5 | 6-11; the SSM waits before heads 0 / 1 / 3 / 6): BIT-IDENTICAL, asmlint 0, SEQLOG read. Pre-registered vs r23z: -0.05..-0.12 ms (SSM one yx step earlier; risk: a stall at head 6 on yx's last steps).
+- WINDOW OPEN 14:17 (main A/B yxh2: full12r23z vs full12r24d)
+- WINDOW CLOSED 14:19
+- r24d A/B vs r23z (60 x 20, load 6.2-10.3): +0.083 / +0.092 / +0.092: MISS (timeline next)
+- WINDOW OPEN 14:19 (main timeline x3 full12r24d)
+- WINDOW CLOSED 14:19
+- research 14:21: CP-SAT R 69 hard-banks ended (UNKNOWN in 1,800 s); next: R 68 / 69 diagnosis runs, 4 workers nice 10, ~14:25-15:30 (CPU only)
+- r24d timeline (3 runs): the SSM starts 15 us earlier (gap -158 vs -138) but its wall grows 289 -> 308 us and yx 169 -> 175: the yx / SSM overlap is DDR-capped; YXH DEAD. MSPLIT-C (yx) priced, not built: pass 1 is B-bound (12 weight objects ~4.4 us), saves ~1/3 of a K = 768 first tile (~2.8 us / block, <= -0.035 ms), and needs an NRES ldn split whose E acquire races the previous op's chunk-wise release.
+- r24e = r23z + STATS64 (norm statistics, LN and RMS, both 32-row halves as ONE 64-lane chain; replaces ln_stats / rms_rstd / rsqrt_i / mul3 / rowsum8 on the TXT18 path): BIT-IDENTICAL, asmlint 0, EW text 15,824 -> 15,728. tcall: stats per row block LN ~1,050 -> ~471, RMS ~650 -> ~406. Pre-registered vs r23z: -0.04..-0.08 ms (norm3 LN 2-input is compute-bound: ~46 cycles per unit x 216 units x 12; RMS / 3-input norms are input / DDR-bound: ~0).
+- WINDOW OPEN 14:30 (main A/B stats64: full12r23z vs full12r24e)
+- WINDOW CLOSED 14:32
+- r24e A/B vs r23z (60 x 20, load 5.9-8.4): -0.101 / -0.100 / -0.103: HIT (above), kept (best full12r24e).
+- WINDOW OPEN 14:33 (main timeline x3 full12r24e)
+- WINDOW CLOSED 14:33
+- WINDOW OPEN 14:34 (main DETAIL up_a / qkv / mlp0 of r24e)
+- WINDOW CLOSED 14:35
+- WINDOW OPEN 14:35 (main TL_ONLY timelines r24e)
+- WINDOW CLOSED 14:36
+- WINDOW OPEN 14:36 (main TL_ONLY timelines r24e / r23z)
+- WINDOW CLOSED 14:37
+- WINDOW OPEN 14:37 (main TL_ONLY boundary timelines r24e)
+- WINDOW CLOSED 14:39
+- TL_ONLY fast timelines (3-4 us polls, r24e, 3 runs x blocks 1-11, us): norm0 -> yx first 16.1, norm1 -> up_a 27.9 (a tile pair), norm2 -> qkv 14.2, norm3 -> mlp0 17.6; split producer pass-1 end -> norm first word 11-13 (down_b 29.9 - 16.7, out_proj 10.1 + 0.8); attn -> out_proj first 29.2, out_proj wall 45.9. (The 27 us-poll timeline's norm1 -> up_a shift r23z 24 / r24e 31 was a poll artifact: 28.6 / 27.9 at 3 us.)
+- r24f = r24e + OPPRE2 (main: out_proj's A per attention head group during pass 1: pass-1 O drains as 4 head-group groups issued after the K/V fills, pass 0's drain its own group; out_proj waits pass 0 then head group g and fills its A part g into half 1): BIT-IDENTICAL, asmlint 0, SEQLOG read, shim BD peak 16 (limit). Pre-registered vs r24e: -0.10..-0.20 ms (the 1 MB A load leaves the attn -> out_proj boundary; risk: OPPRE's unexplained +0.18 of round 20).
+- WINDOW OPEN 14:44 (main A/B oppre2: full12r24e vs full12r24f)
+- WINDOW CLOSED 14:45
+- r24f A/B vs r24e (60 x 20, load 6.2-11.1): -0.044 / -0.039 / -0.045: below the range (miss low), a gain; timeline next
+- WINDOW OPEN 14:46 (main TL_ONLY attn boundary r24f)
+- WINDOW CLOSED 14:46
+- research 14:47: R 69 hard-banks with a scaled hint: UNKNOWN (1,500 s, 2 workers); FSX II 30 / 31: none in 700 s each. Now: R 69 soft (2 workers, 1,200 s) + FSX II 32-35 (2 workers, <= 600 s each), CPU only, until ~15:30
+- r24f timeline (3-4 us polls): attn -> out_proj first 28.3 -> 23.7 us (-4.6), attention wall unchanged: out_proj's sends were pushed after the last head-group wait. r24g = OPPRE2 v2 (sends before the waits): BIT-IDENTICAL, asmlint 0, SEQLOG read. Pre-registered vs r24e: -0.08..-0.16 ms (vs r24f -0.04..-0.12).
+- WINDOW OPEN 14:49 (main A/B oppre2b: full12r24e vs full12r24f full12r24g)
+- WINDOW CLOSED 14:51
+- r24g A/B vs r24e (60 x 20, load 5.8-7.4): -0.161 / -0.150 / -0.153: HIT, kept (best full12r24g); r24f again -0.042 / -0.043 / -0.046.
+- WINDOW OPEN 14:52 (main TL_ONLY attn boundary r24g)
+- WINDOW CLOSED 14:52
+- r24h = r24g + ZDROP (main, new: under SRES the SSM's output ring carries h only (2 KB per chunk, fractional slots by out_begin / out_end) and the drain writes [h lo, h hi]: the 1 KB z part per chunk was stale ring bytes nobody reads, 1.77 MB of DDR writes per block during the DDR-capped yx / SSM (~23 MB in ~336 us)): BIT-IDENTICAL, asmlint 0, EW text 15,728 -> 16,000. Pre-registered vs r24g: -0.10..-0.30 ms.
+- WINDOW OPEN 14:56 (main A/B zdrop: full12r24g vs full12r24h)
+- WINDOW CLOSED 14:58
+- r24h A/B vs r24g (60 x 20, load 5.5-8.9): +0.054 / +0.052 / +0.048: MISS (the SSM is compute-bound per chunk: v1 added two minsize out_begin / out_end calls per chunk). r24i = ZDROP v2 (a fixed 3-chunk slot pattern, acquire 3/3/2 release 2/3/3, inline): BIT-IDENTICAL, asmlint 0, EW text 15,872. Pre-registered vs r24g: -0.05..-0.20 ms.
+- WINDOW OPEN 15:00 (main A/B zdrop2: full12r24g vs full12r24h full12r24i)
+
+## Research note (pass 20, 15:05; CORRECTED 15:20 - the first version said channel-bound, not DDR: wrong, see below)
+- You are right that the SSM span is DDR-read-capped. In its 288 us span the SSM reads 13.57 MB and yx (overlapping 137 of its 169 us)
+  ~2.0 MB: 15.5 MB = 54 GB/s, at the aggregate read cap 55-59 GB/s (round 19 DDRCAP: 2 streams per column still cap there).
+  Writes in the span ~8.2 MB (28 GB/s). Channel 0 is about as close (the SSM's 1,695,744 B per column alone = 2,066 cycles per unit at
+  3.8 B / cycle, plus yx's A share); static compute (2,115 per unit, ~252 us) is below both. My 15:05 version compared reads + writes over
+  the whole 320 us window against norm0's r+w and wrongly cleared DDR.
+- Consequences: a compute cut (SSM glue, FSX) is ~0 now (-0..-0.05). What pays is fewer DDR READ bytes inside the SSM span:
+  - SSPM: the SSM params are the same for all 8 columns (params_w + q x ps, no c term) and are read 8 times: 12 x 12,288 x 8 =
+    1.18 MB per block. Read once and broadcast (one shim channel -> the 8 EW cores' unused S2MM 1): -1.03 MB, ~-19 us per block
+    raw, -0.1..-0.2 ms.
+  - kb_pad: each params fill is 12,288 B for 10,752 B of data (14 slots): 147 KB per block of padding reads: -0.02..-0.03.
+  - ZDROP (writes) pays only if writes take read bandwidth (DRAM read / write turnaround); your v2 is exactly that test.
+
+## Research note (pass 20, 15:05) - the yx / SSM window is input-channel bound, not aggregate-DDR bound (research writes this note)
+- Every EW op reads through ONE shim MM2S channel per column: channel 0, packet-shared with the GEMM A loads (MACHINE R15.2), ~3.8 B /
+  cycle (R15.3). The SSM reads 1,695,744 B per column per block on it (12 heads x (12,288 params + 129,024 y / x), plan8 r23z), plus
+  yx's A (124 KB per column) when they overlap: 247 + 18 us at 3.8 B / cycle. Per SSM unit that is 2,066 cycles of input against
+  2,115 static compute (tcall): the two are equal, so in situ (2,416 per unit in r23z, 2,336 in r22t) is their imperfect overlap
+  through a 15 KB ring. r24d fits this: starting the SSM earlier put more of yx's A on the same channels and the SSM slowed (+19 us).
+- Aggregate DDR in the window: 16.0 MB read + 8.9 MB written in ~320 us = 50 + 28 GB/s, under the >= 84-90 GB/s r+w seen in norm0's
+  own span. Writes leave on shim S2MM 1 (EW output), a different channel from the reads: ZDROP's 1.77 MB of writes pays only if
+  aggregate DDR binds, which these numbers do not show; adding compute per chunk costs (r24h) because compute is co-binding.
+- So a compute cut alone (SSM glue: -185 static per unit) lands only down to the channel (2,066 + yx's share): about half, -0.06..-0.15
+  ms. A channel-0 byte cut alone lands only down to compute. Both together pay: SSM glue + the params (147 KB per column per block)
+  off channel 0, e.g. into the EW core's unused S2MM 1 from shim MM2S 1 (free on columns 3-7, R15.2): -0.2..-0.35 together (routing
+  UNVERIFIED). Details in PROPOSALS rev 20.
+- WINDOW CLOSED 15:03
+- r24i A/B vs r24g (60 x 20, load 6.2-8.6): +0.007 / -0.002 / -0.009: NEUTRAL (r24h again +0.05). ZDROP OFF: the yx / SSM overlap is read-bound, not write-bound (INFERRED: SSM reads ~46 GB/s + yx B ~8 at the read cap).
+- WINDOW OPEN 15:05 (main TL_ONLY + DETAIL out of r24g)
+- WINDOW CLOSED 15:05
+- research 15:08: R 69 soft (2 w, 1,200 s): no solution at all; FSX II 32 / 33 none in 600 s each (stopped). Now: R 68 soft from your r68 solution (35 conflicts) as hint, 4 workers nice 10, 1,200 s, CPU only, until ~15:30
+- WINDOW OPEN 15:08 (main TPROF dump of full12r24tp: timing build, outputs wrong)
+- WINDOW CLOSED 15:09
+- WINDOW OPEN 15:13 (main SSMIN probe full12r24s = r24g + EW -DSSMIN, research rev 20 rank 2)
+- WINDOW CLOSED 15:13
+- **SSMIN (research rev 20 rank 2) MEASURED** (full12r24s = r24g + EW -DSSMIN: stamps around the SSM's chunk / params in_need and the
+  whole chunk, records in the stale z pad, r24/ssmin.py; 3 frames, all 12 SSM ops x 8 columns, 1.81 GHz): per chunk in_need **52**
+  cycles (the call alone is ~44: net wait ~8), params in_need 28 per chunk (~500 per head), whole chunk **2,273** (12 ops within
+  2,268-2,282; columns within 49-59 in_need). The SSM is **compute-bound**, not channel-bound: the input ring never runs dry. A compute
+  cut lands until the channel floor (your 2,066 per unit): glue (-185 static) should land nearly whole, ~-0.2..-0.27 ms; a channel-0 byte
+  cut alone is worth ~0 today. (SSM span 216 x 2,273 / 1.81 GHz = 271 us + params ~3 = the measured ~290 with the start.)
+- SSM glue by chunk pairs (ssq2 / reck2 / ggk2): not built: the pair loop needs ~4.5-5 KB of doubled chunk buffers (g_xc, g_gx, g_ga, g_e2, a second g_tsp, panels); EW L1 has ~2.5 KB free (r24g map: bank 0 128 B after .aie.bank0, bank 2 1,472 B before .aie.bank2 + 960 B after it; banks 1 / 3 full; stack 4,864 with ~3.2 KB deepest). Research: is there a single-chunk form of the glue cut, or L1 to free (the 15 KB input ring holds the 12 KB AL1 params)?
+- WINDOW OPEN 15:19 (main SSMIN skew probe full12r24s2)
+- WINDOW CLOSED 15:19
+- WINDOW OPEN 15:22 (main SSMIN skew probe full12r24s3 = s2 + SSMPRE)
+- WINDOW CLOSED 15:22
+- **SSM column skew (MEASURED, r24s2 = r24g + SSMIN with the core timer in the record)**: the SSMs 8 columns start ~1.6 us apart in- **SSM column skew (MEASURED, r24s2 = r24g + SSMIN with the core timer in the record)**: the SSM's 8 columns start ~1.6 us apart in
+  column order (spread 11-12.8 us per block) and end 8-9.8 us apart: the CP issues each head's two fills (params + chunk) per column
+  after the yx wait. Out's tile 0 then waits for the slowest column (its bias via the B multicast: TPROF mid 4.5 us median, max 9.2).
+  **SSMPRE** (head 0's params fills for all columns before the yx wait, one fill per column after it; r24s3): start spread 4.1-4.5 us,
+  end spread 2.8-3.9 us. A post-wait shim fill costs the CP ~0.55-1 us here, not DEAD_ENDS C8's 0.10 (BDPRE may be worth re-pricing).
+- r24j = r24g + SSMPRE: BIT-IDENTICAL, asmlint 0, SEQLOG read (same waits). Pre-registered vs r24g: -0.04..-0.08 ms (the slowest column
+  ends ~5.7 us earlier per block).
+- WINDOW OPEN 15:24 (main A/B ssmpre: full12r24g vs full12r24j)
+- WINDOW CLOSED 15:26
+- r24j A/B vs r24g (60 x 20, load 5.9-9.9): -0.069 / -0.073 / -0.085: HIT, kept (best full12r24j).
+- research 15:28: CP window CLOSED. R 68 soft repaired from your solution (4 w, 1,200 s): still 35 conflicts (prologue 41): no bank-clean R 68-69 from research. No more research CPU load this pass.
+- r24k = r24j + CPPRE (main: post-wait shim fills configured before the wait, pushed after: SSM head-0 chunk fills, the norms input fills incl. both MSPLIT parts; lowered post-sync run per column = maskwrite + push instead of blockwrite patch maskpoll maskwrite push): SEQLOG unchanged. Pre-registered vs r24j: -0.02..-0.08 ms (SSM start spread ~4 -> ~1.5 us; norms DDR-bound: partial).
+- WINDOW OPEN 15:31 (main A/B cppre: full12r24j vs full12r24k)
+- WINDOW CLOSED 15:33
+- r24k A/B vs r24j (60 x 20, load 1.8-4.4): -0.097 / -0.093 / -0.091: HIT (above), kept (best full12r24k). CPPRE on OPPRE2's A parts
+  (configured one part ahead or all four): design8's static shim BD peak 20 > 16 at out_proj: built, never dispatched, gated off.
+- **Main on research pass 20 (forwarded 15:4x)**: SSMIN (MEASURED on r24s, r24s2, r24s3) shows the SSM's input ring never runs dry:
+  in_need 52 cycles per chunk of which ~44 is the call (net ~8), params in_need 28 per chunk, whole chunk 2,273 = compute (static ~2,115 +
+  ~150). So in r24g the SSM is NOT input- or DDR-bound once running; 54 GB/s in the span can sit near the cap without binding. What
+  bound it in the overlap was column skew from the CP (fixed by SSMPRE / CPPRE: -0.16 together). Consequences: SSPM-B (params once) is
+  worth ~0 for the SSM itself unless something else in the span (yx's drains) is DDR-starved; the SSM glue IS worth its static price
+  (~-0.2), but blocked by EW L1 (~2.5 KB free vs ~5 KB for chunk pairs). Please re-price with SSMIN; a single-chunk glue form or freed L1
+  would be the lever. CPPRE's measured post-wait cost per fill: blockwrite + patch + maskpoll + maskwrite + push ~0.55 us vs push-only.
+- WINDOW OPEN 15:37 (main clock + final sweeps r24k, r23z)
+- WINDOW CLOSED 15:38
+- WINDOW OPEN 15:38 (main r24z build with depth sequences + its sweep)
+- WINDOW CLOSED 15:43
+- r24z = r24/try24.sh defaults (= r24k) with depth builds: BIT-IDENTICAL, asmlint 0, text GEMM 16,256 EW 15,728. Pre-registered vs r23z: -0.40..-0.45 ms (sum of A/Bs -0.10 -0.15 -0.07 -0.09).
+- WINDOW OPEN 15:43 (main A/B final24: full12r23z vs full12r24z)
+- WINDOW CLOSED 15:45
+- WINDOW OPEN 15:45 (main final sweep r24z + clock)
+- WINDOW CLOSED 15:45
+
+# Round 24 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r24z** = r23z + STATS64 + OPPRE2 + SSMPRE + CPPRE (build r24/try24.sh). A/B vs r23z in one process (60 x 20):
+**-0.476 / -0.483 / -0.508 ms**. Sweep (1.808 GHz, load 1.4-4.1): d12 28.43 / d10 23.85 / d8 19.10 / d6 14.38 vs r23z 28.95 / 24.25 /
+19.47 / 14.62. BIT-IDENTICAL vs full12r9a. Text GEMM 16,256, EW 15,728 (656 free). Timeouts: 0.
+| id | predicted | measured (p10 / median / mean ms) | verdict |
+|---|---|---|---|
+| out -> norm1 split (MSDEFER) | -0.03..-0.10 | +0.015 / +0.018 / +0.013 | neutral, dead |
+| (main) YXH | -0.04..-0.12 | 7 TAPs +0.47; order alone 0.00; 4 TAPs +0.09 | dead |
+| (main) STATS64 (norm3 LN glue, part) | -0.04..-0.08 | -0.101 / -0.100 / -0.103 | kept |
+| OPPRE-W -> (main) OPPRE2 | -0.08..-0.16 (v2) | v1 -0.04; v2 -0.161 / -0.150 / -0.153 | kept |
+| (main) ZDROP | -0.10..-0.30 / -0.05..-0.20 | +0.05 (calls) / +0.007 / -0.002 / -0.009 | off |
+| SSMIN (rev 20 rank 2) | probe | in_need 52 (net ~8), chunk 2,273: compute-bound | done |
+| (main) SSMPRE | -0.04..-0.08 | -0.069 / -0.073 / -0.085 | kept |
+| (main) CPPRE | -0.02..-0.08 | -0.097 / -0.093 / -0.091 | kept |
+| MSPLIT-C yx | rev 18 -0.15..-0.3 | priced <= -0.035 (pass 1 B-bound) | not built |
+| nrm_ln 64-lane | - | priced <= -0.04 (st slot binds at II 11) | not built |
+| SSM glue (pairs) | - | needs ~5 KB EW L1, ~2.5 KB free (+ stack?) | not built |
+| SSPM-B (rev 20 rank 1) | -0.10..-0.20 | SSMIN: SSM not input-starved: ~0 | not built |
+| DDRCEIL, CLKLOAD2 | probes | - | not run |
+- New for research: (1) re-price the SSM with SSMIN (compute 2,273 per chunk, waits ~8): the glue at its static price and where to find
+  ~5 KB of EW L1 (stack deepest C++ 1,792 of 4,864 B; asm frames unaudited); (2) a BD-safe way to configure OPPRE2's A parts early (the
+  static shim BD peak reached 20 at out_proj) and an audit of the remaining post-wait shim fills (r24/cprest.py); (3) KTL R 68-69 with
+  more workers in a quiet window.
+
+# Round 25 (main), start 2026-10-11 15:50
+- Base full12r24z (28.43 ms d12). Plan: (1) post-wait fill audit (r24/cprest.py) + CPPRE where the BD budget allows; (2) MSPLIT-C up_a;
+  (3) out tile 0 bias wait; (4) C-buffer drain between tiles; (5) SSM glue once you find EW L1. I will announce every NPU window
+  here as WINDOW OPEN / CLOSED; your CP-SAT (<= 12 workers) is welcome outside them.
+- research (pass 21) 15:52: BUILDING full12r25s (= r24z + -DSSMIN) then full12r25g (= r24z + -DSSMIN -DSSM_NO_GATES: a timing
+  twin without sigk + ssq, wrong outputs), via r24/try24.sh NOREG=1 NOTIME=1, one after the other, until ~16:15. Please do not build
+  in npu-tapnext meanwhile (shared generated headers, DEAD_ENDS H23); I will announce the NPU window (ssmin.py, 2 dispatches).
+  **SSMCUT pre-registration** (per SSM chunk, mean over columns; r24s: chunk 2,273, in_need 52):
+  - H_C (compute-bound, no read cap within reach): the twin's chunk drops by the removed in-situ compute (sigk + ssq ~1,000-1,100)
+    to ~1,150-1,350, in_need stays < 100.
+  - H_R (the span's reads within ~6 % of the 55-59 GB/s cap, rev 20): the chunk cannot drop below the read floor, ~2,050-2,250
+    cycles at today's bytes, and in_need rises to fill the difference (>= 700).
+  - In between (chunk 1,350-2,050 with in_need rising): a read floor at that level; it caps the glue at (2,273 - floor).
+- research (pass 21) 15:52: BUILDING full12r25s (= r24z + -DSSMIN) then full12r25g (= r24z + -DSSMIN -DSSM_NO_GATES: a timing
+  twin without sigk + ssq, wrong outputs), via r24/try24.sh NOREG=1 NOTIME=1, one after the other, until ~16:15. Please do not build
+  in npu-tapnext meanwhile (shared generated headers, DEAD_ENDS H23); I will announce the NPU window (ssmin.py, 2 dispatches).
+  **SSMCUT pre-registration** (per SSM chunk, mean over columns; r24s: chunk 2,273, in_need 52):
+  - H_C (compute-bound, no read cap within reach): the twin's chunk drops by the removed in-situ compute (sigk + ssq ~1,000-1,100)
+    to ~1,150-1,350, in_need stays < 100.
+  - H_R (the span's reads within ~6 % of the 55-59 GB/s cap, rev 20): the chunk cannot drop below the read floor, ~2,050-2,250
+    cycles at today's bytes, and in_need rises to fill the difference (>= 700).
+  - In between (chunk 1,350-2,050 with in_need rising): a read floor at that level; it caps the glue at (2,273 - floor).
+- WINDOW OPEN 15:53 (research SSMCUT: ssmin.py on full12r25s, full12r25g; one dispatch sequence each)
+- WINDOW CLOSED 15:53
+- **SSMCUT result (research, MEASURED, r24/ssmin.py, 12 blocks x 8 columns, 215 chunks each)**: full12r25s (r24z + SSMIN) chunk 2,289,
+  in_need 71, params 28 (= your r24s). Twin full12r25g (no sigk + ssq, ~1,000 cycles of compute removed): **chunk 2,034, in_need 529**.
+  Neither H_C nor H_R as stated: removing ~1,000 cycles bought 255; the rest became input waits. **Both readings hold**: today the SSM
+  is compute-bound (yours: 2,289 vs an input floor), and the input floor is **~2,030 cycles per chunk** = 7,851 B per column per chunk
+  at 3.86 B / cycle, i.e. exactly one shim MM2S channel (R15.3: 3.8) and, over 8 columns, ~56 GB/s (the read cap): the two limits
+  coincide, so this run cannot tell channel from aggregate DDR; it does not need to for the prices below. Twin end spread 0.5-0.9 us
+  (vs 1.6-2.4): input-paced columns finish together.
+  - SSM glue (-185 static per chunk) lands down to ~2,030: -0.15..-0.25 ms (full static price -0.27 minus the approach to the floor).
+  - SSPM-B / KPAD: ~0 alone (compute binds); after the glue they lower the floor ~2,030 -> ~1,860-1,880 (params = 683 of 7,851 B per
+    chunk) and let FSX-type cuts land: worth -0.05..-0.15 only together with more compute cuts.
+- research 15:54: CP-SAT KTL R 69 --hard-banks, 12 workers nice 10, 1,800 s (CPU only, scalar)
+- research 15:57: CPU-only design run (r26/design8_bd.py, a BD-logging copy of design8 with CPPRE_OP=1, r24z flags; kernel objects regenerated identical in build/), ~5 min; no NPU
+- r25a = r24z + P0FREE (the attention Q + pass-0 K / V fills in pass 0 drain group, so out_proj "#p0" wait frees 5 shim BDs) + CPPRE_OP
+  (OPPRE2 A parts configured one ahead, part 0 after "#p0"): static shim BD peak 16 (was 20 with CPPRE_OP alone), SEQLOG same waits,
+  asmlint 0. Pre-registered vs r24z: -0.01..-0.04 ms (the last part column spread ~3.9 -> ~1.4 us per block).
+- WINDOW OPEN 15:57 (main regress + A/B r24z vs r25a)
+- main 15:58: correction - the window above is NOT open yet: my r25a try (started ~15:52, before I read your 15:52 build note:
+  my slip) is still building its depth phases (_p3 now, beside your r26-bd). r25a changes only the runtime sequence, so I will check
+  every r25a elf (main + phases, after csplit) byte-identical to r24z before any dispatch. I will not start another build until you
+  post that r26-bd is done.
+- WINDOW OPEN 16:00 (main: clock, regress r25a, A/B r24z vs r25a; elfs + CDO of r25a byte-identical to r24z)
+- research 16:01: r26-bd (CPU design run) DONE at 15:59. My 12-worker CP-SAT (started 15:56) is now frozen (SIGSTOP) during every WINDOW OPEN of yours and resumed when it closes (r26/cpgate.sh); sorry for the overlap at 16:00.
+- research 16:02: CP-SAT restarted with a deterministic budget (12 workers nice 10, frozen during your windows by r26/cpgate.sh): R 69 hard banks, then R 68 hard banks
+- WINDOW CLOSED 16:02
+- r25a regress BIT-IDENTICAL vs full12r9a; clock 1.806 GHz (load 13.5: your CP-SAT 12 w + the background job). A/B vs r24z
+  (60 x 20, load 13.5 -> 9.0): p10 -0.003 / median +0.009 / mean +0.176 (p90 32.4 vs 32.1: bimodal noise): NEUTRAL, MISS of -0.01..-0.04.
+  The last OPPRE2 part's column spread (CP) does not gate out_proj. P0FREE stays as a BD-headroom switch (frees 5 shim-0 BDs from
+  out_proj's "#p0" wait on), CPPRE_OP off.
+- main: out's tile 0 bias wait (plan item 3) priced ~0 from r24tp (MEASURED, r25/outt0.py on build/tp24.npz): the slowest SSM column
+  (7) waits 0.03 us for its bias; columns 0-6 wait 9.2..0.7 us = the column skew, i.e. for column 7's k-step 10. The op ends with
+  column 7, so the bias wait is off the critical path; only the SSM end skew (~3 us after SSMPRE + CPPRE) is.
+- main 16:10: priced, not built: **MSPLIT-C up_a ~0** (rank 4): r24e TL norm1 wall 61.3 us = 503 cycles per unit for 2,048 B of input
+  = 4.07 B/cycle per column = ~59 GB/s over 8 columns: norm1 sits at the read cap, and up_a's first pair's B (2 tiles x 13 objects
+  x 4,608 B x 3 rows = 360 KB, of which ~70 KB is prefetched today) would be read inside norm1's span (+~5 us), against ~6.3 us of
+  pass-1 compute moved; plus the gated pass epilogue text (GEMM 128 B free). Your YXH rule applies. Same for qkv / mlp0.
+- main 16:10, own find, probe first: **RRES** (the residual X' of a norm kept on chip for the next norm). Every norm reads one input
+  that an earlier norm wrote (norm1: R0, norm2: R2, norm3: R3, norm0: R5) = 1/2 of the 2-input and 1/3 of the 3-input norms' DDR
+  bytes, and the norms sit at the read cap. During the GEMM before each norm one A slot region (124 KB / column, all 8 columns) is
+  free: norm0 <- half 1 (mlp3_b holds half 0 + region 3), norm1 <- region 3, norm2 <- half 1, norm3 <- region 3. A prefetch task on
+  the existing A load flow (shim MM2S 0 -> memtile S2MM, inside the GEMM's span, which runs at 13-24 GB/s) could park 56 % of the
+  residual there and a memtile MM2S -> EW S2MM 1 stream (unused) feed it to the norm. Gate: a timing twin RRTWIN (norms do not read
+  their residual at all; outputs wrong; read the norm walls only, TL_ONLY) = the upper bound.
+  **Pre-registered (TL_ONLY norm walls, r24z -> twin):** H_IO (input bytes bind): norm1 61 -> 35-42, norm3 71 -> 45-55 (LN compute),
+  norm0 89 -> 60-68, norm2 90 -> 60-68 us. H_C (compute binds): unchanged within 3 us. Building full12r25t now (CPU only).
+- WINDOW OPEN 16:09 (main: r25t twin dispatch check, TL_ONLY norms r24z vs r25t)
+- WINDOW CLOSED 16:11
+- **RRTWIN MEASURED** (full12r25t = r24z + RRTWIN: every norm skips its residual input (an earlier norm's X'), params n_in - 1;
+  elfs / CDO byte-identical to r24z; one 10-dispatch check first, no hang; TL_ONLY norm0..3 + yx, up_a, qkv, mlp0, 3 runs each,
+  load 13.7 -> 7.3, same session). Norm walls r24z -> twin (us per block):
+  | norm | inputs | r24z | twin | delta |
+  | norm0 (RMS) | 3 -> 2 | 90.1 | 67.0 | -23.1 |
+  | norm1 (RMS) | 2 -> 1 | 63.4 | 60.5 | -2.9 |
+  | norm2 (LN)  | 3 -> 2 | 91.7 | 73.7 | -18.0 |
+  | norm3 (LN)  | 2 -> 1 | 71.7 | 70.3 | -1.4 |
+  Verdict vs the pre-registration: H_IO holds for the 3-input norms (inside my 60-68 range), H_C for the 2-input ones (outside my
+  35-42 / 45-55: I mispriced them; they sit at a COMPUTE floor of ~480 (RMS) / ~560 (LN) cycles per unit, which coincides with their
+  2-input I/O rate (2,048 B / 4.07 B per cycle = 503)). So: (a) RRES pays only on norm0 / norm2: upper bound -41 us per block =
+  -0.49 ms per step if the residual came free; with 124 KB of the 221 KB residual per column parked in a free A-slot region,
+  ~-0.25..-0.3; (b) the 2-input norms (and the 3-input ones after RRES) are bound by ~500-560 cycles of per-unit COMPUTE: tcall's
+  per-unit static (nrm_rms 117 + stats64 406 / 12 + glue) is far below that, so ~250+ cycles per unit are unaccounted. Twin step
+  dispatch 27.2 vs 28.4 ms (the attention's data-dependent path changed too: not a price).
+- Requests to research (pass 21), in this order: (1) where do ~500 (RMS) / ~560 (LN) cycles per norm unit go in situ (NPROF-type
+  stamps or tcall of norm_rows_k incl. n1k _step / in_need / out_begin / the NRES panel path)? Every norm is at that floor now; each
+  -100 cycles per unit is ~-12 us per norm per block once bytes allow. (2) RRES feasibility next to the SSM glue: both want EW L1
+  (a second 1 KB x 2 ring for S2MM 1) and EW text (656 B free). Channels I checked in cs_r24z/in.mlir: EW cores use S2MM 0, MM2S 0 / 1
+  (S2MM 1 free); memtiles 0-2 use all six S2MM, MM2S 0-2 (MM2S 3-5 free); memtiles 3-7 S2MM 0-3 + 5, MM2S 0-1 (S2MM 4, MM2S 2-5 free).
+  The prefetch can ride the A load flow (memtile S2MM 0 tasks); the residual feed needs memtile MM2S -> EW S2MM 1 (northbound route
+  unverified). DDR in the preceding GEMM spans: mlp3_b / down_b (your J2 said ~66 GB/s r+w there; I estimate ~47): please check.
+- main 16:13: BUILDING full12r25n (= r24z + EW -DNIO2: the norm-unit stamps, timing build) for request (1) above; I will post the per-unit numbers
+- WINDOW OPEN 16:15 (main: NIO2 stamps full12r25n, 3 frames)
+- WINDOW CLOSED 16:15
+- **NIO2 MEASURED** (full12r25n = r24z + EW -DNIO2 -DNIO2_NONRM: round 18's norm-unit stamps minus the two around the nrm call, which
+  overflowed the EW text by 32 B; text EW 16,368; asmlint 0; r25/nio.py, 3 frames, all norm units, 8 columns; load 12.6): cycles per
+  unit incl. stamps, mean over columns (columns within +-2 % / monotonic in column for pass 1):
+  | mode | pass-2 unit (out acquire + NRES pring acquire + nrm + releases) | pass-1 unit (in_need incl. the producer / DDR wait + n1k step + in_done) |
+  | RMS (norm0 3-in, norm1 2-in) | 287 | 720 |
+  | LN (norm2 3-in, norm3 2-in)  | 364 | 695 |
+  Pass 1 includes the input waits (MSPLIT norms start before their producer ends), so it is not compute. Pass 2 is: nrm_rms static 117 /
+  nrm_ln 177 against 287 / 364 in situ: **~170-190 cycles per unit of pass-2 glue or wait** (out ring acquire, the 2-slot NRES panel
+  ring's acquire - is MM2S 1 draining 576 B per unit in time? -, the indirect call, ring-wrap copies, releases, 2 stamps). With
+  RRTWIN's compute floor (norm1 at 1 input: 507 cycles per unit) pass 2 is ~57 % of a norm unit. Please decompose pass 2 statically
+  (tcall on norm_rows_k of build/full12r24z.prj elfs_main_core_0_5) so the in-situ excess over static = the panel-ring / out-ring
+  waits; that names the lever (a deeper panel ring = 1,152 B more EW L1, or batching the per-unit lock work).
+- main 16:20, plan item 4 priced (MEASURED hands, r25/hands.py on build/tp24.npz block 11, medians per tile, tiles 0..n-2): up_a 6.4,
+  up_b 7.1, mlp0 5.2, qkv 3.8, down / mlp3 0.5-1.2 each, yx 3.0 / out 4.3 (skew-inflated) us per block: ~28 us per block, ~0.33 ms per
+  step in total. Double-buffered C: impossible (+18 KB GEMM L1, 124 B free). Partial release: the next tile's first k-step (ZLOAD)
+  writes rows 0-47 = C part 1 within its first third, so any gain needs IRON's C acquire split into part-wise locks taken inside the
+  k-step = LATEC's form, which hung (round 21, cause inferred). <= -0.1..-0.15 ms at L effort and hang risk: parked unless you see a
+  safe lock order (e.g. why LATEC hung: the C join's row order?).
+- main: CPU request when you have a gap in your CP queue: attkb at II 32 (resource bound 31; r22 found none at 600-1,800 s with
+  2-4 workers; II 33 needed --life 1): `r17/cp_attks.sh ii32 --ii 32 --life 1 --maxsrc sr --time 3600` (12 workers), and the same with
+  --stages 4. Worth ~-0.035..-0.065 ms if found (II 34 -> 33 gave -0.035). Or tell me a window and I run it.
+- main 16:30, **RRES plan** (please sanity-check; I start on the design / plan side now, the EW kernel part waits for your L1 verdict):
+  - only norm0 and norm2 (3-input, byte-bound; norm1 / norm3 are at their compute floor). Residual = stream 2 of both (R5 / R2 sort
+    last), so the main ring's TAP for rb < RRB is the 2-stream TAP and for rb >= RRB the 3-stream one (MSPLIT parts: 0-5 | 6-9 | 10-17).
+  - park: during mlp3_b (resp. down_b) memtile half 1 is free on every column (mlp3_a / down_a released it; mlp3_b / down_b use half 0
+    + region 3; the next half-1 users are out's ldz (SSM) and the attention's Q (AQPRE), both after the norm). A memtile S2MM 0 task on
+    the existing A load flow (acquire E[1] by 12, release a new lock RF) + one shim fill per column of R5 / R2 rows rb 0-9 (120 units,
+    122,880 of 124,416 B) pushed after the GEMM's own A loads: ~983 KB per block in a k-step-bound GEMM span.
+  - feed: a new packet flow memtile MM2S (3 on memtiles 0-2, 2 on 3-7: both free) -> EW S2MM 1 (free), a runtime task per norm
+    (acquire RF, release E[1] by 12) pushed before the norm's fills; EW side a 2 x 1 KB ring (locks 6 / 7) on S2MM 1.
+  - EW kernel: params header word 2 = RRB; pass 1 takes stream 2 from the R ring for rb < RRB (one lacq / lrel per unit), unit = 2 KB
+    on the main ring there. Text ~100-150 B (656 free).
+  - price: linear in bytes from RRTWIN: norm0 -23 x 10/18 = -13, norm2 -10 us per block = ~-0.27 ms per step (if the feed keeps up:
+    1 KB per ~560-cycle unit, and the park does not slow mlp3_b / down_b).
+  - **L1: EW free = 1,472 B (data tail 0x7A640..0x7AC00) + 960 B (bank 2 tail) + 128 B (bank 0): no 1 KB slot pair fits without the
+    stack (0x1300 = 4,864 B, deepest C++ 1,792 + unaudited asm frames).** Please include these 2 KB in your EW L1 audit next to the SSM
+    glue's ~5 KB, and say which you would fund first if both cannot fit (my order: RRES ~-0.27 vs glue -0.15..-0.25).
+- main 16:40: RRES L1 found without the stack: Worker data_size 27,648 -> 26,240 (.data 0xA00 + .bss 0x5C40 = 26,176 used) and a 2 KB
+  IRON Buffer (the R ring) right after core_data; the bank-2 linker region then shrinks 5,120 -> 4,480 B, still >= .aie.bank2's
+  4,160. That uses the data tail (1,472) and most of the bank-2 tail (960 -> 320): so the SSM glue's ~5 KB must come from the stack
+  (0x1300, deepest C++ 1,792 + asm frames) or the arena. I am implementing RRES now (env RRES=norm0,norm2, EW -DRRES); builds in
+  npu-tapnext from ~16:50 on, announced here.
+- main 16:23: BUILDING full12r25r (= r24z + RRES=norm0,norm2, EW -DRRES). Coordinator: round 25 is the last round; I finish RRES with one bounded attempt, then wrap up.
+- main 17:05: **RRES stopped at the build** (round 25 is the last round, coordinator): full12r25r routes (memtile -> EW S2MM 1 as a
+  Flow with compiler-assigned channels; pinning dst_channel=1 is refused) but aiecc fails on (a) "Too many simultaneously active
+  buffer descriptors on tile (0,1)" (the park + feed tasks on memtile 0, beside 3A / MSPLIT / NRES tasks) and (b) IRON placed the
+  2 KB R ring so that .aie.bank0 / .aie.bank2 overflow by 1,024 / 3,136 B (pin it: mem_bank=2 after core_data, or a linker-aware
+  address). Code kept behind RRES= / -DRRES (off by default; r24z plans unchanged, r25/schedchk.py). Price stands at ~-0.27 ms
+  (RRTWIN bound -0.49). Final best = full12r24z (no kept change this round).
+- main 16:24: building full12r25z (= r24/try24.sh defaults from the current checkout, depth builds) to check the best build reproduces byte-identically; its sweep dispatches at the end (WINDOW ~17:20-17:30), then DAVIS d12 + d10 on the best build (~15 min NPU).
+- research 16:25: KTL CP-SAT STOPPED (final pass; R 69 hard banks at 12 workers: no solution; R 68 run cut short). No research CPU load now.
+- research 16:26 REQUEST: CLKLOAD2 (the maintainer asked why CPU load slows the NPU): ~4 min, needs a QUIET box (no builds, no other
+  CPU load) and the NPU for 5 short r7/clk.py runs under 12 threads each of: none, numpy matmul (AVX-512, L2/L3), 64x64 matmul (L1),
+  AVX2 matmul, np.copyto (DRAM). Script r25/clkload2.sh. Please post "QUIET for research HH:MM" when your build is done and before
+  your sweep; I will run it at once and post WINDOW OPEN / CLOSED.
+- WINDOW OPEN 16:30 (main: DAVIS 10 videos d12 + d10 on full12r24z, ~15 min; r25z sweep done: d12 28.42 / d10 23.83 / d8 19.09 / d6 14.40, 1.808 GHz; r25z bins / elfs / CDO byte-identical to r24z)
+- WINDOW CLOSED 16:31
+- WINDOW CLOSED (DAVIS done): d12 70.84 (92.57), d10 69.90 (91.02) on full12r24z - identical to round 24. Main round 25 ends; final best full12r24z.
+- WINDOW OPEN 16:36 (research CLKLOAD2: r25/clkload2.sh, box quiet after round 25 ended; ~5 min CPU load + NPU clock probes)
+- WINDOW CLOSED 16:38
+- WINDOW OPEN 16:38 (research CLKLOAD2 rerun: the 16:37 run had a wrong xclbin name, no clock data)
+- WINDOW CLOSED 16:41
+- **CLKLOAD2 result (research, MEASURED, r25/clkload2.sh, 12 threads per kind, r7/clk.py median fit; r26/clkload2.out)**: none 1.809 GHz
+  (27 W); numpy 512x512 matmul (AVX-512, cache-resident) **1.408** (99 W); the same matmul with OpenBLAS forced to AVX2 **1.408**
+  (99 W); 64x64 matmul in L1 **1.584** (99 W, noisy fit); np.copyto on 64 MB arrays (DRAM bandwidth) **1.808** (42 W). With round 23:
+  12 spin threads at 99 W and 6 matmul threads at 96-100 W keep 1.81. So DRAM traffic does not slow the NPU, and vector width does
+  not matter; what drops it is many threads of floating-point compute with the package at its ~100 W limit (scalar spinning at the
+  same power does not). Mechanism (power vs current arbitration in the SMU) UNVERIFIED; the trigger is measured.

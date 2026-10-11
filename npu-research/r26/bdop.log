@@ -1,0 +1,491 @@
+/work/npu-tapnext/build/mm_ks.s: group spacing 48, period 192 bundles per stripe (mm_core: 225 per call), prologue 58, epilogue 15; 1152 MACs checked (9 stripes)
+  record 0 w5 (p4 back) = -896
+II 6 (resource bound 6: {('port', 'DM_WM_L0_PORT'): 6, 's': 6, ('port', 'CRRND_RS'): 5, 'b': 4, ('port', 'QEY_WB_L0_PORT'): 4}), U 1, stages 6, maxlive {'x': 4, 'dm': 4}
+  t   0 (stage 0, slot  0) b B0   vldb.2d {b0.x}, [p3], d3
+  t   2 (stage 0, slot  2) a A00  vlda.2d {ua0.bmll}, [p1], d1
+  t   3 (stage 0, slot  3) a A01  vlda.2d {ua0.bmlh}, [p1], d1
+  t   3 (stage 0, slot  3) b B1   vldb.2d {b1.x}, [p3], d3
+  t   4 (stage 0, slot  4) a A10  vlda.2d {ua1.bmll}, [p1], d1
+  t   7 (stage 1, slot  1) v M0   vmac.f {y0.dm}, {ua0.dm}, {b0.x}, x11, r2
+  t   7 (stage 1, slot  1) a A11  vlda.2d {ua1.bmlh}, [p1], d1
+  t  10 (stage 1, slot  4) b V0   vldb.2d {v0.x}, [p0], d0
+  t  11 (stage 1, slot  5) v M1   vmac.f {y1.dm}, {ua1.dm}, {b1.x}, x11, r2
+  t  13 (stage 2, slot  1) b V1   vldb.2d {v1.x}, [p0], d0
+  t  16 (stage 2, slot  4) s CU0  vconv.bf16.fp32 {u0.x}, {y0.cml}
+  t  17 (stage 2, slot  5) s CU1  vconv.bf16.fp32 {u1.x}, {y1.cml}
+  t  18 (stage 3, slot  0) v P0   vmul.f {p0.dm}, {v0.x}, {u0.x}, r2
+  t  20 (stage 3, slot  2) v P1   vmul.f {p1.dm}, {v1.x}, {u1.x}, r2
+  t  24 (stage 4, slot  0) s CP0  vconv.bf16.fp32 {q0.x}, {p0.cml}
+  t  27 (stage 4, slot  3) s CP1  vconv.bf16.fp32 {q1.x}, {p1.cml}
+  t  28 (stage 4, slot  4) m UP0  vconv.fp32.bf16 {w.cml}, {q0.x}
+  t  29 (stage 4, slot  5) m UP1  vconv.fp32.bf16 {w.cmh}, {q1.x}
+  t  31 (stage 5, slot  1) s PU   vst.push.576.conv.bfp16ebs8.fp32 {w.dm}, [p2, sf, r26]
+  t  32 (stage 5, slot  2) s FL   vst.flush.512.conv.2d [p2, sf, r26, d4]
+check OK: 102 cycles issued for 3 row blocks, last write lands at 108
+asmfit gup: body compacted, 16 B saved (6 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/gup.s (88 lines), U 1
+II 1, U 3, stages 8; check OK (34 cycles for 27 units)
+asmfit cpy32: body compacted, 0 B saved (10 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/cpy32.s
+II 16 (bound 16), U 1, stages 2, maxlive {'dm': 3}; check OK (64 cycles, 3 row blocks)
+asmfit pan: body compacted, 128 B saved (24 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/pan.s
+II 12 (bound 11: {('port', 'DM_ADA'): 11, 'b': 10, ('port', 'QEY_WB_L0_PORT'): 10, ('port', 'QEY_RS_L0_PORT'): 10, 'm': 9, 's': 7}), U 1, stages 7, maxlive {'x': 7, 'dm': 4}; check OK (360 cycles, 24 vectors)
+asmfit bgelu: body compacted, 64 B saved (2 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/bgelu.s
+II 33 (resource bound 31: {('port', 'DM_ADA'): 31, 'b': 27, ('port', 'QEY_WB_L0_PORT'): 26, 'm': 25, ('port', 'QEY_RS_L0_PORT'): 24, ('port', 'QEY_WA_L0_PORT'): 20, ('bank', 2): 20, ('bank', 0): 20, 'a': 16, ('port', 'AGUA__AGI_I'): 16}), U 1, stages 3, maxlive {'x': 9, 'dm': 4}
+  t   0 (stage 0, slot  0) b F     vldb.fill.512 [p1, lf1, r25]
+  t   2 (stage 0, slot  2) a QF    vlda.fill.512 [p0, lf0, r24]
+  t   2 (stage 0, slot  2) b K0    vldb.pop.576 ex5, [p1, lf1, r25]
+  t   3 (stage 0, slot  3) a Q0    vlda.pop.576 ex8, [p0, lf0, r24]
+  t   3 (stage 0, slot  3) b K1    vldb.pop.576 ex1, [p1, lf1, r25]
+  t   5 (stage 0, slot  5) a Q1    vlda.pop.576 ex6, [p0, lf0, r24]
+  t   5 (stage 0, slot  5) b K2    vldb.pop.576 ex5, [p1, lf1, r25]
+  t   6 (stage 0, slot  6) a Q2    vlda.pop.576 ex8, [p0, lf0, r24]
+  t   6 (stage 0, slot  6) b K3    vldb.pop.576 ex0, [p1, lf1, r25]
+  t   7 (stage 0, slot  7) a Q3    vlda.pop.576 ex1, [p0, lf0, r24]
+  t  11 (stage 0, slot 11) v M0    vmul.f dm4, ex8, ex5, r5
+  t  13 (stage 0, slot 13) a Q4    vlda.pop.576 ex4, [p0, lf0, r24]
+  t  13 (stage 0, slot 13) b K4    vldb.pop.576 ex5, [p1, lf1, r25]
+  t  13 (stage 0, slot 13) v M1    vmul.f dm2, ex6, ex1, r5
+  t  14 (stage 0, slot 14) a Q5    vlda.pop.576 ex3, [p0, lf0, r24]
+  t  14 (stage 0, slot 14) b K5    vldb.pop.576 ex7, [p1, lf1, r25]
+  t  14 (stage 0, slot 14) v M2    vmac.f dm4, dm4, ex8, ex5, r5
+  t  15 (stage 0, slot 15) a Q6    vlda.pop.576 ex4, [p0, lf0, r24]
+  t  15 (stage 0, slot 15) b K6    vldb.pop.576 ex5, [p1, lf1, r25]
+  t  16 (stage 0, slot 16) a Q7    vlda.pop.576 ex3, [p0, lf0, r24]
+  t  16 (stage 0, slot 16) b K7    vldb.pop.576 ex6, [p1, lf1, r25]
+  t  17 (stage 0, slot 17) v M3    vmac.f dm2, dm2, ex1, ex0, r5
+  t  21 (stage 0, slot 21) v M4    vmac.f dm4, dm4, ex4, ex5, r5
+  t  22 (stage 0, slot 22) v M5    vmac.f dm2, dm2, ex3, ex7, r5
+  t  24 (stage 0, slot 24) v M6    vmac.f dm4, dm4, ex4, ex5, r5
+  t  25 (stage 0, slot 25) v M7    vmac.f dm2, dm2, ex3, ex6, r5
+  t  27 (stage 0, slot 27) s PK    padds.2d [p1], d1
+  t  27 (stage 0, slot 27) a MA0   vlda.conv.fp32.bf16 cml0, [p3], #64
+  t  28 (stage 0, slot 28) v AD    vadd.f dm1, dm4, dm2, r6
+  t  29 (stage 0, slot 29) a PQ    padda.2d [p0], d0
+  t  34 (stage 1, slot  1) s C0    vconv.bf16.fp32 x6, cml1
+  t  35 (stage 1, slot  2) s C1    vconv.bf16.fp32 x4, cmh1
+  t  35 (stage 1, slot  2) v AR0   vadd.f dm1, dm1, dm0, r6
+  t  36 (stage 1, slot  3) s W0    vst x6, [p4], #64
+  t  36 (stage 1, slot  3) m SU0   vconv.fp32.bf16 cml1, x6
+  t  37 (stage 1, slot  4) s W1    vst.2d x4, [p4], d4
+  t  37 (stage 1, slot  4) a MA1   vlda.2d.conv.fp32.bf16 cml1, [p3], d2
+  t  37 (stage 1, slot  4) m SU1   vconv.fp32.bf16 cml2, x4
+  t  41 (stage 1, slot  8) s DH0   vconv.bf16.fp32 x6, cml1
+  t  43 (stage 1, slot 10) m MN0   vmin_ge.bf16 x0, r16, x9, x6
+  t  43 (stage 1, slot 10) v AR1   vadd.f dm2, dm2, dm1, r6
+  t  44 (stage 1, slot 11) m CM0   vlt.bf16 r18, x9, x6
+  t  45 (stage 1, slot 12) m MX0   vmax_lt.bf16 x3, r16, x10, x0
+  t  47 (stage 1, slot 14) s F01   vfloor.s32.bf16 x6, wh3, s0
+  t  48 (stage 1, slot 15) s F00   vfloor.s32.bf16 x3, wl3, s0
+  t  49 (stage 1, slot 16) m A01   vadd.32 x8, x6, x11
+  t  49 (stage 1, slot 16) s DH1   vconv.bf16.fp32 x6, cml2
+  t  51 (stage 1, slot 18) b LA01  vldb.4x64.lo wl0, wl8
+  t  52 (stage 1, slot 19) b LD01  vldb.4x64.hi wh4, wh8
+  t  53 (stage 1, slot 20) m A00   vadd.32 x1, x3, x11
+  t  53 (stage 1, slot 20) b LC01  vldb.4x64.lo wl4, wh8
+  t  54 (stage 1, slot 21) b LB01  vldb.4x64.hi wh0, wl8
+  t  54 (stage 1, slot 21) m MN1   vmin_ge.bf16 x8, r16, x9, x6
+  t  55 (stage 1, slot 22) b LA00  vldb.4x64.lo wl5, wl1
+  t  55 (stage 1, slot 22) m CM1   vlt.bf16 r19, x9, x6
+  t  56 (stage 1, slot 23) b LB00  vldb.4x64.hi wh5, wl1
+  t  56 (stage 1, slot 23) m MX1   vmax_lt.bf16 x2, r16, x10, x8
+  t  57 (stage 1, slot 24) b LD00  vldb.4x64.hi wh6, wh1
+  t  58 (stage 1, slot 25) a MB0   vlda x7, [p7], #64
+  t  58 (stage 1, slot 25) s F10   vfloor.s32.bf16 x3, wl2, s0
+  t  59 (stage 1, slot 26) b LC00  vldb.4x64.lo wl6, wh1
+  t  60 (stage 1, slot 27) b R0    vldb x1, [p5], #64
+  t  60 (stage 1, slot 27) m A10   vadd.32 x1, x3, x11
+  t  61 (stage 1, slot 28) m SS01  vshuffle x8, x0, x4, r2
+  t  61 (stage 1, slot 28) s F11   vfloor.s32.bf16 x2, wh2, s0
+  t  61 (stage 1, slot 28) b R1    vldb.2d x2, [p5], d5
+  t  61 (stage 1, slot 28) a XL0   vlda x3, [p6, #0]
+  t  62 (stage 1, slot 29) b LC10  vldb.4x64.lo wl5, wh1
+  t  63 (stage 1, slot 30) m SO01  vshuffle bmlh3, x0, x4, r3
+  t  63 (stage 1, slot 30) b LD10  vldb.4x64.hi wh5, wh1
+  t  64 (stage 1, slot 31) b LB10  vldb.4x64.hi wh6, wl1
+  t  64 (stage 1, slot 31) m A11   vadd.32 x0, x2, x11
+  t  65 (stage 1, slot 32) b LA10  vldb.4x64.lo wl6, wl1
+  t  66 (stage 2, slot  0) m SS00  vshuffle x4, x5, x6, r2
+  t  66 (stage 2, slot  0) a XL1   vlda x4, [p6, #64]
+  t  67 (stage 2, slot  1) m SO00  vshuffle bmll3, x5, x6, r3
+  t  67 (stage 2, slot  1) b LA11  vldb.4x64.lo wl7, wl0
+  t  68 (stage 2, slot  2) m MV0   vmov wl8, wh4
+  t  71 (stage 2, slot  5) m XM0   vmax_lt.bf16 x3, r16, x3, x1
+  t  72 (stage 2, slot  6) v Q0L   vmac.f dm4, dm3, x8, x7, r1
+  t  72 (stage 2, slot  6) m SO10  vshuffle bmll0, x6, x5, r3
+  t  73 (stage 2, slot  7) m XM1   vmax_lt.bf16 x3, r16, x4, x2
+  t  73 (stage 2, slot  7) s XS0   vst x3, [p6], #64
+  t  74 (stage 2, slot  8) m SS10  vshuffle x4, x6, x5, r2
+  t  74 (stage 2, slot  8) b LB11  vldb.4x64.hi wh7, wl0
+  t  74 (stage 2, slot  8) x FO    or r4, r18, r19
+  t  75 (stage 2, slot  9) v P0    vmac.f dm1, dm4, x8, x1, r1
+  t  75 (stage 2, slot  9) b LD11  vldb.4x64.hi wh5, wh0
+  t  76 (stage 2, slot 10) b LC11  vldb.4x64.lo wl5, wh0
+  t  78 (stage 2, slot 12) a MB1   vlda.2d x1, [p7], d3
+  t  78 (stage 2, slot 12) s XS1   vst.2d x3, [p6], d7
+  t  83 (stage 2, slot 17) m SS11  vshuffle x0, x7, x5, r2
+  t  84 (stage 2, slot 18) m MV1   vmov wl0, wh4
+  t  85 (stage 2, slot 19) m SO11  vshuffle bmlh0, x7, x5, r3
+  t  86 (stage 2, slot 20) v Q1L   vmac.f dm0, dm0, x0, x1, r1
+  t  89 (stage 2, slot 23) v P1    vmac.f dm0, dm0, x0, x2, r1
+  t  95 (stage 2, slot 29) m MVH   vmov cmh1, cml0
+  t  97 (stage 2, slot 31) s PU    vst.push.576.conv.bfp16ebs8.fp32 dm1, [p2, sf, r26]
+  t  97 (stage 2, slot 31) x FA    or r17, r17, r4
+  t  98 (stage 2, slot 32) s FL    vst.flush.512.conv.2d [p2, sf, r26, d6]
+check OK (36 iterations): 1254 cycles, last write lands at 1261
+check OK (6 iterations): 264 cycles, last write lands at 271
+check OK (2 iterations): 132 cycles, last write lands at 139
+asmfit attkb: body compacted, 176 B saved (12 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/attkb.s
+II 20 (resource bound 15: {'a': 15, ('port', 'AGUA__AGI_I'): 15, ('port', 'DM_ADA'): 15, 'b': 14, ('bank', 3): 14, 'v': 14, ('port', 'QEY_WB_L0_PORT'): 12, 's': 11, ('port', 'AGUA__AGU_C1'): 8, ('port', 'AGUA__AG_P'): 8}), U 1, stages 3, maxlive {'x': 8, 'dm': 4}
+  t   0 (stage 0, slot  0) m MP     mov p0, p4
+  t   1 (stage 0, slot  1) m MV0    mov p1, p5
+  t   2 (stage 0, slot  2) m RP     mov r24, #0
+  t   3 (stage 0, slot  3) a PF     vlda.fill.512 [p0, lf0, r24]
+  t   3 (stage 0, slot  3) m RV0    mov r25, #0
+  t   4 (stage 0, slot  4) a P0     vlda.pop.576 ex0, [p0, lf0, r24]
+  t   4 (stage 0, slot  4) b VF0    vldb.fill.512 [p1, lf1, r25]
+  t   5 (stage 0, slot  5) a P1     vlda.pop.576 ex1, [p0, lf0, r24]
+  t   5 (stage 0, slot  5) b V0     vldb.pop.576 ex5, [p1, lf1, r25]
+  t   6 (stage 0, slot  6) b V1     vldb.pop.576 ex3, [p1, lf1, r25]
+  t   6 (stage 0, slot  6) a L0bmll vlda bmll0, [p2], #64
+  t   7 (stage 0, slot  7) a P2     vlda.pop.576 ex2, [p0, lf0, r24]
+  t   7 (stage 0, slot  7) b V2     vldb.pop.576 ex4, [p1, lf1, r25]
+  t   8 (stage 0, slot  8) s VW0    padds [p5], #448
+  t   8 (stage 0, slot  8) b V3     vldb.pop.576 ex6, [p1, lf1, r25]
+  t   8 (stage 0, slot  8) a L0bmlh vlda bmlh0, [p2], #64
+  t   9 (stage 0, slot  9) b V4     vldb.pop.576 ex7, [p1, lf1, r25]
+  t   9 (stage 0, slot  9) a L0bmhl vlda bmhl0, [p2], #64
+  t  10 (stage 0, slot 10) b V5     vldb.pop.576 ex5, [p1, lf1, r25]
+  t  10 (stage 0, slot 10) a L0bmhh vlda bmhh0, [p2], #64
+  t  11 (stage 0, slot 11) m MV1    mov p1, p5
+  t  12 (stage 0, slot 12) a P3     vlda.pop.576 ex4, [p0, lf0, r24]
+  t  12 (stage 0, slot 12) s VW1    padds.2d [p5], d1
+  t  12 (stage 0, slot 12) m RV1    mov r25, #0
+  t  13 (stage 0, slot 13) a P4     vlda.pop.576 ex3, [p0, lf0, r24]
+  t  14 (stage 0, slot 14) b VF1    vldb.fill.512 [p1, lf1, r25]
+  t  14 (stage 0, slot 14) v M00    vmac.f dm0, dm0, ex0, ex5, r5
+  t  15 (stage 0, slot 15) b V6     vldb.pop.576 ex7, [p1, lf1, r25]
+  t  15 (stage 0, slot 15) a L1bmll vlda bmll1, [p2], #64
+  t  16 (stage 0, slot 16) b V7     vldb.pop.576 ex8, [p1, lf1, r25]
+  t  16 (stage 0, slot 16) a L1bmlh vlda bmlh1, [p2], #64
+  t  17 (stage 0, slot 17) a P5     vlda.pop.576 ex0, [p0, lf0, r24]
+  t  17 (stage 0, slot 17) b V8     vldb.pop.576 ex6, [p1, lf1, r25]
+  t  18 (stage 0, slot 18) s PW     padds.2d [p4], d0
+  t  18 (stage 0, slot 18) b V9     vldb.pop.576 ex7, [p1, lf1, r25]
+  t  18 (stage 0, slot 18) v M02    vmac.f dm0, dm0, ex2, ex4, r5
+  t  18 (stage 0, slot 18) a L1bmhl vlda bmhl1, [p2], #64
+  t  19 (stage 0, slot 19) b V10    vldb.pop.576 ex1, [p1, lf1, r25]
+  t  19 (stage 0, slot 19) v M01    vmul.f dm2, ex1, ex3, r5
+  t  19 (stage 0, slot 19) a L1bmhh vlda.2d bmhh1, [p2], d2
+  t  20 (stage 1, slot  0) b V11    vldb.pop.576 ex2, [p1, lf1, r25]
+  t  21 (stage 1, slot  1) v M04    vmac.f dm0, dm0, ex3, ex7, r5
+  t  22 (stage 1, slot  2) v M03    vmac.f dm2, dm2, ex4, ex6, r5
+  t  23 (stage 1, slot  3) v M10    vmac.f dm1, dm1, ex0, ex7, r5
+  t  24 (stage 1, slot  4) v M11    vmul.f dm3, ex1, ex8, r5
+  t  25 (stage 1, slot  5) v M05    vmac.f dm2, dm2, ex0, ex5, r5
+  t  26 (stage 1, slot  6) v M12    vmac.f dm1, dm1, ex2, ex6, r5
+  t  27 (stage 1, slot  7) v M13    vmac.f dm3, dm3, ex4, ex7, r5
+  t  28 (stage 1, slot  8) v AD0    vadd.f dm2, dm0, dm2, r6
+  t  29 (stage 1, slot  9) v M14    vmac.f dm1, dm1, ex3, ex1, r5
+  t  30 (stage 1, slot 10) v M15    vmac.f dm3, dm3, ex0, ex2, r5
+  t  33 (stage 1, slot 13) v AD1    vadd.f dm3, dm1, dm3, r6
+  t  40 (stage 2, slot  0) s S0bmll vst bmll2, [p3], #64
+  t  41 (stage 2, slot  1) s S0bmlh vst bmlh2, [p3], #64
+  t  42 (stage 2, slot  2) s S0bmhl vst bmhl2, [p3], #64
+  t  43 (stage 2, slot  3) s S0bmhh vst bmhh2, [p3], #64
+  t  44 (stage 2, slot  4) s S1bmll vst bmll3, [p3], #64
+  t  45 (stage 2, slot  5) s S1bmlh vst bmlh3, [p3], #64
+  t  46 (stage 2, slot  6) s S1bmhl vst bmhl3, [p3], #64
+  t  47 (stage 2, slot  7) s S1bmhh vst.2d bmhh3, [p3], d3
+check OK (48 iterations): 1000 cycles, last write lands at 1008
+check OK (24 iterations): 520 cycles, last write lands at 528
+check OK (4 iterations): 120 cycles, last write lands at 128
+asmfit attv: body compacted, 112 B saved (2 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/attv.s
+II 18 (resource bound 11: {'a': 11, ('port', 'AGUA__AGI_I'): 11, ('port', 'DM_ADA'): 11, ('bank', 1): 7, ('port', 'LD_FIFO_RA_PORT'): 7, ('port', 'LD_FIFO_WA_PORT'): 7, 'b': 7, ('bank', 3): 7, 'v': 7, ('port', 'QEY_WA_L0_PORT'): 6}), U 1, stages 2, maxlive {'x': 4, 'dm': 2}
+  t   0 (stage 0, slot  0) m MP     mov p0, p4
+  t   1 (stage 0, slot  1) m MV0    mov p1, p5
+  t   2 (stage 0, slot  2) m RP     mov r24, #0
+  t   3 (stage 0, slot  3) a PF     vlda.fill.512 [p0, lf0, r24]
+  t   3 (stage 0, slot  3) m RV0    mov r25, #0
+  t   4 (stage 0, slot  4) a P0     vlda.pop.576 ex0, [p0, lf0, r24]
+  t   4 (stage 0, slot  4) b VF0    vldb.fill.512 [p1, lf1, r25]
+  t   5 (stage 0, slot  5) a P1     vlda.pop.576 ex1, [p0, lf0, r24]
+  t   5 (stage 0, slot  5) b V0     vldb.pop.576 ex2, [p1, lf1, r25]
+  t   6 (stage 0, slot  6) a L0bmll vlda bmll0, [p2], #64
+  t   7 (stage 0, slot  7) b V1     vldb.pop.576 ex3, [p1, lf1, r25]
+  t   7 (stage 0, slot  7) a L0bmlh vlda bmlh0, [p2], #64
+  t   8 (stage 0, slot  8) a L0bmhl vlda bmhl0, [p2], #64
+  t   9 (stage 0, slot  9) a P2     vlda.pop.576 ex0, [p0, lf0, r24]
+  t   9 (stage 0, slot  9) b V2     vldb.pop.576 ex1, [p1, lf1, r25]
+  t  10 (stage 0, slot 10) a L0bmhh vlda bmhh0, [p2], #64
+  t  11 (stage 0, slot 11) a P3     vlda.pop.576 ex1, [p0, lf0, r24]
+  t  11 (stage 0, slot 11) b V3     vldb.pop.576 ex2, [p1, lf1, r25]
+  t  12 (stage 0, slot 12) s PW     padds.2d [p4], d0
+  t  12 (stage 0, slot 12) a P4     vlda.pop.576 ex0, [p0, lf0, r24]
+  t  13 (stage 0, slot 13) b V4     vldb.pop.576 ex1, [p1, lf1, r25]
+  t  14 (stage 0, slot 14) a P5     vlda.pop.576 ex2, [p0, lf0, r24]
+  t  14 (stage 0, slot 14) b V5     vldb.pop.576 ex3, [p1, lf1, r25]
+  t  14 (stage 0, slot 14) v M00    vmac.f dm0, dm0, ex0, ex2, r5
+  t  15 (stage 0, slot 15) v M01    vmul.f dm1, ex1, ex3, r5
+  t  17 (stage 0, slot 17) v M02    vmac.f dm0, dm0, ex0, ex1, r5
+  t  19 (stage 1, slot  1) v M03    vmac.f dm1, dm1, ex1, ex2, r5
+  t  21 (stage 1, slot  3) v M04    vmac.f dm0, dm0, ex0, ex1, r5
+  t  22 (stage 1, slot  4) v M05    vmac.f dm1, dm1, ex2, ex3, r5
+  t  25 (stage 1, slot  7) v AD0    vadd.f dm1, dm0, dm1, r6
+  t  31 (stage 1, slot 13) s S0bmll vst bmll1, [p3], #64
+  t  32 (stage 1, slot 14) s S0bmlh vst bmlh1, [p3], #64
+  t  33 (stage 1, slot 15) s S0bmhl vst bmhl1, [p3], #64
+  t  34 (stage 1, slot 16) s S0bmhh vst bmhh1, [p3], #64
+check OK (6 iterations): 126 cycles, last write lands at 132
+check OK (1 iterations): 36 cycles, last write lands at 42
+asmfit attvs: body compacted, 144 B saved (4 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/attvs.s
+II 13 (resource bound 6: {'a': 6, ('port', 'AGUA__AGI_I'): 6, ('port', 'AGUA__AGU_C1'): 6, ('port', 'AGUA__AG_P'): 6, ('port', 'DM_ADA'): 6, ('port', 'DM_WM_L0_PORT'): 6, ('port', 'AGUA__AGU_M_CG20S'): 4, ('port', 'QEY_WA_L0_PORT'): 4}), U 1, stages 2, maxlive {'x': 3, 'dm': 2}
+  t   0 (stage 0, slot  0) a LA0   vlda bmll0, [p0], #64
+  t   1 (stage 0, slot  1) a BL0   vlda x1, [p1], #64
+  t   2 (stage 0, slot  2) a BL1   vlda.2d x0, [p1], d1
+  t   3 (stage 0, slot  3) a LA1   vlda bmlh0, [p0], #64
+  t   4 (stage 0, slot  4) a LB0   vlda bmll1, [p0], #64
+  t   5 (stage 0, slot  5) a LB1   vlda.2d bmlh1, [p0], d0
+  t   8 (stage 0, slot  8) v M0    vmac.f dm0, dm0, x1, x11, r1
+  t   9 (stage 0, slot  9) v M1    vmac.f dm1, dm1, x0, x11, r1
+  t  14 (stage 1, slot  1) s C0    vconv.bf16.fp32 x0, cml0
+  t  15 (stage 1, slot  2) s C1    vconv.bf16.fp32 x1, cml1
+  t  17 (stage 1, slot  4) m S0    vshuffle x2, x0, x1, r2
+  t  18 (stage 1, slot  5) m S1    vshuffle x0, x0, x1, r3
+  t  19 (stage 1, slot  6) m U0    vconv.fp32.bf16 cml1, x2
+  t  20 (stage 1, slot  7) m U1    vconv.fp32.bf16 cmh1, x0
+  t  22 (stage 1, slot  9) s PU    vst.push.576.conv.bfp16ebs8.fp32 dm1, [p2, sf, r26]
+  t  23 (stage 1, slot 10) s FL    vst.flush.512.conv.2d [p2, sf, r26, d2]
+check OK (24 iterations): 325 cycles, last write lands at 328
+asmfit vtk: body compacted, 112 B saved (10 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/vtk.s
+II 8 (bound 8: {('bank', 'o'): 8, 's': 8, 'v': 6, 'a': 4, ('port', 'AGUA__AGI_I'): 4, ('port', 'AGUA__AGU_C1'): 4}), U 1, stages 4, maxlive {'dm': 5, 'x': 2}; check OK (96 cycles)
+asmfit resc: body compacted, 32 B saved (14 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/resc.s
+In file included from <built-in>:439:
+<command line>:51:9: warning: 'KS_B1' macro redefined [-Wmacro-redefined]
+   51 | #define KS_B1 0x7E180
+      |         ^
+<command line>:37:9: note: previous definition is here
+   37 | #define KS_B1 0x7E300
+      |         ^
+In file included from /work/npu-tapnext/mm8.cc:13:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/aie.hpp:41:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/abs.hpp:63:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/abs.hpp:10:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../broadcast.hpp:15:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../accum.hpp:30:
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:1193:118: warning: 'srs_to_v32int16' is deprecated: Function 'srs_to_v32int16 ()' is deprecated. Please use 'to_v32int16 ()' instead. [-Wdeprecated-declarations]
+ 1193 |                     return [](const accum_base<Class, MinBits, 32> &acc, int shift, bool sign) __aie_inline { return SRS_FN(v32int16)(acc, shift, sign);  };
+      |                                                                                                                      ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:1083:28: note: expanded from macro 'SRS_FN'
+ 1083 | #define SRS_FN(vec_type) ::srs_to_##vec_type
+      |                            ^
+<scratch space>:140:1: note: expanded from here
+  140 | srs_to_v32int16
+      | ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:1193:109: note: while substituting into a lambda expression here
+ 1193 |                     return [](const accum_base<Class, MinBits, 32> &acc, int shift, bool sign) __aie_inline { return SRS_FN(v32int16)(acc, shift, sign);  };
+      |                                                                                                             ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:650:40: note: in instantiation of function template specialization 'aie::detail::accum_base<aie::detail::AccumClass::Int, 32, 32>::get_srs<short>' requested here
+  650 |         constexpr auto srs_fn        = get_srs<T>();
+      |                                        ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:691:16: note: in instantiation of function template specialization 'aie::detail::accum_base<aie::detail::AccumClass::Int, 32, 32>::to_vector_sign<short>' requested here
+  691 |         return to_vector_sign<T>(is_signed_v<T>, shift);
+      |                ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../accum.hpp:394:36: note: in instantiation of function template specialization 'aie::detail::accum_base<aie::detail::AccumClass::Int, 32, 32>::to_vector<short>' requested here
+  394 |         return base_type::template to_vector<T>(shift);
+      |                                    ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/shift.hpp:104:56: note: in instantiation of function template specialization 'aie::accum<__acc32, 32>::to_vector<short>' requested here
+  104 |             vector<T, op_elems> tmp = tmp_acc.template to_vector<T>(downshift);
+      |                                                        ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/shift.hpp:71:53: note: in instantiation of member function 'aie::detail::shift_bits_impl_common<short, 16, 32>::run' requested here
+   71 |         return shift_bits_impl<T, TypeBits, Elems>::run(v, upshift, downshift);
+      |                                                     ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/aie.hpp:4090:37: note: in instantiation of member function 'aie::detail::shift_bits<short, 16, 32>::run' requested here
+ 4090 |     return detail::shift<T, Elems>::run(v, shift, 0);
+      |                                     ^
+/work/npu-tapnext/nk8.h:48:27: note: in instantiation of function template specialization 'aie::upshift<aie::vector<short, 32>>' requested here
+   48 |   B32 p2n = aie::add(aie::upshift(n16, 7), aie::broadcast<int16_t, 32>(0x3F80)).template cast_to<bfloat16>();
+      |                           ^
+/opt/ironenv/lib/python3.13/site-packages/llvm-aie/lib/clang/22/include/aie2p/aie2p_srs.h:632:3: note: 'srs_to_v32int16' has been explicitly marked deprecated here
+  632 | [[deprecated("Function 'srs_to_v32int16 ()' is deprecated. Please use "
+      |   ^
+2 warnings generated.
+II 10 (bound 10), U 4, stages 5, maxlive {'x': 9, 'dm': 2}, garbage stores 4; check OK (360 cycles, 32 vectors)
+asmfit: body compacted, 336 B saved (0 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/sigk.s
+II 11 (bound 8: {'v': 8, ('bank', 3): 6, ('port', 'QEY_WA_L0_PORT'): 6, 'a': 4, ('port', 'AGUA__AGI_I'): 4, ('port', 'AGUA__AGU_C1'): 4}), U 1, stages 3, maxlive {'y': 1, 'x': 2, 'dm': 4}, acc [('ss', 1), ('sq', 2)]; check OK (110 cycles, 8 iterations)
+asmfit n1k_ln_step: body compacted, 80 B saved (8 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/n1k_ln.s
+II 10 (bound 8: {('port', 'QEY_WA_L0_PORT'): 8, 'v': 8, ('bank', 3): 6, 's': 6, 'a': 4, ('port', 'AGUA__AGI_I'): 4}), U 1, stages 4, maxlive {'x': 3, 'dm': 3, 'y': 2}, acc [('sq', 0)]; check OK (110 cycles, 8 iterations)
+asmfit n1k_rms_step: body compacted, 64 B saved (6 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/n1k_rms.s
+II 24 (bound 22: {('bank', 1): 22, 'v': 20, 'b': 18, ('port', 'QEY_WB_L0_PORT'): 16, 'a': 13, ('bank', 2): 13, ('port', 'AGUA__AGI_I'): 13, ('port', 'DM_ADA'): 13}), U 1, stages 3, maxlive {'x': 7, 'dm': 3}; check OK (240 cycles, 8 iterations)
+asmfit ggk: body compacted, 144 B saved (18 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/ggk.s
+II 30 (bound 21: {'b': 21, ('port', 'QEY_WB_L0_PORT'): 21, 'v': 21, 'm': 20, ('bank', 2): 19, ('port', 'QEY_WA_L0_PORT'): 19, 's': 18, ('port', 'CRRND_RS'): 16}), U 2, stages 6, maxlive {'x': 10, 'dm': 4}; check OK (630 cycles, 16 vectors)
+asmfit ssq: body compacted, 368 B saved (14 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/ssq.s
+II 13 (bound 13: {'m': 13, ('port', 'DM_ADA'): 9, ('port', 'QEY_RS_L0_PORT'): 9, 'b': 8, ('bank', 0): 8, ('bank', 3): 8}), U 2, stages 4, maxlive {'x': 7, 'dm': 1}; check OK (247 cycles, 16 vectors)
+asmfit sqk: body compacted, 224 B saved (0 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/sqk.s
+II 20 (bound 20: {'v': 20, ('port', 'QEY_WA_L0_PORT'): 16, 's': 15, ('port', 'CRRND_RS'): 13, 'b': 9, ('port', 'QEY_WB_L0_PORT'): 9}), U 1, stages 3, maxlive {'dm': 3, 'x': 6}; check OK (200 cycles, 8 column blocks)
+asmfit convk: body compacted, 128 B saved (4 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/convk.s
+II 11 (bound 10: {'v': 10, 's': 9, ('port', 'QEY_WA_L0_PORT'): 8, ('port', 'CRRND_RS'): 7, 'a': 5, ('bank', 1): 5}), U 4, stages 6, maxlive {'dm': 5, 'x': 7}; check OK (231 cycles, 16 vectors)
+asmfit reck: body compacted, 320 B saved (0 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/reck.s
+II 5 (bound 4), U 2, stages 5, maxlive {'x': 3, 'dm': 2}; check OK (60 cycles)
+asmfit zk: body compacted, 48 B saved (18 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/zk.s
+rms: II 9 (bound 7: {'s': 7, ('port', 'QEY_WA_L0_PORT'): 6, 'm': 6, ('port', 'L_RM_PORT'): 5, ('port', 'CRRND_RS'): 5, 'v': 4}), U 2, stages 4, maxlive {'dm': 2, 'x': 8}; check OK (99 cycles)
+asmfit nrm_rms: body compacted, 112 B saved (14 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/nrm_rms.s
+ln: II 13 (bound 12: {'v': 12, 's': 11, ('port', 'QEY_WA_L0_PORT'): 10, 'm': 10, ('port', 'L_RM_PORT'): 9, 'a': 8}), U 2, stages 4, maxlive {'x': 7, 'dm': 5}; check OK (143 cycles)
+asmfit nrm_ln: body compacted, 112 B saved (4 B of expansions for the alignment)
+wrote /work/npu-tapnext/build/nrm_ln.s
+II 1, U 4, stages 8; check OK
+wrote /work/npu-tapnext/build/cpy64.s
+/work/npu-tapnext/ew8.cc:1593:7: warning: add explicit braces to avoid dangling else [-Wdangling-else]
+ 1593 |       else
+      |       ^
+In file included from /work/npu-tapnext/ew8.cc:12:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/aie.hpp:41:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/abs.hpp:63:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/abs.hpp:10:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../broadcast.hpp:15:
+In file included from /opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../accum.hpp:30:
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:1193:118: warning: 'srs_to_v32int16' is deprecated: Function 'srs_to_v32int16 ()' is deprecated. Please use 'to_v32int16 ()' instead. [-Wdeprecated-declarations]
+ 1193 |                     return [](const accum_base<Class, MinBits, 32> &acc, int shift, bool sign) __aie_inline { return SRS_FN(v32int16)(acc, shift, sign);  };
+      |                                                                                                                      ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:1083:28: note: expanded from macro 'SRS_FN'
+ 1083 | #define SRS_FN(vec_type) ::srs_to_##vec_type
+      |                            ^
+<scratch space>:140:1: note: expanded from here
+  140 | srs_to_v32int16
+      | ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:1193:109: note: while substituting into a lambda expression here
+ 1193 |                     return [](const accum_base<Class, MinBits, 32> &acc, int shift, bool sign) __aie_inline { return SRS_FN(v32int16)(acc, shift, sign);  };
+      |                                                                                                             ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:650:40: note: in instantiation of function template specialization 'aie::detail::accum_base<aie::detail::AccumClass::Int, 32, 32>::get_srs<short>' requested here
+  650 |         constexpr auto srs_fn        = get_srs<T>();
+      |                                        ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../detail/aie2p/accum.hpp:691:16: note: in instantiation of function template specialization 'aie::detail::accum_base<aie::detail::AccumClass::Int, 32, 32>::to_vector_sign<short>' requested here
+  691 |         return to_vector_sign<T>(is_signed_v<T>, shift);
+      |                ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/../../accum.hpp:394:36: note: in instantiation of function template specialization 'aie::detail::accum_base<aie::detail::AccumClass::Int, 32, 32>::to_vector<short>' requested here
+  394 |         return base_type::template to_vector<T>(shift);
+      |                                    ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/aie2/shift.hpp:104:56: note: in instantiation of function template specialization 'aie::accum<__acc32, 32>::to_vector<short>' requested here
+  104 |             vector<T, op_elems> tmp = tmp_acc.template to_vector<T>(downshift);
+      |                                                        ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/detail/shift.hpp:71:53: note: in instantiation of member function 'aie::detail::shift_bits_impl_common<short, 16, 32>::run' requested here
+   71 |         return shift_bits_impl<T, TypeBits, Elems>::run(v, upshift, downshift);
+      |                                                     ^
+/opt/ironenv/lib/python3.13/site-packages/mlir_aie/include/aie_api/aie.hpp:4090:37: note: in instantiation of member function 'aie::detail::shift_bits<short, 16, 32>::run' requested here
+ 4090 |     return detail::shift<T, Elems>::run(v, shift, 0);
+      |                                     ^
+/work/npu-tapnext/nk8.h:48:27: note: in instantiation of function template specialization 'aie::upshift<aie::vector<short, 32>>' requested here
+   48 |   B32 p2n = aie::add(aie::upshift(n16, 7), aie::broadcast<int16_t, 32>(0x3F80)).template cast_to<bfloat16>();
+      |                           ^
+/opt/ironenv/lib/python3.13/site-packages/llvm-aie/lib/clang/22/include/aie2p/aie2p_srs.h:632:3: note: 'srs_to_v32int16' has been explicitly marked deprecated here
+  632 | [[deprecated("Function 'srs_to_v32int16 ()' is deprecated. Please use "
+      |   ^
+2 warnings generated.
+[aiecc] (4/49) [0/1] input_with_symbols.mlir~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:391:5: warning: func 'mm_acc' has link_with but is never called from any core; its artifact will not be linked or merged
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:391:5: note: see current operation: func.func private @mm_acc(memref<288xui32>, memref<1056xui32>, memref<9216xbf16>) attributes {link_with = "/work/npu-tapnext/build/mm8asm.o", stack_size_override = 2304 : i32}
+[aiecc] (31/49) measured_stack_sizes.mlir~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:522:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:615:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:708:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:801:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:894:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:987:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1080:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1173:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1266:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1359:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1452:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1545:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1638:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1731:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1824:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:1917:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2010:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2103:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2196:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2289:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2382:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2475:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2568:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2661:17: warning: no stack size information for 11 function(s) this core reaches, so its requirement is at least 1856 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): attkb, attv, attvs, bgelu, cpy32, gup, mm_e7k, pan, resc, vtk, zero2
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2754:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2763:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2772:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2781:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2790:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2799:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2808:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[aiecc] ~/git/app/strix-halo-maxx/npu-research/r26/bdop.prj/aie.mlir:2817:17: warning: no stack size information for 15 function(s) this core reaches, so its requirement is at least 1792 bytes and may be higher; compile the affected source with -fstack-size-section, or set stack_size_override on the kernel's external_func()/func.func declaration (Kernel(...)/ExternalFunction(...) in IRON): convk, cpy64, ggk, n1k_ln_begin, n1k_ln_end, n1k_ln_step, n1k_rms_begin, n1k_rms_end, n1k_rms_step, nrm_ln, nrm_rms, reck, sigk, ssq, zk
+[design8] A load plan (acquire empty, release full) per half: [(4, 4, 768), (4, 2, 768), (2, 16, 768), (16, 4, 1536), (4, 4, 1536), (4, 6, 768), (6, 1, 768), (1, 2, 768), (2, 8, 768), (8, 4, 1536), (4, 4, 1536)]
+[bdlog] b0_out_proj shim0 live 17: [('b0_attn#p0', 1), ('b0_attn', 9), ('b0_attn#h0', 1), ('b0_attn#h1', 1), ('b0_attn#h2', 1), ('b0_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b0_out_proj shim0 live 17: [('b0_attn', 9), ('b0_attn#h0', 1), ('b0_attn#h1', 1), ('b0_attn#h2', 1), ('b0_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b0_out_proj shim0 live 17: [('b0_attn', 9), ('b0_attn#h1', 1), ('b0_attn#h2', 1), ('b0_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b0_out_proj shim0 live 17: [('b0_attn', 9), ('b0_attn#h2', 1), ('b0_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b1_out_proj shim0 live 17: [('b1_attn#p0', 1), ('b1_attn', 9), ('b1_attn#h0', 1), ('b1_attn#h1', 1), ('b1_attn#h2', 1), ('b1_attn#h3', 1), ('(this op / unnamed)', 3)]
+   [bdlog] b1_attn#p0 [(('drain', 'act', (4, 3, 1, 18432)), 'b1_attn')]
+   [bdlog] b1_attn#h0 [(('drain', 'act', (1, 3, 1, 18432)), 'b1_attn')]
+   [bdlog] b1_attn#h1 [(('drain', 'act', (1, 3, 1, 18432)), 'b1_attn')]
+   [bdlog] b1_attn#h2 [(('drain', 'act', (1, 3, 1, 18432)), 'b1_attn')]
+   [bdlog] b1_attn#h3 [(('drain', 'act', (1, 3, 1, 18432)), 'b1_attn')]
+   [bdlog] b1_attn [(('fill', 'act', (12, 3, 2, 1728)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn'), (('fill', 'act', (8, 3, 4, 2304)), 'b1_attn')]
+[bdlog] b1_out_proj shim0 live 17: [('b1_attn', 9), ('b1_attn#h0', 1), ('b1_attn#h1', 1), ('b1_attn#h2', 1), ('b1_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b1_out_proj shim0 live 17: [('b1_attn', 9), ('b1_attn#h1', 1), ('b1_attn#h2', 1), ('b1_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b1_out_proj shim0 live 17: [('b1_attn', 9), ('b1_attn#h2', 1), ('b1_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b2_out_proj shim0 live 17: [('b2_attn#p0', 1), ('b2_attn', 9), ('b2_attn#h0', 1), ('b2_attn#h1', 1), ('b2_attn#h2', 1), ('b2_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b2_out_proj shim0 live 17: [('b2_attn', 9), ('b2_attn#h0', 1), ('b2_attn#h1', 1), ('b2_attn#h2', 1), ('b2_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b2_out_proj shim0 live 17: [('b2_attn', 9), ('b2_attn#h1', 1), ('b2_attn#h2', 1), ('b2_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b2_out_proj shim0 live 17: [('b2_attn', 9), ('b2_attn#h2', 1), ('b2_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b3_out_proj shim0 live 17: [('b3_attn#p0', 1), ('b3_attn', 9), ('b3_attn#h0', 1), ('b3_attn#h1', 1), ('b3_attn#h2', 1), ('b3_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b3_out_proj shim0 live 17: [('b3_attn', 9), ('b3_attn#h0', 1), ('b3_attn#h1', 1), ('b3_attn#h2', 1), ('b3_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b3_out_proj shim0 live 17: [('b3_attn', 9), ('b3_attn#h1', 1), ('b3_attn#h2', 1), ('b3_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b3_out_proj shim0 live 17: [('b3_attn', 9), ('b3_attn#h2', 1), ('b3_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b4_out_proj shim0 live 17: [('b4_attn#p0', 1), ('b4_attn', 9), ('b4_attn#h0', 1), ('b4_attn#h1', 1), ('b4_attn#h2', 1), ('b4_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b4_out_proj shim0 live 17: [('b4_attn', 9), ('b4_attn#h0', 1), ('b4_attn#h1', 1), ('b4_attn#h2', 1), ('b4_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b4_out_proj shim0 live 17: [('b4_attn', 9), ('b4_attn#h1', 1), ('b4_attn#h2', 1), ('b4_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b4_out_proj shim0 live 17: [('b4_attn', 9), ('b4_attn#h2', 1), ('b4_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b5_out_proj shim0 live 17: [('b5_attn#p0', 1), ('b5_attn', 9), ('b5_attn#h0', 1), ('b5_attn#h1', 1), ('b5_attn#h2', 1), ('b5_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b5_out_proj shim0 live 17: [('b5_attn', 9), ('b5_attn#h0', 1), ('b5_attn#h1', 1), ('b5_attn#h2', 1), ('b5_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b5_out_proj shim0 live 17: [('b5_attn', 9), ('b5_attn#h1', 1), ('b5_attn#h2', 1), ('b5_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b5_out_proj shim0 live 17: [('b5_attn', 9), ('b5_attn#h2', 1), ('b5_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b6_out_proj shim0 live 17: [('b6_attn#p0', 1), ('b6_attn', 9), ('b6_attn#h0', 1), ('b6_attn#h1', 1), ('b6_attn#h2', 1), ('b6_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b6_out_proj shim0 live 17: [('b6_attn', 9), ('b6_attn#h0', 1), ('b6_attn#h1', 1), ('b6_attn#h2', 1), ('b6_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b6_out_proj shim0 live 17: [('b6_attn', 9), ('b6_attn#h1', 1), ('b6_attn#h2', 1), ('b6_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b6_out_proj shim0 live 17: [('b6_attn', 9), ('b6_attn#h2', 1), ('b6_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b7_out_proj shim0 live 17: [('b7_attn#p0', 1), ('b7_attn', 9), ('b7_attn#h0', 1), ('b7_attn#h1', 1), ('b7_attn#h2', 1), ('b7_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b7_out_proj shim0 live 17: [('b7_attn', 9), ('b7_attn#h0', 1), ('b7_attn#h1', 1), ('b7_attn#h2', 1), ('b7_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b7_out_proj shim0 live 17: [('b7_attn', 9), ('b7_attn#h1', 1), ('b7_attn#h2', 1), ('b7_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b7_out_proj shim0 live 17: [('b7_attn', 9), ('b7_attn#h2', 1), ('b7_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b8_out_proj shim0 live 17: [('b8_attn#p0', 1), ('b8_attn', 9), ('b8_attn#h0', 1), ('b8_attn#h1', 1), ('b8_attn#h2', 1), ('b8_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b8_out_proj shim0 live 17: [('b8_attn', 9), ('b8_attn#h0', 1), ('b8_attn#h1', 1), ('b8_attn#h2', 1), ('b8_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b8_out_proj shim0 live 17: [('b8_attn', 9), ('b8_attn#h1', 1), ('b8_attn#h2', 1), ('b8_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b8_out_proj shim0 live 17: [('b8_attn', 9), ('b8_attn#h2', 1), ('b8_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b9_out_proj shim0 live 17: [('b9_attn#p0', 1), ('b9_attn', 9), ('b9_attn#h0', 1), ('b9_attn#h1', 1), ('b9_attn#h2', 1), ('b9_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b9_out_proj shim0 live 17: [('b9_attn', 9), ('b9_attn#h0', 1), ('b9_attn#h1', 1), ('b9_attn#h2', 1), ('b9_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b9_out_proj shim0 live 17: [('b9_attn', 9), ('b9_attn#h1', 1), ('b9_attn#h2', 1), ('b9_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b9_out_proj shim0 live 17: [('b9_attn', 9), ('b9_attn#h2', 1), ('b9_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b10_out_proj shim0 live 17: [('b10_attn#p0', 1), ('b10_attn', 9), ('b10_attn#h0', 1), ('b10_attn#h1', 1), ('b10_attn#h2', 1), ('b10_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b10_out_proj shim0 live 17: [('b10_attn', 9), ('b10_attn#h0', 1), ('b10_attn#h1', 1), ('b10_attn#h2', 1), ('b10_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b10_out_proj shim0 live 17: [('b10_attn', 9), ('b10_attn#h1', 1), ('b10_attn#h2', 1), ('b10_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b10_out_proj shim0 live 17: [('b10_attn', 9), ('b10_attn#h2', 1), ('b10_attn#h3', 1), ('(this op / unnamed)', 6)]
+[bdlog] b11_out_proj shim0 live 17: [('b11_attn#p0', 1), ('b11_attn', 9), ('b11_attn#h0', 1), ('b11_attn#h1', 1), ('b11_attn#h2', 1), ('b11_attn#h3', 1), ('(this op / unnamed)', 3)]
+[bdlog] b11_out_proj shim0 live 17: [('b11_attn', 9), ('b11_attn#h0', 1), ('b11_attn#h1', 1), ('b11_attn#h2', 1), ('b11_attn#h3', 1), ('(this op / unnamed)', 4)]
+[bdlog] b11_out_proj shim0 live 17: [('b11_attn', 9), ('b11_attn#h1', 1), ('b11_attn#h2', 1), ('b11_attn#h3', 1), ('(this op / unnamed)', 5)]
+[bdlog] b11_out_proj shim0 live 17: [('b11_attn', 9), ('b11_attn#h2', 1), ('b11_attn#h3', 1), ('(this op / unnamed)', 6)]
+[design8] shim BD peak 17 at b0_out_proj (shim0) (limit 16)
+[design8] KSC placement checked on 24 GEMM cores: KS_ACC_HI 0x71a00, KS_C 0x78900, KS_A0 0x77b80, KS_A1 0x78000, KS_A2 0x78480, KS_B0 0x7d100, KS_B1 0x7e180, KS_BPROD 0x0, KS_BCONS 0x1

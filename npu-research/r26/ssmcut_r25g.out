@@ -1,0 +1,30 @@
+packed W 239 MB in 3.7 s
+20736 records; per SSM op, mean over columns, cycles per chunk (the op's last record per column minus its first)
+op       chunks  in_need par_need    chunk  per column in_need
+b0_ssm      215      548       80     2043    536   546   552   555   547   546   550   555
+b1_ssm      215      526       80     2021    505   517   518   544   530   529   534   534
+b2_ssm      215      522       73     2031    499   508   518   527   530   527   530   540
+b3_ssm      215      520       85     2033    498   499   522   522   526   529   525   540
+b4_ssm      215      556       88     2045    529   531   541   556   561   574   577   580
+b5_ssm      215      532       80     2040    515   525   537   526   529   538   540   545
+b6_ssm      215      523       82     2027    495   500   513   527   532   535   538   542
+b7_ssm      215      517       80     2027    504   496   508   520   519   526   528   539
+b8_ssm      215      537       85     2043    515   518   543   546   533   548   540   554
+b9_ssm      215      526       83     2039    516   518   526   525   524   531   531   537
+b10_ssm     215      527       84     2036    505   517   515   536   530   530   538   546
+b11_ssm     215      518       82     2023    499   509   515   518   526   526   524   526
+mean                 529       82     2034
+column skew (us at 1.81 GHz): first-chunk spread, last-chunk spread, and the last chunk per column relative to the earliest
+b0_ssm   start spread   1.99  end spread   0.83  ends  0.00  0.16  0.25  0.48  0.50  0.55  0.61  0.83  starts  0.00  0.20  0.73  1.18  1.30  1.56  1.71  1.99
+b1_ssm   start spread   3.10  end spread   0.67  ends  0.00  0.05  0.19  0.38  0.38  0.41  0.67  0.61  starts  0.00  0.61  0.81  1.12  1.95  2.32  2.71  3.10
+b2_ssm   start spread   2.77  end spread   0.86  ends  0.13  0.00  0.33  0.51  0.41  0.59  0.86  0.86  starts  0.00  0.26  0.77  1.42  1.64  2.10  2.39  2.77
+b3_ssm   start spread   2.86  end spread   0.76  ends  0.00  0.08  0.33  0.51  0.44  0.40  0.76  0.49  starts  0.00  0.55  1.04  1.53  1.76  2.19  2.40  2.86
+b4_ssm   start spread   2.73  end spread   0.75  ends  0.19  0.00  0.06  0.10  0.17  0.36  0.75  0.62  starts  0.00  0.37  0.62  1.19  1.57  1.99  2.38  2.73
+b5_ssm   start spread   2.56  end spread   0.86  ends  0.28  0.00  0.28  0.57  0.46  0.51  0.86  0.64  starts  0.00  0.11  0.72  1.11  1.35  1.81  2.15  2.56
+b6_ssm   start spread   2.73  end spread   0.82  ends  0.14  0.00  0.25  0.18  0.32  0.31  0.55  0.82  starts  0.00  0.26  0.54  1.08  1.31  1.85  2.29  2.73
+b7_ssm   start spread   2.78  end spread   0.84  ends  0.18  0.00  0.37  0.57  0.37  0.39  0.84  0.50  starts  0.00  0.47  0.97  1.12  1.59  1.99  2.37  2.78
+b8_ssm   start spread   2.82  end spread   0.64  ends  0.00  0.24  0.47  0.58  0.51  0.48  0.64  0.56  starts  0.00  0.48  0.91  1.14  1.65  2.12  2.52  2.82
+b9_ssm   start spread   2.44  end spread   0.49  ends  0.00  0.00  0.12  0.34  0.18  0.15  0.49  0.47  starts  0.00  0.27  0.70  1.09  1.41  1.86  2.07  2.44
+b10_ssm  start spread   2.86  end spread   0.67  ends  0.03  0.38  0.00  0.34  0.23  0.33  0.67  0.63  starts  0.00  0.26  0.70  1.25  1.70  2.19  2.58  2.86
+b11_ssm  start spread   2.80  end spread   0.93  ends  0.17  0.00  0.31  0.35  0.45  0.41  0.93  0.37  starts  0.00  0.23  0.77  1.01  1.41  2.04  2.37  2.80
+rc=0

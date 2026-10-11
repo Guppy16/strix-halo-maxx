@@ -1,0 +1,16 @@
+== idle: power_uW 27071000 tctl_mC 79125 cpu_MHz 3660
+== idle 12 threads: power_uW 27076000 tctl_mC 79125 cpu_MHz 3885
+mode 1 (3 bundles/trip) fit on median: clock 1.8091 GHz, intercept 99.2 us, max |residual| 31.5 us
+   after: power_uW 33092000 tctl_mC 79000 cpu_MHz 3632
+== vec 12 threads: power_uW 99097000 tctl_mC 59250 cpu_MHz 2889
+mode 1 (3 bundles/trip) fit on median: clock 1.4075 GHz, intercept 131.9 us, max |residual| 4.6 us
+   after: power_uW 100011000 tctl_mC 74000 cpu_MHz 2634
+== vec_l1 12 threads: power_uW 99099000 tctl_mC 70750 cpu_MHz 3187
+mode 1 (3 bundles/trip) fit on median: clock 1.5843 GHz, intercept 114.9 us, max |residual| 30.8 us
+   after: power_uW 100004000 tctl_mC 87875 cpu_MHz 3354
+== avx2 12 threads: power_uW 99098000 tctl_mC 65500 cpu_MHz 3082
+mode 1 (3 bundles/trip) fit on median: clock 1.4076 GHz, intercept 90.6 us, max |residual| 10.6 us
+   after: power_uW 98086000 tctl_mC 80000 cpu_MHz 3294
+== mem 12 threads: power_uW 42087000 tctl_mC 44250 cpu_MHz 2670
+mode 1 (3 bundles/trip) fit on median: clock 1.8078 GHz, intercept 88.8 us, max |residual| 8.7 us
+   after: power_uW 43070000 tctl_mC 43500 cpu_MHz 3481

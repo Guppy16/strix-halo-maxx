@@ -481,6 +481,8 @@ def solve(cfg, time_limit=600.0, workers=12, emax=6, nb=4, margin=1, hard_banks=
         s.parameters.repair_hint = True
         s.parameters.hint_conflict_limit = 100000
     s.parameters.max_time_in_seconds = time_limit
+    if os.environ.get("E7_DTIME"):  # pass 21: a deterministic budget, so SIGSTOP pauses (r26/cpgate.sh) do not eat the search
+        s.parameters.max_deterministic_time = float(os.environ["E7_DTIME"])
     s.parameters.num_workers = workers
     s.parameters.log_search_progress = verbose
     st = s.Solve(m)

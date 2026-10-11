@@ -38,13 +38,11 @@ while time.time() - t < 90: np.copyto(b, a); np.copyto(a, b)" ;;
 busy=$(docker ps --format '{{.Names}}' | grep -v 'othersvc2\|othersvc')
 [ -n "$busy" ] && { echo "NPU/docker busy: $busy"; exit 1; }
 echo "== idle: $(sample)"
-for kind in ${KINDS:-vec vec_l1 avx2 mem}; do
+for kind in ${KINDS:-idle vec vec_l1 avx2 mem}; do
   pids=()
-  for i in $(seq 1 12); do load $kind > /dev/null & pids+=($!); done
-  sleep 20
+  if [ $kind != idle ]; then for i in $(seq 1 12); do load $kind > /dev/null & pids+=($!); done; sleep 20; fi
   echo "== $kind 12 threads: $(sample)"
-  $DK bash -c "cd /work/npu-tapnext && python3 r7/clk.py run --out build/clk25" 2>&1 | grep -iE "fit on median" | tail -1
+  $DK bash -c "cd /work/npu-tapnext && python3 r7/clk.py run --out build/clk" 2>&1 | grep -iE "fit on median" | tail -1
   echo "   after: $(sample)"
-  kill "${pids[@]}" 2>/dev/null; wait 2>/dev/null
-  sleep 10
+  [ ${#pids[@]} -gt 0 ] && { kill "${pids[@]}" 2>/dev/null; wait 2>/dev/null; sleep 10; }
 done

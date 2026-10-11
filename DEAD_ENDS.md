@@ -1,6 +1,6 @@
 # DEAD_ENDS.md — ideas tried and refuted on the TAPNext++ NPU port (check before proposing)
 
-Last updated 2026-10-11 (research pass 20; 184 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
+Last updated 2026-10-11 (research pass 21; 187 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
 Source keys: RFM = `npu-research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `npu-tapnext/*.md` (§ = section number); revN/P, revN/A = `npu-research/revN/PROPOSALS.md` / `ANALYSIS.md` (rev 16 = the top-level files); MACHINE Rx.y = `npu-research/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `.scratch/npu-moondream/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
@@ -51,7 +51,7 @@ Not listed: proposals that were built and hit or merely missed their price but w
 | C5 | SEQPRE-v1 | boundaries | memtile sends (+ loads + drains) before the wait: +1.10 ms (4-deep queue blocks the CP) |
 | C6 | SEQPRE-v2 | boundaries | sends after the fills, loads + drains before: +0.13 ms |
 | C7 | DRAINS-FIRST | boundaries | only the drains before the wait: +0.15 ms, cause unexplained |
-| C8 | BDPRE | boundaries | hoist post-sync BD writes: BD write + patch ~0.10 µs ⇒ ≤ 0.1 ms; dropped |
+| C8 | BDPRE | boundaries | hoist post-sync BD writes: BD write + patch ~0.10 µs ⇒ ≤ 0.1 ms; dropped — REVIVED (section R): 0.55 µs measured, CPPRE -0.09 |
 | C9 | SENDPRE-dep | boundaries | memtile sends before the wait for dependent ops: ~0 (first tile DDR-paced anyway); dropped |
 | C10 | SENDPRE | boundaries | memtile sends before the wait after EW ops: +0.16 ms |
 | C11 | OPPRE | boundaries | out_proj's A in 4 parts during attention pass 1: +0.18 ms, cause unmeasured |
@@ -165,6 +165,9 @@ Not listed: proposals that were built and hit or merely missed their price but w
 | H26 | NUMERICS-30F | method | SSM numerics judged by 30-frame max deviations |
 | H27 | HALF-BUILT | method | a half-built proposal scored as a whole (P43) |
 | H28 | STAMP-CONTAINS-CALL | method | stamp intervals include the call's own cycles |
+| M1 | NEAR-CAP-AS-CAP | method | a span reading at ~95 % of the read cap priced as capped (rev 20: SSM glue ~0); SSMCUT: compute-bound, floor 2,030 / chunk |
+| M3 | CLKLOAD-DRAM / WIDTH | host | "DRAM traffic or AVX-512 width slows the NPU": DRAM copy keeps 1.81, AVX2 matmul drops it like AVX-512 |
+| M2 | SSM-TWIN-H_C | SSM | "a compute cut lands 1:1 in the SSM": the no-sigk / ssq twin bought 255 of ~1,000 cycles per chunk |
 | L1 | KTL-R68-CP | GEMM k-step | KTL at R 68-69 without bank conflicts: not found within 4 CP workers (bank 3 at 63 / R) |
 | L2 | FSX-CP | SSM | FSX: no schedule at II 30-33 (ResMII 30); worth <= -0.05 in a read-capped SSM span |
 | L3 | WINDOW-AVERAGE | method | DDR headroom read from a window average (r+w over 320 us) while the SSM's own span sits at the read cap |
@@ -586,8 +589,13 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 - **B2 GELU_II** (−0.88 ms once the loop really pipelined), **E15 ZASM-BENCH** (ZK −0.17 in situ), **D13 CHUNK0-SKIP** (~−0.3 in round 14),
   **C17 NRES** (the idea, built chunk-major: −0.84 ms with norm1), **A13 B-2BANK** (void with one FIFO; E7'' splits B over two banks with
   two FIFOs and is live), **E6 FOLD** (retired under a refuted fit: re-price under the DDR-cap reading).
-- **J4 YRES / SSPM** (pass 20): "the SSM is compute-bound, byte cuts ~0" no longer holds after YXSSM: the SSM's span is at the DDR
-  read cap, so read bytes in it pay and compute cuts do not. SSPM (params read once, broadcast) is PROPOSALS rev 20 rank 1.
+- **C8 BDPRE** (pass 21): its price rested on ~0.10 us of CP time per post-sync BD write (R16.2, inferred). Main measured ~0.55 us per
+  post-wait shim fill (blockwrite + patch + maskpoll + maskwrite + push) in round 24, and CPPRE (the same idea) gained -0.09 ms, plus
+  -0.07 for SSMPRE. Entries that used 0.10 us: only C8. C3 (CPRATE: 0.06 / 0.11 us per write32 / maskpoll) is consistent with 0.55
+  for five instructions; C2 / H14 stand (the boundary is not CP-bound), but per-column post-wait work skews the columns by
+  ~8 x 0.55 = 4.4 us per wait, which the B multicast then waits for.
+- **J4 YRES / SSPM** (pass 20, corrected pass 21): conditional revival. The SSM is compute-bound ~255 cycles per chunk above an input
+  floor of ~2,030 (SSMCUT); after the SSM glue reaches that floor, read bytes per chunk (params read by all 8 columns) pay.
 
 ## J. Added by research pass 18 (2026-10-11)
 
@@ -648,7 +656,8 @@ solution at all; main's R 68 soft (12 workers, 1,800 s): 35 modelled conflicts p
 at 4 workers for 1,200 s: still 35 (prologue 45 -> 41), a plateau. Bank 3 holds 63
 accesses per row block (Y 27, L 18, N 18), i.e. 91-93 % of the bundles at R 68-69; the A pops' bank (1 / 2) and the accumulator
 pieces' banks both change with the row block, so an A pop's bundle can rarely hold an accumulator op. Revive with more CP workers in
-a quiet window, or with a placement whose A slots and accumulator pieces never share a bank.
+a quiet window, or with a placement whose A slots and accumulator pieces never share a bank. Pass 21: R 69 hard banks at 12 workers (deterministic
+budget 2,500) also found nothing; CP-SAT stopped at the NPU pause.
 
 **L2 — FSX-CP: gate_a's sigmoid inside ssq** (pass 20) [MODEL CP]. r25/gen_fsx.py: 109 ops, ResMII 30 (bank 2: 30, mv 29, ldb 26 with
 eight constants on lda); cpsched found no schedule at II 30, 31 (700 s each) or 32, 33 (600 s each), 2 workers. Even at II 30 FSX
@@ -669,3 +678,20 @@ delayed the SSM's fills), +0.14 without, neutral with MSDEFER (r24a: norm1 ends 
 **L6 — YXH: yx steps head-major with finer drain groups** (main round 24) [MEAS main]. 7 drain TAPs per column: +0.48 (a shim S2MM
 channel queues ~5 tasks); 4 TAPs: +0.09 (the SSM starts 15 us earlier but its wall grows 289 -> 308 us: more of yx's reads inside the
 read-capped SSM span). The order alone is free (r24c).
+
+## M. Added by research pass 21 (2026-10-11)
+
+**M1 — NEAR-CAP-AS-CAP: a span that reads near the cap priced as capped** (rev 20 headline 1-2, research's own) [MEAS SSMIN + SSMCUT].
+Rev 20 read the SSM span's 54 GB/s (vs the 55-59 cap) as "read-capped" and priced the SSM glue at ~0. Main's SSMIN (input waits ~8
+net per chunk) and research's SSMCUT twin (sigk + ssq removed: chunk 2,289 -> 2,034, in_need 71 -> 529) show the SSM compute-bound
+by ~255 cycles per chunk above an input floor of ~2,030. Lesson: being near a cap is not binding on it; a removal twin with input-wait
+stamps measures the distance to the floor directly.
+
+**M2 — SSM-TWIN-H_C: "removing SSM compute lands 1:1"** (pass 21 pre-registration H_C) [MEAS SSMCUT]. Predicted chunk 1,150-1,350 for
+the no-sigk / ssq twin; measured 2,034 with 529 cycles of input waits. Any SSM compute cut beyond ~255 cycles per chunk needs fewer
+input bytes per chunk (SSPM-B, KPAD) or a second input path to land.
+
+**M3 — CLKLOAD-DRAM / WIDTH: the NPU clock drop blamed on DRAM bandwidth or AVX-512** (pass 18-20 hypotheses) [MEAS CLKLOAD2].
+12 threads each: DRAM copy (np.copyto, 42 W) 1.808 GHz; matmul with OpenBLAS forced to AVX2 1.408, as with AVX-512 (1.408); 64 x 64
+matmul in L1 1.584; none 1.809. With round 23 (12 spin threads at 99 W, 6 matmul threads: 1.81): the trigger is many threads of
+floating-point compute with the package at ~100 W. Lesson for any app beside the NPU: cap BLAS / OpenMP threads (<= 6).
