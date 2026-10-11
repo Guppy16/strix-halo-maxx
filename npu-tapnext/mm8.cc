@@ -121,10 +121,28 @@ extern "C" {
 // overlaps the C drain the next acc_zero waits for; acc_zero then zeroes only the C part unless something used acc_hi since
 // (the second tile of a 2-tile object, the attention: attn_begin clears the flag)
 static int32_t g_hi_clean = 0;
+#ifdef CSPLIT  // round 19: the C object drains in two parts (r19/csplit.py patches each GEMM core's MM2S after IRON's lowering):
+// bytes 0 .. 12,287 (the accumulators' C part) release the C prod lock, so the next tile starts once they are out; bytes 12,288 ..
+// 18,431 drain during the next tile and then release lock CS_Z (init 1). Anything that writes part 2 takes CS_Z first, once per
+// object (g_zh; cleared after the object's release: acc_zero_hi, attn_end). The core releases the C cons lock by 2 (patched).
+static int32_t g_zh = 0;
+static inline __attribute__((always_inline)) void cs_take(void *c) {
+  if (!g_zh) {
+    acquire_greater_equal(c, 48 + CS_Z, 1);
+    g_zh = 1;
+  }
+}
+#endif
 void acc_zero_hi() {
   zero2(acc_hi, acc_hi + 2048, 128);  // 8 KB at a + 16 KB at b
   g_hi_clean = 1;
+#ifdef CSPLIT
+  g_zh = 0;
+#endif
 }
+#endif
+#if defined(CSPLIT) && !defined(ZHI)
+#error "CSPLIT clears its per-object flag in acc_zero_hi (ZHI)"
 #endif
 void acc_zero(bfloat16 *c_out) {
 #ifdef PROF
@@ -802,6 +820,9 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
   }
 }
 void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
+#ifdef CSPLIT
+  cs_take(c_out);
+#endif
 #ifdef PROF
   const uint32_t te = stamp();
 #endif
@@ -1428,6 +1449,9 @@ __attribute__((minsize)) void attn_begin(bfloat16 *c_out, int32_t ntiles) {  // 
 #ifdef ZHI
   g_hi_clean = 0;
 #endif
+#ifdef CSPLIT
+  cs_take(c_out);
+#endif
   using namespace at;
 #ifdef ATTN_STUB
   return;
@@ -1624,6 +1648,9 @@ void attn_end(bfloat16 *c_out) {  // -O2 (round 7)
   w[5] = ga_gap;
   w[6] = ga_last - te0;
   w[7] = g_ntiles;
+#endif
+#ifdef CSPLIT
+  g_zh = 0;
 #endif
 }
 }
