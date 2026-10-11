@@ -853,3 +853,41 @@ chunks 0-23 are drained after mlp0's step 7; a split mlp0 drain (steps 0-7 / 8-1
 (chunks 12-23) loading into the free half while mlp0 runs, half 0 as soon as mlp0's last sends free it (per-half full locks).
 Request (rev 16): price the norm -> GEMM bypass (EW core output panels straight into memtile c's A slot; norm c's rows = GEMM
 column c's A) and any other way to keep the dependent A off DDR; and the drain tail (442 KB at the write cap per GEMM -> X boundary).
+
+# Round 20 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r20z**: A/B in one process vs r19z **-1.99 / -2.07 / -2.06 ms** (p10 / median / mean, 40 x 20); sweep (loaded box, see
+below) d12 33.71 / d10 28.30 / d8 22.35 / d6 16.76 vs r19z same session 35.65 / 29.95 / 23.91 / 17.89; quiet-box estimate ~31.8 at
+d12. Regress BIT-IDENTICAL vs full12r9a; DAVIS d12 70.84 (OA 92.57), d10 69.90 (91.02), unchanged. Timeouts 0. From ~03:50 a second
+foreign CPU job (crop_study, ~7.6 cores, no NPU) ran: A/B spreads after that are wider. Details: npu-tapnext NOTES 25, RESULTS 29.
+| id | predicted | measured (p10 / median / mean ms) | verdict |
+|---|---|---|---|
+| DDRW | 3.5-4.5 B/cycle per column (H_WR) or >= 7 (H_TOK) | one stream 12.1 GB/s (~6.7 B/cycle); 4 col 45, 8 col ~50-60 GB/s | aggregate write cap = read cap: tail = 442 KB at ~55 GB/s; neither per-channel H_WR nor H_TOK; DDRW-2ch moot |
+| CPST-N | flag at 6-14 us after norm1's last word | up_a: column 0's k0 4.1 us after the CP pass, +0.31 us per column; qkv 9.6 us (norm end not stamped) | partial |
+| POPLF1 | 64/64 or a backend error | vldb control, vlda.pop lf1, vlda/vldb mixed, vlda.fill: 128/128 each (r20/poplf1*.py) | E7'' pops feasible |
+| MLPRR (= main's IL) | -0.30..-0.42 | -0.415 / -0.399 / -0.405 (vs r19z); TPROF: mlp3_a k0 1.45 us after mlp0's end, pace 1.1 us | hit |
+| DAPRE | -0.10..-0.14 | -0.127 / -0.129 / -0.108; down_a pace 0.5 us | hit |
+| NSEQ | -0.08..-0.20 | -0.167 / -0.174 / -0.166 (norms' params + drains before the wait) | hit |
+| NRES norm1 | -0.15..-0.28 | without NSEQ -0.113 / -0.057 / -0.091 (columns 1.5 us apart: the CP's per-column norm issue; B lockstep); with NSEQ -0.177 / -0.186 / -0.208 | hit with NSEQ |
+| NRES norm0/2/3 | (all four -0.6..-1.1) | -0.690 / -0.651 / -0.641 on top | hit |
+| SRES (main: the SSM's z panels the same way) | -0.10..-0.20 | -0.106 / -0.195 / -0.156 | hit |
+| AQPRE (main: attention Q in half 1, filled after qkv's Q drain group) | -0.10..-0.20 | -0.087 / -0.106 / -0.127 (40 x 20, loaded); ATPROF: Q copy 28.6 -> 0.4 us after qkv's end | hit |
+| AKVPRE (main: qkv step 8 = V heads 0-2 its own group, head group 0's K / V filled after it) | -0.10..-0.14 | -0.241 / -0.134 / -0.168 | hit |
+| SENDPRE (main) | -0.05..-0.15 | +0.197 / +0.162 / +0.155 | dead (as you retired it) |
+| OPPRE (main: out_proj's A in 4 parts after each attention pass-1 head-group drain) | -0.18..-0.3 | +0.117 / +0.205 / +0.184 | dead, cause unmeasured |
+| CSPLIT4-lite, LATE-C, S3 / K2, ssq2 / FSX, E7'' | | not built | next round |
+### NRES as built (differs from rev 16's design)
+- Slot layout: rev 16's rb-major half 0 with new sends broke correctness (the last tile's chunk-wise `last` release let the next op's
+  chunk-0 load overwrite rows 0-1 of every chunk; G chunks 31/39/47 wrong). Built instead: the memtile S2MM 5 task scatters the rb-major
+  stream into the usual chunk-major half with a 3D TAP `[18 rb][12 q][144 words]` strides `[144, CH, 1]`, and the normal sends stay.
+- Route: IRON 1.4.4's pathfinder finds NO route for two packet flows from two DMA channels of one EW tile (even one column alone; from
+  one channel it routes). Eout (packet 3) and Pn (packet 5) are both declared from MM2S 0; r20/nresfix.py adds
+  `packet_rules(DMA : 1) { rule(31, 5, <same amsel>) }` to each EW switchbox in the lowered MLIR before aiecc re-runs.
+- Ring: 2 slots x 576 B in EW bank 0 (stack 6 KB -> 4.75 KB; deepest 3.2 KB). EW text 15,808 -> 16,272 (NRES + SRES).
+- The norm's group is pushed, not finished; the GEMM after it has no dependency on it and issues B / sends / drains first.
+### Requests to research (rev 17)
+- E7'' generator design now that POPLF1 passed (A on which FIFO / slot, B line weave, CP feasibility at R = 64, registers, banks).
+- The remaining first-tile paces (out_proj 6.8, down_b 6.0, mlp3_b 5.3 us per block) and the GEMM -> norm tails (4 per block, ~12 us
+  each at the write cap): price a third A region (B fifos moved off memtiles 0-2?) and anything that shortens the tails.
+- OPPRE's +0.18: model what the out_proj A load (1 MB over attention pass 1) costs the attention's K / V stream at the DDR cap.
+- C waits (~0.48 ms: hand 1,355 plain / 1,807 others vs 676): CSPLIT4-lite for gelu_pan alone (restructured bgelu3 + pan split at
+  rb 12, 1a = [0, 6,912)) vs LATE-C / a zero-load first k-step in ROT records vs a runtime-driven C path with per-op sizes (74 MB junk).
