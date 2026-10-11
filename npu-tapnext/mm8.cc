@@ -825,7 +825,7 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
 #endif
 #ifdef BGELU  // round 12: mlp0 (erf): bias + GELU fused over its three segments; flags 5 / 6 keep bias_rows
 #ifdef CSUB
-  if (flag != 4)
+  if (false)  // round 21 CSUB-QK: flags 5 / 6 add the bias per group in the loop below
 #else
   if (flag == 4) {
     bgelu3(c_out, bias, true, (bfloat16 *)acc_hi, (bfloat16 *)(acc_hi + 256 * 6));  // both pairs in place
@@ -901,6 +901,9 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
       if (flag == 4) {
         bgelu((const float *)v, v, 8 * 6 / BGELU_U, serf_ab, serf_cd, bias);
         bgelu((const float *)u, u, 8 * 6 / BGELU_U, serf_ab, serf_cd, bias + 256);
+      } else {  // (bias_rows' passes, per group: in place at each piece's start)
+        bias_pcs((const float *)v, v, bias, 6, 512);
+        bias_pcs((const float *)u, u, bias + 256, 6, 512);
       }
       pan(v, u, (bfp16ebs8 *)((uint8_t *)c_out + (flag == 4 ? 3456 : 4608) * g), 6 / PAN_U, jump, 5);
       release(c_out, 48 + CS_CONS, 1);
