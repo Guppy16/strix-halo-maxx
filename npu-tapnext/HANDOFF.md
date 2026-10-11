@@ -1,3 +1,36 @@
+# ROUND 24 DONE (2026-10-11) - read this block first; the round-23 block below is the base it builds on
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: **full12r24z**, A/B in one process vs r23z **-0.48 ms** (60 x 20: -0.476 / -0.483 / -0.508), BIT-IDENTICAL vs full12r9a
+| depth | r24z sweep median (min) | whole step | r23z same session | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 28.43 (28.38) | 30.73 | 28.95 (28.87) | 70.84 (92.57) (bit-identical: not re-run) |
+| 10 | 23.85 (23.79) | 26.03 | 24.25 (24.20) | 69.90 (91.02) (bit-identical) |
+| 8 | 19.10 (19.07) | 21.56 | 19.47 (19.39) | not run |
+| 6 | 14.38 (14.34) | 16.62 | 14.62 (14.58) | not run |
+Box for the sweeps: load 1.4-4.1 (the background job), r7/clk.py 1.808 GHz, gpu_busy 0. Timeouts this round: 0.
+Build: `r24/try24.sh NAME [--sweep]` = r23/try23.sh + STATS64 + OPPRE2 + SSMPRE + CPPRE (env STATS64= / OPPRE2= / SSMPRE= / CPPRE=0 to drop).
+Text: GEMM 16,256 / 16,384, EW 15,728 (656 free). Never dispatch *.unpatched.xclbin; read SEQLOG=1 before dispatching a reordered sequence.
+## What changed (NOTES 29, RESULTS 33): STATS64 (norm statistics as one 64-lane chain) -0.10; OPPRE2 (out_proj's A per attention head
+group, sends before the waits) -0.15; SSMPRE (SSM head-0 params before the yx wait) -0.07; CPPRE (post-wait shim fills configured
+before the wait, pushed after) -0.09. step8 timeline marks for split ops fixed; TL_ONLY fast timelines (3-4 us polls).
+## Where the time goes (r24e/g, us per block): attention 491 (compute), yx + SSM ~330 (the SSM compute-bound per chunk, 2,273 cycles),
+up_a + up_b ~390, mlp0 ~228, qkv ~150, norms 72-77 each (DDR read cap; norm3 near it after STATS64), out ~53 after the SSM.
+## Next concrete actions (round 25)
+1. SSM glue by chunk pairs (ssq2 / reck2 / ggk2, ~-0.2 at the static price, SSMIN says it lands): find ~5 KB of EW L1 (stack: deepest
+   C++ 1,792 of 4,864 B, asm frames unaudited; the 15 KB input ring) and re-lay the arena (convk over-read, sigk garbage stores).
+2. More CP issue cuts: a post-wait shim fill costs ~0.55 us; CPPRE on OPPRE2's parts needs BD headroom (static peak 20 > 16) - free BDs
+   first (finish the attention's pass-0 group earlier?) or configure only the last part; audit other post-wait runs (r24/cprest.py).
+3. KTL R 68-69 bank-clean (research: not found at <= 4 workers; try more workers in a quiet window).
+4. MSPLIT-C up_a / qkv / mlp0 (research -0.05..-0.10 each; main prices pass 1 as B-bound: ~1/3 tile); needs an NRES ldn split.
+5. Research rev 20's SSPM-B: re-price with SSMIN (the SSM is not input-starved) before building.
+## Rules that bit us this round (also in the skill)
+- A shim DMA channel queues ~5 tasks like a memtile channel: 7 drain TAPs per column + the next op's drain blocked the CP (+0.44).
+- A post-wait shim fill costs the CP ~0.55 us (5 instructions); per column that staggers EW starts by ~4 us and the B multicast makes
+  the next GEMM wait for the last column. Configure before the wait, push after (CPPRE); keep the static BD peak <= 16.
+- Measure boundaries with TL_ONLY (3-4 us polls): the 27-us-poll timeline invented a 6 us shift.
+- An earlier start of an overlapping op can lengthen it (YXH: the SSM +19 us); a drop of write bytes in a read-bound span is free (ZDROP).
+- Push a split op's memtile sends before its part waits (OPPRE2 v1 vs v2: -0.04 vs -0.15).
+
 # ROUND 23 DONE (2026-10-11) - read this block first; the round-22 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r23z**, A/B in one process vs r22z **-1.89 ms** (60 x 20: -1.894 / -1.885 / -1.875), BIT-IDENTICAL vs full12r9a

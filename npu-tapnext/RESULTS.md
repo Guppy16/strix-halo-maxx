@@ -1090,3 +1090,43 @@ Text at r23z: GEMM 16,256 / 16,384 (128 free), EW 15,824 (560 free).
 | 8 | 19.40 (19.36) | 21.30 | 20.66 (20.61) | not run |
 | 6 | 14.62 (14.57) | 16.67 | 15.54 (15.50) | not run |
 (the sweep inside r23z's own build, under ~4-7 load minutes earlier: d12 28.92, d10 24.29, d8 19.43, d6 14.61)
+
+## 33. Round 24 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks (2 skipped); box
+load 1.4-11 (the background job; research's CP-SAT 4 workers nice 15 until ~15:30); r7/clk.py 1.808 GHz at the final sweeps)
+### 33.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 0)
+| build | change | A/B vs | p10 / median / mean ms | predicted | verdict |
+|---|---|---|---|---|---|
+| full12r24a | r23z + MSPLIT out + MSDEFER | r23z | +0.015 / +0.018 / +0.013 | -0.03..-0.10 | neutral, dead |
+| full12r24b | r23z + YXH (7 drain TAPs / column) | r23z | +0.466 / +0.486 / +0.484 | -0.04..-0.12 | dead (shim queue) |
+| full12r24c | YXH order + YXR groups (bisect) | r23z | +0.011 / -0.004 / -0.002 (40 x 20; r24b +0.44 same window) | +0.3..+0.5 or 0 | order free |
+| full12r24d | YXH, 4 drain TAPs | r23z | +0.083 / +0.092 / +0.092 | -0.05..-0.12 | dead |
+| **full12r24e** | r23z + STATS64 | r23z | **-0.101 / -0.100 / -0.103** | -0.04..-0.08 | above, kept |
+| full12r24f | r24e + OPPRE2 (sends after the waits) | r24e | -0.044 / -0.039 / -0.045; -0.042 / -0.043 / -0.046 | -0.10..-0.20 | low |
+| **full12r24g** | r24e + OPPRE2 v2 (sends before the waits) | r24e | **-0.161 / -0.150 / -0.153** | -0.08..-0.16 | hit, kept |
+| full12r24h | r24g + ZDROP (out_begin / out_end) | r24g | +0.054 / +0.052 / +0.048; +0.058 / +0.050 / +0.041 | -0.10..-0.30 | miss |
+| full12r24i | r24g + ZDROP v2 (inline slot pattern) | r24g | +0.007 / -0.002 / -0.009 | -0.05..-0.20 | neutral, off |
+| **full12r24j** | r24g + SSMPRE | r24g | **-0.069 / -0.073 / -0.085** | -0.04..-0.08 | hit, kept |
+| **full12r24k** | r24j + CPPRE | r24j | **-0.097 / -0.093 / -0.091** | -0.02..-0.08 | above, kept |
+| **full12r24z** | = r24k with depth builds (the round's best) | r23z | **-0.476 / -0.483 / -0.508** (60 x 20) | -0.40..-0.45 | |
+Text at r24z: GEMM 16,256 / 16,384, EW 15,728 (656 free). Timing builds (not timed): r24s / s2 / s3 (SSMIN), r24tp (TPROF, MSPLIT off).
+### 33.2 Probes
+- Timeline r23z, new marks (3 runs, us per block): down_b 88 / gap 13 (pass 1 ends 33 before), norm2 88 / -16, out_proj 48 / 28 (13),
+  norm3 76 / 0.5, mlp3_b 87 / 10 (28), norm0 93 / -16; sum wall 2,308 + gaps 78.
+- TL_ONLY (r24e, 3 runs x 11 blocks): norm0 -> yx 16.1, norm1 -> up_a 27.9, norm2 -> qkv 14.2, norm3 -> mlp0 17.6, down_b pass 1 ->
+  norm2 first 13.2, out_proj pass 1 -> norm3 first 10.9, attn -> out_proj 29.2 (r24g: 13.3), qkv -> attn 61.6.
+- SSMIN (r24s): per chunk in_need 52, params 28, chunk 2,273 cycles (12 ops 2,268-2,282). Skew (r24s2): start spread 11.0-12.8 us, end
+  8.1-9.8 us, monotonic in column; with SSMPRE (r24s3): 3.7-4.5 / 2.8-3.9 us.
+- TPROF (r24tp, block 11): out tile 0 k-steps +218.8 us (follows the SSM), mid 4.49 us median (max 9.24) = the bias wait; tiles 1-3
+  9.6 us k-steps; up_a tile 0 +93.4 us from entry; hand 0.85 (gated pairs) / 0.36 (mlp0, qkv) / 0.18 (plain) / 0.05 (yx) us.
+- tcall (r24g EW core): convk 228 (glue 68), ggk 282 (90), sigk 85 at 1 trip (45), ssq 674 (194), reck 268 (92), zk 74 (34), unit
+  1,828-1,845 static; nrm_ln 177 (glue 73, II 13 x U 2), nrm_rms 117; stats64 406 (RMS) / 471 (LN) per row block.
+- CP (r24/cpsegs.py on full12r24j.bin): 59,720 instructions, 421 sync runs; a shim fill = blockwrite, patch, maskpoll32, maskwrite32,
+  push; after CPPRE the SSM's post-yx-wait run is maskwrite + push per column.
+### 33.3 Depth sweep (full12r24z, one xclbin, 4 phase sequences; r23z re-swept the same session; load 1.4-4.1, 1.808 GHz)
+| depth | r24z dispatch median (min) | whole step | r23z same session median (min) | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 28.43 (28.38) | 30.73 | 28.95 (28.87) | 70.84 (92.57), bit-identical |
+| 10 | 23.85 (23.79) | 26.03 | 24.25 (24.20) | 69.90 (91.02), bit-identical |
+| 8 | 19.10 (19.07) | 21.56 | 19.47 (19.39) | not run |
+| 6 | 14.38 (14.34) | 16.62 | 14.62 (14.58) | not run |
+(the sweep inside r24z's own build: d12 28.41, d10 23.81, d8 19.09, d6 14.37)

@@ -706,7 +706,37 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - `--l2-depth` 3..8 (B forward objects per memtile) is neutral within 0.02 ms: a free source of memtile BDs (24 per channel half).
 - **CLKLOAD (round 23, MEASURED, npu-tapnext r23/clkload12.out)**: 12 spin threads (~99 W package) and 6 numpy threads keep 1.81 GHz;
   12 numpy threads at the same ~99 W and Tctl 59-71 C drop the NPU to 1.408 GHz: not thermal, not package power alone (vector load:
-  INFERRED). Keep CPU vector work below ~6 threads while timing.
+  INFERRED). Keep CPU vector work below ~6 threads while timing. UNVERIFIED cause (research pass 20): the round-23 numpy load is AVX-512 and
+  L2 / L3-resident (512 x 512 fp32, ~3 MB per thread), so it is vector current or fabric / L3 traffic, not DRAM bandwidth;
+  `npu-research/r25/clkload2.sh` (vec / vec_l1 / avx2 / mem at 12 threads, not run yet) separates them.
+- **Price a bound over the binding op's own span, with the cap of the same kind** (research pass 20, a corrected mistake): over the
+  whole yx / SSM window reads + writes average 78 GB/s and look under norm0's 90; inside the SSM's own 288 us span its reads (13.57 MB
+  + ~2.0 MB of the overlapping yx) are 54 GB/s, at the 55-59 GB/s read cap. After YXSSM the SSM span is read-capped (INFERRED; main's
+  r24d: starting it earlier slowed it by 19 us), so SSM compute cuts (glue, FSX) are ~0 and read bytes in the span are the lever:
+  the SSM params (12,288 B per head, the same DDR address for every column) are read 8 times, 1.18 MB per block.
+- **KTL at R 68-69 is a hard CP model** (research pass 20, MODEL): with <= 4 workers, 20-30 min runs found no schedule (hard banks,
+  or even soft at R 69); main's 12 workers found R 68 with 35 bank conflicts per k-step. Bank 3 alone carries 63 accesses per row
+  block (Y 27 + lf1 L 18 + N 18).
+- **The SSM is compute-bound once running (round 24 SSMIN, MEASURED, npu-tapnext ew8 -DSSMIN + r24/ssmin.py)**: per chunk in_need 52
+  cycles (~44 of it the call), params 28, whole chunk 2,273; the input ring never runs dry. This qualifies the read-cap rule above for the
+  SSM: in r24d the extra wall came with the earlier start; once the CP skew was fixed (SSMPRE / CPPRE, -0.16) compute is what binds.
+  Price SSM levers with SSMIN, not with span bytes; ZDROP (-1.77 MB of writes per block in the span) was neutral.
+- **A post-wait shim fill costs the CP ~0.55 us (round 24, MEASURED by the SSM's column skew)**: blockwrite + patch + maskpoll32 +
+  maskwrite32 + push (npu-tapnext r24/cpsegs.py decodes a .bin). Eight columns issued after a wait start ~4 us apart, and the next GEMM's
+  B multicast waits for the last one (DEAD_ENDS C8's 0.10 us per BD was low). **CPPRE**: configure the fill before the wait and push it
+  after: design8 `prefill()` = a DMATask subclass whose resolve() emits shim_dma_single_bd_task without dma_start_task, registered with
+  `active_sequence().emit_transfer(task, group)` (the group awaits / frees it), returning `dma_start_task(task.task)`. The BD is live from
+  configure: keep design8's static shim BD peak <= 16 (on OPPRE2's A parts it reached 20: not dispatched).
+- **A shim DMA channel queues ~5 tasks, like a memtile MM2S channel (round 24, INFERRED from r24b)**: 7 drain TAPs per column + the next
+  op's drain blocked the CP before the SSM's fills (+0.44 ms); the same tiles with 4 drains were free. Keep drain groups <= 4-5 per column.
+- **Host-poll timelines**: with ~97 probed words a poll takes ~27 us and boundary shifts below ~10 us are artifacts; step8 `TL_ONLY=<op
+  kinds>` polls only those ops' marks (3-4 us; npu-tapnext r24/tlo.sh). MSPLIT ops write their last tile twice: step8 now marks pass 1
+  separately (round 24).
+- **Push a split consumer's memtile sends before its part waits** (round 24 OPPRE2: v1 with the sends after the waits -0.04, v2 -0.15):
+  lock-governed sends wait in the channel FIFO, so tile 0 runs on the parts already in while later parts load.
+- Norm statistics as one 64-lane chain (round 24 STATS64): bf16 MACs into a 64-lane fp32 accumulator are native and per lane identical to
+  two 32-lane calls; select between two chains arithmetically (x 1.0 + y 0.0 is exact) instead of a branch with a vector PHI; never call a
+  function inside such a chain (every vector register spills around it).
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
   timeouts per phase; stop if the device does not recover. Never loop retries on a failing design.
@@ -930,6 +960,11 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   / ZCH + OPH1, l2-depth 3), mm_rot_k70b / k70p (research's KTL; k70p takes the record period), mm_rot_e7r68t (E7 with trips in r1),
   tlcmp.py (per-op wall / gap means of timeline JSONs), clkload12.sh / .out, solve_k_r68.log. Env: plan8 MSPLIT YXR, design8 YXSSM
   ZCH OUTPRE OPH1 SEQLOG; mm8 -DMSPLIT.
+- `npu-tapnext/r24/` (round 24): try24.sh (current best: try23 + STATS64 + OPPRE2 + SSMPRE + CPPRE), tl3.sh / tlcmp.py (N full timelines,
+  per-op means incl. pass-1 offsets), tlo.sh / tlo.py (TL_ONLY fast boundary timelines), tld.sh (DETAIL), lint.sh (asmlint + text),
+  ewsize.sh (EW compile + sizes with TXT18), ssmin.py (SSM input waits + column skew of an -DSSMIN build), tpk.py (TPROF per tile on a
+  KTL build: MSPLIT= for text), cpsegs.py / cprest.py (CP instructions after each sync of a .bin). Env: design8 OPPRE2 (OPPRE2_SENDS)
+  SSMPRE CPPRE (CPPRE_OP off) MSDEFER YXH ZDROP (off), step8 TL_ONLY; ew8 -DSTATS64 -DSSMIN -DZDROP.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);

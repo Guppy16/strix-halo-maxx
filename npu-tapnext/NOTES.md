@@ -1009,3 +1009,57 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - **SSM glue gate** (tcall on the deployed EW core: 1,828-1,845 per unit with sigk at 1 trip, ~2,115 real): ssq2 + reck2 + ggk2
   (-188) -> ~1,930 > 1,880. Passes only with FSX (blocked: DEAD_ENDS E16). Not built.
 - Not built: MSPLIT-C (only yx's first tile fits the pass epilogue), norm3 LN glue, OPPRE-W.
+
+## 29. Round 24 (2026-10-11): -0.48 ms vs r23z (A/B), 28.43 ms at depth 12 (sweep, 1.808 GHz; r23z 28.95 same session): STATS64, OPPRE2, SSMPRE, CPPRE
+### 29.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 33; build `r24/try24.sh NAME`, everything below on by default)
+1. **STATS64** (ew8 -DSTATS64): the norm statistics of a row block's two 32-row halves (rowsum8 x 4, ln_stats / rms_rstd with rsqrt_i and
+   mul3: two serial minsize chains) as ONE 64-lane chain; bf16 x bf16 -> fp32 MACs into a 64-lane accumulator are native and per lane
+   identical. RMS runs the same chain with vh = ve, vl = 0 selected by x 1.0 + y 0.0 (exact; no vector PHI). Replaces five functions:
+   EW text 15,824 -> 15,728. tcall per row block: LN ~1,050 -> ~471, RMS ~650 -> ~406. -0.10 ms (norm3 and norm1 walls -5 us).
+   A two-chain interleaved version ran 393 bundles but cost +1,168 B; a call inside the chain spills every vector register (rowsum8 inlined).
+2. **OPPRE2** (design8 OPPRE2=1): out_proj's A loaded per attention head group during pass 1. The attention's pass-1 O drains are four
+   head-group drains issued after its K / V fills (so they never queue behind qkv's drains), pass 0's drain is a group of its own (the
+   fills group may only be finished after the last head group); out_proj waits for pass 0, then head group g, fills its A part g (the
+   P60G gather split on the head dim) into half 1, and its memtile sends go BEFORE the waits (v1 with them after: -0.04 only).
+   attn -> out_proj first word 28.3 -> 13.3 us. -0.15 ms. Round 20's OPPRE (+0.18) is not repeated.
+3. **SSMPRE** (design8 SSMPRE=1): the SSM's head-0 params fills (from W) for all columns before the wait on yx's first drain group. The
+   SSM's columns started ~1.6 us apart in column order (start spread 11-12.8 us, end spread 8-9.8 us per block): after the yx wait the CP
+   issued two fills per column. Now one: start spread ~4.2 us, end ~3.4 us. -0.07 ms.
+4. **CPPRE** (design8 CPPRE=1): a shim fill that must wait for its producer is configured before the wait (BD blockwrite + address patch)
+   and only pushed after it (design8 prefill(): a DMATask whose resolve() omits dma_start_task; the TaskGroup still awaits / frees it).
+   SSM head 0's chunk fills and the norms' input fills (both MSPLIT parts). Post-sync run per column: maskwrite + push instead of
+   blockwrite, patch, maskpoll, maskwrite, push. -0.09 ms. On OPPRE2's A parts (CPPRE_OP) the static shim BD peak is 20 > 16: off.
+5. **step8 timeline** marks for split ops (task 4): a pass-1 mark (row block 5 of the last tile, GEMM row 2: written once) and the op's
+   end = the last change of its last word between its own pass-1 end and the next instance's; probed lines invalidated before the
+   reference read; a WARNING when an address's change count differs from its writers. TL_ONLY=<kinds> polls only those ops (3-4 us
+   polls instead of ~27): r24/tlo.sh + tlo.py; r24/tl3.sh + tlcmp.py for the full timeline.
+### 29.2 What the numbers say
+- Boundaries at 3-4 us resolution (r24e): norm0 -> yx 16.1, norm1 -> up_a 27.9 (a tile pair), norm2 -> qkv 14.2, norm3 -> mlp0 17.6;
+  a split producer's pass-1 end -> the norm's first word 11-13 us (the norm reads a whole row block before it writes); attn -> out_proj
+  28.3 (13.3 with OPPRE2). The 27-us-poll timeline's "norm1 -> up_a moved 6 us" was a poll artifact.
+- **SSMIN** (ew8 -DSSMIN, r24/ssmin.py): per SSM chunk in_need 52 cycles (~44 of it the call), params 28, whole chunk 2,273: the SSM is
+  compute-bound once running, its input ring never runs dry. What cost it in situ was the CP's column skew (SSMPRE / CPPRE).
+- **A post-wait shim fill costs the CP ~0.55 us** (5 instructions), not DEAD_ENDS C8's inferred 0.10: with 8 columns that is ~4 us of
+  skew, and the B multicast makes the next GEMM wait for the last column.
+- **TPROF on the r24 kernels** (MSPLIT off for text, r24/tpk.py): out's tile 0 follows the SSM and then waits 4.5 us median (max 9.2)
+  for its bias object = the B multicast of the slowest SSM column; up_a's tile 0 waits ~84 us (out's drain, CP, norm1, NRES release)
+  before 9.5 us of k-steps; between tiles the single C buffer's part-1 drain costs 0.85 us per gated pair, 0.36 per mlp0 / qkv tile,
+  0.18 per plain tile.
+### 29.3 Facts / rules (also in the skill)
+- A shim DMA channel queues ~5 tasks like a memtile channel (INFERRED from r24b): 7 yx drains + out's drain blocked the CP before the
+  SSM's fills (+0.44); the same order with 4 drains is free. Keep a channel's outstanding tasks <= 5 where the CP must not block.
+- Configure post-wait shim fills before the wait (CPPRE); check the static BD peak (<= 16 per shim).
+- The 27 us host-poll timeline cannot resolve boundary shifts below ~10 us: use TL_ONLY.
+- EW stack: stackaudit's deepest C++ path is 1,792 B of 4,864 reserved (asm frames not counted): a possible source of L1 for SSM pairs.
+### 29.4 Dead ends / not built (measured numbers)
+- **MSPLIT out + MSDEFER** (out's pass sends pushed by the SSM after yx's last drain group): +0.015 / +0.018 / +0.013 vs r23z (neutral):
+  out + norm1 end 6.7 us earlier on column 0, up_a's start unchanged.
+- **YXH** (yx steps head-major y0 x0 y1 | x1 ..): 7 drains / column +0.47 (shim queue); YXR groups with YXH's order 0.00 (order free);
+  4 drains +0.09: the SSM starts 15 us earlier but its wall +19 us, yx +6 (shared input / DDR in the overlap).
+- **ZDROP** (SSM ring h-only under SRES: -1.77 MB writes per block): with out_begin / out_end +0.05; inline 3-chunk slot pattern +0.007 /
+  -0.002 / -0.009 (neutral): the span is not write-bound. Off (ew8 -DZDROP, env ZDROP).
+- **MSPLIT-C yx**: priced <= -0.035 (pass 1 B-bound at ~4.4 us; saves ~1/3 of a K = 768 first tile); needs an NRES ldn split: not built.
+- **nrm_ln 64-lane**: halves its 12 vector-slot MACs but its 11 st-slot conversions / stores keep II >= 11 (now 13): <= -0.04, not built.
+- **SSM glue by chunk pairs** (ssq2 / reck2 / ggk2): ~4.5-5 KB of doubled chunk buffers vs ~2.5 KB free L1 (+ maybe the stack): not built.
+- **SSPM-B** (research rev 20 rank 1, params read once): priced ~0 by SSMIN (the SSM is not input-starved), not built.
+- **CPPRE_OP** (OPPRE2 parts configured early): static BD peak 20 > 16, never dispatched.
