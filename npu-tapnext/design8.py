@@ -299,6 +299,7 @@ def step8(
     B_l2 = np.ndarray[(wb,), np.dtype[np.uint32]]
     C_l2 = np.ndarray[(ROWS_G * m * n,), np.dtype[bfloat16]]
     yxssm = os.environ.get("YXSSM") == "1"  # round 23 (main): the SSM starts during yx; z panels into half 1
+    oph1 = os.environ.get("OPH1") == "1"  # round 23: out_proj's A in half 1 (its last tile can then be split: norm3's NRES uses half 0)
     a3 = os.environ.get("A3") == "1"  # round 22 (research 3A): a third half-slot region after the slot (chunks 24-35)
     ra_buf = ra * 3 // 2 if a3 else ra  # slot buffer words (TAP shapes over it)
     slot_ty = np.ndarray[(ra_buf,), np.dtype[np.uint32]]
@@ -753,8 +754,13 @@ def step8(
             for key in bd_of_group.pop(id(group), []):
                 bd_live[key] -= 1
 
+        seqlog = os.environ.get("SEQLOG") == "1"  # round 23: print every group finish (the CP waits) with the op being issued
+
         class G(TaskGroup):  # a TaskGroup that reports its finish to the accounting
             def finish(self):
+                if seqlog:
+                    nm = next((n_ for n_, g_ in pending if g_ is self), "?")
+                    print(f"[seq] {cur_op[0]}: finish {nm}")
                 finished(self)
                 super().finish()
 
@@ -800,7 +806,7 @@ def step8(
                 F = [lk["F"], lk.get("Fhi", lk["F"])] + ([lk["F3"]] if a3 else [])
                 t = dict(ld=[me_in.task(chunk(h, E[h], F[h]), runs=12) for h in range(len(E))],
                          t0=[me_out.task(chunk(h, F[h], lk["F2"]), runs=12) for h in range(len(E))],
-                         last=[None if h == 2 and any(o.get("msplit") for o in ops) else me_out.task(chunk(h, lk["F2"], E[h]), runs=12)
+                         last=[None if h == 2 and any(o.get("msplit") and o.get("r3") for o in ops) else me_out.task(chunk(h, lk["F2"], E[h]), runs=12)
                                for h in range(len(E))],
                          mid={K_: me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 1, 1, (K_ // k) * CH], [0, 0, 0, 1])))
                               for K_ in (768, 1536)})
@@ -808,13 +814,18 @@ def step8(
                     assert (12 * CH) % 972 == 0
                     t["mid"]["r3"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 0, [1, 2, 12 * CH // 972, 972],
                                                                                    [0, 24 * CH, 972, 1])))
-                if any(o.get("msplit") for o in ops):  # round 23 MSPLIT-P: rows 0-5 of every chunk of both regions (lock-free: the
+                ms3 = any(o.get("msplit") and o.get("r3") for o in ops)
+                ms1 = any(o.get("msplit") and o["K"] == 768 for o in ops if o["kind"] == "gemm")  # (K = 768 split ops: A in half 1)
+                if ms3:  # round 23 MSPLIT-P: rows 0-5 of every chunk of both regions (lock-free: the
                     # chunks are loaded, tile 0 took them), then rows 6-17 chunk by chunk, releasing each chunk as the last tile does
                     assert a3 and CH % 3 == 0
                     t["pa"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 0, [1, 2, 12, CH // 3], [0, 24 * CH, CH, 1])))
                     # (region 3's last-tile task is the second pass's: only the split ops use region 3)
                     assert all(o.get("msplit") for o in ops if o.get("r3"))
-                    t["lastb"] = [None if h == 1 else me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 12 * CH * h + CH // 3, [1, 1, 1, 2 * CH // 3],
+                if ms1:  # (half 1's rows 0-5 of its 12 chunks)
+                    t["pa1"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 12 * CH, [1, 1, 12, CH // 3], [0, 0, CH, 1])))
+                if ms3 or ms1:
+                    t["lastb"] = [None if not ((h == 1 and ms1) or (h != 1 and ms3)) else me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 12 * CH * h + CH // 3, [1, 1, 1, 2 * CH // 3],
                                                                                                     [0, 0, 0, 1]),
                                                                      acquires=[Acquire(lk["F2"])], releases=[Release(E[h])],
                                                                      iteration=BdIteration(size=12, stride=CH)), runs=12) for h in range(3)]
@@ -829,7 +840,7 @@ def step8(
                     else:
                         t["ldz"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH * zh, [1, 1, 216, 144], [0, 0, 144, 1]),
                                                                         acquires=[Acquire(E[zh], value=12)], releases=[Release(F[zh], value=12)]))
-                    if yxssm:  # (out's middle tiles from half 1)
+                    if yxssm or oph1:  # (out's / out_proj's middle tiles from half 1)
                         t["mid"]["h1"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH, [1, 1, 1, 12 * CH], [0, 0, 0, 1])))
                     # (SRES: the SSM's z panels arrive head-major = chunk-major already)
                     t["ldn"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 18, 12, 144], [0, 144, CH, 1]),
@@ -847,6 +858,8 @@ def step8(
                     hs = hs[::-1]
                 if op.get("r3"):  # round 22 3A: k-steps 12-23 into region 3 first (free since the last r3 op), then 0-11 into half 0
                     hs = [2, 0]
+                if oph1 and op["name"].endswith("_out_proj"):  # round 23 OPH1: out_proj's A into half 1 (norm3's NRES panels: half 0)
+                    hs = [1]
                 for c in range(COLS):
                     for h in hs:
                         rt_tasks[c]["ld"][h].start()
@@ -864,6 +877,7 @@ def step8(
             if op.get("r3"):  # round 22 3A: k order = half 0, then region 3
                 hs = [0, 2]
             z1 = yxssm and op.get("nres") and i > 0 and slot_ops[i - 1]["name"].endswith("_yx")  # round 23 YXSSM: out's A (the z panels) in half 1
+            z1 = z1 or (oph1 and op["name"].endswith("_out_proj"))  # (round 23 OPH1: out_proj too)
             if z1:
                 hs = [1]
             assert not (nmid and hs == [1]) or z1  # (the attention: two passes = t0 + last, no whole-slot mid send)
@@ -874,7 +888,11 @@ def step8(
                         t["t0"][h].start()
                 if nmid:
                     t["mid"]["h1" if z1 else "r3" if op.get("r3") else K].start(repeat_count=nmid - 1)
-                if op.get("msplit"):  # round 23 MSPLIT-P: the last tile's rows 0-5, then rows 6-17 with the chunk releases
+                if op.get("msplit") and hs == [1]:  # round 23: a K = 768 split op from half 1 (four tasks: no deferral)
+                    assert not reused_next
+                    t["pa1"].start()
+                    t["lastb"][1].start()
+                elif op.get("msplit"):  # round 23 MSPLIT-P: the last tile's rows 0-5, then rows 6-17 with the chunk releases
                     assert not reused_next and hs == [0, 2]
                     t["pa"].start()
                     t["lastb"][0].start()
@@ -883,7 +901,7 @@ def step8(
                         t["last"][h].start()
             # (a column's sixth task only after every column has its first five: a push into a full queue waits for that column's
             # tile 0, whose B multicast needs every column's A sends issued; pushed column by column it hung, r23d)
-            for c in range(COLS) if op.get("msplit") else ():
+            for c in range(COLS) if op.get("msplit") and op.get("r3") else ():
                 rt_tasks[c]["lastb"][2].start()
 
         pending = []  # [(name, TaskGroup)]
@@ -1021,7 +1039,10 @@ def step8(
                             assert t_["sizes"][0] == nt
                             drain(C_conses[c], t_, group=tgm, wait=True)
                             drain(C_conses[c], dict(t_, sizes=[1] + t_["sizes"][1:], off=t_["off"] + (nt - 1) * t_["strides"][0]), group=tg, wait=True)
-                        push(op["name"] + "#0", tgm)
+                        if op["name"] in outpre:  # (OUTPRE: no lookahead finish here, as below)
+                            pending.append((op["name"] + "#0", tgm))
+                        else:
+                            push(op["name"] + "#0", tgm)
                         pending.append((op["name"], tg))  # (past the lookahead: the norm finishes "#0" alone first)
                         continue
                     if not qkv and not sp_mode & 2:
@@ -1112,7 +1133,7 @@ def step8(
                 yxg = [(n_, g_) for n_, g_ in pending if yxssm and op["fn"] == "ssm" and n_.split("#")[0].endswith("_yx")]
                 if yxg:  # round 23 YXSSM: everything but yx's groups now; yx's group g before head 3 g's fill
                     for n_, g_ in list(pending):
-                        if (n_, g_) not in yxg and n_ not in outpre:  # (OUTPRE: out completes only after this SSM)
+                        if (n_, g_) not in yxg and n_.split("#")[0] not in outpre:  # (OUTPRE: out completes only after this SSM)
                             g_.finish()
                             pending.remove((n_, g_))
                 elif not nseq:
@@ -1180,7 +1201,9 @@ def step8(
                             groups.pop(0).finish()
                     for tg in groups:
                         tg.finish()
-                    if op.get("sres"):  # the GEMM after it issues its work before the SSM's drains are awaited
+                    if op.get("sres") and any(n_.split("#")[0] in outpre for n_, _ in pending):  # (OUTPRE: a lookahead finish here
+                        pending.append((op["name"], tgd))  # would wait for all of out, also its second row pass, before norm1)
+                    elif op.get("sres"):  # the GEMM after it issues its work before the SSM's drains are awaited
                         push(op["name"], tgd)
                     else:
                         tgd.finish()
@@ -1188,7 +1211,7 @@ def step8(
                 raise NotImplementedError(op["kind"])
         finish_all()
         for t in rt_tasks:
-            for task in (*t["ld"], *t["t0"], *[x for x in t["last"] if x is not None], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz", "pa") if x in t],
+            for task in (*t["ld"], *t["t0"], *[x for x in t["last"] if x is not None], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz", "pa", "pa1") if x in t],
                          *[x for x in t.get("lastb", []) if x is not None]):
                 task.free()
         print(f"[design8] shim BD peak {bd_peak[0]} at {bd_peak[1]} (limit 16)")

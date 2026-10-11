@@ -253,7 +253,7 @@ class Plan:
         if YXR and "x_at" in dst:
             op["perm"] = YX_PERM
         if msplit:  # round 23 MSPLIT-P: design8 sends / drains the last tile twice (rows 0-5, then 6-17)
-            assert epi == "plain" and not rr and r3 and K == 1536 and not split, name
+            assert epi == "plain" and not rr and not split and (r3 and K == 1536 or K == 768), name
             op["msplit"] = True
         if reuse_a and A_HALF:
             prev = next(o for o in reversed(self.ops) if o["kind"] in ("gemm", "attn"))
@@ -419,7 +419,7 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
             wb["ssm_rot"] = p.alloc_w(4 * 12 * kb_pad(SSM_PARAM_BYTES))
         if "ssm" not in skip:
             p.ssm(f"b{b}_ssm", areas[b], wb["ssm"], wb.get("ssm_rot"), sres=SRES)
-        p.gemm(f"b{b}_out", areas[b]["z"], 768, 4, dst=r["R1"], nres=SRES and "ssm" not in skip)
+        p.gemm(f"b{b}_out", areas[b]["z"], 768, 4, dst=r["R1"], nres=SRES and "ssm" not in skip, msplit="out" in MSPLIT)
         wb["norm1"] = p.alloc_w(kb_pad(3 * SLOT))
         p.norm(f"b{b}_norm1", "rms", [r["R1"], r["R0"]], wb["norm1"], dst=r["R2"], nres="norm1" in NRES)
         p.gemm(f"b{b}_up_a", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=0), nres="norm1" in NRES)
@@ -431,7 +431,7 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
         p.gemm(f"b{b}_qkv", r["R3"], 768, 12, epi="qkv", dst=r["QKV"], rr=True, nres="norm2" in NRES)
         if "attn" not in skip:
             p.attn(f"b{b}_attn", r["QKV"], dst=r["O"])
-        p.gemm(f"b{b}_out_proj", r["O"], 768, 4, dst=r["R4"], deal=P60G)
+        p.gemm(f"b{b}_out_proj", r["O"], 768, 4, dst=r["R4"], deal=P60G, msplit="out_proj" in MSPLIT)
         wb["norm3"] = p.alloc_w(kb_pad(5 * SLOT))
         p.norm(f"b{b}_norm3", "ln", [r["R4"], r["R3"]], wb["norm3"], dst=r["R5"], nres="norm3" in NRES)
         p.gemm(f"b{b}_mlp0", r["R5"], 768, 16, epi="gelu_pan", dst=dict(r["M"], q0=0), rr=IL, split=8 if IL else 0, nres="norm3" in NRES)
