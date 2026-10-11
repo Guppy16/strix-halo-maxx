@@ -78,7 +78,8 @@ def pack_gemm(op, wt, bias):
         order = [t ^ 1 for t in order]
     nt = op["nt"]
     if op.get("rr"):  # round 10 (P23): row r's step j is natural tile 3 j + r; flags are given per natural tile
-        order = [3 * (pos % nt) + pos // nt for pos in range(N // 64)]
+        perm = op.get("perm") or list(range(nt))  # (round 23 YXR: step j takes natural group perm[j])
+        order = [3 * perm[pos % nt] + pos // nt for pos in range(N // 64)]
     out = []
     for pos, t in enumerate(order):  # flags follow the stream position (gated_a = first of a pair)
         for kk in range(K // 64):

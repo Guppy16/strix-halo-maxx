@@ -983,10 +983,16 @@ def step8(
                         push(op["name"], tg)
                         continue
                     if yxssm and op["name"].endswith("_yx"):  # round 23 YXSSM: y + x steps 4 / 5 / 6 / 7 (heads 0-2 / 3-5 / 6-8 / 9-11)
-                        assert p43 and not sp_mode & 2 and not qkv and op.get("rr") and op["c"][0]["sizes"] == [2, 12, 18, 1024], op["c"][0]
+                        assert p43 and not sp_mode & 2 and not qkv and op.get("rr")
                         gs = [G(), G(), G(), tg]
                         for c in range(COLS):
                             t_ = op["c"][c]
+                            if op.get("perm"):  # round 23 YXR: group g = steps 2 g, 2 g + 1 (y and x of heads 3 g .. 3 g + 2)
+                                assert t_["sizes"] == [4, 2, 54, 1024], t_
+                                for g in range(4):
+                                    drain(C_conses[c], dict(t_, sizes=[1, 2, 54, 1024], off=t_["off"] + g * t_["strides"][0]), group=gs[g], wait=True)
+                                continue
+                            assert t_["sizes"] == [2, 12, 18, 1024], t_
                             drain(C_conses[c], dict(t_, sizes=[1, 12, 18, 1024]), group=gs[0], wait=True)
                             for g in range(4):
                                 drain(C_conses[c], dict(t_, sizes=[1, 3, 18, 1024], off=t_["off"] + t_["strides"][0] + 3 * g * t_["strides"][1]),
@@ -1260,7 +1266,7 @@ def main():
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
                                                      il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1", a3=os.environ.get("A3") == "1",
                                                      nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1",
-                                                     msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x])))
+                                                     msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x], yxr=os.environ.get("YXR") == "1")))
 
 
 if __name__ == "__main__":

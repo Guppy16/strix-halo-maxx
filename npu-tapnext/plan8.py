@@ -51,6 +51,10 @@ A3 = os.environ.get("A3") == "1"  # round 22 (research 3A): down_b / mlp3_b take
 # rb 6-17, each its own C object (the first carries junk rows 6-17, the second rows 0-5 again); the first four objects drain in group
 # "<name>#0", so the norm after it reads row blocks 0-5 while the cores compute rows 6-17 (design8 / mm8.cc -DMSPLIT)
 MSPLIT = tuple(x for x in os.environ.get("MSPLIT", "").split(",") if x)
+# round 23 YXR (with design8 YXSSM): yx's rr steps take the natural tile groups 0, 4, 1, 5, 2, 6, 3, 7 (y heads 0-2, x heads 0-2, ...),
+# so the SSM's head group g has its y and x after step 2 g + 1; the drain TAP follows ([group][y | x][3 tiles x 18 row blocks][unit])
+YXR = os.environ.get("YXR") == "1"
+YX_PERM = [0, 4, 1, 5, 2, 6, 3, 7]
 MS_RB = 6  # row blocks of the first pass (3 A stripes: the A ring's slot order repeats every k-step)
 # round 20 (research rev 16 NRES): the named norms (e.g. "norm1,norm3") send their panels from the EW core's MM2S 1 straight into
 # memtile c's A slot half 0 (rb-major: unit (rb, q) at rb 6,912 + q 576); only X' goes to DDR; the GEMM after the norm loads no A
@@ -199,6 +203,9 @@ class Plan:
                 assert rr and nt == 8
                 drains = [self.tap("act", dst["base"] + c * dst["col"], [2, 12, RB, XB], [dst["x_at"] - dst["base"], KSTEP16, UNIT, 1])
                           for c in range(COLS)]
+                if YXR:  # round 23: steps in YX_PERM order
+                    drains = [self.tap("act", dst["base"] + c * dst["col"], [4, 2, 3 * RB, XB], [3 * KSTEP16, dst["x_at"] - dst["base"], UNIT, 1])
+                              for c in range(COLS)]
         elif epi in ("gated", "gelu_pan"):
             per_row = nobj // 3
             if dst is None:
@@ -243,6 +250,8 @@ class Plan:
                 assert t["sizes"] == [1, 24, 1, t["sizes"][3]], t
                 fl[:] = [dict(t, off=t["off"] + 12 * t["strides"][1], sizes=[1, 12, 1, t["sizes"][3]]), dict(t, sizes=[1, 12, 1, t["sizes"][3]])]
             op["r3"] = True
+        if YXR and "x_at" in dst:
+            op["perm"] = YX_PERM
         if msplit:  # round 23 MSPLIT-P: design8 sends / drains the last tile twice (rows 0-5, then 6-17)
             assert epi == "plain" and not rr and r3 and K == 1536 and not split, name
             op["msplit"] = True
@@ -353,7 +362,7 @@ class Plan:
 
     # ---- serialisation for the design (compile-time) -------------------------------------------------------------
     def sched_json(self):
-        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres", "sres", "r3", "msplit")
+        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres", "sres", "r3", "msplit", "perm")
         return json.dumps([{k: op[k] for k in keep if k in op} for op in self.ops])
 
 

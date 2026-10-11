@@ -81,6 +81,7 @@ class Step8:
         plan8.IL = bool(bj.get("il", False))  # round 20: mlp0 rr + split drain, mlp3_a half 1 first
         plan8.DAPRE = bool(bj.get("dapre", False))  # round 20: down_a half 1 first
         plan8.A3 = bool(bj.get("a3", False))  # round 22 3A: down_b / mlp3_b fills split for region 3
+        plan8.YXR = bool(bj.get("yxr", False))  # round 23 YXR: yx's steps interleaved y / x
         plan8.MSPLIT = tuple(bj.get("msplit", []))  # round 23 MSPLIT-P: the last tile in two row passes
         plan8.NRES = tuple(bj.get("nres", []))
         plan8.SRES = bool(bj.get("sres", False))  # round 20: norms whose panels go on chip to the next GEMM's A slot
