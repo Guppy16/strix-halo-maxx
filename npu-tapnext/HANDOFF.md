@@ -1,11 +1,31 @@
-# ROUND 19 IN PROGRESS (2026-10-11) - interim; the round-18 block below is the base
-## Current best: full12r19f (r18m + ROT g0a + ZHI + CSPLIT + EPLR), BIT-IDENTICAL vs full12r9a; A/B chain vs r18m about -0.75 ms
-Build: `r19/try19.sh NAME [--sweep] [--k-add ..]` = try18 + ROT_V=g0a + ZHI + CSPLIT/EPLR, then **r19/csplit.sh** (patches the lowered
-MLIR: two-BD C drain + lock 6; an UNPATCHED -DCSPLIT xclbin HANGS), then regress. KS_ACC_HI default 0x719C0 now.
-## Done: ROT g0a (-0.18; probes: .2d pop post-modify ADDS to the line step), ZHI (-0.15), CSPLIT (-0.25..-0.48), EPLR (-0.12)
-## Found: TPROF tile stamps (r19/tprof.py): C drain wait ~2,330 per object before CSPLIT; epilogues ~1.65 ms per step; norms
-## 3-input (and RMS 2-input) at ~3.8 B/cycle per column of input = the DDR read peak (55 GB/s over 8 columns).
-## Next: SSM ssq two chunks / FSX, attention K1 / K2 / S3, N-IO / NS (LN 2-input norms only), research pass 15 forwards.
+# ROUND 19 DONE (2026-10-11) - read this block first; the round-18 block below is the base it builds on
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: **full12r19z 33.88 ms** at depth 12 (sweep median; A/B vs r18m -0.88 in one process), BIT-IDENTICAL vs full12r9a
+| depth | dispatch ms (sweep median) | whole step ms | fps | DAVIS AJ (OA) (CPU bf16) |
+|---|---|---|---|---|
+| 12 | 33.88 | 35.95 (DAVIS loop 36.8) | 27.8 | 70.84 (92.57) (70.98) |
+| 10 | 28.37 | 30.25 (DAVIS loop 30.7) | 33.1 | 69.90 (91.02) (70.07) |
+| 8 | 22.74 | 24.96 | 40.1 | not run (68.22) |
+| 6 | 17.09 | 18.99 | 52.7 | not run (64.77) |
+Build: `r19/try19.sh NAME [--sweep] [--k-add ..] [--env ..]` = try18 + ROT_V=g0a + SEQPRE=1 + ZHI + CSPLIT + EPLR + KPREP, then
+**r19/csplit.sh** (patches the lowered MLIR: two-BD C drain + lock 6, and re-runs aiecc; an UNPATCHED -DCSPLIT xclbin HANGS: never
+dispatch full12NAME.unpatched.xclbin or a depth build's own xclbin), then regress / sweep. KS_ACC_HI default 0x719C0 (ksc_check names
+a new one when .data moves; g0a was solved conflict-free for 0x71940..0x71A00). Timing: r18/ab.py. Text: GEMM 15,984, EW 15,808.
+Timeouts this round: 0. Commits 86857ca .. 0b85f5e + round end.
+## Where the time goes (timeline r19d + TPROF): GEMM k-steps ~13 ms (1,576 per k-step), GEMM epilogues ~1.65, C part-1 drain waits
+~0.78, op-boundary bubbles ~5 (GEMM ~3.3, attention 1.2, norms 0.8), attention span 5.5, norms 4.1 (DDR-read-bound), SSM 3.35.
+## Next concrete actions (round 20)
+1. **CSPLIT4-lite** (~-0.2..-0.3): a static sub-part boundary inside part 1 (e.g. 9,216 B) released early by gated (gup + stash copy
+   rows 0-15 = bytes 0..9,216) and gelu_pan (pan's rb 0-11) epilogues; needs an acquire-only first BD in csplit.py (probe that the
+   lowering accepts it and the drain stays in order) and the epilogue passes split at the boundary (in-place order checked).
+2. **Op boundaries**: SEQPRE showed the CP instruction count is not the boundary; stamp the dependent ops' first tiles (TPROF
+   `first` with ~400 B of text: drop something for the timing build) and decide DMA latency vs A-slot pacing. Research rev 16.
+3. LATE-C (research R3, -0.3), DAPRE (-0.2..-0.3), attention S3 / K2, SSM ssq2 / FSX; N-IO / NS only for LN 2-input norms.
+4. E7'' (B on both FIFOs) is open research; norms need fewer DDR bytes (on-chip residency) to move.
+## Rules that bit us this round (also in the skill)
+- `vldb.pop.576.2d` with dn = 0 post-modifies by line step + m (not m alone); padda must precede the fill by a bundle.
+- Pushing memtile MM2S tasks before the fills of the same op can fill the 4-deep queue and block the CP on unissued work (+1.1 ms).
+- `#pragma unroll` over a loop with a conditional vector reference stayed rolled (selects): unroll by macro.
 
 # ROUND 18 DONE (2026-10-11) - read this block first; the round-17 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.

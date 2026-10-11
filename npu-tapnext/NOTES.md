@@ -808,3 +808,37 @@ r8/ewprof NIO2 lines, r18/fsize.sh, r18/rotbench.py / rotlocks.py.
 ### 23.4 Dead ends / not done
 - K1C (two row blocks per prep trip: -28 per tile-chunk for +96 B), NPIPE_G 4 / 12, N-IO in asm, S3 / K1 / K2, ssq two chunks per
   call, FSX, the B / A bank layout (needs a hand-built B ring), ROT g0f / g1f (probes PWRAP / PADDA).
+
+## 24. Round 19 (2026-10-11): 35.20 -> 33.88 ms (sweep d12; A/B -0.88 vs r18m), ROT g0a, the C drain (ZHI, CSPLIT, EPLR), KPREP
+### 24.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 28; commits 86857ca .. 0b85f5e + round end in strix-halo-maxx)
+1. **ROT g0a**: the B stream wraps inside the last pop (`vldb.pop.576.2d .., d2`, m2 = -4608, dn2 0); r18/gen_rot.py emit + replay
+   fixed after the wrap probes; r19/build_rot.sh solves with ROT_ACQ_GAP 6 / ROT_REL_GAP 8 (g1a 1,368, g0a 1,357 static).
+2. **ZHI**: acc_zero_hi() zeroes acc_hi right after out_c.release (inside the C drain wait); acc_zero zeroes the C part only when
+   acc_hi is clean (flag; the second tile of a gated object and attn_begin dirty it). acc_zero / acc_zero_hi tail-call zero2.
+3. **CSPLIT**: the C object drains in two parts. r19/csplit.py patches the lowered input_with_addresses.mlir (a lock 6 = CS_Z init 1
+   per GEMM tile; the core MM2S chain [0, 12,288) -> rel prod, [12,288, 18,432) -> rel CS_Z; core release by 2 or, with EPLR, 1)
+   and r19/csplit.sh re-runs aiecc on it. acc_epilogue / attn_begin take CS_Z once per object before writing part 2.
+4. **EPLR**: bias_to_c converts rb 0-11 (both halves) first and releases the C cons lock (id 3, CS_CONS) by id; the other epilogue
+   paths and attn_end release at their end; IRON's release is part 2's.
+5. **KPREP**: chunk_k_fused's -m rows / -inf slots straight-line after three 64 B loads (a macro: `#pragma unroll` on a loop with a
+   conditional vector reference stayed rolled with selects).
+6. **SEQPRE=1** (design8): a GEMM's memtile slot loads and the attention's slot loads + drains before finish_deps.
+Tools: r19/tlsum.py (timeline per kind + k-step model), r19/tprof.py (+ mm8 -DTPROF), r19/wrapgen.py / wrapb.* (pop-wrap probes),
+r19/csplit.py / csplit.sh, r19/kcc.sh (mm8.cc standalone with a build's kdefs + one function's -z disassembly), r19/ddrcap.py,
+r19/cbytes.py, design8 env CPRATE / CPRATE_POLL / SEQPRE; r19/try19.sh = the current best's build + csplit + regress (+ sweep).
+### 24.2 What the numbers say
+- The GEMM per-op excess over the k-step model (6.6 ms at r18m) was: C drain waits (~1.2 ms: the whole 18,432 B C object drains at
+  7.9 B/cycle before the next tile, because 12,288 B of the accumulators live in it), acc_zero (~0.3), epilogues (~1.65), and the
+  op-boundary bubbles (~3.3). Round 19 took ~0.55 of the first two; ~0.78 ms of part-1 drain is left (CSPLIT4 / LATE-C).
+- The CP costs ~0.06 us per write32 and ~0.11 per maskpoll, but moving post-sync work before the wait did not shorten the
+  boundaries (SEQPRE -0.04 at best): the boundary is not the instruction count.
+- The 3-input norms (and RMS 2-input) read at the aggregate DDR read cap (~55 GB/s over 8 columns); only LN 2-input is compute-bound.
+### 24.3 Facts / rules (also in the skill)
+- `.2d` pop post-modify = line step + mN; padda before a fill needs one bundle.
+- aiecc reproduces a build exactly from its own input_with_addresses.mlir: patch the lowered MLIR for DMA / lock shapes IRON cannot
+  express, re-run aiecc, and never dispatch the unpatched xclbin of a kernel that uses the new lock.
+- A memtile MM2S task push before its fills exists can block the CP on work it has not issued (SEQPRE v1 +1.1 ms).
+### 24.4 Dead ends / not done
+- SEQPRE v1 / v2 / drains-first; NIN2 (DDR cap); GEMM L1 layout (research: B in two banks infeasible, A slots <= 15 cycles).
+- Not built: CSPLIT4 (needs pan / gup / the stash copy split at a static sub-part boundary + an acquire-only BD, unverified), LATE-C,
+  DAPRE, attention S3 / K2, SSM ssq2 / FSX, N-IO / NS (LN 2-input only, <= 0.2).

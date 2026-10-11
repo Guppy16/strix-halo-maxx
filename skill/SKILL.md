@@ -480,9 +480,10 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - The .p2align pad before a modulo body broke ROT's replay at pad 1 (a prologue pop landed a cycle early and clobbered a B register):
   gen_rot `fit` expands prologue bundles to the full form until the prologue ends 16 B aligned and asserts on the disassembly that
   no pad bundle precedes the body (the round-12 rule, now automated).
-- `rel.cond #id, rV, r26` (REL_COND, alu slot) releases only when r26 != 0: deployed in mm_rot since round 18 (bit-identical). `vldb.pop.576.2d .., [p1, lf1, r25, dN]` with dnN = 0 post-modifies
-  the pointer by mN instead of the line step (gen_rot g = 0); `padda [p1], mN` reaches the next fill one cycle later (g = 1):
-  probes PWRAP / PADDA in research PROPOSALS rev 14.
+- `rel.cond #id, rV, r26` (REL_COND, alu slot) releases only when r26 != 0: deployed in mm_rot since round 18 (bit-identical).
+  **`vldb.pop.576.2d .., [p1, lf1, r25, dN]` with dnN = 0 ADDS mN to the 64 B line step** (round 19 probe npu-tapnext
+  r19/wrapb.py, MEASURED: m2 = -4608 wraps a 4,608 B object; the pre-registered -4544 gave a wrong pass 2). `padda [p1], mN` works
+  ONE bundle before the next fill, not in the fill's own bundle (MEASURED). Deployed as ROT g0a (round 19).
 - **DMA writes into the bank the core is using cost the core ~1 cycle per 32 B** (main round 18 DMAB, measured: +58-59 per 256
   accesses at 8 B/cycle vs the model's 65; other banks 0) and the k-step's in-situ excess is these collisions (KS-P38: MEMORY_STALL
   173.7, LOCK_STALL 13.3 per k-step vs the model's 221): price layout and kernel changes with ksplan's model x 0.79-0.9.
@@ -505,10 +506,15 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   whole-call static price (the miss was rev 11's loop-only price); the twins saved 0.17 / 0.5 ms MORE than their own static
   compute, which no I/O mechanism explains. UNVERIFIED cause: twins with wrong outputs change downstream data-dependent work (the
   attention's lazy-max fallback). Read a twin's per-op walls from `step8.py timeline`, never the step delta.
-- **EW ring ports (research rev 13 refit on the round-17 out_begin stamps; supersedes rev 12's "R_out 2.35, norms output-bound")**:
-  input ring ~5.75 B/cycle (5.5-6.0, FITTED), output ring **not binding** (>= 3.5 B/cycle; MEASURED out_begin wait ~5 cycles per
-  unit net). After NPIPE G 6 the norms are compute-bound (input waits ~12 per unit in the model); the pass-2 unit runs ~+76 (RMS) /
-  +132 (LN) cycles above static in situ (FITTED, s2 3-5; unlocated: NIO2 stamps). Price norm levers with `ewio.py levers13`.
+- **EW input = ONE shim MM2S channel per column, ~3.8 B/cycle (round 19 MEASURED, r19d walls; supersedes research rev 13's FITTED
+  5.75)**: 3-input norms run 801 / 821 cycles per unit = 3,072 B at 3.84 / 3.74 B/cycle, while 2-input norms with the same compute
+  run 567 (RMS) / 693 (LN). `Ein{c}` shares shim MM2S 0 with `Ain{c}`; MM2S 1 carries B on shims 0-2 only, and the EW core's S2MM
+  1 is unused. Output ring not binding (MEASURED out_begin ~5 cycles per unit). The rev-13 fit's free per-op constant and pass-2
+  excess absorbed the n3 input time: a fit with a free constant can hide a bound, so check it against per-kind walls.
+- **DDR read cap ~55-59 GB/s aggregate (round 19 DDRCAP, MEASURED, npu-tapnext r19/ddrcap.py; refutes rev 15's "84 GB/s, cap
+  unmeasured")**: one shim -> core stream alone reaches ~7 B/cycle (12.6 GB/s); 8 or 16 concurrent streams (1 or 2 per column) cap
+  at ~55-59 GB/s of reads (63-74 GB/s reads + writes with drains). The 3-input norms read 3,072 B x 8 per 801 cycles = 55.5 GB/s:
+  they sit at the DDR cap, so a second input channel per column (NIN2) cannot help; only fewer DDR bytes move them.
 - **A stamp interval includes the call it brackets** (rev 13): NPROF's in_need / out_begin numbers contain ~44 / ~40 cycles of
   static call (jl + delay slots + body + ret + the stamp); net wait = stamped - static. Subtract before fitting.
 - **A fit with a nuisance parameter fixed by assumption mis-assigns the bound** (rev 12 -> 13): R_out 2.35 with the bench's pass-2
@@ -543,11 +549,14 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - Compute placement (user rule, round 17): every CP-SAT / generator / python run on testbox (`nice -n 10`, <= 12 solver workers;
   ortools via `~/.local/bin/uv run --no-project --with ortools --with numpy`), never on the laptop.
 - **`add rX, rY, #imm` takes a 7-bit signed immediate (round 18)**: `#64` assembled SILENTLY as `#-64` (a hang). Pass such
-  constants from C++ and read the disassembly of every new preamble.
+  constants from C++ and read the disassembly of every new preamble. asmlint IMM-SRC (rev 15) checks every immediate of a .s
+  against its .td operand type on the SOURCE text (the disassembly of a wrapped value looks legal).
 - **A lock acquire needs distance before the load it guards (round 18 ROT)**: research's g2f had `acq.cond` one bundle before the
   A fill and raced in situ (wrong, run-to-run varying tokens) while the one-core bench passed (it pre-releases every slot); re-solved
   with 6 bundles (as mm_ks; npu-tapnext r18/gen_rot.py ROT_ACQ_GAP=6) it is bit-identical. A bench of a lock-taking kernel says
-  nothing about acquire timing unless a DMA feeds the ring.
+  nothing about acquire timing unless a DMA feeds the ring (npu-research r20/rotdb.py does). asmlint LOCK-ACQ-GAP (rev 15) flags a
+  fill of a freshly `lda`-loaded pointer < 6 bundles after an acquire (fires on g2f, clean on g2a / g0a / full12r19b); the gap
+  between 2 and 5 bundles is unmeasured.
 - **Core performance counters (round 18 KS-P38, measured)**: program Performance_Control0 / 1 (0x31500 / 0x31504: counters 0-1 /
   2-3, start event bits [6:0] / [22:16], stop [14:8] / [30:24]) from the runtime sequence with `npu_write32`; start = stop = an
   event counts its occurrences (event 1 TRUE = cycles, matches the timer). The core reads Counter n at 0x31520 + 4n by `read_tm`
@@ -560,6 +569,33 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - Linked-but-unused entry points stay in the elf (no --gc-sections): leave unused asm objects out of the merge (design8 drops
   mm_ks.o under MM_ROT; an unbound mm_kstep still dragged mm_ks in).
 - A/B timing (round 18): both builds in ONE process, interleaved blocks (npu-tapnext r18/ab.py), 300-600 kept dispatches each.
+- **GEMM k-step static cuts land at ~0.75 of their static price** (round 19 MEASURED: ROT g0a -0.18 ms for 26 cycles, g1a -0.11
+  for 15): price k-step changes x 0.75.
+- **Time-resolved DMA-collision model (research pass 15, npu-research `r20/collide.py`) [MODEL, calibrated]**: replaying WHEN
+  each 32 B DMA write lands against the banks mm_rot touches per cycle reproduces KS-P38's 167.5 with alpha = 0.72 core cycles per
+  colliding write, the per-write loss DMAB measured directly (0.68-0.75). Split: A 75, B 92 per k-step. B's is structural (the
+  popped B bank is busy 0.97); no feasible A-slot placement saves more than ~15 cycles (every row block's pieces cover two of
+  banks 0-2). **B objects in two banks is infeasible under ROT**: a bank holding a popped B object can hold nothing the k-step
+  touches, and two such banks need 23 KB of k-step-cold data (the GEMM core has 14.6 KB).
+- **Op boundaries (r18m timeline, MEASURED by main)**: a GEMM whose A is the previous op's output starts ~33-38 us late (non-
+  dependent ops: ~0); boundaries cost ~5 ms per step (GEMM 3.3, attention 1.2, norms 0.8). **The command processor costs ~0.06
+  us per npu_write32 and ~0.11 us per npu_maskpoll** (round 19 CPRATE, MEASURED: 400 extra per block on mlp3_a's path), but
+  moving post-sync work before the producer wait did NOT shorten the boundaries (round 19 SEQPRE: slot loads first -0.04 ms,
+  drains first +0.15, memtile sends first +1.1): the boundary is not the CP instruction count. Never push a memtile MM2S task
+  before the same op's fills: the 4-deep queue fills and the blocked push waits on work the CP has not issued yet.
+- **GEMM tiles wait for their own C drain (round 19 TPROF, mm8 -DTPROF + npu-tapnext r19/tprof.py)**: the C object (18,432 B)
+  drains whole at 7.9 B/cycle and 12,288 B of the accumulators live in it, so each next tile waited ~2,330 cycles (~1.2 ms per
+  step) plus acc_zero (~600). Zero acc_hi after the release (ZHI), drain the accumulator part first (CSPLIT), release it as soon
+  as the epilogue has written it (EPLR); together -0.5 ms. L1 has no room to move the accumulators out (research rev 15).
+- **Patch the lowered MLIR when IRON cannot express a DMA / lock shape (round 19 CSPLIT, npu-tapnext r19/csplit.py / csplit.sh)**:
+  `aiecc in.mlir --unified --peano=<llvm-aie> --get-npu-insts --npu-insts-name=X.bin --get-xclbin --xclbin-name=X.xclbin
+  --tmpdir=D --output-dir=D --get-input-with-addresses --dynamic-objFifos [--reclaim-runtime-bds]` on a build's own
+  input_with_addresses.mlir reproduces its elfs, CDO and .bin byte for byte, so a patched copy (extra locks, a split BD chain, a
+  core use_lock value) rebuilds in seconds. Re-run it right after the build (aiecc relinks build/*.o), check the .bin unchanged, and
+  never dispatch the unpatched xclbin of a kernel that takes the new lock (a hang). A core MM2S object split over 2 BDs (each
+  acquiring the cons lock; the first releasing prod, the second a new lock) reaches the memtile join as one stream: bit-identical.
+- Peano: `#pragma unroll` over a loop with a conditional vector reference stayed rolled (selects + branches): unroll by macro. Put
+  flag stores BEFORE a final call so it becomes a tail call (no callee-saved frame: ~-100 B per small wrapper).
 - A one-core bench that #includes build/<k>.h gets whatever the last design build left there: copy the variant's header first.
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
@@ -760,6 +796,11 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   ksp38.py (+ mm8 -DKSP38), gen_rot.py (research's ROT generator + ROT_ACQ_GAP / ROT_REL_GAP), mm_rot_g2a.s/.h (deployed ROT),
   mm8_rot.inc, rotbench.py, fsize.sh, convkp.json, zk.json. Flags: EW HRING PTRG ZK NIOC CGF NIO2 (norm-unit stamps); mm8 KSC
   (+ KS_* addresses) P35 MM_ROT (+ ROT_V env) V2T KSP38; pack8 B_ROT.
+- `npu-tapnext/r19/` (round 19): try19.sh (current best: g0a + SEQPRE=1 + ZHI + CSPLIT + EPLR + KPREP, then csplit + regress /
+  sweep), csplit.py / csplit.sh (lowered-MLIR patch + aiecc rebuild), tlsum.py (timeline per kind + k-step model), tprof.py (mm8
+  -DTPROF tile stamps), wrapgen.py / wrapb.* (pop-wrap probes), build_rot.sh (mm_rot_g0a / g1a with the lock gaps), kcc.sh (mm8.cc
+  alone with a build's kdefs + one function's disassembly), ddrcap.py (DDR rate probe), cbytes.py. Flags: mm8 ZHI CSPLIT (+ CS_Z)
+  EPLR (+ CS_CONS) KPREP TPROF; design8 env SEQPRE (bits) CPRATE / CPRATE_POLL; design8 / pack8 take ROT variants from r19/.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);
@@ -785,6 +826,11 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   `check [--place ..]` (whole-call value-level replay of any emitted .s on any L1 placement: correctness, bank stalls, busy per
   bank)), mm_rot_{g2f,g1f,g0f,g0u}.s / .h / .dis + rot_*.json, `build_all.sh`, `price.py`, `rotb.py` / `rotb.cc` (one-core ks vs rot
   bench), `mm8_rot.inc` (the mm8.cc side: constexpr records under KSC).
+  Pass 15 (`r20/`): `gen_rot.py` (lock gaps ACQ_GAP 6 / REL_GAP 8 as hard floors, replay asserts the acquire -> A fill distance,
+  per-cycle bank trace), `collide.py` (time-resolved DMA-collision model, `--scan`), `tilefit.py` (per-tile period / overhead per
+  GEMM kind from timelines), `cpseq.py` (CP instructions on each op boundary's critical path, now vs SEQPRE), `rotdb.py` / `rotdb.cc`
+  (one-core k-step bench with a DMA-FED A ring: IRON Buffers + locks 4 / 5 + a shim -> core flow, so acquires really wait).
+  asmlint rev 15: LOCK-ACQ-GAP, LOCK-REL-GAP, IMM-SRC (immediates checked on the .s source; the hist suite has 23 cases).
 - `npu-tapnext/` design8 (round 3, the fused step): `plan8.py` (memory plan + op list: Q16 / APAN / QKV layouts,
   deps), `design8.py` (the frame: table-driven GEMM cores, attention op, EW ops, BD accounting), `mm8.cc` (GEMM +
   flag-driven epilogues + attention), `ew8.cc` (norm / patch / ssm on the row-3 cores), `nk8.h` (exp32, recip,

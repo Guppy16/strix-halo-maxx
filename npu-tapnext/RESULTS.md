@@ -897,3 +897,41 @@ Text at r18m: GEMM 15,536 / 16,384, EW 15,808.
 | 8 | 23.30 (23.29) | 25.31 | 39.5 | not run | 26.29 |
 | 6 | 17.53 (17.50) | 19.61 | 51.0 | not run | 19.79 |
 (r18k = r18h + P35 before ROT: 38.11 / 31.91 / 25.57 / 19.23; DAVIS 70.84 / 69.90.)
+
+## 28. Round 19 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the foreign CPU worker ran throughout; A/B by
+r18/ab.py = both builds in ONE process, 22-dispatch blocks interleaved, 2 discarded per block)
+### 28.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors each; timeouts this round: 0)
+| build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
+|---|---|---|---|---|
+| full12r19a | r18m + ROT g1a (padda restart, acq gap 6 / rel gap 8) | -0.104 / -0.111 / -0.079 (vs r18m) | -0.13 (15 cycles x 8.59 us) | hit |
+| full12r19b | r18m + ROT g0a (B wraps inside the last pop) | -0.174 / -0.183 / -0.152 (vs r18m) | -0.23 (26 cycles) | slight miss (~0.75 lands) |
+| full12r19c | + ZHI (acc_hi zeroed after the C release) | 40 rounds: -0.156 / -0.149 / -0.160 | -0.15..-0.20 | hit |
+| full12r19d | + CSPLIT (C drains in two parts; MLIR patch) | 40 rounds: -0.250 / -0.476 / -0.261 | -0.33 | hit (p10 / mean slightly low) |
+| full12r19e2 | + zero tail calls (text -208 B, acc_hi 0x719C0) | +0.001 / -0.009 / +0.004 (vs r19d) | 0 | hit |
+| full12r19f | + EPLR (plain epilogues release part 1 after rb 11) | -0.100 / -0.119 / -0.096 (vs r19d) | -0.06 | better |
+| full12r19g | + KPREP (attention K prep straight-line) | -0.130 / -0.093 / -0.147 | -0.12..-0.18 | hit |
+| full12r19h | SEQPRE v1 (loads + sends + drains before the wait) | +1.098 / +1.015 / +1.091 (vs r19g) | -1.4 +- 0.5 (research) | dead (queue block) |
+| full12r19h2 | SEQPRE v2 (sends after the fills) | +0.109 / +0.131 / +0.145 | | dead |
+| r19h3m2 / r19h3m1 | SEQPRE only drains / only slot loads before the wait | +0.150 / +0.158 / +0.151; -0.039 / -0.042 / -0.032 (40) | | m1 kept |
+| **full12r19z** | r19g + SEQPRE=1 (the round's best) | **-0.880 / -0.888 / -0.874 vs r18m** (30 rounds: 34.88 -> 33.99 median) | | |
+Text at r19z: GEMM 15,984 / 16,384, EW 15,808.
+### 28.2 Probes
+- Wrap probes (r19/wrapgen.py + wrapb.py, one core, 128 pops over two passes of 4,608 B): control 128/128; `vldb.pop.576.2d` with
+  m2 = -4544 64/128 (pass 2 wrong), m2 = -4608 128/128 (the 2D step is ADDED to the 64 B line step); padda [p1], m2 one bundle before
+  the fill 128/128, in the fill's bundle 64/128.
+- TPROF (mm8 -DTPROF, r19/tprof.py, r19b-based, 6,240 tile records, cycles median): first k-step 1,487, k-step 1,576, epilogue plain
+  1,310 / gelu_pan 4,918 / gated 3,263 / qkv 1,941, hand (epilogue end -> next mm_ktile) 3,010 (gated second tile 682 = zero + loop).
+- Timelines (step8 timeline, 3 runs each; r19/tlsum.py): r18m attn 6.66, norms 5.01, ssm 3.50, GEMMs 19.9 (k-step model 13.4);
+  r19d attn 6.69, norms 4.88, ssm 3.49, GEMMs ~19.2. Norm walls per column (r19d): norm0 95.6 / norm1 67.7 / norm2 98.0 / norm3 82.7
+  us, each gap ~16.5 us.
+- CPRATE (design8 env CPRATE=400 [CPRATE_POLL=1] on mlp3_a's path, vs r19g): write32 +0.268 / +0.296 / +0.274 ms (0.06 us each);
+  maskpoll (always satisfied) +0.520 / +0.553 / +0.522 (0.11 us each).
+- DDRCAP (r19/ddrcap.py, shim -> core streams, 4 MB each, awaited; ~0.08 ms dispatch overhead inside): 4 x 1 and 2 x 2 streams
+  16 MiB in 0.413 ms; 8 x 1 and 4 x 2 32 MiB in 0.650; 8 x 2 64 MiB in 1.314 -> one stream ~7 B/cycle, aggregate read cap ~55-59 GB/s.
+### 28.3 Depth sweep and DAVIS (full12r19z, one xclbin, 4 phase sequences per depth; r18m re-swept in the same session)
+| depth | dispatch median (min) | whole step | fps (whole step) | DAVIS AJ (OA), 10 videos | r18m same session |
+|---|---|---|---|---|---|
+| 12 | 33.88 (33.86) [first sweep 34.22, slow mode] | 35.95 | 27.8 | 70.84 (92.57); loop 36.8 ms per frame (dispatch 34.15) | 34.79 / 37.03 |
+| 10 | 28.37 (28.34) | 30.25 | 33.1 | 69.90 (91.02); loop 30.7 ms per frame (dispatch 28.55) | 29.20 / 32.09 |
+| 8 | 22.74 (22.70) | 24.96 | 40.1 | not run | 23.33 / 25.55 |
+| 6 | 17.09 (17.07) | 18.99 | 52.7 | not run | 17.56 / 20.02 |
