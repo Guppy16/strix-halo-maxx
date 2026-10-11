@@ -1090,7 +1090,7 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - The two norm kinds bind differently: price norm levers per input count. Norm pass 2 (the per-unit asm + ~170-190 cycles of glue) is
   the larger half of a compute-bound norm unit.
 - IRON: a routed Flow into a core tile with a pinned dst_channel is refused; leave channels to the compiler.
-- After a flag-guarded kernel edit build the default configuration too (a57c764 fixed a default-build break that the flagged build hid).
+- After a flag-guarded kernel edit build the default configuration too (9c5c4c2 fixed a default-build break that the flagged build hid).
 - The best build reproduces byte-identically from the checkout (r25z = r24z: 16 sequences, 32 elfs, CDO).
 ### 30.3 Dead ends (measured or priced)
 - CPPRE_OP with P0FREE: +0.009 median (neutral). Out's bias decoupling: 0.03 us on the critical column. MSPLIT-C up_a: ~0 (read-capped

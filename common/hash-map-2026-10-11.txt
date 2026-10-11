@@ -1,0 +1,57 @@
+# Commit hash map from the 2026-10-11 history rewrite.
+# Commit 87fe392 (IV32) had swept in the crop-study/ files; it was split into the IV32 commit and a separate
+# feat(crop-study) commit, which changed the hash of it and of every later commit. The old history is tagged
+# pre-reorg-backup. Hashes quoted in tracked docs and code were rewritten to the new ones (2 references:
+# npu-tapnext/HANDOFF.md, npu-tapnext/NOTES.md). Hashes quoted inside commit messages were left as they were:
+# look them up here.
+# Columns: old hash, new hash, subject (oldest last).
+ade696f4ff5a  00f0982a9699  docs(npu-research): ANALYSIS rev 21 and MACHINE R21, state at pause
+8bd66ff47882  931711946b9c  docs(npu-research): rev 21 (state at pause) - SSMCUT, CLKLOAD2, EW L1 audit, BD breakdown
+73ad69fb92bd  d2c560a00647  docs: round 25 end - state at pause; best stays full12r24z (28.42 ms at d12, DAVIS 70.84 / 69.90 re-run), reproduced byte-identically
+a57c764429c2  9c5c4c255a6a  fix(npu-tapnext): ew8 RRES rslot outside the NRES #else - the default build failed to compile after 1b673bd (round 25)
+1b673bd3ea0e  feadb8bd2074  feat(npu-tapnext): RRES (residual rows on chip for the 3-input norms) behind RRES= / -DRRES, not buildable yet; NIO2 norm stamps (round 25)
+814ae4434149  7c77c558736d  feat(npu-tapnext): RRTWIN timing twin - 3-input norms are byte-bound (-23 / -18 us without the residual), 2-input ones compute-bound (round 25)
+db345161d03d  58268f130707  chore(npu-tapnext): P0FREE + CPPRE_OP - OPPRE2's A parts configured before the head-group waits, neutral (round 25)
+537f6292b713  610b3dfd41c3  docs: round 24 end - full12r24z, -0.48 ms vs r23z in one process, 28.43 ms at d12 (sweep, 1.808 GHz), bit-identical
+476e9e62c8fe  639ee2395d8e  feat(npu-tapnext): CPPRE - post-wait shim fills configured before the wait, pushed after, -0.09 ms (round 24)
+448b10b93514  873375fa6d91  docs(npu-research): ANALYSIS rev 20 and MACHINE R20 from research pass 20
+8ae3fce66627  e52c7dbbe722  docs(npu-research): rev 20 - r23z ledger, the SSM span is read-capped, SSPM-B ranked first
+2d9cec585d6c  c6be234fe8dc  feat(npu-tapnext): SSMPRE - the SSM's head-0 params before the yx wait, -0.07 ms; SSM column skew measured (round 24)
+2b365cd20715  919fd4d5e380  feat(npu-tapnext): SSMIN probe - the SSM is compute-bound per chunk (input waits ~8 net cycles), TPROF on r24 (round 24)
+0d0ecb515faa  11f5f9d6c859  chore(npu-tapnext): ZDROP - the SSM's stale z ring part off the DDR (SRES), neutral; kept OFF (round 24)
+08ca7a5b8a1c  e70a106f41e0  feat(npu-tapnext): OPPRE2 - out_proj's A per attention head group during pass 1, -0.15 ms (round 24)
+59f9babb2655  02fdaf0e8cbf  feat(npu-tapnext): STATS64 - the norm statistics as one 64-lane chain, -0.10 ms; YXH dead (round 24)
+7dd946780590  da689f1d5ec5  fix(npu-tapnext): step8 timeline marks for split ops; MSPLIT out with deferred pass sends neutral (round 24)
+511805edb8ea  104bce52ad6a  docs: round 23 end - full12r23z, -1.89 ms vs r22z in one process, 28.89 ms at d12 (quiet sweep), bit-identical
+b230114ae069  61ba91dbf004  feat(npu-tapnext): MSPLIT-P on out_proj (its A in half 1: OPH1), -0.08..-0.12 ms; out split dead (+0.43) (round 23)
+c011bebc2b83  7d728f1be8df  feat(npu-tapnext): OUTPRE - out issued before the SSM's head fills (with ZCH), -0.02..-0.03 ms (round 23)
+f59ea924e240  6007c3d7e7de  chore(npu-tapnext): ZCH (SSM z panels released chunk by chunk) - neutral, +0.01..+0.02 ms, kept OFF (round 23)
+5441c4508410  c47c7566b690  feat(npu-tapnext): YXR - yx steps interleaved y / x so the SSM starts after step 2 of 8, -0.38 ms (round 23)
+bba8ca432653  5417c3b17169  feat(npu-tapnext): YXSSM - the SSM starts while yx still runs, -0.41 ms (round 23)
+1eae1ffe8858  9b49e88a47df  feat(npu-tapnext): MSPLIT-P on KTL - the row passes as KTL calls, -0.14..-0.19 ms vs KTL (round 23)
+d957a2626034  9537138c6ce3  feat(npu-tapnext): KTL - one modulo loop per GEMM tile (research r24/mm_e7k_r70b), -0.82 ms (round 23)
+843d9d322791  02bf61a78c43  docs(npu-research): ANALYSIS rev 19 and MACHINE R19 from research pass 19
+08cae0739f43  87e84ed17f84  fix(npu-research): rev 19 - the KTL hang is lock conditions > 1 (acq.cond tests bit 0); fixed kernel passes KTLP
+8bbe1141739e  caeeb9c28d51  feat(npu-tapnext): MSPLIT-P - down_b / mlp3_b run their last tile as two row passes, -0.16..-0.21 ms (round 23)
+602b118ce377  3aad3aba2dc9  chore(npu-tapnext): E7 reweighted bank-3 solves (E7_W3 1,800) - R 64 / 65 stay at their hints (round 22)
+4fd05b352e61  ed11682f4495  docs: round 22 end - full12r22z, -0.41..-0.49 ms vs r21k1 in one process, 30.78 ms at d12 (quiet sweep), bit-identical
+384b48f84e97  438cf05bddb5  feat(npu-tapnext): attkb at II 33 (U 1), -0.03..-0.04 ms more, bit-identical (round 22)
+1b45d736189b  f4eb39a1a181  feat(npu-tapnext): attv (attention V phase, V2T) at II 20 with 3 stages instead of II 21 / 2 stages, -0.03..-0.04 ms (round 22)
+51969fb5ac14  26d8aed06ac7  feat(npu-tapnext): attkb (attention K loop, S2) re-solved at II 34 instead of 36, -0.13 ms, bit-identical (round 22)
+b2b51f24390f  dd434b38295e  chore(npu-tapnext): NTWIN probe (research pass 18) - norm0 / norm2 not waiting for their producers: -0.92 ms, walls shift (round 22)
+c93115bc10eb  f379564c8b59  feat(npu-tapnext): TXT18 (research pass 18 EW text patch) - EW text 16,272 -> 15,824, and -0.07 ms, bit-identical (round 22)
+3df77fd7f14d  faf1f1a2179e  chore(npu-tapnext): KTL (research r22/mm_e7k_r70) integrated but HANGS in situ, also one k-step per call; lda.2d probe OK (round 22)
+b3186e0a3bb6  e5e30415bdfb  docs(npu-research): ANALYSIS rev 18 and MACHINE R18 from research pass 18
+1ae7698f032a  1b1707136847  chore(npu-research): drop a scratch disassembly from r23
+f4f292669c6b  777408bf82a9  docs(npu-research): rev 18 - time ledger, TXT18 (EW text -400 B), MSPLIT, SSM glue
+100ed2ca18ab  a3eab6d9cbd9  docs(npu-research): ANALYSIS rev 17 and MACHINE R17 from research pass 17
+a62e5881caf4  95676518e504  docs(npu-research): rev 17 final - ranking on r21k1 + 3A, CLKLOAD probe; gen_e7 asserts 64 B segment bases, bank-3 weight 1,800
+85ff859cadca  cde952318fba  docs(npu-research): rev 17 - E7 generator, KTL kernel, DEAD_ENDS.md
+949bc15a18fe  d14c8cf1c08f  feat(npu-tapnext): 3A - a third A slot region for down_b / mlp3_b, -0.07..-0.08 ms, bit-identical (round 22)
+f66214ec0557  8839535f1f78  chore(npu-tapnext): E7'' nx = 10 (n1 30, ny 24) - CP finds no fewer bank-3 collisions than nx = 8 (round 22)
+0c8e81aa52a5  f13c7d15f841  feat(npu-tapnext): K2 - chunk 0's running maxima by a QK-only loop, bit-identical, -0.02 ms for 608 B of GEMM text (off by default) (round 22)
+3713eb514398  b05e12c95a2a  chore(npu-tapnext): DAVIS log lines of round 21 (r21q1 d12, r21e3 / r21k1 d12 / d10)
+d21aa9255f19  e455901b6d53  docs: round 21 end - full12r21k1, -0.70 ms vs r20z in one process, 31.30 ms at d12 (quiet sweep), bit-identical
+d0d0e7dd84ec  421c375375ca  feat(npu-tapnext): K0B - the attention's chunk 0 through the batched fast pass, -0.01..-0.03 ms (round 21)
+87fe392a3035  6748d1c577e3  feat(npu-tapnext): IV32 - i32 loop counters in the GEMM core body, -560 B of GEMM text, time neutral (round 21)
+#             bd7b946       feat(crop-study) split out of 87fe392 (new commit, no old hash)

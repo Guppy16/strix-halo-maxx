@@ -59,7 +59,7 @@ the residual), 2-input norms compute-bound at ~500 (RMS) / ~560 (LN) cycles per 
 - A 2-input norm is compute-bound and a 3-input norm byte-bound: price norm levers per input count (RRTWIN).
 - A pinned dst_channel on a routed Flow into a core tile is refused ("already in use"): let the compiler assign it.
 - Build the DEFAULT configuration after every flag-guarded kernel edit: an #ifdef inserted inside another's #else broke the default
-  build while the flagged build failed elsewhere (fixed in a57c764).
+  build while the flagged build failed elsewhere (fixed in 9c5c4c2).
 - Re-read RESULTS_FROM_MAIN right before starting a build: research may have asked for a build-free window (my slip at 15:52).
 
 # ROUND 24 DONE (2026-10-11) - read this block first; the round-23 block below is the base it builds on
