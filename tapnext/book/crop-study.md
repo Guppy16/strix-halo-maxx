@@ -68,9 +68,8 @@ for the lower end. At W = 128 (r = 0.28) the GEMMs sit at the weight floor (4.4 
 
 ## What didn't work
 
-These are findings of this study; they are not yet rows of the [negative-results](../../common/book/negative-results.md) index (listed in the hand-back for the index's owner):
-- **State by crop-local slot (no shift)**: AJ 21-27 at every W. The state is tied to its patch and must travel with it.
-- **A fixed zoomed crop (B)**: −2.6 to −5.6 AJ against the grouped base, because points drift out of a fixed window (car-shadow 81 → 55, dance-twirl 71 → 32 at S = 128). Inside the crop it gains +1.3..+2.3 AJ; a *moving* zoomed crop is untried.
+- [F13](../../common/book/negative-results.md#f13) <!-- nr: F13 --> **State by crop-local slot (no shift)**: AJ 21-27 at every W. The state is tied to its patch and must travel with it.
+- [F14](../../common/book/negative-results.md#f14) <!-- nr: F14 --> **A fixed zoomed crop (B)**: −2.6 to −5.6 AJ against the grouped base, because points drift out of a fixed window (car-shadow 81 → 55, dance-twirl 71 → 32 at S = 128). Inside the crop it gains +1.3..+2.3 AJ; a *moving* zoomed crop is untried.
 - Predicting the AJ drop from the attention mass outside the window: correlation ~0 per group.
 
 ## Lessons

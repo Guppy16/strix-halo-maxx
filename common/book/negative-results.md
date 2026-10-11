@@ -1,6 +1,6 @@
 # Negative results (was DEAD_ENDS.md)
 
-Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo, XDNA2 / AIE2P), 223 entries. **Check here before trying an idea.** Each entry says what the idea was, the measured number, why it failed and what the lesson was, and is classified by HOW SURE we are that it is dead. An `unfinished` entry is an invitation, not a stop sign.
+Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo, XDNA2 / AIE2P), 225 entries. **Check here before trying an idea.** Each entry says what the idea was, the measured number, why it failed and what the lesson was, and is classified by HOW SURE we are that it is dead. An `unfinished` entry is an invitation, not a stop sign.
 
 ## The five classes
 
@@ -10,11 +10,11 @@ Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo
 - **revived**: once called dead, later made to work. The entry says what changed. Do not cite these as dead.
 - **method**: a mistake in method (a wrong model of a bound, a stale header, a mis-averaged window). The idea itself may be fine; the lesson is about how to measure.
 
-Counts (223): fundamental 20 | measured-here 108 | unfinished 18 | revived 15 | method 62.
+Counts (225): fundamental 20 | measured-here 109 | unfinished 19 | revived 15 | method 62.
 
 How to read the index: the `why` column names the limit, the measurement, or what is missing. Anchors are lowercase ids (`#a28`). The `project` column is where the evidence came from: `tapnext`, `moondream`, or `general` (toolchain and method lessons that apply to any AIE2P project). Classes are judgements from the entry text and the sources; where the evidence only supports "unfinished" it is not upgraded to "fundamental". Capacity arguments are called `fundamental` only when the shortfall follows from a hardware number and the model dimensions, and `measured-here` when a different tile shape or layout could change it.
 
-Last updated 2026-10-11 (research pass 21; 223 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
+Last updated 2026-10-11 (research pass 21; 225 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
 Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show bbff6a1:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Rx.y = `common/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
@@ -136,13 +136,15 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [F3](#f3) | H1 / H2 | tapnext | unfinished | Never attempted; H1 cannot help in latency mode, H2 parked | |
 | [F4](#f4) | BF16C-64K | moondream | measured-here | -1.4 points of accuracy; keep fp32 accumulator across K | |
 | [F5](#f5) | HADAMARD | moondream | measured-here | 96.1 % vs 96.6 %: hurts | |
-| [F6](#f6) | INT8 | moondream | fundamental | AIE2P dense int8 mmul is 512 MACs, same rate as bfp16; accuracy 89.2 % | |
+| [F6](#f6) | INT8 | moondream | fundamental | AIE2P dense int8 mmul is 512 MACs, same rate as bfp16 (the 89.2 % accuracy half is N23) | |
 | [F7](#f7) | HW-PRIMS | general | measured-here | Inaccurate or scalar on the toolchain version tested | [elementwise](elementwise.md#the-bf16--fp32-rules) |
 | [F8](#f8) | MAX8 | general | measured-here | Wrong values from 8-lane bf16 aie::max; cause not chased | [elementwise](elementwise.md#the-bf16--fp32-rules) |
 | [F9](#f9) | NEWTON-RECIP | tapnext | measured-here | bfp ratio 0.4-0.6 on real activations: visible | [elementwise](elementwise.md#the-bf16--fp32-rules) |
 | [F10](#f10) | P24c | tapnext | unfinished | Not bit-identical; parked behind a DAVIS round never run | |
 | [F11](#f11) | P66 / P67 | tapnext | unfinished | Not bit-identical, +1 KB L1; parked behind a DAVIS gate | |
 | [F12](#f12) | FA4-F1F2 | tapnext | measured-here | attkb II 34 is register-bound; <= -0.1 ms and not bit-identical | |
+| [F13](#f13) | CROP-NOSHIFT | tapnext | measured-here | Crop-local recurrent state without the shift: AJ 21-27 at every W (base 69.67) | |
+| [F14](#f14) | CROP-ZOOM-FIXED | tapnext | unfinished | A fixed zoomed crop loses 2.6-5.6 AJ because points leave it; a moving zoomed crop was never tried | |
 | [G1](#g1) | OZ-MINSIZE | general | measured-here | Non-inlined AIE-API helpers spill every live vector under -Oz | [toolchain](toolchain.md#peano-llvm-aie) |
 | [G2](#g2) | POSTPIPE | general | measured-here | 100 vs 65 bundles per trip | [toolchain](toolchain.md#what-didnt-work) |
 | [G3](#g3) | LINEAR_APPROX | general | measured-here | 2.7x slower than a hand lookup (object reloaded each compute) | [toolchain](toolchain.md#what-didnt-work) |
@@ -846,9 +848,9 @@ rev17/P 3A.
 **Class:** measured-here — 96.1 % vs 96.6 %: hurts. Would have to change: A different rotation or shared-exponent block size.
 
 <a id="f6"></a>
-**F6 — INT8: int8 vision / int8 mmul** (moondream) [MEAS]. Per-token int8 vision dropped frame accuracy to 89.2 % (vs 98.0 %) (MD NOTES l.64). The AIE2P dense int8 mmul is 8x8x8 = 512 MACs per instruction, the same rate as bfp16 (the 1,024-MAC form needs a sparse B): int8 buys nothing in MACs and 11 % in bytes (MD RESULTS ~l.305).
+**F6 — INT8: the int8 mmul on the NPU** (moondream) [MEAS]. The AIE2P dense int8 mmul is 8x8x8 = 512 MACs per instruction, the same rate as bfp16 (the 1,024-MAC form needs a sparse B): int8 buys nothing in MACs and 11 % in bytes (MD RESULTS ~l.305). The accuracy half of the old entry (per-token int8 vision, 89.2 %) is N23: it comes from `moondream/gpu/RESULTS.md` (`fast-all-int8-graph`), not from MD NOTES l.64.
 
-**Class:** fundamental — AIE2P dense int8 mmul is 512 MACs, same rate as bfp16; accuracy 89.2 %.
+**Class:** fundamental — AIE2P dense int8 mmul is 512 MACs, same rate as bfp16.
 
 <a id="f7"></a>
 **F7 — HW-PRIMS: hardware vtanh / aie::exp2 / aie::inv** (round 6; moondream v14) [MEAS on every bf16 input]. vtanh is the identity for |x| ≤ 0.5, 7 % off near 0.5–1, 2 % at 1–2 (RESULTS 15.4 row: 1.73 % / 1.21, 19 at 0.5); aie::exp2 p99 10 ulp (RESULTS 15.4: 53.3 % / 10.3; moondream: a ~4-bit interpolant, 8 % rms on a ramp); aie::inv correctly rounded but scalar (32 lane extracts) (RFM round 6; RESULTS 15.4; SKILL §3). Use the LUT / nk8 routes.
@@ -880,6 +882,16 @@ rev17/P 3A.
 
 **Class:** measured-here — attkb II 34 is register-bound; <= -0.1 ms and not bit-identical. Would have to change: A kernel with spare registers.
 
+
+<a id="f13"></a>
+**F13 — CROP-NOSHIFT: track from a moving crop with the RG-LRU state and conv cache indexed by crop-local slot** (crop study, 2026-10-11, `bd7b946`) [MEAS CPU]. W = 192 / 160 / 128: AJ 27.39 / 22.40 / 21.18 (OA 85.7 / 83.1 / 77.6) against 69.67 for the grouped full-frame base, 10 DAVIS videos, depth 12, bf16 CPU reference. Why: the recurrent state is tied to its patch, so a crop that moves while the state stays put feeds each token another patch's history. The same crops with the state indexed by absolute patch (so it moves with the content) lose nothing at W = 192 / 160 (69.72 / 69.46) and about 1 AJ at W = 128 (68.72). Lesson: any scheme that moves or crops the token grid must move the recurrent state and the conv cache with it.
+
+**Class:** measured-here — Crop-local recurrent state without the shift: AJ 21-27 at every W (base 69.67). Would have to change: A model whose state is not tied to spatial position, or a state remap with the crop; the shifted form (crop-study.md) is the working one.
+
+<a id="f14"></a>
+**F14 — CROP-ZOOM-FIXED: a fixed square of side S sampled from the 480p frame to 256 × 256** (crop study, 2026-10-11) [MEAS CPU]. S = 192 / 160 / 128 (zoom 1.33 / 1.6 / 2x) gave AJ 67.03 / 64.67 / 64.09 against 69.67: points drift out of a fixed window (car-shadow 81 → 55, dance-twirl 71 → 32 at S = 128). On the frames where the point is inside its crop the zoom helps by +1.3 / +1.5 / +2.3 AJ, so the extra pixel density is worth about 1.3-2.3 AJ while the points stay in view. The zoom was never made to move, which needs the pos-emb and the state treatment worked out at a non-native scale.
+
+**Class:** unfinished — A fixed zoomed crop loses 2.6-5.6 AJ because points leave it; a moving zoomed crop was never tried. What would settle it: A moving zoomed crop (centred on the active points) with a pos-emb and state shift at non-native scale, on the same 10 videos and groups.
 
 ## G. Toolchain / Peano / IRON traps that killed an approach
 
