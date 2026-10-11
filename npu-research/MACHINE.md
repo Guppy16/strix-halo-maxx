@@ -638,3 +638,26 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   equal E7 R 68's, lock-free (1 and 3 k-steps) and with real locks and DMA-fed A / B (3 k-steps in one call).
 - **R19.4 [MODEL]** attvs (6 iterations per call) costs (6 + S - 1) x II: II 18 / 2 stages 126 cycles vs II 11 / 4 stages 99:
   <= -0.02 ms per step. S3 on the new attention loops: -0.01..-0.04 ms.
+
+## Revision 20 additions (2026-10-11, from research pass 20)
+- **R20.1 [MEAS main r23, r23/clkload12.out; cause UNVERIFIED]**
+  - idle 27 W: 1.810 GHz; 12 spin threads (~99 W package): 1.810; 6 numpy threads (96-100 W): 1.809; 12 numpy threads (~99 W, Tctl 59-71 C): **1.408 GHz**.
+  - Not thermal, and not package power alone. The numpy load is a 512 x 512 fp32 matmul (OpenBLAS AVX-512), ~3 MB per thread and L2/L3-resident. Candidates: CPU vector current (an EDC-type limit settled by lowering the NPU) or L3 / fabric traffic. DRAM bandwidth is unlikely.
+  - Probe CLKLOAD2 (npu-research r25/clkload2.sh, not run) separates them: 12 threads each of vec / vec_l1 (64 x 64 AVX-512, L1) / avx2 (OPENBLAS_CORETYPE=Haswell) / mem (np.copyto, 64 MB arrays), logging power, Tctl, CPU MHz and the NPU clock.
+  - Rule meanwhile: <= 6 CPU vector threads while timing.
+- **R20.2 [INF plan8 bytes + r23z timelines]**
+  - After YXSSM the SSM's own span is at the DDR read cap: in its 288 us span it reads 13.57 MB plus ~2.0 MB of the overlapping yx = 54 GB/s vs 55-59 (DDRCAP, round 19; supersedes R15.4's ">= 84").
+  - Writes in the span ~28 GB/s.
+  - Channel 0 (R15.2 / R15.3) needs 2,066 cycles per SSM unit and static compute 2,115, both just under the cap; in situ 2,416 per unit (2,336 before the overlap).
+  - Main's r24d (the SSM 15 us earlier, its span +19 us) agrees.
+- **R20.3 [DOC plan8 ssm()]** Per head and column the SSM has two fills.
+  - Params: kb_pad(SSM_PARAM_BYTES) = 12,288 B for 10,752 B of data ([2 slots][Wx 4,608][Wa 4,608]). It is read at the same DDR address by all 8 columns: 1.18 MB per block of identical reads, 147 KB of it padding.
+  - Activations: 7 streams x 18 units x 1 KB = 129,024 B from the column's own area.
+  - The EW core's S2MM 1 is unused (R15.2).
+- **R20.4 [MEAS main r24 TL_ONLY, 3-4 us polls]** EW -> GEMM first-word gaps: norm0 -> yx 16.1, norm1 -> up_a 27.9, norm2 -> qkv 14.2, norm3 -> mlp0 17.6 us. attn -> out_proj 29.2 (23.7 with OPPRE2 v2). The 17-27 us-poll timelines blur these by up to a poll.
+- **R20.5 [MEAS main r24b/c/d, INF main]** A shim S2MM channel queues ~5 tasks: 7 drain TAPs per column for yx cost +0.44 ms, 4 TAPs do not. Splitting finer drain groups is bounded by the channel's task queue, as on the memtile MM2S.
+- **R20.6 [MODEL CP]** KTL (E7'' aligned, n1b 16):
+  - Bank 3 carries 63 accesses per row block (Y 27, lf1 L 18 + N 18): 91-93 % of the bundles at R 68-69.
+  - The A pops' bank (1 / 2) and the accumulator pieces' banks (2/0, 2/1, 0/1 by row block) all change with the row block.
+  - With <= 4 workers no R 69 schedule was found (hard or soft banks). R 68 stays at 35 modelled conflicts per k-step (main's 12-worker solution, repaired at 4 workers).
+- **R20.7 [MODEL]** FSX (ssq + gate_a's sigmoid, r25/gen_fsx.py): 109 ops; ResMII 30 with eight constants reloaded on lda (bank 2 30, mv 29, lda port 28, ldb 26). cpsched found nothing at II 30-33 (600-700 s, 2 workers).
