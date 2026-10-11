@@ -41,6 +41,10 @@ A_HALF = os.environ.get("A_HALF") == "1"
 # step j -> natural tile 3 j + r) instead of contiguous ranges, so the rows of a column (coupled by the A broadcast) run the
 # same epilogue kind at the same time. Only the weight / flag order (pack8) and the drain TAPs change.
 P23 = os.environ.get("P23") == "1"
+# round 20 (IL): mlp0 dealt round-robin (step j of row r = chunk 3 j + r: chunks 0-23 are out after step 7), its drain split at
+# step 8 (group "<name>#0" = steps 0-7 = mlp3_a's whole A), and mlp3_a's A loaded half 1 first (chunks 12-23 into the half mlp0
+# leaves free, while mlp0 still runs), then half 0 as mlp0's last sends free it (design8: per-half full locks).
+IL = os.environ.get("IL") == "1"
 # round 15 (research rev 10 P60g): P60G=1 deals the attention's query half tiles (3 row blocks, 1,728 B per head) across the
 # columns in the two GATHERS only (the attention Q fill and out_proj's A fill; drains, K / V, cores, host unchanged), so the
 # lazy-max slow rows (clustered in the lower image) spread over the columns that the K / V multicast keeps in lockstep.
@@ -161,13 +165,14 @@ class Plan:
         return t
 
     # ---- ops -----------------------------------------------------------------------------------------------------
-    def gemm(self, name, src, K, nt, epi="plain", dst=None, flags=None, bias_in=True, reuse_a=False, rr=False, deal=False):
+    def gemm(self, name, src, K, nt, epi="plain", dst=None, flags=None, bias_in=True, reuse_a=False, rr=False, deal=False, split=0,
+             h1first=False):
         """A GEMM over the frame: A from `src`, N = 3 * nt * 64 (row r takes N-tiles [r nt, (r+1) nt)), epilogue `epi`.
         `flags`: per-tile epilogue codes (default: all `epi`). The weights go to W at op["w"] (pack8.pack_gemm).
         `reuse_a` (A_HALF only): the A slot still holds this op's A (the previous slot op read the same K=768 region): no load."""
         N = 3 * nt * 64
         rr = rr and P23
-        assert not rr or epi in ("plain", "gelu", "qkv"), name
+        assert not rr or epi in ("plain", "gelu", "qkv", "gelu_pan"), name
         lw = (K // 64 + 1) * OBJ  # one N-tile: K/64 weight tiles + the bias/flag object
         w = self.alloc_w(3 * nt * lw)
         if flags is None:
@@ -188,7 +193,8 @@ class Plan:
             if dst is None:
                 dst = self.apan(name + "_out", nq=nobj)
             assert dst["kind"] == "apan" and dst["kstride"] >= WIN and dst["nq"] >= dst.get("q0", 0) + nobj
-            drains = [self.tap("act", dst["base"] + c * dst["col"] + dst.get("q0", 0) * dst["kstride"], [per_row, 3, 1, WIN], [dst["kstride"], per_row * dst["kstride"], 0, 1]) for c in range(COLS)]
+            st_j, st_r = (3 * dst["kstride"], dst["kstride"]) if rr else (dst["kstride"], per_row * dst["kstride"])  # round 20 IL: rr
+            drains = [self.tap("act", dst["base"] + c * dst["col"] + dst.get("q0", 0) * dst["kstride"], [per_row, 3, 1, WIN], [st_j, st_r, 0, 1]) for c in range(COLS)]
         elif epi == "qkv":
             assert nt == 12 and K == 768
             flags = ["q_obj"] * 12 + ["k_obj"] * 12 + ["v_obj"] * 12
@@ -208,13 +214,24 @@ class Plan:
                   a=[self.a_fill(src, K, c, deal) for c in range(COLS)], c=drains, dst=dst, bias_in=bias_in, src=src, deps=sorted(set(deps)))
         if rr:
             op["rr"] = True
+        if split:  # round 20 IL: design8 drains steps [0, split) in group "<name>#0" (their own dependency name), the rest in "<name>"
+            assert rr and epi == "gelu_pan" and dst.get("q0", 0) == 0 and 3 * split == 24, name
+            op["split"] = split
+        if h1first:  # round 20 IL: the A fill sends chunks 12-23 first (design8 loads half 1, then half 0)
+            assert K == 1536 and A_HALF and len(op["a"][0]) == 1, name
+            for fl in op["a"]:
+                t = fl[0]
+                assert t["sizes"] == [1, 24, 1, t["sizes"][3]], t
+                h1 = dict(t, off=t["off"] + 12 * t["strides"][1], sizes=[1, 12, 1, t["sizes"][3]])
+                fl[:] = [h1, dict(t, sizes=[1, 12, 1, t["sizes"][3]])]
+            op["h1first"] = True
         if reuse_a and A_HALF:
             prev = next(o for o in reversed(self.ops) if o["kind"] in ("gemm", "attn"))
             assert prev["kind"] == "gemm" and prev["src"] is src and prev["K"] == K == 768, (name, "reuse_a needs the previous slot op's A")
             op["reuse_a"] = True
         self.ops.append(op)
         for k in self._keys(dst, K=None, nq=nobj if epi in ("gated", "gelu_pan") else None):
-            self.writer[k] = name
+            self.writer[k] = name + "#0" if split and k[1] == 0 else name
         return dst
 
     @staticmethod
@@ -304,7 +321,7 @@ class Plan:
 
     # ---- serialisation for the design (compile-time) -------------------------------------------------------------
     def sched_json(self):
-        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr")
+        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first")
         return json.dumps([{k: op[k] for k in keep if k in op} for op in self.ops])
 
 
@@ -376,8 +393,8 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
         p.gemm(f"b{b}_out_proj", r["O"], 768, 4, dst=r["R4"], deal=P60G)
         wb["norm3"] = p.alloc_w(kb_pad(5 * SLOT))
         p.norm(f"b{b}_norm3", "ln", [r["R4"], r["R3"]], wb["norm3"], dst=r["R5"])
-        p.gemm(f"b{b}_mlp0", r["R5"], 768, 16, epi="gelu_pan", dst=dict(r["M"], q0=0))
-        p.gemm(f"b{b}_mlp3_a", dict(r["M"], q0=0), 1536, 4, dst=r["D3"])
+        p.gemm(f"b{b}_mlp0", r["R5"], 768, 16, epi="gelu_pan", dst=dict(r["M"], q0=0), rr=IL, split=8 if IL else 0)
+        p.gemm(f"b{b}_mlp3_a", dict(r["M"], q0=0), 1536, 4, dst=r["D3"], h1first=IL)
         p.gemm(f"b{b}_mlp3_b", dict(r["M"], q0=24), 1536, 4, dst=r["D4"], bias_in=False)
         prev = [r["D3"], r["D4"], r["R5"]]
     w["final"] = p.alloc_w(kb_pad(5 * SLOT))

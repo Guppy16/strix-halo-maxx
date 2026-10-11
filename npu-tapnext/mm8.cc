@@ -262,7 +262,7 @@ static inline __attribute__((always_inline)) uint32_t tst() {
   __builtin_aie2p_sched_barrier();
   return v;
 }
-static uint32_t g_t0, g_t1, g_t2, g_tlast, g_tnks;
+static uint32_t g_t0, g_t1, g_t2, g_tlast, g_tnks, g_ntile;
 #endif
 extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *c_out, int32_t nks) {
   (void)a0, (void)a1, (void)a2;
@@ -270,7 +270,17 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
   float *pc = piece(c_out, 0, 0);
 #ifdef TPROF
   g_t0 = tst();
+#ifndef CPST
   g_tnks = nks;
+#endif
+#ifdef CPST  // round 20 probe: when the CP passed this op's dependency wait (design8 CPST_OP writes 1 to CPST_ADDR; other cores preset 1)
+  if (g_ntile == CPST) {
+    volatile uint32_t *f = (volatile uint32_t *)CPST_ADDR;
+    while (*f == 0) {
+    }
+    f[1] = tst();  // (the word after the flag: .data / .bss have no room)
+  }
+#endif
 #endif
 #pragma clang loop unroll(disable)
   for (int k = 0; k < nks; k++) {
@@ -840,7 +850,7 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
 #ifdef PROF
   const uint32_t te = stamp();
 #endif
-#ifdef TPROF
+#if defined(TPROF) && !defined(CPST)
   const uint32_t tte = tst();
 #endif
   acc_epi(c_out, bias);
@@ -855,17 +865,34 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
 #endif
 #ifdef TPROF  // record over the tile's first output words (timing build): magic 'TPRF'
   {
+#ifndef CPST  // (the CPST probe build keeps only first / ks / t0: text)
     const uint32_t t3 = tst();
+#endif
+#ifdef CSPLIT  // round 20: part 1 may be drained already (EPLR); part 2 is held until IRON's release
+    uint32_t *w = (uint32_t *)c_out + 3072;
+#else
     uint32_t *w = (uint32_t *)c_out;
+#endif
     w[0] = 0x46525054u;
+    w[8] = g_ntile++;  // round 20: the core's tile counter (every GEMM core runs the same tile sequence)
+#ifdef CPST
+    w[9] = ((volatile uint32_t *)CPST_ADDR)[1];
+    w[10] = ((volatile uint32_t *)CPST_ADDR)[0];  // the flag: 2 = preset (other cores), 1 = the CP's write
+#endif
     w[1] = g_t1 - g_t0;  // first k-step incl. the B / A waits (k = 0 .. the k == 1 stamp)
     w[2] = g_t2 - g_t1;  // the other k-steps
+#ifndef CPST
     w[3] = g_tnks;
+#endif  // (CPST: no nks word for text; the analysis takes nks from the op)
+#ifndef CPST
     w[4] = tte - g_t2;  // mm_ktile return -> epilogue entry
     w[5] = t3 - tte;  // epilogue
     w[6] = g_t0 - g_tlast;  // previous epilogue end -> this tile's mm_ktile entry (C acquire, loop code, ...)
+#endif
     w[7] = g_t0;
+#ifndef CPST
     g_tlast = tst();
+#endif
   }
 #endif
 #if defined(P35) && defined(KSC)

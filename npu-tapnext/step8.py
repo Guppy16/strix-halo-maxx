@@ -78,6 +78,7 @@ class Step8:
         plan8.A_HALF, plan8.P23, plan8.P60G = bool(bj.get("a_half", False)), bool(bj.get("p23", False)), bool(bj.get("p60g", False))
         # round 17 (X1 full rotation): XROT = 4 frame phases, each its own runtime sequence (build/full<d><suffix>_p<k>.bin, k >= 1)
         plan8.XROT, plan8.XPH = int(bj.get("xrot", 0)), 0
+        plan8.IL = bool(bj.get("il", False))  # round 20: mlp0 rr + split drain, mlp3_a half 1 first
         plan8.AL1 = bool(bj.get("al1", False))  # round 17: params fills padded to 1 KB (the per-head SSM stride: op["pstride"])
         self.nph, self.phase = max(plan8.XROT, 1), 0
         self.p_all, self.info_all = full_step(MAX_DEPTH)  # every block: the weights are packed once for all depths

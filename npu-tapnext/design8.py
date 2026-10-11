@@ -377,6 +377,8 @@ def step8(
         if a_rt:  # F: loaded chunks (load -> tile 0), F2: tile 0's chunks (-> last tile), E lo / hi: free chunks 0-11 / 12-23
             lk = dict(F=Lock(tile=mems[c], init=0, name=f"AF{c}"), F2=Lock(tile=mems[c], init=0, name=f"AF2_{c}"),
                       Elo=Lock(tile=mems[c], init=12, name=f"AElo{c}"), Ehi=Lock(tile=mems[c], init=12, name=f"AEhi{c}"))
+            if os.environ.get("IL") == "1":  # round 20 IL: half 1's loaded chunks get their own full lock (it may load first)
+                lk["Fhi"] = Lock(tile=mems[c], init=0, name=f"AFhi{c}")
             rt_locks.append(lk)
             rt_slots.append(slot)
             continue
@@ -663,6 +665,12 @@ def step8(
             for c in range(COLS):
                 for r in range(ROWS_G):
                     npu_maskwrite32(address=0x32038, value=1, mask=1, column=c, row=2 + r)
+            if os.environ.get("CPST_OP"):  # round 20 probe (mm8 -DCPST): core 0_2 spins on its flag word until the CP passes the
+                from aie.dialects.aiex import npu_write32  # dependency wait of CPST_OP; every other core's flag is preset to 1
+
+                for c in range(COLS):
+                    for r in range(ROWS_G):
+                        npu_write32(address=int(os.environ["CPST_ADDR"], 0) - 0x70000, value=2 if (c or r) else 0, column=c, row=2 + r)
         if {"-DPROF", "-DNPROF", "-DNIO2"} & set(os.environ.get("EW_DEFS", "").split()):  # round 8: the EW cores' phase stamps (ew8.cc PROF)
             from aie.dialects.aiex import npu_maskwrite32
 
@@ -730,8 +738,9 @@ def step8(
                               releases=[Release(rel)], iteration=BdIteration(size=12, stride=CH))
 
                 E = [lk["Elo"], lk["Ehi"]]
-                t = dict(ld=[me_in.task(chunk(h, E[h], lk["F"]), runs=12) for h in range(2)],
-                         t0=[me_out.task(chunk(h, lk["F"], lk["F2"]), runs=12) for h in range(2)],
+                F = [lk["F"], lk.get("Fhi", lk["F"])]
+                t = dict(ld=[me_in.task(chunk(h, E[h], F[h]), runs=12) for h in range(2)],
+                         t0=[me_out.task(chunk(h, F[h], lk["F2"]), runs=12) for h in range(2)],
                          last=[me_out.task(chunk(h, lk["F2"], E[h]), runs=12) for h in range(2)],
                          mid={K_: me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 1, 1, (K_ // k) * CH], [0, 0, 0, 1])))
                               for K_ in (768, 1536)})
@@ -740,8 +749,12 @@ def step8(
 
         def a_loads(op):  # A_RT: start column c's chunked loads (after the op's fills)
             if a_rt and not op.get("reuse_a"):
+                hs = list(range(op.get("K", 768) // 768))
+                if op.get("h1first"):  # round 20 IL: the fill sends chunks 12-23 first
+                    assert os.environ.get("IL") == "1"
+                    hs = hs[::-1]
                 for c in range(COLS):
-                    for h in range(op.get("K", 768) // 768):
+                    for h in hs:
                         rt_tasks[c]["ld"][h].start()
 
         def a_sends(op):  # A_RT: the op's sends: tile 0 chunked, middle tiles whole, last tile chunked (none around reuse_a)
@@ -827,13 +840,31 @@ def step8(
                         for c in range(COLS):
                             drain(C_conses[c], op["c"][c], group=tg, wait=True)
                     finish_deps(op)
+                    if op["name"] == os.environ.get("CPST_OP"):  # round 20 probe: the CP passed this op's dependency wait
+                        from aie.dialects.aiex import npu_write32
+
+                        npu_write32(address=int(os.environ["CPST_ADDR"], 0) - 0x70000, value=1, column=0, row=2)
+                    split = op.get("split", 0)
+                    tg0 = G() if split else tg  # round 20 IL: the A fills + steps [0, split) drain in "<name>#0", B + the rest in tg
                     for c in range(COLS):
-                        fill_a(op, c, group=tg, wait=qkv)
+                        fill_a(op, c, group=tg0, wait=qkv)
                     if not sp_mode & 1:
                         a_loads(op)
                     if not p43:
                         fill_b()
                     a_sends(op)
+                    if split:
+                        assert p43 and not sp_mode & 2 and not qkv
+                        for part, g_ in ((0, tg0), (1, tg)):
+                            for c in range(COLS):
+                                t_ = dict(op["c"][c])
+                                n0 = t_["sizes"][0]
+                                t_["sizes"] = [split if part == 0 else n0 - split] + t_["sizes"][1:]
+                                t_["off"] = t_["off"] + (split * t_["strides"][0] if part else 0)
+                                drain(C_conses[c], t_, group=g_, wait=True)
+                        push(op["name"] + "#0", tg0)
+                        push(op["name"], tg)
+                        continue
                     if not qkv and not sp_mode & 2:
                         for c in range(COLS):
                             drain(C_conses[c], op["c"][c], group=tg, wait=True)
@@ -1015,7 +1046,8 @@ def main():
         ksc_check(o.out, o.kdefs)
     Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT, rot_v=os.environ.get("ROT_V", "g2f"),
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
-                                                     p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1")))
+                                                     p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
+                                                     il=os.environ.get("IL") == "1")))
 
 
 if __name__ == "__main__":
