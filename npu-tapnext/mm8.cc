@@ -249,6 +249,15 @@ static void ks_records(bfp16ebs8 *const slot[3], bfloat16 *c_out) {
 // gen_rot.py; design8 copies it to build/mm_rot.s / .h / .inc); B packed in mm_rot_border's panel order (pack8 B_ROT)
 #include "build/mm_rot.inc"
 #endif
+#ifdef ATPROF  // round 20 timing build: attention boundary stamps (r20/atprof.py), records in the O object (magic 'ATPF')
+static inline __attribute__((always_inline)) uint32_t atst() {
+  __builtin_aie2p_sched_barrier();
+  const uint32_t v = read_tm(0x340F8);
+  __builtin_aie2p_sched_barrier();
+  return v;
+}
+static uint32_t g_at[7];  // last epilogue end, first qcopy, begin, first K chunk, end entry, (flags)
+#endif
 #if defined(P35) && defined(KSC)
 // round 18 (research P35): a tile's k-steps in one call. The B objects are taken here by lock id (KS_BCONS / KS_BPROD, +48 = this
 // tile) and address (KS_B0 / KS_B1, checked after the link by design8 ksc_check). The count per tile (K / 64) is even, so IRON's
@@ -895,6 +904,9 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
 #endif
   }
 #endif
+#ifdef ATPROF
+  g_at[0] = atst();
+#endif
 #if defined(P35) && defined(KSC)
   g_bnext = (const bfp16ebs8 *)((uintptr_t)bias ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
 #endif
@@ -1522,6 +1534,10 @@ __attribute__((minsize)) void attn_begin(bfloat16 *c_out, int32_t ntiles) {  // 
 #ifdef ATTN_STUB
   return;
 #endif
+#ifdef ATPROF
+  g_at[2] = atst();
+  g_at[6] = 0;
+#endif
 #ifdef PROF
   const uint32_t tb0 = stamp();
   ga_pre = tb0 - ga_last;
@@ -1578,6 +1594,12 @@ __attribute__((minsize)) void attn_begin(bfloat16 *c_out, int32_t ntiles) {  // 
 
 // the A ring's 3 sub-tiles hold Q object (head hh of the current triple, tile t): copy it if it is this core's
 __attribute__((minsize)) void attn_qcopy(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, int32_t hh, int32_t t, int32_t pass, int32_t myrow) {
+#ifdef ATPROF
+  if (!g_at[5]) {
+    g_at[1] = atst();
+    g_at[5] = 1;
+  }
+#endif
   using namespace at;
 #ifdef ATTN_STUB
   return;
@@ -1597,6 +1619,9 @@ __attribute__((minsize)) void attn_qcopy(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8
 
 WRAP_ATTR void attn_chunk_k(bfp16ebs8 *kobj) {
   using namespace at;
+#ifdef ATPROF
+  if (!g_at[6]++) g_at[3] = atst();
+#endif
 #if defined(ATTN_STUB) || defined(ATTN_STUB_K)
   return;
 #endif
@@ -1671,6 +1696,9 @@ __attribute__((minsize))  // the counting build: program memory (timing irreleva
 #endif
 void attn_end(bfloat16 *c_out) {  // -O2 (round 7)
   using namespace at;
+#ifdef ATPROF
+  g_at[4] = atst();
+#endif
 #if defined(ATTN_STUB) || defined(ATTN_STUB_END)
   return;
 #endif
@@ -1714,6 +1742,16 @@ void attn_end(bfloat16 *c_out) {  // -O2 (round 7)
   w[5] = ga_gap;
   w[6] = ga_last - te0;
   w[7] = g_ntiles;
+#endif
+#ifdef ATPROF
+  {
+    uint32_t *w = (uint32_t *)c_out;  // (word 0: pass 0's window start is not overwritten by pass 1's drain)
+    w[0] = 0x46505441u;
+    for (int i = 0; i < 5; i++) w[1 + i] = g_at[i];
+    w[6] = g_at[4];  // (no exit stamp: text)
+    w[7] = g_ntiles;
+    g_at[5] = 0;
+  }
 #endif
 #ifdef CSPLIT
   g_zh = 0;

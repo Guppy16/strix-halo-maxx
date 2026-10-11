@@ -685,7 +685,7 @@ def step8(
                     npu_maskwrite32(address=0x32038, value=1, mask=1, column=c, row=2 + r)
                     npu_write32(address=0x31500, value=ev[0] | ev[0] << 8 | ev[1] << 16 | ev[1] << 24, column=c, row=2 + r)
                     npu_write32(address=0x31504, value=ev[2] | ev[2] << 8, column=c, row=2 + r)
-        if {"-DPROF", "-DTPROF"} & set(kdefs.replace(",", " ").split()):  # round 7 timing build (round 19: TPROF): enable every GEMM core's processor bus
+        if {"-DPROF", "-DTPROF", "-DATPROF"} & set(kdefs.replace(",", " ").split()):  # round 7 timing build (round 19: TPROF): enable every GEMM core's processor bus
             from aie.dialects.aiex import npu_maskwrite32  # (Core_Processor_Bus 0x32038 bit 0) so read_tm does not hang
 
             for c in range(COLS):
@@ -784,6 +784,8 @@ def step8(
         def a_loads(op):  # A_RT: start column c's chunked loads (after the op's fills)
             if a_rt and not op.get("reuse_a") and not op.get("nres"):  # (NRES: the norm's op pushed the S2MM 5 task)
                 hs = list(range(op.get("K", 768) // 768))
+                if op["kind"] == "attn" and aqpre:  # round 20 AQPRE: the attention's Q lives in half 1 (qkv still holds half 0)
+                    hs = [1]
                 if op.get("h1first"):  # round 20 IL: the fill sends chunks 12-23 first
                     assert os.environ.get("IL") == "1"  # (the per-half full locks)
                     hs = hs[::-1]
@@ -800,18 +802,22 @@ def step8(
             tiles = op["nt"] if op["kind"] == "gemm" else len(op["passes"])
             nmid = tiles - (0 if op.get("reuse_a") else 1) - (0 if reused_next else 1)
             assert nmid >= 0, op["name"]
+            hs = [1] if op["kind"] == "attn" and aqpre else list(range(K // 768))
+            assert not (nmid and hs == [1])  # (the attention: two passes = t0 + last, no whole-slot mid send)
             for c in range(COLS):
                 t = rt_tasks[c]
                 if not op.get("reuse_a"):
-                    for h in range(K // 768):
+                    for h in hs:
                         t["t0"][h].start()
                 if nmid:
                     t["mid"][K].start(repeat_count=nmid - 1)
                 if not reused_next:
-                    for h in range(K // 768):
+                    for h in hs:
                         t["last"][h].start()
 
         pending = []  # [(name, TaskGroup)]
+        aqpre = os.environ.get("AQPRE") == "1"  # round 20: attention Q in half 1, filled before the wait on qkv's K / V drains
+        assert not aqpre or os.environ.get("IL") == "1", "AQPRE needs the per-half full locks (IL)"
 
         def finish_all():
             for _, tg in pending:
@@ -936,14 +942,20 @@ def step8(
                 for pi in range(len(op["passes"])):
                     for c in range(COLS):
                         drain(C_conses[c], op["c"][pi][c], group=tg, wait=True)
+                if aqpre:  # round 20: qkv's Q drains (steps 0-3, its first drain group) were finished inside qkv's sequence when its
+                    # third group was issued; the Q fill (into half 1) goes before the wait on the K / V groups
+                    assert ops[ops.index(op) - 1].get("rr") and ops[ops.index(op) - 1]["epi"] == "qkv"
+                    for c in range(COLS):
+                        fill_a(op, c, group=tg, wait=False)
+                    a_sends(op)  # (2 tasks behind qkv's mid + last on the 4-deep queue; lock-governed)
                 finish_deps(op)
-                for c in range(COLS):
+                for c in range(COLS) if not aqpre else ():
                     fill_a(op, c, group=tg, wait=False)
                 for pi in range(len(op["passes"])):
                     for r in range(ROWS_G):
                         for t in op["b"][r]:
                             fill(B_prods[r], t, group=tg, wait=False)
-                    if pi == 0:
+                    if pi == 0 and not aqpre:
                         a_sends(op)
                 push(op["name"], tg)
             elif op["kind"] == "attn":
