@@ -1,97 +1,77 @@
 # ANALYSIS.md — where the TAPNext++ step's time goes, what bounds it, and what is left
 
-Revision 13, 2026-10-11. State analysed: round 17's deployed `full12r17d` (39.16 ms at depth 12, Turbo, gpu_busy 0, BIT-IDENTICAL
-to full12r9a) and main's round-18 `full12r18a` (HRING + PTRG, −0.34 A/B) / `full12r18b` (+ ZK, −0.44 A/B vs r17d: ~38.72).
-Disassemblies (`-z`) of r17d (GEMM 0_2, EW 0_5) and r18a (EW) in `r18/`; round-17 NPROF (ewp_nb0 / nb2) and CPROF (ewp_dc) records;
-timelines tl_full12r16z / tl_full12r17d. Revision 12 is in `rev12/`. Tools: `tools/ewio.py` (+ fit13 / levers13), `tools/ksplan.py`
-(new), `tools/tcall.py`, `tools/textmap.py`. Text from research pass 13's hand-back, written by the coordinating session.
+Revision 15, 2026-10-11, research pass 15. State: full12r18m (35.20 ms sweep, depth 12, Turbo, gpu_busy 0, BIT-IDENTICAL) and
+main's round-19 builds r19b (+ ROT g0a), r19c (+ ZHI), r19d (+ CSPLIT), r19 EPLR (≈ 34.5 by A/B). Data: timelines r18m / r19d,
+TPROF, KS-P38, NIO2, the deployed full12r19b .bin / elfs. Tools: r20/ (gen_rot, collide, tilefit, cpseq, rotdb), asmlint rev 15.
+Revisions 13 / 14 in rev13/, rev14/ (PROPOSALS) and §5.1 of rev 14. Text from research pass 15's hand-back, written by the
+coordinating session.
 
-## 0. Scorecard (rev 12 vs round 17)
-- S2 −0.31 vs −0.38 (−0.29..−0.45): hit. X1 mod 4 −0.33 vs −0.34 alone: hit.
-- AL1 −0.05..−0.15 vs −0.21 ± 0.05: miss. CPROF confirms the straddle is gone (conv = convk 280 + pointers 101); half the static
-  price did not appear (unexplained; candidates: fewer straddles in situ, the +98 KB per column of padded params). 1 KB padding hung:
-  an EW fill group must be a 768 B slot multiple.
-- NPIPE ~−0.1 (G4-6), +0.07 (G2) vs −0.55: **miss from a wrong bound** (section 1).
-- NIO stamps: out_begin 45.0 gross (~5 net) vs the pre-registered 147 / 90: the measurement that refuted R_out 2.35.
-- FIFO-POP9 on popprobes 2 / 3: true positive (round 16 had checked only lf0).
+## 0. Scorecard
+- ROT (rev 14, g2f −3.84 ± 0.4): g2f raced in situ (acq.cond 1 bundle before the A fill); as g2a −3.27 (slight miss). KS-P38 in
+  situ: TRUE 1,603 (pre-reg 1,610 ± 45, hit), MEMORY 167.5 (212 ± 40, low edge), LOCK 13.4 (13, hit).
+- g0f / g1f (rev 14: −0.28 / −0.14 vs g2f): main's g0a −0.18 / g1a −0.11: k-step static cuts land at ~0.75.
+- P35 −0.10 vs −0.44 (miss); CGF −0.06 vs −0.10..−0.13 (miss vs research, hit vs tcall); NIOC −0.20 vs static −0.55: the norms'
+  pass 1 is input-bound at ONE shim channel (§4), which rev 13's fitted R_in 5.75 hid.
+- TPROF: the pass-15 draft pre-registered hand / epi after main had measured them; not counted.
 
-## 1. The EW I/O refit (ewio fit13, r18/ewio_fit13.out)
-Stamps bracket calls: in_need's interval contains ~44 cycles of static call + stamp, out_begin's ~40. Net waits per unit: r16z
-in_need ~57.5, out_begin ~5; NPIPE_G=2 ~17 / ~6.6. Model changes: in-situ per-unit costs (pass 1 +17 from the NPROF n1k stamp;
-pass 2 = static + s2 x the one-core nrm bench excess 19 / 33), NPIPE groups of G with 45 cycles per group, a per-op fixed latency,
-and the r16z timeline walls per kind (RMS n2 83.8, RMS n3 103.1, LN n2 100.6, LN n3 115.4 µs) as targets.
-Best fit: R_in 5.75 (5.5-6.0), R_out >= 3.5 (any value to 8 fits equally), s2 = 4 (3-5) = pass 2 +76 (RMS) / +132 (LN) per unit
-in situ. Reproduced: in_need 51 / out_begin 0 (net ~57 / ~5), G2 in_need 11 (~17), r15i −0.54 (−0.53), NRMK −0.45 (−0.37..−0.42),
-N1K −0.22 (−0.16..−0.28), walls rms 3.9 µs with F ≈ 5 µs. Misses: n3 − n2 wall 10.7 µs vs 15-19 measured; NPIPE G6 −0.21 / G2 −0.13
-vs −0.05..−0.15 / +0.07 (NPIPE's own glue is not modelled, ~0.1-0.2 ms).
-**Why rev 12's R_out 2.35 passed five checks**: the three deltas (r15i, NRMK, N1K) are compute cuts that realised less than static;
-"pass 2 waits for the output port" (R_out 2.35, s2 1) and "pass 2 runs slower in situ than static" (R_out >= 3.5, s2 ~4) predict the
-same deltas (−0.48 / −0.42 / −0.18 vs −0.54 / −0.45 / −0.22). Rev 12 fixed s2 at the bench value by assumption, so the fit put the
-missing pass-2 time on R_out. The n_in invariance (r15h) and NPROF in_need are insensitive to R_out. Only a stamp on the hypothesised
-wait could break the degeneracy; round 17 added it.
+## 1. Where the time goes (r18m timeline, main; tilefit)
+attention 6.7 (gap 1.2), norms 5.0 (gaps 0.8), SSM 3.5, GEMM 19.9 = k-steps 13.4–13.7 + per-op overhead ~6.3:
+dependent start-up ~3.3 (33–38 µs per op whose A is the previous op's output; up_a ~50; ops with A ready early: none), per tile
+~2.2 (TPROF: epilogues ~1.65 ms per step; hand 3,010 = C-drain wait 2,330 + zero / loop; since then ZHI −0.15, CSPLIT −0.25,
+EPLR −0.12), residual ~0.8. Op boundaries ≈ 5 ms per step in all.
 
-## 2. The norms after NPIPE (r17d: 4.74-4.87 ms per step)
-Compute-bound. Per step: static compute ~3.7 ms, pass-2 in-situ excess ~0.61, pass-1 in-situ ~0.10, I/O waits ~0.07 (~12 per unit),
-per-op fixed ~0.25. Levers (ewio levers13 at the fit, vs r17d's NPIPE G6): FOLD (n_in 3 -> 2 by folding D1 + D2 / D3 + D4 upstream)
-−0.03 (−0.05 on the serial order): retired. NPIPE G2 +0.08, G12 +0.21: keep G6. NKEEP (n1k state kept across nrm) ~0. Compute:
-NG1 (pass-1 glue −80 per unit) −0.44, NG2 (pass-2 glue −100) −0.56, NS (stats in asm −700 per rb) −0.34, together −1.22. Per unit
-today: pass 1 = ~117 cycles of glue (in_need 41, ring pointers ~36, in_done 40) around a 140-cycle n1k call; pass 2 ~170 of glue
-(out_begin 37, pointers / wrap ~30, nrm call glue 45 / 73, out_end 38, loop) around nrm. N-IO1 / N-IO2 (the glue into the asm steps)
-are the norm items. Where the fitted pass-2 excess sits is unmeasured: NIO2 stamps (nrm call, whole pass-2 unit, whole pass-1 unit).
+## 2. Op boundaries: the command processor (hypothesis, unmeasured)
+The .bin has ~51k CP instructions per dispatch in 289 sync runs. After each sync the CP executes 92–144 instructions before the
+dependent op's A path is armed (shim A fills → memtile slot loads → memtile sends); drains, memtile tasks and, after norms (whose
+group is finished at once), even the B fills sit behind it. t_op ≈ 0.17 µs (0.13–0.22) + the A-bound first tile + ~3 µs of DMA
+latency reproduces yx / out / qkv / out_proj / mlp0 / mlp3_a and the norms within ~5 µs (up_a +20). SEQPRE issues all work that
+does not read the producer's output before the wait (36–40 instructions left after it): −1.37..−2.31 ms (cpseq), ~−1.4 realised.
+CPRATE (N dummy writes at one boundary) measures t_op first.
 
-## 3. The SSM after X1, HRING, PTRG, ZK
-Output 3 KB per chunk at >= 3.5 B/cycle (<= 880 cycles) and input 7 KB at 5.75 (1,247) are far under the chunk: compute-bound, every
-cycle 1:1 (1 cycle per chunk = 1.43 µs per step; main's HRING + PTRG measured −0.34 for a static −0.17..−0.32, ZK −0.17 for −0.18).
-r18b chunk static ~1,854 + sigk's 8 trips: ssq 680 (glue 194), sigk 371 (glue 45), ggk 288 (glue 90) + the xc -> bfp push, reck 274
-(glue 92), convk 226 (glue 60), z ~100, in_need + in_done 81. In situ ~+250-350 per chunk above static (r17d timeline). Levers: CGF
-(convk pushes bfp panels: −70..−90 per chunk, −0.10..−0.13), ssq on two chunks per call (−75, −0.11), FSX (−50, −0.07), params
-in_copy by DMA (−25, −0.04).
+## 3. GEMM
+- k-step (TPROF): 1,576 in situ = mm_rot g0a 1,357 static + DMA collisions ~168 + LOCK ~13 + glue. Time-resolved collision
+  model: α 0.72 (= DMAB) reproduces 167.5; A 75, B 92. B's is structural (popped bank busy 0.97); B objects in two banks are
+  infeasible (23 KB of k-step-cold data needed, 14.6 KB exist); the best feasible A-slot layout saves ≤ 15 cycles: dropped.
+  ROT's 72 + g is the single B FIFO's ldb slot and bank together: E7' void; E7'' (B on both FIFOs, A merged into lf0, lines
+  woven over two banks) would reach R = 64 (−0.9 ms), feasibility open (R2).
+- Per tile: the accumulators cannot leave the C object (+12,288 B needed, 576 B free). After CSPLIT / EPLR: CSPLIT4 (rb-major
+  gated / gelu_pan / qkv epilogues + part 1 in 4 sub-parts) −0.3..−0.35; LATE-C (C holds pair 0 of rb 6–17, zero-load first
+  k-step, C acquire inside mm_rot at rb 6) −0.3 more.
+- down_a, the one non-dependent op still paying (0.52 vs down_b 0.26): DAPRE −0.2..−0.3 if a K = 768 A needs only one half of
+  the A slot.
 
-## 4. GEMM program memory (r17d 16,336 / 16,384)
-textmap: main 2,080 (204 nop bundles = delay slots + 16 B branch-target alignment), mm_ks 1,824, acc_epilogue 1,456, attn_chunk_k
-1,344, k_rb 944, attkb 768, attn_end 752, bias_pcs 752, bgelu 688, attn_begin 608, mm_kstep 320, ... Candidates: KSC −270..−290
-(mm_kstep's once-per-run record builder + per-call cache check; all 24 cores share C 0x78900 and A slots 0x77B80 / 0x78000 /
-0x78480), IV32 −200..−300 (12 i64 loop counters in IRON's lowered control code), P35 −80..−120 (main's k-loop moves into mm_ks),
-END_MIN (measure), EXIT −64..−120 (main's dead restore block; needs a true while(1) worker).
+## 4. Norms (r19d walls, main)
+Per column: norm0 95.6 / norm1 67.7 / norm2 98.0 / norm3 82.7 µs; per unit 801 / 567 / 821 / 693 cycles. Same compute for 2 and
+3 inputs → 3-input ops are input-bound at 3.8 B/cycle = one shim MM2S channel (Ein shares MM2S 0 with Ain). Model (216 units per
+op, compute from the n2 walls): today 4.21 ms + gaps; N-IO-ASM alone −0.26 (2-input ops hit 539 cycles of input), NIN2 alone
+(second input stream) −0.52, both −1.57; with a 100 GB/s DDR cap −0.68. NIN2: shim MM2S 1 is free on columns 3–7 and is B's on
+0–2 (B becomes a hand-built packet ring), EW S2MM 1 is free. DDRCAP measures the ceiling (≥ 84 GB/s in + out today). SEQPRE takes
+~0.3 of the 0.8 ms of norm gaps.
 
-## 5. The GEMM k-step (2,122 = 2,055 in mm_ks + 67 between calls)
-Static (ksplan --dis): per 32 MACs 32 MAC bundles + 12.75 swap (C store / reload with all 4 accumulators finishing together; MACs
-stop) + 3 ldb-only (36 B ops per 32 MACs on ldb) = 47.75; 9 trips x 4 groups + glue 96 = 1,815 (tcall 1,824). The swap is 459 cycles
-per k-step, the largest static item; dm4 is unused. In situ +231: not the bank rule (24 modelled: consecutive groups alternate pieces
-in different banks), not the A port (needs 5.0 B/cycle; memtile -> core 7.95). UNVERIFIED: DMA writes colliding with core accesses
-(B prefetch 144 writes x bank-3 busy 0.75 + A 324 x ~0.35 = 221). Between calls 67 (static 51: mm_kstep 26 + main's loop 25).
-Bounds without the swap, per 8 MACs: vec 8, bank 3 (B pops + fill) 9, load slots 7.1, st 4; per k-step A port 1,304, B 580.
-ROT (5th accumulator rotating through the swap, jobs of 8 MACs, 2-3 chains): II 9 per job (bank-3 bound), static ~1,356; registers
-ex 8 A + 4 B = 12, dm <= 5; C load (job j+2) and store (job j-2) always in opposite pieces = different banks. Through the collision
-model: k-step ~1,720 (−3.5 ms), with P35 ~1,670 (−3.9). Then: layout (B prefetch outside the popped bank −101, A ring away from C
-pieces −120: −1.9 ms if the core yields), B over two banks (−144: −1.2 ms), A port floor 1,304. Order: E1 CP feasibility of ROT
-(offline), E2 DMAB bench, E3 KS-P38 / A-only twin, E4 P35, E5 ROT, E6 layout, E7 B split. 1 cycle per k-step = 8.59 µs per step.
+## 5. SSM: unchanged (3.5 ms; ssq two chunks −0.11, FSX −0.07, rev 13).
 
-### 5.1 Revision 14 addendum (2026-10-11, research pass 14): ROT built offline
-ROT built offline (r19/gen_rot.py). A job is one accumulator over 8 k-panels, B is repacked so it is popped in MAC order, and
-dm[cb % 4] rotates through the swap. Bound: the B bank, R = 72 + g per row block (g = restart gap), CP-optimal for g = 0 / 1 / 2.
-With identical job timings, any g > 0 is infeasible; per-job cycles fix it. g2f (deployed restart): mm_rot 1,384 static (mm_ks
-1,824), 0 bank stalls on r17d / r18h placements, −338 B text. In situ, DMA collisions are verified (main r18 DMAB: ~1 cycle per
-32 B write into the active bank; KS-P38: MEMORY 173.7, LOCK 13.3 = model x0.79). ROT predicted 1,610 ± 45 in mm_rot, k-step ~1,676:
-−3.84 ms (−3.46 uncalibrated). P35 done (−0.10, miss: the gap is mostly not IRON control code). E6 for B is void under ROT. Next: E5
-(bench → in situ), PWRAP / PADDA → g0f (−0.28), E7' (B over two banks, needs a re-solve), A slots into bank 0 (~−0.34). Ceiling
-from 38.40: ROT → ~34.5.
+## 6. Attention: 6.7 ms incl. a 1.2 ms gap (SEQPRE part); S3 / K1 / K2 ~−0.5 at rev 10/11 prices.
 
-## 6. Attention
-Unchanged from rev 12 except S2 (done, −0.31). S3 −0.06, V1 −0.21, K1 −0.27, K2 −0.19 are rev 10/11 prices on r15m (±30 %; re-price
-with sim18 on r17d); they wait on GEMM text (KSC).
+## 7. Ranking and ceiling (from r19d ≈ 34.6)
 
-## 7. Ceiling (from r18b ~38.72)
+| rank | item | price | gate |
+|---|---|---|---|
+| 0 | CPRATE probe (400 dummy CP writes after mlp3_a's sync) | +0.62 / +0.82 / +1.06 ms at t_op 0.13 / 0.17 / 0.22 µs | none |
+| 0' | DDRCAP probe (aggregate DDR ceiling, 2 shim channels per column) | — | none |
+| 1 | SEQPRE | −1.4 ± 0.5 | CPRATE; bit-identical |
+| 2 | NIN2 + N-IO-ASM | −0.7..−1.5 | DDRCAP |
+| 3 | CSPLIT4 | −0.3..−0.35 | — |
+| 4 | attention S3 / K1 / K2 | ~−0.5 | — |
+| 5 | DAPRE | −0.2..−0.3 | — |
 
 | added | ms |
 |---|---|
-| KSC + S3 / V1 / K1 / K2 | 37.99 |
-| P35 | 37.55 |
-| N-IO1 + N-IO2 | 36.55 |
-| NS, CGF | 36.1 |
-| DMAB layout (EW) | ~35.8 |
-| P55, P51, P57 (rev 8-10 prices) | ~34.0 |
-| ROT (k-step 2,122 -> ~1,670) | **~30.5** |
-| B over two banks | ~28.9 (then the A port binds) |
+| SEQPRE | 33.2 |
+| NIN2 + N-IO-ASM | 32.2 |
+| CSPLIT4 | 31.8 |
+| attention S3 / K1 / K2 | 31.3 |
+| DAPRE + SSM | 30.9 |
+| LATE-C | ~30.5 |
+| E7'' + DDR-free dependent A | ~28.6 |
 
-Depth 10 / 8 scale by the r17d sweep ratios 32.78 / 39.16 and 26.29 / 39.16.
+Stacked prices below 33 carry ±1 ms.

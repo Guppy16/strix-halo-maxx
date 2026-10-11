@@ -526,3 +526,27 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   pointer wrap with dn = 0, and `padda` → fill at +1.
 - **R14.5 [replay, UNVERIFIED on hardware]** A skewed pop stream's first row block needs a fresh stream at the last 576 B boundary
   before its first pop.
+
+
+## Revision 15 additions (2026-10-11, from research pass 15)
+- **R15.1 [MEAS main r18 + MODEL]** DMA–core collisions, time-resolved (r20/collide.py): α = 0.72 core cycles per 32 B DMA write
+  in a cycle the core touches that bank reproduces KS-P38's 167.5 (DMAB direct: 0.68–0.75). mm_rot g2a: A 75, B 92 per k-step.
+- **R15.2 [DOC lowered MLIR full12r19b]** Shim channels: MM2S 0 = Ain{c} + Ein{c} (packet-shared), MM2S 1 = B{r} on shims 0–2 only
+  (free on 3–7), S2MM 0 = C drains, S2MM 1 = EW output on 0–2 (flow8..). EW core: S2MM 0 = input ring, MM2S 0 = output ring;
+  S2MM 1 unused.
+- **R15.3 [MEAS main r19d]** EW input = one shim MM2S channel ≈ 3.8 B/cycle (3-input norms 801 / 821 cycles per 3 KB unit;
+  2-input 567 / 693). Supersedes R13.1's fitted 5.75.
+- **R15.4 [MEAS walls × layout]** The NPU sustains ≥ 84 GB/s DDR read + write (8 columns × 4,672 B per 801 cycles). §5 / §7's
+  "55–63 GB/s peak" was 8 × the single-channel rate (~7 GB/s), not a DDR limit; the ceiling is unmeasured.
+- **R15.5 [DOC .bin, aie.utils.txn_trace]** Runtime sequence full12r19b: 404,816 words, ~51k CP instructions (write32 13.0k = queue
+  pushes, maskpoll32 12.2k, blockwrite 7.7k, patch 7.6k, maskwrite32 5.3k, tct 5.2k), 289 sync runs; 92–144 instructions between
+  each dependent op's sync and its last A-path push (r20/cpseq.py).
+- **R15.6 [INF, UNVERIFIED]** CP ≈ 0.13–0.22 µs per instruction (the boundary fit of ANALYSIS §2); CPRATE decides.
+- **R15.7 [MEAS main TPROF]** Per tile: first k-step 1,487, k-step 1,576, epilogue plain 1,310 / gelu_pan 4,918 / gated 3,263 /
+  qkv 1,941, hand 3,010 = C-drain wait ~2,330 (18,432 B at 7.9 B/cycle core MM2S) + zero / loop ~680.
+- **R15.8 [DOC]** GEMM core 0_2 L1 (r18m): stack 2,560 + data 28,672 + tbk/tbt/tbc 192 + A 3,456 + C 18,432 + B 9,216 + tbn/tba
+  128 + .aie.bank3 2,304 = 64,960 of 65,536 B.
+- **R15.9 [MEAS main r19]** vldb.pop.576.2d with dn = 0 adds m to the 64 B line step; padda works one bundle before the fill (not
+  in it); k-step static cuts land at ~0.75 (g0a, g1a).
+- **R15.10 [MODEL + DOC]** ROT's R = 72 + g is the single B FIFO (ldb slot and bank 3 at once); B in two banks is infeasible under
+  ROT (capacity); A-slot placement ≤ 15 cycles. [UNVERIFIED] vlda.pop.576 on lf1 (needed by E7'').
