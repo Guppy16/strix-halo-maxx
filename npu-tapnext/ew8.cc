@@ -369,6 +369,113 @@ static __attribute__((noinline, minsize)) void ln_stats(A32 s, A32 q, B32 eps, B
   nb = aie::msc(nb, ml, r0);
 }
 
+#ifdef STATS64
+// round 24: the norm statistics (ln_stats / rms_rstd with rsqrt_i, mul3, rowsum8) for both 32-row halves of a row block as one
+// 64-lane chain: the same per-lane operations (bf16 x bf16 -> fp32 MACs, srs to bf16 with the core's rounding), bit-identical.
+using A64 = aie::accum<accfloat, 64>;
+using B64 = aie::vector<bfloat16, 64>;
+static inline __attribute__((always_inline)) void split3_64(const A64 &a, B64 &hh, B64 &m, B64 &l) {
+  hh = BF(a);
+  const A64 r = aie::mac(a, hh, (bfloat16)-1.0f);
+  m = BF(r);
+  l = BF(aie::mac(r, m, (bfloat16)-1.0f));
+}
+static inline __attribute__((always_inline)) void split2_64(const A64 &a, B64 &hh, B64 &l) {
+  hh = BF(a);
+  l = BF(aie::mac(a, hh, (bfloat16)-1.0f));
+}
+static inline __attribute__((always_inline)) A32 rowsum8_i(A32 a) {  // rowsum8, inline (unrolled)
+  { F32 v = FV(a); auto [e, o] = aie::interleave_unzip(v, v, 4); a = aie::add(a, A32(aie::interleave_zip(o, e, 4).first)); }
+  { F32 v = FV(a); auto [e, o] = aie::interleave_unzip(v, v, 2); a = aie::add(a, A32(aie::interleave_zip(o, e, 2).first)); }
+  { F32 v = FV(a); auto [e, o] = aie::interleave_unzip(v, v, 1); a = aie::add(a, A32(aie::interleave_zip(o, e, 1).first)); }
+  return a;
+}
+static inline __attribute__((always_inline)) A64 mul3_64(const A64 &a, bfloat16 ch, bfloat16 cm, bfloat16 cl) {
+  B64 h, m, l;
+  split3_64(a, h, m, l);
+  A64 r = aie::mul(h, ch);
+  r = aie::mac(r, h, cm);
+  r = aie::mac(r, m, ch);
+  r = aie::mac(r, h, cl);
+  r = aie::mac(r, m, cm);
+  return aie::mac(r, l, ch);
+}
+static __attribute__((noinline)) void stats64(const float *nacc, B32 eps32, uint8_t *rr, int ln) {
+  // both halves' row sums: s (LN only; zero accumulators under RMS) and q
+  const A64 s = aie::concat(rowsum8_i(A32(aie::load_v<32>(nacc))), rowsum8_i(A32(aie::load_v<32>(nacc + 32))));
+  const A64 q = aie::concat(rowsum8_i(A32(aie::load_v<32>(nacc + 64))), rowsum8_i(A32(aie::load_v<32>(nacc + 96))));
+  const B64 ones = aie::broadcast<bfloat16, 64>(1.0f);
+  const B64 eps = aie::concat(eps32, eps32);
+  // LN: var = (768 q - s^2) / 768^2 + eps (ln_stats)
+  A64 d;
+  {
+    B64 qh, qm, ql;
+    split3_64(q, qh, qm, ql);
+    d = aie::mul(qh, (bfloat16)768.0f);
+    d = aie::mac(d, qm, (bfloat16)768.0f);
+    d = aie::mac(d, ql, (bfloat16)768.0f);
+  }
+  {
+    B64 sh, sm, sl;
+    split3_64(s, sh, sm, sl);
+    d = aie::msc(d, sh, sh);
+    d = aie::msc(d, sh, BF(aie::mul(sm, (bfloat16)2.0f)));
+    d = aie::msc(d, sh, BF(aie::mul(sl, (bfloat16)2.0f)));
+    d = aie::msc(d, sm, sm);
+  }
+  B64 vh, vl;
+  split2_64(aie::mac(mul3_64(d, INV_D2[0], INV_D2[1], INV_D2[2]), eps, ones), vh, vl);
+  {  // RMS: ve = bf(bf(q / 768) + eps) (rms_rstd), rsqrt_i(ve, 0)
+    const B64 ve = BF(aie::mac(A64(aie::mul(BF(mul3_64(q, INV_D[0], INV_D[1], INV_D[2])), ones)), eps, ones));
+    const B64 wl = aie::broadcast<bfloat16, 64>(ln ? 1.0f : 0.0f), wr = aie::broadcast<bfloat16, 64>(ln ? 0.0f : 1.0f);
+    vh = BF(aie::mac(A64(aie::mul(vh, wl)), ve, wr));
+    vl = BF(aie::mul(vl, wl));
+  }
+  // rsqrt_i(vh, vl)
+  vh = aie::max(vh, aie::broadcast<bfloat16, 64>(1e-30f));
+  B64 y = aie::sub(aie::broadcast<int16_t, 64>((int16_t)0x5F37), aie::downshift(vh.template cast_to<int16_t>(), 1)).template cast_to<bfloat16>();
+  {
+    const A64 c15(aie::broadcast<float, 64>(1.5f));
+    const B64 hv = BF(aie::mul(vh, (bfloat16)0.5f));
+    y = BF(aie::mul(y, BF(aie::msc(c15, hv, BF(aie::mul(y, y))))));
+  }
+  B64 yl = aie::zeros<bfloat16, 64>();
+#pragma clang loop unroll(disable)
+  for (int i = 0; i < 2; i++) {
+    A64 qq = aie::mul(y, y);
+    qq = aie::mac(qq, y, BF(aie::mul(yl, (bfloat16)2.0f)));
+    B64 qh_, ql_;
+    split2_64(qq, qh_, ql_);
+    A64 r = aie::msc(A64(aie::broadcast<float, 64>(1.0f)), vh, qh_);
+    r = aie::msc(r, vh, ql_);
+    r = aie::msc(r, vl, qh_);
+    A64 yn = aie::mul(y, ones);
+    yn = aie::mac(yn, yl, ones);
+    yn = aie::mac(yn, y, BF(aie::mul(BF(r), (bfloat16)0.5f)));
+    split2_64(yn, y, yl);
+  }
+  const A64 r = aie::mac(A64(aie::mul(y, ones)), yl, ones);
+  {
+    B64 rh, rl;
+    split2_64(r, rh, rl);
+    aie::store_v((bfloat16 *)rr, rh);  // (RMS: bf(rsqrt) = rms_rstd's result)
+    aie::store_v((bfloat16 *)(rr + 128), rl);
+  }
+  if (!ln) return;
+  // LN: nb = -mean rstd from three-part factors
+  B64 mh, mm, ml, r0, r1, r2;
+  split3_64(mul3_64(s, INV_D[0], INV_D[1], INV_D[2]), mh, mm, ml);
+  split3_64(r, r0, r1, r2);
+  A64 nb = aie::negmul(mh, r0);
+  nb = aie::msc(nb, mh, r1);
+  nb = aie::msc(nb, mm, r0);
+  nb = aie::msc(nb, mh, r2);
+  nb = aie::msc(nb, mm, r1);
+  nb = aie::msc(nb, ml, r0);
+  aie::store_v((float *)(rr + 256), FV(nb));
+}
+#endif
+
 // one static arena shared by the kernels (never two ops live at once): norm = stage 12,288 + params 3072;
 // patch = 3 weight tiles 13,824 + 24 A panels 1728 + bias table 1024; ssm = see ew_ssm
 #ifdef SSM_LUT  // round 9: the SSM layout below needs 21,568 B; the sigmoid table's second copy takes the rest (bank 1)
@@ -649,7 +756,9 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
 #endif
     }
     if (!more) continue;
-#ifdef TXT18  // the two halves in a loop: one ln_stats / rms_rstd call site (same calls, same order)
+#if defined(TXT18) && defined(STATS64)  // round 24: both halves, LN and RMS, as one 64-lane chain
+    stats64(g_nacc, eps, rr, ln);
+#elif defined(TXT18)  // the two halves in a loop: one ln_stats / rms_rstd call site (same calls, same order)
 #pragma clang loop unroll(disable)
     for (int h = 0; h < 2; h++) {
       const A32 q = rowsum8(A32(aie::load_v<32>(g_nacc + 64 + 32 * h)));

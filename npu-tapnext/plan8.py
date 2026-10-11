@@ -55,6 +55,9 @@ MSPLIT = tuple(x for x in os.environ.get("MSPLIT", "").split(",") if x)
 # so the SSM's head group g has its y and x after step 2 g + 1; the drain TAP follows ([group][y | x][3 tiles x 18 row blocks][unit])
 YXR = os.environ.get("YXR") == "1"
 YX_PERM = [0, 4, 1, 5, 2, 6, 3, 7]
+# round 24 YXH (replaces YXR when set): yx's steps head-major, step j row r = position p = 3 j + r of (y0, x0, y1, x1, ..): natural tile
+# p // 2 (y) or 12 + p // 2 (x); the C join's stream is then [head][y | x][18 rb] and design8 drains it in per-step groups
+YXH = os.environ.get("YXH") == "1"
 MS_RB = 6  # row blocks of the first pass (3 A stripes: the A ring's slot order repeats every k-step)
 # round 20 (research rev 16 NRES): the named norms (e.g. "norm1,norm3") send their panels from the EW core's MM2S 1 straight into
 # memtile c's A slot half 0 (rb-major: unit (rb, q) at rb 6,912 + q 576); only X' goes to DDR; the GEMM after the norm loads no A
@@ -203,7 +206,10 @@ class Plan:
                 assert rr and nt == 8
                 drains = [self.tap("act", dst["base"] + c * dst["col"], [2, 12, RB, XB], [dst["x_at"] - dst["base"], KSTEP16, UNIT, 1])
                           for c in range(COLS)]
-                if YXR:  # round 23: steps in YX_PERM order
+                if YXH:  # round 24: head-major (one TAP: the stream is [12 heads][y | x][18 row blocks])
+                    drains = [self.tap("act", dst["base"] + c * dst["col"], [12, 2, RB, XB], [KSTEP16, dst["x_at"] - dst["base"], UNIT, 1])
+                              for c in range(COLS)]
+                elif YXR:  # round 23: steps in YX_PERM order
                     drains = [self.tap("act", dst["base"] + c * dst["col"], [4, 2, 3 * RB, XB], [3 * KSTEP16, dst["x_at"] - dst["base"], UNIT, 1])
                               for c in range(COLS)]
         elif epi in ("gated", "gelu_pan"):
@@ -250,7 +256,10 @@ class Plan:
                 assert t["sizes"] == [1, 24, 1, t["sizes"][3]], t
                 fl[:] = [dict(t, off=t["off"] + 12 * t["strides"][1], sizes=[1, 12, 1, t["sizes"][3]]), dict(t, sizes=[1, 12, 1, t["sizes"][3]])]
             op["r3"] = True
-        if YXR and "x_at" in dst:
+        if YXH and "x_at" in dst:  # round 24: natural tile of stream position r nt + j (row r, step j)
+            op["tmap"] = [(p // 2) + 12 * (p % 2) for r in range(3) for j in range(nt) for p in [3 * j + r]]
+            op["yxh"] = True
+        elif YXR and "x_at" in dst:
             op["perm"] = YX_PERM
         if msplit:  # round 23 MSPLIT-P: design8 sends / drains the last tile twice (rows 0-5, then 6-17)
             assert epi == "plain" and not rr and not split and (r3 and K == 1536 or K == 768), name
@@ -362,7 +371,7 @@ class Plan:
 
     # ---- serialisation for the design (compile-time) -------------------------------------------------------------
     def sched_json(self):
-        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres", "sres", "r3", "msplit", "perm")
+        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres", "sres", "r3", "msplit", "perm", "tmap", "yxh")
         return json.dumps([{k: op[k] for k in keep if k in op} for op in self.ops])
 
 

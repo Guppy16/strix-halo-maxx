@@ -938,6 +938,7 @@ def step8(
         sp_mode = int(os.environ.get("SEQPRE", "0"))  # round 19: bit 1 = slot loads before the wait, bit 2 = drains before it  # round 11 (research P43): a GEMM's B (weights) leaves before its dependency wait
 
         seq_ops, outpre = list(ops), set()
+        ops_by_name = {o["name"]: o for o in ops}
         msdefer = os.environ.get("MSDEFER") == "1"  # round 24
         deferred = []  # (rt_tasks entries whose pass sends wait for the SSM)
 
@@ -1029,6 +1030,16 @@ def step8(
                     if yxssm and op["name"].endswith("_yx"):  # round 23 YXSSM: y + x steps 4 / 5 / 6 / 7 (heads 0-2 / 3-5 / 6-8 / 9-11)
                         assert p43 and not sp_mode & 2 and not qkv and op.get("rr")
                         gs = [G(), G(), G(), tg]
+                        if op.get("yxh"):  # round 24 YXH: drain groups head 0 | heads 1-2 | 3-5 | 6-11 (four TAPs: a shim S2MM channel
+                            # queues 5 tasks, out's drain is the fifth; seven yx TAPs blocked the CP before the SSM's fills, r24b +0.44)
+                            for c in range(COLS):
+                                t_ = op["c"][c]
+                                assert t_["sizes"] == [12, 2, 18, 1024], t_
+                                for g, (h0, nh) in enumerate(((0, 1), (1, 2), (3, 3), (6, 6))):
+                                    drain(C_conses[c], dict(t_, sizes=[nh, 2, 18, 1024], off=t_["off"] + h0 * t_["strides"][0]), group=gs[g], wait=True)
+                            push(op["name"] + "#0", gs[0])
+                            pending.extend([(op["name"] + "#1", gs[1]), (op["name"] + "#2", gs[2]), (op["name"], gs[3])])  # (past the lookahead)
+                            continue
                         for c in range(COLS):
                             t_ = op["c"][c]
                             if op.get("perm"):  # round 23 YXR: group g = steps 2 g, 2 g + 1 (y and x of heads 3 g .. 3 g + 2)
@@ -1199,13 +1210,15 @@ def step8(
                         drain(e_out[c], op["c"][c], group=tgd, wait=True)
                     groups = []
                     for q in range(len(op["fills"][0])):
-                        if yxg and q % 3 == 0:  # (yx's group q // 3: "#0" .. "#2", then the op's own name)
-                            want = yxg[0][0].split("#")[0] + (f"#{q // 3}" if q < 9 else "")
+                        yxh_ = yxg and ops_by_name[yxg[0][0].split("#")[0]].get("yxh")
+                        if yxg and (q in (0, 1, 3, 6) if yxh_ else q % 3 == 0):  # (yx's group: YXR "#0" .. "#2" at q 0 / 3 / 6, the op's own
+                            gi = {0: 0, 1: 1, 3: 2}.get(q, 3) if yxh_ else q // 3  # name at 9; YXH "#0" .. "#2" at 0 / 1 / 3, its name at 6)
+                            want = yxg[0][0].split("#")[0] + (f"#{gi}" if gi < 3 else "")
                             for n_, g_ in list(pending):
                                 if n_ == want:
                                     g_.finish()
                                     pending.remove((n_, g_))
-                            if q == 9:  # round 24 MSDEFER: yx is drained, its memtile tasks are done
+                            if gi == 3:  # round 24 MSDEFER: yx is drained, its memtile tasks are done
                                 push_deferred()
                         tg = G()
                         for c in range(COLS):
@@ -1321,7 +1334,7 @@ def main():
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
                                                      il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1", a3=os.environ.get("A3") == "1",
                                                      nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1",
-                                                     msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x], yxr=os.environ.get("YXR") == "1")))
+                                                     msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x], yxr=os.environ.get("YXR") == "1", yxh=os.environ.get("YXH") == "1")))
 
 
 if __name__ == "__main__":
