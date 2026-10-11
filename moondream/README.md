@@ -13,4 +13,4 @@ TAPNext port and is not active now.
   the instruction timing table that now lives in `../common/tools/`.
 - `gpu/RESULTS.md` holds the full ladder and the discarded avenues. `gpu/gpu_safe.sh` is the one-GPU-job wrapper.
 - `gpu/` and `moondream3-eval/` are snapshots; see their SOURCES.md for where the live copies are.
-- `book/`: moondream chapters (to come).
+- `book/`: the moondream chapters ([book/README.md](book/README.md)); the machine-level book is `../common/book/`.

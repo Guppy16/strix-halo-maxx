@@ -5,8 +5,10 @@ This repo holds the NPU and GPU optimisation work for AMD Strix Halo on `testbox
 - TAPNext: `tapnext/npu/HANDOFF.md`, top block first.
 - moondream: `moondream/README.md`.
 
-The NPU skill is `.claude/skills/xdna2-npu/SKILL.md`, and Claude Code loads it from this repo. Read it before any NPU
-work. The hardware model is `common/MACHINE.md`; timing advice is `common/measurement.md`.
+Project knowledge is in the book: `common/book/README.md`, then `tapnext/book/` or `moondream/book/`. Skills (loaded from
+this repo): `book-read` to find things and check past attempts, `book-write` to record results without letting the book rot,
+`xdna2-npu` for NPU hardware / toolchain rules (read it before any NPU work). The hardware model is `common/MACHINE.md`;
+timing advice is `common/book/measurement.md`.
 
 ## Safety (the rules that matter)
 - NPU work runs in Docker only (`npu-iron`, `npu-iron-torch`). Mount `-v $HOME/git/app/.scratch:/work` together with
@@ -26,11 +28,12 @@ work. The hardware model is `common/MACHINE.md`; timing advice is `common/measur
   BIT-IDENTICAL.
 - Asm hazards: `r24/lint.sh full12NAME` must report 0 errors.
 - Speed: `r16/nrun.sh NAME.ab python3 r18/ab.py --a full12r24z --b full12NAME` (A/B in one process; see
-  `common/measurement.md`).
+  `common/book/measurement.md`).
 
 ## Before trying an idea
-Search `common/book/negative-results.md` (index at the top) and `tapnext/research/PROPOSALS.md`. Many ideas were already
-refuted, and the catalogue says under what conditions they might revive.
+Load `book-read`. Search `common/book/negative-results.md` (classified index) and `tapnext/research/PROPOSALS.md`. Many ideas
+were already refuted; the class (fundamental / measured-here / unfinished / revived / method) says how sure that is.
+After a round, record what changed with `book-write`.
 
 ## Commits
 Commit locally and never push. Make one commit per experiment, kept or failed. The message carries the measured result

@@ -21,16 +21,18 @@ was measured at 1.81 GHz. The measured performance model is [common/MACHINE.md](
 ## Where things live
 
 - `CLAUDE.md`: the short entry point for an agent (safety rules, how to verify, commit conventions).
-- `.claude/skills/xdna2-npu/SKILL.md`: the NPU skill (toolchain, kernel rules, the asm route, safety). This repo copy is canonical.
-- `common/`: what is not model-specific.
-  - `MACHINE.md`: the AIE2P hardware model.
-  - `measurement.md`: how to time on this box.
-  - `tools/`: asmlint, the simulators, try.sh, and the instruction timing table `aie2p_isa_timing.json`.
-  - `book/`: the machine-level chapters (to come) and `negative-results.md`, the catalogue of refuted ideas (187 entries).
-- `tapnext/`, `moondream/`: one folder per model. Each has its own `book/` for model-specific chapters (to come).
+- `common/book/`: **the book**, the machine-level manual (hardware, toolchain, measurement, GEMM, data movement, fusion,
+  elementwise, attention, method) and `negative-results.md`, the classified index of refuted ideas.
+  `tapnext/book/` and `moondream/book/` hold the model chapters.
+- `.claude/skills/`: `book-read` (find things in the book), `book-write` (add to it), `xdna2-npu` (NPU hardware and
+  toolchain rules, safety; this repo copy is canonical).
+- `common/`: `MACHINE.md` (the hardware model with every fact tagged), `tools/` (asmlint, tcall, the simulators, try.sh, the
+  timing table `aie2p_isa_timing.json`).
+- `tapnext/`, `moondream/`: one folder per model; the lab notebook (NOTES, RESULTS, HANDOFF, rNN/) lives there.
 
-Note: heavy floating-point CPU load can lower the NPU clock (1.81 -> 1.41 GHz was observed). Read
-[common/measurement.md](common/measurement.md) before trusting a timing.
+Measured symptoms to keep in mind when reading a timing (observations under our load, not rules): heavy floating-point CPU
+load lowered the NPU clock (1.81 -> 1.41 GHz), and the NPU's DDR reads and writes each capped at ~55-59 GB/s aggregate with the
+GPU idle. See [common/book/measurement.md](common/book/measurement.md).
 
 Only hand-written code, generators, docs and small result tables are tracked: builds, weights, venvs and logs stay out.
 On testbox, `~/git/app/.scratch/npu-{tapnext,research,moondream}` are symlinks to `tapnext/npu`, `tapnext/research` and

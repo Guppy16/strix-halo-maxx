@@ -38,7 +38,7 @@ Verify:
 - `research/ANALYSIS.md`: where the step's time goes (the time ledger). `research/PROPOSALS.md`: the ranked queue of
   next experiments. `research/RESULTS_FROM_MAIN.md`: measured verdicts on the research proposals.
 - `../common/MACHINE.md`: the hardware model. `../common/book/negative-results.md`: refuted ideas.
-- `book/`: TAPNext chapters (to come).
+- `book/`: the TAPNext chapters ([book/README.md](book/README.md)); the machine-level book is `../common/book/`.
 
 ## Progress (depth-12 step, best build at the end of each round)
 
