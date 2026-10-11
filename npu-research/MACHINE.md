@@ -627,3 +627,14 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   (Tctl; 78 C) are readable. CLKLOAD (r23/clkload.sh, not run) separates power budget, thermal and DPM as causes of the 1.405 GHz clock.
 - **R18.7 [MODEL]** k-step collision floor with E7'': A writes into banks 1 / 2 (busy ~0.4) ~93, B writes into bank 3 (0.9) ~70 and
   bank 0 (0.46) ~12 cycles per k-step; there is no idle bank to move either into.
+
+## Revision 19 additions (2026-10-11, from research pass 19)
+- **R19.1 [MEAS RELC, npu-research r24/relcb.py]** acq.cond / rel.cond test BIT 0 of r26 (the only condition register): rel.cond
+  with r26 = 0 / 2 did not release, 1 / 3 did (a DMA-gated buffer observed; no hang possible). Lock conditions must be 0 / 1.
+- **R19.2 [MEAS MULLAT, r24/mullat*]** A scalar `mul` result is visible to a `st` 2 bundles later and an `add` result 1 bundle later,
+  inside a zero-overhead-loop body and in straight code (the .td latencies).
+- **R19.3 [MEAS KTLP-NL / KTLP-D]** The KTL hang's root cause is R19.1: masks flag x counter skipped every A acquire at an even
+  counter. With boolean masks the KTL kernel (r24/mm_e7k_r70b) issues 9 / 9 A and nks - 1 / nks B lock ops per tile and its pieces
+  equal E7 R 68's, lock-free (1 and 3 k-steps) and with real locks and DMA-fed A / B (3 k-steps in one call).
+- **R19.4 [MODEL]** attvs (6 iterations per call) costs (6 + S - 1) x II: II 18 / 2 stages 126 cycles vs II 11 / 4 stages 99:
+  <= -0.02 ms per step. S3 on the new attention loops: -0.01..-0.04 ms.
