@@ -31,8 +31,7 @@ Per block, in plan order (`tapnext/npu/plan8.py` `full_step`). Norm kinds: norm0
 | mlp3_a, mlp3_b | GEMM | K 1536 each, N 768 (4) | K halves again |
 
 That is 11 GEMM ops, 4 norms, the SSM and the attention: 17 per block, 12 × 17 + the patch embedding and the final norm = 206.
-Per core and block the 11 GEMMs run 1,296 k-steps (MODEL, [ledger.md](ledger.md)). The sources and the earlier stub said "12 GEMMs per
-block"; the plan has 11 (RESULTS 10, `s7_block`).
+Per core and block the 11 GEMMs run 1,296 k-steps (MODEL, [ledger.md](ledger.md)). The plan has 11 GEMMs per block (RESULTS 10, `s7_block`; `plan8.py`); an earlier draft of the table of contents said 12.
 
 ## Rows, columns and core roles (design8)
 
