@@ -1262,12 +1262,28 @@ static WRAP_FOLD void chunk_k_fused(int t, const bfp16ebs8 *q, const bfp16ebs8 *
   bfloat16 *mr = (bfloat16 *)((uint8_t *)kt + 3456);
   const bfloat16 *mx = g_maxb + t * RB * 16;
   alignas(64) bfloat16 sl[RB * 64];
+#ifdef KPREP  // round 19 (research K1, C++ form): all six maxima loaded first (g_maxb + 192 t is 64 B aligned), then the stores;
+  {           // Peano ran the rolled loop serially (~17 cycles per row block behind each load)
+    static_assert(RB == 6);
+    const B32 m01 = aie::load_v<32>(mx), m23 = aie::load_v<32>(mx + 32), m45 = aie::load_v<32>(mx + 64);
+    const B64 ninf = aie::broadcast<bfloat16, 64>(-__builtin_inff());
+#define KPREP_RB(rb, mm, h)                                                                  \
+  {                                                                                         \
+    const B16 nm = aie::neg(mm.template extract<16>(h));                                    \
+    aie::store_v(mr + 64 * (rb), aie::transpose(aie::concat(nm, nm, nm, nm), 8, 8));        \
+    aie::store_v(sl + 64 * (rb), ninf);                                                     \
+  }
+    KPREP_RB(0, m01, 0) KPREP_RB(1, m01, 1) KPREP_RB(2, m23, 0) KPREP_RB(3, m23, 1) KPREP_RB(4, m45, 0) KPREP_RB(5, m45, 1)
+#undef KPREP_RB
+  }
+#else
 #pragma clang loop unroll(disable)
   for (int rb = 0; rb < RB; rb++) {
     const B16 nm = aie::neg(aie::load_v<16>(mx + 16 * rb));
     aie::store_v(mr + 64 * rb, aie::transpose(aie::concat(nm, nm, nm, nm), 8, 8));
     aie::store_v(sl + 64 * rb, aie::broadcast<bfloat16, 64>(-__builtin_inff()));
   }
+#endif
   if (nkb == CB && g_chunk != 0) {  // chunk 0 (every row block flags) and the last chunk go row block by row block
     int32_t f = 1;
     if (!ATTK_SKIP(1)) f = attkb(q, kt, erb(t), mr, g_srb, sl, RB * CB, HI_FAST);

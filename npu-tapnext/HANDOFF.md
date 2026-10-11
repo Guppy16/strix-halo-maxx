@@ -1,3 +1,12 @@
+# ROUND 19 IN PROGRESS (2026-10-11) - interim; the round-18 block below is the base
+## Current best: full12r19f (r18m + ROT g0a + ZHI + CSPLIT + EPLR), BIT-IDENTICAL vs full12r9a; A/B chain vs r18m about -0.75 ms
+Build: `r19/try19.sh NAME [--sweep] [--k-add ..]` = try18 + ROT_V=g0a + ZHI + CSPLIT/EPLR, then **r19/csplit.sh** (patches the lowered
+MLIR: two-BD C drain + lock 6; an UNPATCHED -DCSPLIT xclbin HANGS), then regress. KS_ACC_HI default 0x719C0 now.
+## Done: ROT g0a (-0.18; probes: .2d pop post-modify ADDS to the line step), ZHI (-0.15), CSPLIT (-0.25..-0.48), EPLR (-0.12)
+## Found: TPROF tile stamps (r19/tprof.py): C drain wait ~2,330 per object before CSPLIT; epilogues ~1.65 ms per step; norms
+## 3-input (and RMS 2-input) at ~3.8 B/cycle per column of input = the DDR read peak (55 GB/s over 8 columns).
+## Next: SSM ssq two chunks / FSX, attention K1 / K2 / S3, N-IO / NS (LN 2-input norms only), research pass 15 forwards.
+
 # ROUND 18 DONE (2026-10-11) - read this block first; the round-17 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r18m 35.20 ms** at depth 12 (sweep median, min 34.80), 4 phase sequences per depth, BIT-IDENTICAL vs full12r9a
