@@ -2,9 +2,11 @@
 
 Revision 15, 2026-10-11, research pass 15, written during main's round 19.
 
-- **Base:** `full12r19b` = full12r18m + ROT g0a. full12r18m measured 35.20 ms (sweep median) at depth 12; g0a's A/B is −0.18.
-- **Data:** main's r18m timeline (RESULTS_FROM_MAIN round 19, `npu-tapnext/build/tl_r18m_run{1,2,3}.json`), KS-P38 and NIO2
-  (round 18), and the deployed `full12r19b.bin` / elfs.
+- **Base:** `full12r19d` (main, round 19) = full12r18m + ROT g0a + ZHI + CSPLIT.
+  - full12r18m measured 35.20 ms (sweep median) at depth 12.
+  - The round-19 A/B deltas are −0.18, −0.15 and −0.25, so r19d ≈ 34.6.
+- **Data:** main's r18m and r19d timelines and TPROF (RESULTS_FROM_MAIN round 19), KS-P38 and NIO2 (round 18), and the deployed
+  `full12r19b.bin` / elfs (the CP analysis; r19d's sequence differs only by CSPLIT's core-side BDs).
 - **Archive:** revision 14 is in `rev14/`; older ones are in `rev13/` .. `rev1/`.
 - **Prices:** deltas at depth 12, Turbo, 1.81 GHz. 1 cycle per GEMM k-step = 8.59 µs per step.
   - Round 19 measured that k-step static cuts land at **~0.75** of their static price (g0a −0.18 for 26 cycles, g1a −0.11 for 15).
@@ -18,7 +20,7 @@ Revision 15, 2026-10-11, research pass 15, written during main's round 19.
      | part | ms per step | what |
      |---|---|---|
      | dependent-op start-up | ~3.3 | ~33–38 µs per op whose A is the previous op's output (up_a ~50) |
-     | per-tile overhead | ~2.2 | epilogue + C-object hand-over |
+     | per-tile overhead | ~2.2 | epilogue + C-object hand-over (main's TPROF: hand 3,010 = C-drain wait 2,330 + zero / loop; now CSPLIT + ZHI) |
      | residual | ~0.8 | |
 
    - The ops whose A was ready early (down_b, mlp3_b, and up_b by reuse) show **no** start-up.
@@ -63,37 +65,48 @@ Revision 15, 2026-10-11, research pass 15, written during main's round 19.
 
    The historic suite passes, with g2f, g2a and an add64 snippet added. full12r19b is clean.
 
-## Ranking (rev 15; base full12r19b ≈ 35.0 ms)
+7. **Norms (main's round-19 walls):** 3-input norms run at 3.8 B/cycle. That is ONE shim MM2S channel, which feeds the EW core
+   (shared with the A fills), so the rev-13 fit's R_in 5.75 is refuted.
+   - The lever is a second input channel (NIN2: shim MM2S 1 is free on columns 3–7 and B's on 0–2; the EW core's S2MM 1 is free)
+     together with N-IO-ASM: **−0.7..−1.5 ms**, depending on the unmeasured DDR ceiling.
+   - MACHINE's "DDR 55–63 GB/s peak" was 8 × the single-channel rate; today's norms already move ≥ 84 GB/s.
+8. **The C object:** moving the accumulators out is infeasible (+12,288 B needed, 576 B free). After main's CSPLIT, a progressive
+   4-part release with rb-major epilogues (CSPLIT4) hides most of the remaining 1,555-cycle wait: −0.4..−0.5.
+
+## Ranking (rev 15; base full12r19d ≈ 34.6 ms = r19b + ZHI −0.15 + CSPLIT −0.25, main round 19)
 
 | rank | id | what | cost | risk | expected (depth 12) | pre-registered check |
 |---|---|---|---|---|---|---|
 | 0 | **CPRATE** | probe: N dummy CP writes after one dependent op's sync (recipe below) | S (1 build, 1 A/B) | none | measures t_op | Δstep = 12 · N · t_op; N = 400 → +0.6..+1.1 ms if t_op is 0.13–0.22 µs |
 | 1 | **SEQPRE** | design8 sequence: pre-issue a dependent op's memtile slot loads + sends, drains, B fills, EW params fills before its producer wait; norms pushed to `pending` instead of `finish()`ed at once | M (design8 sequence code only) | medium (queue / BD budgets, ordering) | **−1.4 ± 0.5** (cpseq: −1.37..−2.31 before realisation) | regress BIT-IDENTICAL; timeline gaps: yx / out / qkv / out_proj / mlp0 / mlp3_a −10..−18 µs each, norms −6..−9 µs each |
-| 2 | **N-IO-ASM** (+ NS) | the norm unit loops in asm (pass-1 glue ~90 → ~20, pass-2 glue ~155 → ~40 in situ), stats in asm | M–L | medium | **−0.5..−0.8**; NS −0.1 more | NIO2: pass-1 unit RMS ≤ 230, pass-2 unit RMS ≤ 200 / LN ≤ 290 |
-| 3 | **CDRAIN** (TPROF first; main already has it) | per-tile C-object hand-over: the next tile's C acquire waits for the 18 KB drain of a depth-1 C object | M | medium | if TPROF `hand` ≈ 2,000–2,600 cycles: −0.4..−1.0 via a split drain (below) | TPROF pre-registration below |
-| 4 | attention S3 / K1 / K2 | rev 10 / 11 prices; GEMM text now has ~800 B free | M | low | ~−0.5 (±30 %) | rev 11 checks |
+| 0' | **DDRCAP** | probe: the NPU's aggregate DDR ceiling with 2 shim MM2S channels per column streaming (+ the 8 drains) | S | none | gates rank 2's price | aggregate read GB/s; today's 3-input norms already move ≥ 84 GB/s (in + out) |
+| 2 | **NIN2 + N-IO-ASM** | the norms' inputs over TWO shim channels (a second packet flow into the EW core's free S2MM 1; B on shims 0–2 becomes a hand-built packet ring) + the norm unit loops in asm | L | medium | **−0.7..−1.5** (DDR-ceiling dependent; each alone −0.26..−0.52) | per-unit cycles below; norms' timeline share −0.7..−1.5 |
+| 3 | **CSPLIT4** | after main's CSPLIT: release the C object's 12,288 B part in 4 sub-parts as an rb-major epilogue writes them | M | medium | −0.4..−0.5 | TPROF hand after the epilogue: plain ≤ 900, gated / gelu_pan / qkv ≤ 750 (today ~2,240 = 1,555 + zero / loop) |
+| 4 | attention S3 / K1 / K2 | rev 10 / 11 prices; GEMM text has ~0.3–0.8 KB free | M | low | ~−0.5 (±30 %) | rev 11 checks |
 | 5 | **DAPRE** | down_a's A load during up_b (the only non-dependent op still paying; overhead 0.52 ms vs down_b 0.26) | S–M | medium | −0.2..−0.3 | down_a gap → ~0, per-tile period ≈ down_b's |
 | 6 | SSM ssq2 / FSX | rev 13 | M | low | −0.11 / −0.07 | rev 13 |
-| — | NIN2 (dual EW input stream) | a second shim → EW packet flow (the EW core's 2nd S2MM is taken by ew_op's header: fold it into the ring) | M | medium | after N-IO-ASM: −0.1..−0.3 (n3 ops become input-bound at ~534 cycles per unit) | NIO2 pass-1 waits → ~0 |
+| 7 | LATE-C (R3) | C's 12 pieces = the rows processed LAST (pair 0 of rb 6–17); the tile's first k-step loads zeros (no acc_zero); conditional C acquire inside mm_rot at rb 6 | L (gen_rot op + record flag) | medium | −0.3 on top of CSPLIT4 | |
 | — | GEMM A-slot layout | best feasible slot banks (1, 2, 0) | M (IRON data region) | medium | ≤ −0.1 | dropped |
 | — | B objects in two banks | | | | infeasible (capacity proof above) | dropped |
+| — | accumulators out of the C object | main's request | | | infeasible: +12,288 B needed, ~576 B free (below) | dropped; CSPLIT4 / LATE-C instead |
 
-Ceiling from ≈ 35.0, stacked:
+Ceiling from ≈ 34.6, stacked:
 
 | step | ms |
 |---|---|
-| SEQPRE −1.4 | 33.6 |
-| N-IO-ASM + NS −0.7 | 32.9 |
-| CDRAIN −0.6 (if TPROF confirms) | 32.3 |
-| attention −0.5 | 31.8 |
-| DAPRE −0.25 + SSM −0.18 | **~31.4** |
+| SEQPRE −1.4 | 33.2 |
+| NIN2 + N-IO-ASM −1.0 | 32.2 |
+| CSPLIT4 −0.45 | 31.75 |
+| attention −0.5 | 31.25 |
+| DAPRE + SSM −0.4 | 30.85 |
+| LATE-C −0.3 | **~30.5** |
 
 - **Beyond that, structural levers:**
   - An activation-stationary DDR bypass for dependent A: the remaining ~7–10 µs per boundary plus the A-bound first tile,
     ~−1.0 ms.
-  - E7'' (B on two FIFOs): a static R of 72 → 64 per row block would be −0.9 ms realised, if feasible.
+  - E7'' (B on two FIFOs): −0.9 ms realised, if feasible.
   - The B-collision floor (~92 cycles per k-step ≈ 0.8 ms) has no lever.
-- **Floor ≈ 29–30 ms.** Stacked prices below 33 carry ±1 ms.
+- **Floor ≈ 28.5–29.5 ms.** Stacked prices below 33 carry ±1 ms.
 
 ## CPRATE — measure the command processor's cost per instruction (rank 0)
 
@@ -168,65 +181,122 @@ if os.environ.get("CPRATE") and op["name"].endswith("_mlp3_a"):
   - down_a / down_b / mlp3_b / up_b unchanged (±3);
   - BIT-IDENTICAL.
 
-## CDRAIN — the per-tile C-object hand-over (rank 3; main's TPROF measures it)
+## The C object after main's CSPLIT (rank 3 CSPLIT4, rank 7 LATE-C; main's round-19 request)
 
-- **Why it matters:** every GEMM core has ONE C object (`C{c}_{i}` depth 1, 18,432 B). It holds 12 KB of the fp32 accumulator
-  pieces (pair 0 of rb < 12) and receives the tile's bf16 output, so the next tile's `acc_zero` and first k-step must wait until
-  the core MM2S has drained it.
-- **Model:** 18,432 B / ~8 B/cycle ≈ 2,300 cycles per tile, × 1,104 tiles per core per step ≈ **1.4 ms** if nothing overlaps.
-  - The timeline fit allows 1.3–2.2 µs of plain per-tile overhead (2,400–4,000 cycles).
-  - The static plain epilogue (tcall: acc_epilogue glue ~221 + 3 bias_pcs = 374 + 218 + 530) is ~1,340.
-- **Pre-registered for TPROF** (cycles per tile, median):
-  - `epi` plain 1,350–1,600;
-  - `hand` (previous epilogue end → this tile's start) **1,900–2,700** if the drain wait is real, < 400 if it is not;
-  - `ks` g0a 1,560–1,620;
-  - `first` of dependent ops' first tiles: + (A_load − K / 64 k-steps), ≈ +11k cycles at K 768, +22k at K 1536.
-- **The lever, if `hand` ≈ 2,300:** a split drain. The epilogue writes rows 0–8 of the output first and releases a first C
-  half. That half drains while it writes rows 9–17. The C object becomes two 9 KB objects (two join inputs per core in the
-  memtile).
-  - Saves ~the second half's epilogue time per tile (~600–700 cycles): **−0.4..−0.5**.
-  - A bigger cut needs the first k-step not to touch C: process rb 12–17 (acc_hi only) first. That needs a different A order in
-    the slot (A_RT chunk order), **−0.8..−1.0**. Research item R3: CP-solve ROT's row order.
+**Measured (main, TPROF):** `hand` was 3,010 cycles per tile: ~2,330 C-drain wait plus ~680 zero / loop.
+- **Note:** this section's first draft (written before those numbers) pre-registered `hand` 1,900–2,700 and `epi` plain
+  1,350–1,600. Measured were 3,010 (incl. zero + loop, so the drain part 2,330 lies inside the range) and 1,310 (below). They
+  are not claimed as hits.
+- ZHI (−0.15) and CSPLIT (−0.25) are deployed. **Left:** part 1 (12,288 B at 7.9 B/cycle = 1,555 cycles) drains after each
+  epilogue. That is 912 C objects per core per step (76 per block), **~0.78 ms**.
 
-## N-IO-ASM and the norm plan (rank 2)
+**Can the 12,288 B of accumulators leave the C object? No (capacity).** The core 0_2 L1 total:
 
-**After NIOC** (NIO2 r18h, in situ incl. stamps):
+| item | bytes |
+|---|---|
+| stack | 2,560 |
+| data region | 28,672 (.data 3,964 + .bss 24,616) |
+| tbk / tbt / tbc | 192 |
+| A slots | 3,456 |
+| C object | 18,432 |
+| B | 9,216 |
+| tbn / tba | 128 |
+| .aie.bank3 | 2,304 |
+| **total** | **64,960 of 65,536** (576 B free) |
 
-| | pass-1 unit | pass-2 unit | nrm call |
-|---|---|---|---|
-| RMS | 293 | 302 | 147 |
-| LN | 249 | 391 | 232 |
+- Moving the accumulators out needs +12,288 B while the C object keeps its 18,432 B of output.
+- **The reducible items cover ~3.4 KB:** the stack (~1.5 KB above the 832 B deepest path; stackaudit), CSPLIT's free bytes, and
+  `rot_rec` (as .rodata it is already counted).
+- **The GELU / erf / exp tables (5.6 KB) are needed** by the epilogues and the attention.
+- So nothing short of shrinking the tile hides the drain.
 
-- tcall on full12r19b: pass-1 iteration 215–233 static (n1k_step 134 + ~90 glue); pass 2 ~196 (RMS) / ~256 (LN) static
-  (nrm 117 / 177 + glue).
-- **Input floor** per unit at R_in 5.75: n2 356, n3 534 cycles.
-- Per unit today, RMS 595 and LN 640 are above both floors, so ops are compute-bound on average. Pass 1 alone runs below its
-  input rate, which is why NIOC's pass-1 cut half-missed.
-- **Model** (whole-call per unit, 216 units per op):
+**CSPLIT4 — progressive part-1 release (rank 3):**
+- **Today:** the epilogue writes the output piece-major: bias_to_c is three bias_pcs calls (pair 0 rb < 12 in place, pair 0
+  rb ≥ 12 → the tail, pair 1 → C + 256 h). C bytes [1 KB rb] are complete only after the third call, so part 1 can only be
+  released at the end.
+- **Change:**
+  1. Make the epilogues rb-major for rb < 12. Per rb: read piece(rb, 0) (in C) and piece(rb, 1) (acc_hi), write the 1 KB of bf16
+     at C + 1 KB rb. This is safe in place, because the reads of the rb come before its writes.
+  2. Release part 1 in 4 sub-parts of 3 KB (rb 0–2, 3–5, 6–8, 9–11) as a 4-BD chain with 4 lock pairs. This is main's CSPLIT
+     patch with more BDs; the memtile join still receives one 18,432 B stream in order.
+- **The drain then overlaps the epilogue:**
 
-  | | n2 RMS | n2 LN | n3 RMS | n3 LN |
-  |---|---|---|---|---|
-  | glue cuts (−70 pass 1, −115 pass 2) | ~410 | ~455 | — | — |
-  | n3 ops pinned at the floor | — | — | 534 | 534 |
+  | epilogue | today's exposed wait | after CSPLIT4 |
+  |---|---|---|
+  | plain (1,310) | 1,555 | ~580 |
+  | gated (3,263), gelu_pan (4,918) | 1,555 | ~0 |
+  | qkv (1,941) | 1,555 | ~65 |
 
-  Δ per step:
+- **Price:** per block per core 32 · 975 + 32 · 1,555 + 12 · 1,490 ≈ 99k cycles, × 12 = 0.66 ms; realised ~0.75 → **−0.4..−0.5**.
+- **Cost:** every epilogue variant (bias_pcs, bgelu3 / bgelu, gup, pan, vtk) must become rb-major for rb < 12. pan / gup write bfp
+  panels: check that their drained layout is rb-ordered. Text: one loop per variant, a few hundred bytes. **Bit-identical by
+  construction** (the same values, written in another order).
 
-  | ops | ms |
-  |---|---|
-  | RMS n2 (12) | −0.27 |
-  | LN n2 (12) | −0.27 |
-  | RMS n3 (12) | −0.09 |
-  | LN n3 (13) | −0.17 |
-  | **total** | **−0.80** |
+**LATE-C (rank 7, research R3):**
+- **Map:** C holds the accumulators of the rows ROT processes last: pair 0 of rb 6–17. acc_hi holds pair 0 rb 0–5 and pair 1
+  of all rbs.
+- **First k-step:** a tile's first k-step loads its accumulator quarters from a 256 B zero block instead of the pieces (records
+  only: J0 / J1 point p3 at the zero block, no stride). It is bit-identical (0 + Σ) and makes acc_zero unnecessary.
+- **C acquire:** mm_rot takes the C lock itself with a second conditional acquire, flagged only at rb 6 of a tile's first k-step.
+  That hides ~min(1,555, 6/18 · 1,576 + zeroing) ≈ 775 cycles per object: **−0.3** after CSPLIT4.
+- **Cost:** gen_rot gets a CACQ op (alu slot, ACQ_GAP ≥ 6 before the first C store, not load: the first k-step only stores into
+  C). The records get a flag, and the epilogue's in-place order moves (the rb ≥ 6 outputs land in C [6 KB, 18 KB)).
 
-  Allowing for the unlocated in-situ pass-2 excess (s2): **−0.5..−0.8.**
-- **NS** (stats in asm, −250 per row block of 300–420): −0.1 (n3 ops input-bound).
-- **NIN2:** raise R_in by a second shim → EW stream. Matters only after N-IO-ASM: the n3 floor drops 534 → ~310, worth
-  **−0.1..−0.3**. It needs the EW core's second S2MM, which ew_op's per-op header uses (fold the header into the ring's params
-  fill).
-- **Order:** SEQPRE (the norm boundary, −0.3..−0.45 of its price is the norms') → N-IO-ASM → NIN2 / NS.
-- **Pre-registered NIO2 after N-IO-ASM:** pass-1 unit RMS ≤ 230 (n2 ops), pass-2 unit RMS ≤ 200 / LN ≤ 290; norms' timeline span
-  −0.4..−0.7 ms.
+## The norm plan after the r19d walls (rank 2; main's round-19 request: re-check the fit)
+
+**Measured (main, r19d timeline, per column):**
+
+| op | kind | inputs | µs | cycles per unit (216 units) |
+|---|---|---|---|---|
+| norm0 | RMS | 3 | 95.6 | 801 |
+| norm1 | RMS | 2 | 67.7 | 567 |
+| norm2 | LN | 3 | 98.0 | 821 |
+| norm3 | LN | 2 | 82.7 | 693 |
+
+- Every norm's gap is 16.5 µs.
+- n1k reads three streams in both kinds, so n2 and n3 compute is the same. **The 3-input ops are input-bound:** 3,072 B / 801 =
+  3.84 B/cycle and / 821 = 3.74.
+
+**The rev-13 fit (R_in 5.75) is refuted.**
+- **The input is ONE shim MM2S channel per column** (lowered MLIR: `Ein{c}_src` shares shim MM2S 0 with `Ain{c}`). That
+  channel's measured rate is ~6.4–7 GB/s = 3.5–3.9 B/cycle (MACHINE §7, memtile ← DDR through one shim channel).
+- **What hid it:**
+  - The fit had a free per-op constant F and the fitted pass-2 excess s2, and both absorbed the n3 input time.
+  - Its one miss was this very signal: n3 − n2 walls 10.7 µs modelled vs 15–19 measured. At NIOC's faster compute the
+    difference grew to +28 µs (RMS) / +15 µs (LN).
+- **Also refuted, MACHINE §5's "DDR ~55–60 GB/s read, ~63 read + write":** that was 8 × the single-channel rate.
+  - Today's 3-input norms move (3,072 + 1,600) B × 8 per 801 cycles ≈ 47 B/cycle ≈ 84 GB/s of reads + writes.
+  - The real ceiling is unmeasured (DDRCAP).
+
+**Per-unit model** (cycles, 216 units per op; compute from the n2 walls; N-IO-ASM = pass-1 glue −70, pass-2 glue −115 in situ;
+input at 3.8 B/cycle per channel):
+
+| case | RMS n2 (12) | RMS n3 (12) | LN n2 (12) | LN n3 (13) | norms ms per step | Δ |
+|---|---|---|---|---|---|---|
+| today | 567 | 808 | 693 | 808 | 4.21 (+ 0.8 gaps: the 4.88 measured) | — |
+| N-IO-ASM only | 539 (input) | 808 | 539 (input) | 808 | 3.95 | −0.26 |
+| NIN2 only | 567 | 567 | 693 | 693 | 3.69 | −0.52 |
+| both | 382 | 404 | 508 | 508 | 2.64 | −1.57 |
+| both, DDR capped at 100 GB/s | 529 | 677 | 529 | 677 | 3.53 | −0.68 |
+
+So the price is **−0.7..−1.5**, set by DDRCAP. SEQPRE takes ~−0.3 of the 0.8 ms of norm gaps on top (in rank 1's price).
+
+**NIN2 design:**
+- **Stream:** `Ein2[c] = PacketFlow(4, shims[c], ew_tiles[c], src_channel=1, dst_channel=1)`, a second input ring (e.g. 8 slots;
+  `ewi0` 20 → 12 slots to pay for it) with locks 4 / 5, and a TileDma S2MM 1 chain like `ewi`'s.
+- **Split:** the plan puts stream 0 (and the params) on ring 1 and streams 1–2 on ring 2. The units then need 1–2 KB per ring.
+- **Shims 0–2:** MM2S 1 carries B (`B{r}_shim_alloc`), and IRON refuses an ObjectFifo on a channel a PacketFlow uses. Make B a
+  hand-built ring as A is (`PacketFlow(3, shims[r], mems[r], src_channel=1, ...)` into the memtile's existing B S2MM channel + a
+  memtile TileDma forward to the row's cores). B (GEMM phases) and Ein2 (norm phases) never overlap in time.
+- **Kernel:** ew8.cc's NPIPE loop gets per-ring in_need / in_done (the ring state is already in locals since NIOC). The n1k_step
+  pointers come from both rings.
+- **Pre-registered (NIN2 alone, timeline):** norm0 / norm2 walls → norm1 / norm3 (67.7 / 82.7 µs ± 4); norm1 / norm3 unchanged;
+  BIT-IDENTICAL.
+
+**DDRCAP probe (rank 0'):** one op that streams 2 × 512 KB per column from DDR through both shim MM2S channels into two sinks
+(memtile or the EW core's two rings, cores discarding), with the 8 shim S2MM draining 256 KB each.
+- Report aggregate GB/s for 8 / 16 channels.
+- Pre-registered: ≥ 84 GB/s (today's norms prove it); the open question is whether 16 channels reach ~110–120.
 
 ## GEMM L1 layout (rev 14 ranks 4–5, main's round-18 request): negative, with the evidence
 
@@ -265,8 +335,8 @@ buffer from the end of the k-step that last used it.
   - Needs: CP-SAT feasibility at R = 64; register (ex) and bank budgets; a host interleave.
   - **UNVERIFIED** that `vlda.pop.576` accepts lf1 (MACHINE says both FIFOs pop on both slots).
   - Prize: −144 static cycles per k-step (−0.9 ms realised).
-- **R3 (CDRAIN-B):** ROT with a row-block order that touches acc_hi pieces first (rb 12–17), so the next tile's first k-steps
-  overlap the C drain. Needs an A slot chunk order change and gen_rot with a free row order.
+- **R3 (LATE-C):** the gen_rot CACQ op (a conditional C acquire at rb 6 of a tile's first k-step), zero-load records for the
+  first k-step, and the new piece map (pair 0 of rb 6–17 in C). The CP feasibility at R = 72 comes first.
 - **R4 (DAPRE):** whether a K = 768 op's A really occupies both halves of the memtile A slot (A_HALF multicasts it to both). If
   one half suffices, down_a's first 12 chunks can load during up_b.
 
