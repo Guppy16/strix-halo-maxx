@@ -10,7 +10,7 @@ Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo
 - **revived**: once called dead, later made to work. The entry says what changed. Do not cite these as dead.
 - **method**: a mistake in method (a wrong model of a bound, a stale header, a mis-averaged window). The idea itself may be fine; the lesson is about how to measure.
 
-Counts (187): fundamental 22 | measured-here 82 | unfinished 18 | revived 11 | method 54.
+Counts (187): fundamental 22 | measured-here 82 | unfinished 16 | revived 13 | method 54.
 
 How to read the index: the `why` column names the limit, the measurement, or what is missing. Anchors are lowercase ids (`#a28`). The `project` column is where the evidence came from: `tapnext`, `moondream`, or `general` (toolchain and method lessons that apply to any AIE2P project). Classes are judgements from the entry text and the sources; where the evidence only supports "unfinished" it is not upgraded to "fundamental". Capacity arguments are called `fundamental` only when the shortfall follows from a hardware number and the model dimensions, and `measured-here` when a different tile shape or layout could change it.
 
@@ -59,7 +59,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [B5](#b5) | GELU-II10 / bgelu II 11 | tapnext | unfinished | CP-SAT found no II 10 in 400 s (not proven infeasible); padding-aware model never tried | [elementwise](elementwise.md#gelu) |
 | [B6](#b6) | RECIP-FREE-GELU | tapnext | measured-here | 26-37 % bf16 mismatches vs 15 % today; LUT GELU replaced it; a looser tolerance could change it | [elementwise](elementwise.md#gelu) |
 | [B7](#b7) | P43 / P43b | tapnext | measured-here | Boundary is the A slot load from DDR (B is 14 % of bytes): -0.35 vs -0.8 | |
-| [B8](#b8) | CSPLIT4 | tapnext | unfinished | Not built; -lite re-priced -0.11..-0.17; needs an acquire-only BD lowering, unverified | [gemm](gemm.md#epilogues-and-the-c-path) |
+| [B8](#b8) | CSPLIT4 | tapnext | revived | Built as CSUB (3 sub-parts, release-by-0 BDs, commit 0a0b485): -0.13 ms, round 21 | [gemm](gemm.md#epilogues-and-the-c-path) |
 | [B9](#b9) | LATE-C | tapnext | unfinished | Not built; re-priced -0.08..-0.12; revives if the C wait grows | [gemm](gemm.md#epilogues-and-the-c-path) |
 | [B10](#b10) | DUALDRAIN | tapnext | fundamental | DDR write cap is aggregate (~55 GB/s); a second channel per column adds nothing | [data-movement](data-movement.md#the-ddr-caps) |
 | [B11](#b11) | MRES | tapnext | measured-here | 124 KB park vs 112 KB free in memtile holes; MLPRR got -0.40 through DDR instead | |
@@ -76,7 +76,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [C8](#c8) | BDPRE | tapnext | revived | Priced on 0.10 us CP time per BD write; measured 0.55 us, CPPRE -0.09 ms | [fusion](fusion.md#the-command-processor-sequence) |
 | [C9](#c9) | SENDPRE-dep | tapnext | measured-here | After the wait the first tile is DDR-paced anyway: ~0 | |
 | [C10](#c10) | SENDPRE | tapnext | measured-here | +0.16 ms: early pushes delay the critical path; cause not separately measured | |
-| [C11](#c11) | OPPRE | tapnext | unfinished | +0.18 ms, cause unmeasured; OPPRE-W and OPPRE-37 probes never run | |
+| [C11](#c11) | OPPRE | tapnext | revived | Worked as OPPRE2 (e70a106, round 24): sends issued before the waits, -0.15 ms | |
 | [C12](#c12) | DDR84 | tapnext | method | Derived from norm walls x bytes; DDRCAP measured ~55-59 GB/s aggregate | [data-movement](data-movement.md#the-ddr-caps) |
 | [C13](#c13) | NIN2 | tapnext | fundamental | 3-input norms already at the aggregate DDR read cap (55.5 GB/s) | [data-movement](data-movement.md#the-ddr-caps) |
 | [C14](#c14) | H_WR | tapnext | method | Hypothesis refuted: one stream writes ~6.7 B/cycle; tail is the aggregate write cap | [data-movement](data-movement.md#the-ddr-caps) |
@@ -406,7 +406,7 @@ panels + 7 fills); no schedule found in 25 + 7 min (r22/solve_r64.log, diag64.ou
 <a id="b8"></a>
 **B8 — CSPLIT4: progressive release of C part 1 in 4 sub-parts** (rev 15 rank 3, −0.3..−0.35) [MEAS TPROF + MODEL]. Re-priced rev 16 as CSPLIT4-lite −0.11..−0.17 (one static sub-part boundary at 9,216 B): measured hands 1,808 cycles (gelu_pan / qkv / gated-first / gelu) vs floor 676; EPLR had taken the plain share (−0.12). Not built through round 20 (needs every epilogue rb-major for rb < 12 and an acquire-only BD whose lowering is UNVERIFIED). Conditional: worth building only as -lite, or if epilogues change.
 
-**Class:** unfinished — Not built; -lite re-priced -0.11..-0.17; needs an acquire-only BD lowering, unverified. What would settle it: Verify the acquire-only BD lowering (G19 says release by 0 works), then build CSPLIT4-lite.
+**Class:** revived — Built as CSUB (commit 0a0b485, round 21, -0.13 ms A/B, bit-identical): C part 1 released in 3 sub-parts instead of 4 by the epilogues, using release-by-0 BDs because the MLIR verifier refuses an acquire-only BD (G19); predicted -0.12..-0.25.
 
 <a id="b9"></a>
 **B9 — LATE-C: C acquire inside mm_rot at rb 6 + zero-load first k-step** (rev 15 R3 / rank 7, −0.3) [MODEL]. Re-priced rev 16 to −0.08..−0.12: plain hand 1,371 after EPLR leaves at most ~700 cycles × 32 tiles. Not built. Conditional: revives if the C wait grows again (e.g. a faster epilogue path) — needs gen_rot CACQ + CP feasibility at R = 72.
@@ -497,7 +497,7 @@ pushes per block on the in-order CP (4-deep queues). Not proposed.
 <a id="c11"></a>
 **C11 — OPPRE: out_proj's A loaded in 4 parts during attention pass 1** (main, round 20, predicted −0.18..−0.3) [MEAS]. +0.117 / +0.205 / +0.184 ms (full12r20o1). Pass 17 (rev17/P): the aggregate-DDR reading is refuted by the bytes — attention pass 1 reads ~2.65 MB of K / V in ~160 µs (~17 GB/s) and the 1 MB A adds ~6 GB/s, ~23 GB/s against the ~55 cap. Remaining hypotheses: H_CP (the per-head-group drain waits and their extra task groups / BD reclamation sit in the in-order CP stream and delay the K / V pushes behind them; 3 waits × ~5 µs tail ≈ 15 µs per block = +0.18) and H_SHIM (shims 0–2 carry the K / V on MM2S 1 and now an A part on MM2S 0 at once). Separating probe: OPPRE-W (the same waits, 64 B fills) and OPPRE-37 (the A parts only on shims 3–7). The patch was not committed: commit dead experiments so their order can be read. Lesson: a CP wait is a barrier for every push behind it.
 
-**Class:** unfinished — +0.18 ms, cause unmeasured; OPPRE-W and OPPRE-37 probes never run. What would settle it: Run OPPRE-W (same waits, 64 B fills) and OPPRE-37 (A parts only on shims 3-7).
+**Class:** revived — OPPRE2 (commit e70a106, round 24, -0.15 ms; pre-registered -0.08..-0.16) made it work: out_proj's A part g is filled per attention head group, with the memtile sends issued before the waits, and the attention's K / V fills and Q tasks issued first so the drains and waits no longer sit in front of the K / V pushes (the H_CP hypothesis above). With the sends after the waits it gave only -0.04 ms.
 
 <a id="c12"></a>
 **C12 — DDR84: "the NPU sustains ≥ 84 GB/s DDR read + write"** (rev 15 R15.4; DDRCAP pre-registered ≥ 84, ceiling ~110–120?) [MEAS]. DDRCAP (r19/ddrcap.py): one stream ~7 B/cycle; 4 × 1 and 2 × 2 streams 50 GB/s (minus dispatch), 8 × 1 / 4 × 2 59, 8 × 2 54 GB/s; with drains 63–74 GB/s read + write. Aggregate read cap ~55–59 GB/s. Why: rev 15 derived 84 from norm walls × bytes (8 × 4,672 B per 801 cycles) and called MACHINE §5's 55–63 GB/s "8 × the single-channel rate" — DDRCAP restored the old figure. Note: MACHINE R15.4 still states ≥ 84 (stale).
@@ -1285,4 +1285,5 @@ floating-point compute with the package at ~100 W. Lesson for any app beside the
   ~8 x 0.55 = 4.4 us per wait, which the B multicast then waits for.
 - **J4 YRES / SSPM** (pass 20, corrected pass 21): conditional revival. The SSM is compute-bound ~255 cycles per chunk above an input
   floor of ~2,030 (SSMCUT); after the SSM glue reaches that floor, read bytes per chunk (params read by all 8 columns) pay.
+- **B8 CSPLIT4** (built as CSUB, 3 sub-parts: -0.13 ms, round 21) and **C11 OPPRE** (worked as OPPRE2: -0.15 ms, round 24, sends before the waits).
 - Classification notes (this pass): **C18 NRES-ALONE** (missed alone, hit with NSEQ), **A28 ROT-KTL** (KTL built on E7'' at -0.82 ms), **E13 SIG-SYM**, **A23 MD-HANDSCHED** and **G17 READ_TM** are also classed `revived`. **E6 FOLD** is classed `unfinished` here, not `revived`: it was only re-priced, never built, so it has not yet been shown to work. **J4 YRES / SSPM** is classed `measured-here` (conditional), for the same reason.
