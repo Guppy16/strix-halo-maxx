@@ -1312,6 +1312,9 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
 #ifdef NRES
   int pslot = 0;  // round 20 SRES: pring != null: the z panels (out's A) go to the panel ring (216 chunks per op: even)
 #endif
+#ifdef ZDROP  // round 24: chunk index mod 3 (2 KB chunks: 3, 3, 2 slots acquired, 2, 3, 3 released; 216 chunks: the op ends at 0)
+  int zk3 = 0;
+#endif
   const nk8::ExpC kc;
   const B32 ones = aie::broadcast<bfloat16, 32>(1.0f);
 #if defined(PROF) || defined(NPROF)
@@ -1330,6 +1333,12 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
     // (every frame rotates under XROT: the 6 KB copy layout is not compiled)
     const int rot = *(const int32_t *)in_at(in_ring, 8);
     constexpr int o_slots = 4, o_h = 0, o_z = 2 * KB;
+#ifdef ZDROP
+#if !defined(HRING) || !defined(ZRING) || !defined(ZK) || !defined(NRES) || defined(PROF) || defined(NPROF) || defined(NIO2)
+#error "ZDROP: written for HRING + ZRING + ZK + NRES, and the timing records sit in the z part it drops"
+#endif
+    const int zub = pring ? 2 * KB : 3 * KB;  // (the plan drains [h lo, h hi] for SRES SSMs)
+#endif
 #else
     constexpr int o_slots = 8, o_h = 3 * KB, o_z = 5 * KB;
 #endif
@@ -1472,7 +1481,15 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
       static_assert(10240 + 1088 == 11328 && 10240 + 2112 == 12352 && 10240 + 3136 == 13376);
 #ifdef HRING  // round 18: h into the output ring (its 2 KB cross the ring end in one chunk of three: reck's 2D store wraps)
       static_assert(o_h == 0 && OUT_B == 9216 && OUT_B % 128 == 0, "r15/gen_rec.py --ring: OUT_B, 128 B per h vector");
+#ifdef ZDROP  // round 24: under SRES (pring) the chunk's output is h only (2 KB: fractional slots); 216 x 2 KB = 48 rings, so the op
+      // ends on a slot boundary (out_begin / out_end keep the partial slot in g_out_slot_b)
+      if (pring)
+        lacq(out_ring, L_OUT_FREE, zk3 == 2 ? 2 : 3);
+      else
+        lacq(out_ring, L_OUT_FREE, o_slots);
+#else
       lacq(out_ring, L_OUT_FREE, o_slots);
+#endif
       {
         const int n1 = (OUT_B - g_out_b) / 128;  // h vectors before the ring end
         reck(g_e2, (const float *)P[5], (const float *)P[6], g_hb, (float *)out_at(out_ring, o_h), first ? 0x3F80 : 0, first ? 0 : 0x3F80,
@@ -1585,9 +1602,20 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
         for (int i = 0; i < 10; i++) rec[20 + i] = g_nio[i / 5][i % 5];
       }
 #endif
+#ifdef ZDROP
+      if (pring) {
+        lrel(out_ring, L_OUT_FILL, zk3 == 0 ? 2 : 3);
+        zk3 = zk3 == 2 ? 0 : zk3 + 1;
+      } else {
+        lrel(out_ring, L_OUT_FILL, o_slots);
+      }
+      g_out_b += zub;
+      if (g_out_b >= OUT_B) g_out_b -= OUT_B;
+#else
       lrel(out_ring, L_OUT_FILL, o_slots);
       g_out_b += o_slots * SLOT_B;
       if (g_out_b >= OUT_B) g_out_b -= OUT_B;
+#endif
       in_done(in_ring, 7 * KB);
       PH(9);
     }

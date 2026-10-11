@@ -58,6 +58,7 @@ YX_PERM = [0, 4, 1, 5, 2, 6, 3, 7]
 # round 24 YXH (replaces YXR when set): yx's steps head-major, step j row r = position p = 3 j + r of (y0, x0, y1, x1, ..): natural tile
 # p // 2 (y) or 12 + p // 2 (x); the C join's stream is then [head][y | x][18 rb] and design8 drains it in per-step groups
 YXH = os.environ.get("YXH") == "1"
+ZDROP = os.environ.get("ZDROP") == "1"  # round 24: SRES SSMs drain h only (ew8 -DZDROP)
 MS_RB = 6  # row blocks of the first pass (3 A stripes: the A ring's slot order repeats every k-step)
 # round 20 (research rev 16 NRES): the named norms (e.g. "norm1,norm3") send their panels from the EW core's MM2S 1 straight into
 # memtile c's A slot half 0 (rb-major: unit (rb, q) at rb 6,912 + q 576); only X' goes to DDR; the GEMM after the norm loads no A
@@ -350,7 +351,10 @@ class Plan:
         ps = kb_pad(SSM_PARAM_BYTES)  # round 17 AL1: the per-head params stride / fill
         fills = [[(self.tap("w", pw + q * ps, [1, 1, 1, ps], [0, 0, 0, 1]),
                    self.tap("act", base + c * col + q * KSTEP16, [RB, 7, 1, XB], [UNIT, S, 0, 1])) for q in range(12)] for c in range(COLS)]
-        drains = [self.tap("act", area["out"] + c * col, [12, RB, 3 if rot else 6, XB], [KSTEP16, UNIT, S, 1]) for c in range(COLS)]
+        ns = 3 if rot else 6
+        if sres and ZDROP:  # round 24: the z panels go on chip only (ew8 -DZDROP): drain [h lo, h hi]
+            ns = 2
+        drains = [self.tap("act", area["out"] + c * col, [12, RB, ns, XB], [KSTEP16, UNIT, S, 1]) for c in range(COLS)]
         self.ops.append(dict(kind="ew", fn="ssm", name=name, fills=fills, c=drains, dst=area["z"], area=area, params_w=params_w,
                              params_rot=params_rot, pstride=ps))
         if sres:

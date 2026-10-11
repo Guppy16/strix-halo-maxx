@@ -1363,7 +1363,7 @@ def main():
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
                                                      il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1", a3=os.environ.get("A3") == "1",
                                                      nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1",
-                                                     msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x], yxr=os.environ.get("YXR") == "1", yxh=os.environ.get("YXH") == "1")))
+                                                     msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x], yxr=os.environ.get("YXR") == "1", yxh=os.environ.get("YXH") == "1", zdrop=os.environ.get("ZDROP") == "1")))
 
 
 if __name__ == "__main__":

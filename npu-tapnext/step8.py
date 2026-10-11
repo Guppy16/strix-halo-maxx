@@ -83,6 +83,7 @@ class Step8:
         plan8.A3 = bool(bj.get("a3", False))  # round 22 3A: down_b / mlp3_b fills split for region 3
         plan8.YXR = bool(bj.get("yxr", False))  # round 23 YXR: yx's steps interleaved y / x
         plan8.YXH = bool(bj.get("yxh", False))  # round 24 YXH: yx's steps head-major
+        plan8.ZDROP = bool(bj.get("zdrop", False))  # round 24 ZDROP: SRES SSMs drain h only
         plan8.MSPLIT = tuple(bj.get("msplit", []))  # round 23 MSPLIT-P: the last tile in two row passes
         plan8.NRES = tuple(bj.get("nres", []))
         plan8.SRES = bool(bj.get("sres", False))  # round 20: norms whose panels go on chip to the next GEMM's A slot
