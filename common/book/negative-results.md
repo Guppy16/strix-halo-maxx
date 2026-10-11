@@ -24,66 +24,66 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 
 | id | name | project | class | why | chapter |
 |---|---|---|---|---|---|
-| [A1](#a1) | A-PORT | tapnext | method | Constants wrong (1.43 GHz, 4 B/cycle) and one matching number; twins say compute-bound | |
-| [A2](#a2) | P6 / P40 | tapnext | measured-here | Memtile-to-core port measured 7.95 B/cycle, not binding; changes only if a k-step needs more than ~7.5 B/cycle of A | |
-| [A3](#a3) | A-PORT-R9 | tapnext | method | 2,588 was a mean including the op-start wait; medians 2,050-2,065 (A at least 5.04 B/cycle) | |
-| [A4](#a4) | P17 | tapnext | method | Fitted bank "stalls" were boundary time spread by a fit; stamps show 321 static + 12 for stamps | |
-| [A5](#a5) | P21-RULES | tapnext | measured-here | Rules measured 273 / 255 bundles vs 225: serialising costs what stalling costs; layout fix instead | |
-| [A6](#a6) | CPP-4CHAIN | tapnext | measured-here | Peano codegen: 42-61 bundles per 16 mmuls vs 28; a newer Peano could change it | |
-| [A7](#a7) | P18-EXTRAP | tapnext | method | Extrapolated -7 ms, measured -1.9: L1 bank conflicts were not in the extrapolation | |
-| [A8](#a8) | PIECEMAP-GREEDY | tapnext | measured-here | Bank-aware piece map saves 10 cycles/stripe but table epilogue costs +0.8 us/tile; affine map won | |
+| [A1](#a1) | A-PORT | tapnext | method | Constants wrong (1.43 GHz, 4 B/cycle) and one matching number; twins say compute-bound | [gemm](gemm.md#is-it-compute--or-data-bound) |
+| [A2](#a2) | P6 / P40 | tapnext | measured-here | Memtile-to-core port measured 7.95 B/cycle, not binding; changes only if a k-step needs more than ~7.5 B/cycle of A | [gemm](gemm.md#what-didnt-work) |
+| [A3](#a3) | A-PORT-R9 | tapnext | method | 2,588 was a mean including the op-start wait; medians 2,050-2,065 (A at least 5.04 B/cycle) | [gemm](gemm.md#is-it-compute--or-data-bound) |
+| [A4](#a4) | P17 | tapnext | method | Fitted bank "stalls" were boundary time spread by a fit; stamps show 321 static + 12 for stamps | [gemm](gemm.md#what-didnt-work) |
+| [A5](#a5) | P21-RULES | tapnext | measured-here | Rules measured 273 / 255 bundles vs 225: serialising costs what stalling costs; layout fix instead | [gemm](gemm.md#bank-conflicts-and-dma-collisions) |
+| [A6](#a6) | CPP-4CHAIN | tapnext | measured-here | Peano codegen: 42-61 bundles per 16 mmuls vs 28; a newer Peano could change it | [toolchain](toolchain.md#what-didnt-work) |
+| [A7](#a7) | P18-EXTRAP | tapnext | method | Extrapolated -7 ms, measured -1.9: L1 bank conflicts were not in the extrapolation | [gemm](gemm.md#what-didnt-work) |
+| [A8](#a8) | PIECEMAP-GREEDY | tapnext | measured-here | Bank-aware piece map saves 10 cycles/stripe but table epilogue costs +0.8 us/tile; affine map won | [gemm](gemm.md#what-didnt-work) |
 | [A9](#a9) | A_BANKS-PIECES | tapnext | unfinished | Did not link (bank sections overflow); no number recorded, never retried | |
 | [A10](#a10) | LAYER-II | tapnext | unfinished | Parked on L1/EW blockers; ROT superseded it in practice; conditional on k-step needing more A | |
-| [A11](#a11) | ROT-TEMPLATES | tapnext | fundamental | CP proof: a dependent MAC chain (distance >= 3, 4 B regs) cannot follow forced consecutive pops when g is not 0 mod 9 | |
-| [A12](#a12) | E6 / E6-B | tapnext | measured-here | B bank busy 0.97 under ROT and no idle bank to move the prefetch to (this L1 layout) | |
-| [A13](#a13) | B-2BANK | tapnext | revived | One FIFO could not split B; E7'' (B on both FIFOs, R 68) was built | |
-| [A14](#a14) | E7' | tapnext | fundamental | One FIFO cannot pop twice in a bundle: ldb slot and bank 3 bind at 72+g; E7'' (two FIFOs) is the live successor | |
-| [A15](#a15) | ASLOT | tapnext | measured-here | Best bank assignment is only -0.1 ms and needs bank-0 room the 28 KB data region lacks | |
+| [A11](#a11) | ROT-TEMPLATES | tapnext | fundamental | CP proof: a dependent MAC chain (distance >= 3, 4 B regs) cannot follow forced consecutive pops when g is not 0 mod 9 | [gemm](gemm.md#what-didnt-work) |
+| [A12](#a12) | E6 / E6-B | tapnext | measured-here | B bank busy 0.97 under ROT and no idle bank to move the prefetch to (this L1 layout) | [gemm](gemm.md#bank-conflicts-and-dma-collisions) |
+| [A13](#a13) | B-2BANK | tapnext | revived | One FIFO could not split B; E7'' (B on both FIFOs, R 68) was built | [gemm](gemm.md#what-didnt-work) |
+| [A14](#a14) | E7' | tapnext | fundamental | One FIFO cannot pop twice in a bundle: ldb slot and bank 3 bind at 72+g; E7'' (two FIFOs) is the live successor | [machine](machine.md#what-didnt-work) |
+| [A15](#a15) | ASLOT | tapnext | measured-here | Best bank assignment is only -0.1 ms and needs bank-0 room the 28 KB data region lacks | [gemm](gemm.md#bank-conflicts-and-dma-collisions) |
 | [A16](#a16) | ACC-OUT | tapnext | measured-here | Needs +12,288 B of L1, 576 B free with this tile shape (18,432 B C object) | |
-| [A17](#a17) | g2f | tapnext | method | Bench pre-released the locks so the acquire never blocked; fixed as g2a (-3.27 ms) | |
-| [A18](#a18) | STATIC-PRICE | tapnext | method | Static price misread: only ~0.75 of a k-step cycle cut lands in situ | |
-| [A19](#a19) | g1a | tapnext | measured-here | -0.11 ms vs g0a -0.18 ms; superseded, not kept | |
-| [A20](#a20) | PWRAP-4544 | tapnext | method | Wrong model of the 2D post-modify wrap (-4608, not -4544); found by a negative control | |
-| [A21](#a21) | P35-PREMISE | tapnext | method | Premise "the 67-cycle gap is code" wrong: the gap is mostly waits (-0.10 vs -0.44 priced) | |
+| [A17](#a17) | g2f | tapnext | method | Bench pre-released the locks so the acquire never blocked; fixed as g2a (-3.27 ms) | [gemm](gemm.md#what-didnt-work) |
+| [A18](#a18) | STATIC-PRICE | tapnext | method | Static price misread: only ~0.75 of a k-step cycle cut lands in situ | [gemm](gemm.md#pricing-a-k-step-change) |
+| [A19](#a19) | g1a | tapnext | measured-here | -0.11 ms vs g0a -0.18 ms; superseded, not kept | [gemm](gemm.md#what-didnt-work) |
+| [A20](#a20) | PWRAP-4544 | tapnext | method | Wrong model of the 2D post-modify wrap (-4608, not -4544); found by a negative control | [gemm](gemm.md#what-didnt-work) |
+| [A21](#a21) | P35-PREMISE | tapnext | method | Premise "the 67-cycle gap is code" wrong: the gap is mostly waits (-0.10 vs -0.44 priced) | [gemm](gemm.md#pricing-a-k-step-change) |
 | [A22](#a22) | MD-KLOOP | moondream | measured-here | Peano k-loop variants all slower or spill (AIE2P has dm0-dm4); Peano-version dependent | |
 | [A23](#a23) | MD-HANDSCHED | moondream | revived | First hand schedule 1.83 bundles/MAC; later asm generators (gen_mm, gen_ks, gen_rot) made hand scheduling work | |
 | [A24](#a24) | E7L-STACK | tapnext | measured-here | Deepest stack path 1,856 B: at most ~512 B can go | |
 | [A25](#a25) | E7L-LUT | tapnext | unfinished | Never built; alternative (move aexp_ab to bank 3) is open | |
-| [A26](#a26) | E7-ABS | tapnext | fundamental | CP-infeasible at R = 64 even with banks, regs and ports dropped: one instance serves at most R-3 cycles of an ~85-cycle row block | |
-| [A27](#a27) | E7-R64-NX8 | tapnext | unfinished | No conflict-free R = 64 schedule found in 32 min; best soft schedule measured neutral; A-port floor caps the gain | |
-| [A28](#a28) | ROT-KTL | tapnext | revived | One-FIFO KTL is infeasible, but KTL with E7'' two-FIFO aligned streams was built (-0.82 ms) | |
-| [B1](#b1) | P24 | tapnext | method | Fitted t_tile held op-start waits; stamps show 1.31 us handoff | |
-| [B2](#b2) | GELU_II | tapnext | revived | Peano never pipelined it (aliased restrict); fixed, -0.88 ms | |
-| [B3](#b3) | P45-H1..H4 | tapnext | method | Built on the unpipelined loop: the hypotheses had a wrong premise | |
-| [B4](#b4) | GELU-FLOOR8 | tapnext | method | Counted slots only; shared itinerary ports give ResMII 10-11 | |
-| [B5](#b5) | GELU-II10 / bgelu II 11 | tapnext | unfinished | CP-SAT found no II 10 in 400 s (not proven infeasible); padding-aware model never tried | |
-| [B6](#b6) | RECIP-FREE-GELU | tapnext | measured-here | 26-37 % bf16 mismatches vs 15 % today; LUT GELU replaced it; a looser tolerance could change it | |
+| [A26](#a26) | E7-ABS | tapnext | fundamental | CP-infeasible at R = 64 even with banks, regs and ports dropped: one instance serves at most R-3 cycles of an ~85-cycle row block | [gemm](gemm.md#what-didnt-work) |
+| [A27](#a27) | E7-R64-NX8 | tapnext | unfinished | No conflict-free R = 64 schedule found in 32 min; best soft schedule measured neutral; A-port floor caps the gain | [gemm](gemm.md#pricing-a-k-step-change) |
+| [A28](#a28) | ROT-KTL | tapnext | revived | One-FIFO KTL is infeasible, but KTL with E7'' two-FIFO aligned streams was built (-0.82 ms) | [gemm](gemm.md#the-k-step-from-c-to-ktl) |
+| [B1](#b1) | P24 | tapnext | method | Fitted t_tile held op-start waits; stamps show 1.31 us handoff | [gemm](gemm.md#what-didnt-work) |
+| [B2](#b2) | GELU_II | tapnext | revived | Peano never pipelined it (aliased restrict); fixed, -0.88 ms | [toolchain](toolchain.md#peano-llvm-aie) |
+| [B3](#b3) | P45-H1..H4 | tapnext | method | Built on the unpipelined loop: the hypotheses had a wrong premise | [toolchain](toolchain.md#peano-llvm-aie) |
+| [B4](#b4) | GELU-FLOOR8 | tapnext | method | Counted slots only; shared itinerary ports give ResMII 10-11 | [elementwise](elementwise.md#gelu) |
+| [B5](#b5) | GELU-II10 / bgelu II 11 | tapnext | unfinished | CP-SAT found no II 10 in 400 s (not proven infeasible); padding-aware model never tried | [elementwise](elementwise.md#gelu) |
+| [B6](#b6) | RECIP-FREE-GELU | tapnext | measured-here | 26-37 % bf16 mismatches vs 15 % today; LUT GELU replaced it; a looser tolerance could change it | [elementwise](elementwise.md#gelu) |
 | [B7](#b7) | P43 / P43b | tapnext | measured-here | Boundary is the A slot load from DDR (B is 14 % of bytes): -0.35 vs -0.8 | |
-| [B8](#b8) | CSPLIT4 | tapnext | unfinished | Not built; -lite re-priced -0.11..-0.17; needs an acquire-only BD lowering, unverified | |
-| [B9](#b9) | LATE-C | tapnext | unfinished | Not built; re-priced -0.08..-0.12; revives if the C wait grows | |
-| [B10](#b10) | DUALDRAIN | tapnext | fundamental | DDR write cap is aggregate (~55 GB/s); a second channel per column adds nothing | |
+| [B8](#b8) | CSPLIT4 | tapnext | unfinished | Not built; -lite re-priced -0.11..-0.17; needs an acquire-only BD lowering, unverified | [gemm](gemm.md#epilogues-and-the-c-path) |
+| [B9](#b9) | LATE-C | tapnext | unfinished | Not built; re-priced -0.08..-0.12; revives if the C wait grows | [gemm](gemm.md#epilogues-and-the-c-path) |
+| [B10](#b10) | DUALDRAIN | tapnext | fundamental | DDR write cap is aggregate (~55 GB/s); a second channel per column adds nothing | [data-movement](data-movement.md#the-ddr-caps) |
 | [B11](#b11) | MRES | tapnext | measured-here | 124 KB park vs 112 KB free in memtile holes; MLPRR got -0.40 through DDR instead | |
-| [B12](#b12) | MD-GELU-STAGED | moondream | measured-here | Peano issues ~1 op per bundle on long chains (register allocation); rolled 1177 vs 1108 us | |
+| [B12](#b12) | MD-GELU-STAGED | moondream | measured-here | Peano issues ~1 op per bundle on long chains (register allocation); rolled 1177 vs 1108 us | [elementwise](elementwise.md#gelu) |
 | [B13](#b13) | CSUB-G | tapnext | measured-here | Gated tiles in the CSUB loop measured +0.02 ms vs -0.04..-0.08 predicted; kept only as a -256 B text lever | |
 | [B14](#b14) | RTC | tapnext | measured-here | Junk writes sit in part 2 and tiles are not write-bound: ~-0.05..-0.1 ms for many runtime pushes on the in-order CP | |
-| [C1](#c1) | ROWCHUNK | tapnext | unfinished | Only the sim9 model (fitted constants, see H3) says +0.6 ms; never built | |
-| [C2](#c2) | CPBND-FIT | tapnext | method | Free t_op absorbed the 12 us producer tail; measured t_op 0.06 / 0.11 us | |
-| [C3](#c3) | CPRATE-CAUSE | tapnext | measured-here | CP instruction rate measured 0.06-0.11 us per instruction: real but small | |
-| [C4](#c4) | SEQPRE | tapnext | measured-here | Boundary is bytes at the DDR cap, not CP instructions; best variant -0.04 vs -1.4 predicted | |
-| [C5](#c5) | SEQPRE-v1 | tapnext | measured-here | Pushing memtile tasks before the fills blocks on the 4-deep queue: +1.10 ms | |
-| [C6](#c6) | SEQPRE-v2 | tapnext | measured-here | +0.13 ms with sends after fills | |
-| [C7](#c7) | DRAINS-FIRST | tapnext | measured-here | +0.15 ms, cause unexplained (GEMM drains specifically) | |
-| [C8](#c8) | BDPRE | tapnext | revived | Priced on 0.10 us CP time per BD write; measured 0.55 us, CPPRE -0.09 ms | |
+| [C1](#c1) | ROWCHUNK | tapnext | unfinished | Only the sim9 model (fitted constants, see H3) says +0.6 ms; never built | [fusion](fusion.md#overlap-when-the-consumers-unit-is-finer-yxssm-pattern) |
+| [C2](#c2) | CPBND-FIT | tapnext | method | Free t_op absorbed the 12 us producer tail; measured t_op 0.06 / 0.11 us | [fusion](fusion.md#what-an-op-boundary-is) |
+| [C3](#c3) | CPRATE-CAUSE | tapnext | measured-here | CP instruction rate measured 0.06-0.11 us per instruction: real but small | [fusion](fusion.md#what-an-op-boundary-is) |
+| [C4](#c4) | SEQPRE | tapnext | measured-here | Boundary is bytes at the DDR cap, not CP instructions; best variant -0.04 vs -1.4 predicted | [fusion](fusion.md#what-an-op-boundary-is) |
+| [C5](#c5) | SEQPRE-v1 | tapnext | measured-here | Pushing memtile tasks before the fills blocks on the 4-deep queue: +1.10 ms | [data-movement](data-movement.md#dma-bookkeeping) |
+| [C6](#c6) | SEQPRE-v2 | tapnext | measured-here | +0.13 ms with sends after fills | [fusion](fusion.md#what-didnt-work) |
+| [C7](#c7) | DRAINS-FIRST | tapnext | measured-here | +0.15 ms, cause unexplained (GEMM drains specifically) | [data-movement](data-movement.md#dma-bookkeeping) |
+| [C8](#c8) | BDPRE | tapnext | revived | Priced on 0.10 us CP time per BD write; measured 0.55 us, CPPRE -0.09 ms | [fusion](fusion.md#the-command-processor-sequence) |
 | [C9](#c9) | SENDPRE-dep | tapnext | measured-here | After the wait the first tile is DDR-paced anyway: ~0 | |
 | [C10](#c10) | SENDPRE | tapnext | measured-here | +0.16 ms: early pushes delay the critical path; cause not separately measured | |
 | [C11](#c11) | OPPRE | tapnext | unfinished | +0.18 ms, cause unmeasured; OPPRE-W and OPPRE-37 probes never run | |
-| [C12](#c12) | DDR84 | tapnext | method | Derived from norm walls x bytes; DDRCAP measured ~55-59 GB/s aggregate | |
-| [C13](#c13) | NIN2 | tapnext | fundamental | 3-input norms already at the aggregate DDR read cap (55.5 GB/s) | |
-| [C14](#c14) | H_WR | tapnext | method | Hypothesis refuted: one stream writes ~6.7 B/cycle; tail is the aggregate write cap | |
-| [C15](#c15) | H_TOK | tapnext | method | Hypothesis refuted: the tail is 442 KB at the aggregate write cap | |
-| [C16](#c16) | DDRW-2ch | tapnext | fundamental | Moot: DDRW series already shows an aggregate write cap | |
+| [C12](#c12) | DDR84 | tapnext | method | Derived from norm walls x bytes; DDRCAP measured ~55-59 GB/s aggregate | [data-movement](data-movement.md#the-ddr-caps) |
+| [C13](#c13) | NIN2 | tapnext | fundamental | 3-input norms already at the aggregate DDR read cap (55.5 GB/s) | [data-movement](data-movement.md#the-ddr-caps) |
+| [C14](#c14) | H_WR | tapnext | method | Hypothesis refuted: one stream writes ~6.7 B/cycle; tail is the aggregate write cap | [data-movement](data-movement.md#the-ddr-caps) |
+| [C15](#c15) | H_TOK | tapnext | method | Hypothesis refuted: the tail is 442 KB at the aggregate write cap | [data-movement](data-movement.md#the-ddr-caps) |
+| [C16](#c16) | DDRW-2ch | tapnext | fundamental | Moot: DDRW series already shows an aggregate write cap | [data-movement](data-movement.md#the-ddr-caps) |
 | [C17](#c17) | NRES-RBMAJOR | tapnext | revived | Design broke correctness; built chunk-major with a 3D TAP scatter: -0.84 ms with norm1 | |
-| [C18](#c18) | NRES-ALONE | tapnext | revived | Alone misses (-0.06..-0.11) because of column stagger; with NSEQ -0.18..-0.21 | |
+| [C18](#c18) | NRES-ALONE | tapnext | revived | Alone misses (-0.06..-0.11) because of column stagger; with NSEQ -0.18..-0.21 | [fusion](fusion.md#what-didnt-work) |
 | [C19](#c19) | P60-1TAP | tapnext | fundamental | Exhaustive search plus an identity: only d = 0 is one TAP per column; P60g (-1.06 ms) replaced it | |
 | [C20](#c20) | GATHER-MULTITAP | tapnext | measured-here | A_RT loads per-head 10,368 B chunks with one lock each; non-head-major gathers land in the wrong chunk | |
 | [C21](#c21) | KV-MEMBUF | tapnext | fundamental | Memtiles 0-2 use all 6 S2MM channels; no channel left | |
@@ -93,14 +93,14 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [C25](#c25) | NTAIL-PF | tapnext | measured-here | Only ~10 KB per column can load early: <= 0.07 ms | |
 | [D1](#d1) | P12-RESTREAM | tapnext | measured-here | Twins: pass compute (0.60 ms K phase), not K/V traffic, dominates | |
 | [D2](#d2) | ATT-DDR | tapnext | measured-here | No-K-compute twin 43.4 ms vs 50 ms: compute-bound (moondream agrees) | |
-| [D3](#d3) | EAGER-RESCALE | tapnext | measured-here | Rescale cost 0.42 ms per block = the exp; lazy max (TAU 8) took 1.77 -> 1.35 ms | |
-| [D4](#d4) | SM-BF16 | tapnext | fundamental | bf16 rounding of an argument near 10 gives 2-3 % error in the exp | |
-| [D5](#d5) | EXP-TABLE-RANGE | tapnext | measured-here | Worse than 80 segments of 1/4 on real scores; magnitude not recorded | |
-| [D6](#d6) | EXP-CARRY | tapnext | measured-here | 65 bundles with spills vs 49 (register pressure) | |
-| [D7](#d7) | PV-POP | tapnext | measured-here | 67 vs 42 bundles per pair | |
-| [D8](#d8) | SPLIT-QK-EXP | tapnext | measured-here | CP: no II <= 28 for aexp with 6 free x registers; fused loop superseded it | |
-| [D9](#d9) | Q-IN-EX | tapnext | fundamental | Register aliasing: ex_n aliases x_n and pops are x registers | |
-| [D10](#d10) | P54-BIASBASE | tapnext | fundamental | The instruction form does not exist (vldb.4x64 takes only an index vector) | |
+| [D3](#d3) | EAGER-RESCALE | tapnext | measured-here | Rescale cost 0.42 ms per block = the exp; lazy max (TAU 8) took 1.77 -> 1.35 ms | [attention](attention.md#the-online-softmax-on-this-chip) |
+| [D4](#d4) | SM-BF16 | tapnext | fundamental | bf16 rounding of an argument near 10 gives 2-3 % error in the exp | [elementwise](elementwise.md#exp) |
+| [D5](#d5) | EXP-TABLE-RANGE | tapnext | measured-here | Worse than 80 segments of 1/4 on real scores; magnitude not recorded | [elementwise](elementwise.md#exp) |
+| [D6](#d6) | EXP-CARRY | tapnext | measured-here | 65 bundles with spills vs 49 (register pressure) | [attention](attention.md#the-k-loop) |
+| [D7](#d7) | PV-POP | tapnext | measured-here | 67 vs 42 bundles per pair | [attention](attention.md#the-k-loop) |
+| [D8](#d8) | SPLIT-QK-EXP | tapnext | measured-here | CP: no II <= 28 for aexp with 6 free x registers; fused loop superseded it | [attention](attention.md#the-k-loop) |
+| [D9](#d9) | Q-IN-EX | tapnext | fundamental | Register aliasing: ex_n aliases x_n and pops are x registers | [machine](machine.md#what-didnt-work) |
+| [D10](#d10) | P54-BIASBASE | tapnext | fundamental | The instruction form does not exist (vldb.4x64 takes only an index vector) | [machine](machine.md#what-didnt-work) |
 | [D11](#d11) | P56-FALLBACK | tapnext | method | Priced the loop, not the fallback / lockstep: -0.84 vs -3.2 | |
 | [D12](#d12) | P63 / 3D-POPS | tapnext | method | "Needs 3D pops" was false; lockstep multiplied the flagged-unit cost (-0.04..-0.47 vs -1.25) | |
 | [D13](#d13) | CHUNK0-SKIP | tapnext | revived | Round 13 said no gain; round 14 measured ~-0.3 | |
@@ -113,7 +113,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [D20](#d20) | L2D12 | tapnext | measured-here | 49.58 vs 49.54 ms at depth 8 | |
 | [D21](#d21) | ATT-TEXT | tapnext | measured-here | Program memory (+96 B) or no schedule up to II 42 | |
 | [D22](#d22) | MD-STREAMS | moondream | measured-here | Two FIFO load units: 3-4 live streams spill; native exp2 8 % rms; seek_byte gives NaN | |
-| [E1](#e1) | OUT64 | tapnext | measured-here | Per-call overhead dominates small-grain output: 3x slower than the DMA bound | |
+| [E1](#e1) | OUT64 | tapnext | measured-here | Per-call overhead dominates small-grain output: 3x slower than the DMA bound | [elementwise](elementwise.md#norms-the-general-structure) |
 | [E2](#e2) | ROUT235 | tapnext | method | Fit put the missing pass-2 time on R_out; stamps show out_begin ~5 net cycles | |
 | [E3](#e3) | NPIPE | tapnext | measured-here | Built on E2's wrong bound; G 4-6 -0.05..-0.15 vs -0.55 | |
 | [E4](#e4) | NG1 / NG2 / NS / N-IO-ASM | tapnext | measured-here | 3-input and RMS norms sit at the DDR read cap; only LN 2-input is compute-bound (<= -0.2 ms) | |
@@ -124,8 +124,8 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [E9](#e9) | NORM_SPLIT | tapnext | measured-here | Pass 1 was not the norms' bound: 0 ms | |
 | [E10](#e10) | NRMK-COPIES | tapnext | measured-here | Per-call cost of out_copy: +0.6 ms | |
 | [E11](#e11) | N1-PRICE | tapnext | method | Per-unit glue stayed and norms are partly input-bound: -0.16..-0.28 vs -0.6 | |
-| [E12](#e12) | AL1-1K | tapnext | measured-here | Packet BD completes per 768 B slot, so 1 KB padding hangs; 3 KB gave half the price | |
-| [E13](#e13) | SIG-SYM | tapnext | revived | Revived as one asymmetric [-12, 8) table (P28, -2.8 ms with sqrt) | |
+| [E12](#e12) | AL1-1K | tapnext | measured-here | Packet BD completes per 768 B slot, so 1 KB padding hangs; 3 KB gave half the price | [data-movement](data-movement.md#dma-bookkeeping) |
+| [E13](#e13) | SIG-SYM | tapnext | revived | Revived as one asymmetric [-12, 8) table (P28, -2.8 ms with sqrt) | [elementwise](elementwise.md#tables-lut-loads) |
 | [E14](#e14) | EXP-2F | tapnext | measured-here | Not faster (61.5 vs 60.7) or 17-29 % mismatches | |
 | [E15](#e15) | ZASM-BENCH | tapnext | revived | Bench artefact: the C++ was serial in situ; ZK -0.17 ms | |
 | [E16](#e16) | X-PRESSURE | tapnext | unfinished | CP found no schedule below II 30 with 12 x registers; FSX re-priced -0.07 and unbuilt | |
@@ -137,80 +137,80 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [F4](#f4) | BF16C-64K | moondream | measured-here | -1.4 points of accuracy; keep fp32 accumulator across K | |
 | [F5](#f5) | HADAMARD | moondream | measured-here | 96.1 % vs 96.6 %: hurts | |
 | [F6](#f6) | INT8 | moondream | fundamental | AIE2P dense int8 mmul is 512 MACs, same rate as bfp16; accuracy 89.2 % | |
-| [F7](#f7) | HW-PRIMS | general | measured-here | Inaccurate or scalar on the toolchain version tested | |
-| [F8](#f8) | MAX8 | general | measured-here | Wrong values from 8-lane bf16 aie::max; cause not chased | |
-| [F9](#f9) | NEWTON-RECIP | tapnext | measured-here | bfp ratio 0.4-0.6 on real activations: visible | |
+| [F7](#f7) | HW-PRIMS | general | measured-here | Inaccurate or scalar on the toolchain version tested | [elementwise](elementwise.md#the-bf16--fp32-rules) |
+| [F8](#f8) | MAX8 | general | measured-here | Wrong values from 8-lane bf16 aie::max; cause not chased | [elementwise](elementwise.md#the-bf16--fp32-rules) |
+| [F9](#f9) | NEWTON-RECIP | tapnext | measured-here | bfp ratio 0.4-0.6 on real activations: visible | [elementwise](elementwise.md#the-bf16--fp32-rules) |
 | [F10](#f10) | P24c | tapnext | unfinished | Not bit-identical; parked behind a DAVIS round never run | |
 | [F11](#f11) | P66 / P67 | tapnext | unfinished | Not bit-identical, +1 KB L1; parked behind a DAVIS gate | |
 | [F12](#f12) | FA4-F1F2 | tapnext | measured-here | attkb II 34 is register-bound; <= -0.1 ms and not bit-identical | |
-| [G1](#g1) | OZ-MINSIZE | general | measured-here | Non-inlined AIE-API helpers spill every live vector under -Oz | |
-| [G2](#g2) | POSTPIPE | general | measured-here | 100 vs 65 bundles per trip | |
-| [G3](#g3) | LINEAR_APPROX | general | measured-here | 2.7x slower than a hand lookup (object reloaded each compute) | |
-| [G4](#g4) | PEANO-CHAINS | general | measured-here | Four chains spill (5 dm registers); no gain over two | |
-| [G5](#g5) | RESEEK | general | measured-here | Fill pointer not where assumed after a partial word: garbage / NaN | |
-| [G6](#g6) | SCHED-BARRIER | general | measured-here | Clang crash on sched barriers in a pipelined loop | |
-| [G7](#g7) | PEANO-SELECT | general | measured-here | Peano "Bad PHI" crash on runtime-conditional vectors | |
-| [G8](#g8) | IRON-MCAST | general | measured-here | IRON 1.4.4 pathfinder drops a multicast destination | |
-| [G9](#g9) | IRON-2CH | general | measured-here | IRON 1.4.4 pathfinder finds no route; switchbox patch workaround | |
-| [G10](#g10) | IRON-BD | general | measured-here | IRON 1.4.4 refuses stride-0 and second producer BDs; padd immediates must be multiples of 64 | |
-| [G11](#g11) | BDSTEP20 | general | fundamental | BD step field is 20 bits; larger steps serialise the columns | |
-| [G12](#g12) | ADDIMM7 | general | fundamental | add #imm is 7-bit signed in the ISA | |
-| [G13](#g13) | ZOL-ALIGN | general | fundamental | Zero-overhead-loop rules: last bundle 16 B aligned, body of at least 3 bundles | |
-| [G14](#g14) | P2ALIGN-PAD | general | measured-here | Assembler's alignment pad collides with prologue ops; bgelu II 11 rejected | |
-| [G15](#g15) | FIFO-POP9 | general | fundamental | Dense 576-bit FIFO underflows after 8 pops without a fill | |
-| [G16](#g16) | LOCK-ABI-HANGS | general | fundamental | Lock / ABI semantics: acquire value 0, r0 reserved, first argument in r1 | |
+| [G1](#g1) | OZ-MINSIZE | general | measured-here | Non-inlined AIE-API helpers spill every live vector under -Oz | [toolchain](toolchain.md#peano-llvm-aie) |
+| [G2](#g2) | POSTPIPE | general | measured-here | 100 vs 65 bundles per trip | [toolchain](toolchain.md#what-didnt-work) |
+| [G3](#g3) | LINEAR_APPROX | general | measured-here | 2.7x slower than a hand lookup (object reloaded each compute) | [toolchain](toolchain.md#what-didnt-work) |
+| [G4](#g4) | PEANO-CHAINS | general | measured-here | Four chains spill (5 dm registers); no gain over two | [toolchain](toolchain.md#peano-llvm-aie) |
+| [G5](#g5) | RESEEK | general | measured-here | Fill pointer not where assumed after a partial word: garbage / NaN | [toolchain](toolchain.md#peano-llvm-aie) |
+| [G6](#g6) | SCHED-BARRIER | general | measured-here | Clang crash on sched barriers in a pipelined loop | [toolchain](toolchain.md#peano-llvm-aie) |
+| [G7](#g7) | PEANO-SELECT | general | measured-here | Peano "Bad PHI" crash on runtime-conditional vectors | [toolchain](toolchain.md#peano-llvm-aie) |
+| [G8](#g8) | IRON-MCAST | general | measured-here | IRON 1.4.4 pathfinder drops a multicast destination | [toolchain](toolchain.md#iron-and-mlir-aie) |
+| [G9](#g9) | IRON-2CH | general | measured-here | IRON 1.4.4 pathfinder finds no route; switchbox patch workaround | [toolchain](toolchain.md#iron-and-mlir-aie) |
+| [G10](#g10) | IRON-BD | general | measured-here | IRON 1.4.4 refuses stride-0 and second producer BDs; padd immediates must be multiples of 64 | [toolchain](toolchain.md#what-didnt-work) |
+| [G11](#g11) | BDSTEP20 | general | fundamental | BD step field is 20 bits; larger steps serialise the columns | [data-movement](data-movement.md#dma-bookkeeping) |
+| [G12](#g12) | ADDIMM7 | general | fundamental | add #imm is 7-bit signed in the ISA | [toolchain](toolchain.md#the-asm-route) |
+| [G13](#g13) | ZOL-ALIGN | general | fundamental | Zero-overhead-loop rules: last bundle 16 B aligned, body of at least 3 bundles | [toolchain](toolchain.md#the-asm-route) |
+| [G14](#g14) | P2ALIGN-PAD | general | measured-here | Assembler's alignment pad collides with prologue ops; bgelu II 11 rejected | [toolchain](toolchain.md#the-asm-route) |
+| [G15](#g15) | FIFO-POP9 | general | fundamental | Dense 576-bit FIFO underflows after 8 pops without a fill | [toolchain](toolchain.md#the-asm-route) |
+| [G16](#g16) | LOCK-ABI-HANGS | general | fundamental | Lock / ABI semantics: acquire value 0, r0 reserved, first argument in r1 | [toolchain](toolchain.md#the-asm-route) |
 | [G17](#g17) | READ_TM | general | revived | Resolved in round 7 (processor bus enable plus sched_barrier fence) | |
-| [G18](#g18) | TEXT-16K | general | fundamental | 16 KB program memory | |
-| [G19](#g19) | ACQ-ONLY-BD | general | measured-here | MLIR verifier refuses an acquire-only BD; release by 0 works | |
-| [H1](#h1) | CONSTANTS | general | method | Wrong clock and port constants compounded | |
-| [H2](#h2) | ONE-NUMBER | general | method | A single matching number decided nothing | |
-| [H3](#h3) | FREE-CONST | general | method | Free fitted constants absorbed unseparated time | |
-| [H4](#h4) | MEAN-VS-MEDIAN | general | method | Means included the op-start wait | |
-| [H5](#h5) | PROF-COUPLING | tapnext | method | Row coupling read from PROF walls | |
-| [H6](#h6) | STALE-BASE | general | method | Baselines from older rounds | |
-| [H7](#h7) | GUESSED-COMPONENT | general | method | A guessed component was 7x off | |
-| [H8](#h8) | LOOP-VS-CALL | general | method | Priced the loop, not the whole call | |
-| [H9](#h9) | BENCH-NOT-DEPLOYED | general | method | Benched a binary that was not the claimed loop | |
-| [H10](#h10) | BENCH-CPP | general | method | One-core C++ bench differs from in-situ code (3x) | |
-| [H11](#h11) | PRERELEASED-LOCKS | general | method | Bench pre-released the locks | |
-| [H12](#h12) | BENCH-COVERAGE | general | method | Benches did not check past the end / the second FIFO / the right header | |
-| [H13](#h13) | EW-FITS | tapnext | method | Fits with a nuisance parameter | |
-| [H14](#h14) | CP-FIT | tapnext | method | Fit with a free t_op | |
-| [H15](#h15) | FIVE-MS | tapnext | method | "5 ms of boundaries" counted first-tile compute | |
-| [H16](#h16) | POLL-QUANT | general | method | Host-poll medians quantised at 16.5 us | |
-| [H17](#h17) | TWINS-STEP | tapnext | method | Twin priced from step deltas | |
-| [H18](#h18) | KAPPA | tapnext | method | CPU lazy-max map overstated in-situ flags | |
-| [H19](#h19) | RARE-MEAN | tapnext | method | Rare per-unit costs priced by their mean | |
-| [H20](#h20) | BIMODAL-60 | general | method | Single 60-iteration medians are bimodal under foreign load | |
-| [H21](#h21) | POSTHOC | tapnext | method | Post-hoc hits not counted as pre-registrations | |
-| [H22](#h22) | FALSE-NULL | general | method | Stale jit cache / #undef-ed flags gave false nulls | |
-| [H23](#h23) | BUILD-RACE | general | method | Parallel builds race on shared generated files | |
-| [H24](#h24) | OBJDUMP-Z | general | method | llvm-objdump without -z hides nop runs | |
-| [H25](#h25) | REGION-AS-FREE | general | method | Linker regions read as free space | |
-| [H26](#h26) | NUMERICS-30F | tapnext | method | SSM numerics judged by 30-frame deviations | |
-| [H27](#h27) | HALF-BUILT | tapnext | method | A half-built proposal scored as a whole | |
-| [H28](#h28) | STAMP-CONTAINS-CALL | general | method | Stamp intervals include the call's own cycles | |
-| [H29](#h29) | RESIDUE-PROLOGUE | tapnext | method | Per-call prologue left out of a k-step price | |
-| [J1](#j1) | RADD / KSUM | tapnext | fundamental | Each GEMM core has two input ports and no third S2MM | |
+| [G18](#g18) | TEXT-16K | general | fundamental | 16 KB program memory | [toolchain](toolchain.md#what-didnt-work) |
+| [G19](#g19) | ACQ-ONLY-BD | general | measured-here | MLIR verifier refuses an acquire-only BD; release by 0 works | [toolchain](toolchain.md#iron-and-mlir-aie) |
+| [H1](#h1) | CONSTANTS | general | method | Wrong clock and port constants compounded | [method](method.md#how-mispredictions-happened) |
+| [H2](#h2) | ONE-NUMBER | general | method | A single matching number decided nothing | [method](method.md#how-mispredictions-happened) |
+| [H3](#h3) | FREE-CONST | general | method | Free fitted constants absorbed unseparated time | [method](method.md#how-mispredictions-happened) |
+| [H4](#h4) | MEAN-VS-MEDIAN | general | method | Means included the op-start wait | [measurement](measurement.md#in-kernel-stamps-and-counters) |
+| [H5](#h5) | PROF-COUPLING | tapnext | method | Row coupling read from PROF walls | [method](method.md#how-mispredictions-happened) |
+| [H6](#h6) | STALE-BASE | general | method | Baselines from older rounds | [method](method.md#pricing) |
+| [H7](#h7) | GUESSED-COMPONENT | general | method | A guessed component was 7x off | [method](method.md#pricing) |
+| [H8](#h8) | LOOP-VS-CALL | general | method | Priced the loop, not the whole call | [method](method.md#pricing) |
+| [H9](#h9) | BENCH-NOT-DEPLOYED | general | method | Benched a binary that was not the claimed loop | [measurement](measurement.md#one-core-benches) |
+| [H10](#h10) | BENCH-CPP | general | method | One-core C++ bench differs from in-situ code (3x) | [measurement](measurement.md#one-core-benches) |
+| [H11](#h11) | PRERELEASED-LOCKS | general | method | Bench pre-released the locks | [measurement](measurement.md#one-core-benches) |
+| [H12](#h12) | BENCH-COVERAGE | general | method | Benches did not check past the end / the second FIFO / the right header | [measurement](measurement.md#one-core-benches) |
+| [H13](#h13) | EW-FITS | tapnext | method | Fits with a nuisance parameter | [method](method.md#how-mispredictions-happened) |
+| [H14](#h14) | CP-FIT | tapnext | method | Fit with a free t_op | [fusion](fusion.md#what-an-op-boundary-is) |
+| [H15](#h15) | FIVE-MS | tapnext | method | "5 ms of boundaries" counted first-tile compute | [fusion](fusion.md#what-an-op-boundary-is) |
+| [H16](#h16) | POLL-QUANT | general | method | Host-poll medians quantised at 16.5 us | [measurement](measurement.md#timelines) |
+| [H17](#h17) | TWINS-STEP | tapnext | method | Twin priced from step deltas | [measurement](measurement.md#twins-perturb-to-find-the-bound) |
+| [H18](#h18) | KAPPA | tapnext | method | CPU lazy-max map overstated in-situ flags | [method](method.md#what-didnt-work) |
+| [H19](#h19) | RARE-MEAN | tapnext | method | Rare per-unit costs priced by their mean | [attention](attention.md#lockstep-under-a-multicast) |
+| [H20](#h20) | BIMODAL-60 | general | method | Single 60-iteration medians are bimodal under foreign load | [measurement](measurement.md#ab-in-one-process) |
+| [H21](#h21) | POSTHOC | tapnext | method | Post-hoc hits not counted as pre-registrations | [method](method.md#how-mispredictions-happened) |
+| [H22](#h22) | FALSE-NULL | general | method | Stale jit cache / #undef-ed flags gave false nulls | [measurement](measurement.md#one-core-benches) |
+| [H23](#h23) | BUILD-RACE | general | method | Parallel builds race on shared generated files | [toolchain](toolchain.md#what-didnt-work) |
+| [H24](#h24) | OBJDUMP-Z | general | method | llvm-objdump without -z hides nop runs | [toolchain](toolchain.md#what-didnt-work) |
+| [H25](#h25) | REGION-AS-FREE | general | method | Linker regions read as free space | [toolchain](toolchain.md#what-didnt-work) |
+| [H26](#h26) | NUMERICS-30F | tapnext | method | SSM numerics judged by 30-frame deviations | [measurement](measurement.md#correctness-gates) |
+| [H27](#h27) | HALF-BUILT | tapnext | method | A half-built proposal scored as a whole | [method](method.md#pricing) |
+| [H28](#h28) | STAMP-CONTAINS-CALL | general | method | Stamp intervals include the call's own cycles | [measurement](measurement.md#in-kernel-stamps-and-counters) |
+| [H29](#h29) | RESIDUE-PROLOGUE | tapnext | method | Per-call prologue left out of a k-step price | [gemm](gemm.md#pricing-a-k-step-change) |
+| [J1](#j1) | RADD / KSUM | tapnext | fundamental | Each GEMM core has two input ports and no third S2MM | [gemm](gemm.md#epilogues-and-the-c-path) |
 | [J2](#j2) | EW-PRESUM | tapnext | fundamental | No DDR headroom: those ops already run at ~66 GB/s | |
 | [J3](#j3) | KCONCAT | tapnext | measured-here | A slot would be 497 KB of a 512 KB memtile with this chunking | |
 | [J4](#j4) | YRES / SSPM | tapnext | measured-here | SSM is compute-bound (~255 cycles per chunk above its input floor); revives once glue reaches the floor | |
 | [J5](#j5) | GELU-EW | tapnext | fundamental | Needs ~11 MB per block on top of ~42 GB/s, over the DDR cap | |
 | [J6](#j6) | B-ALT | tapnext | measured-here | No room for a second 4,032 B Y buffer in bank 0 | |
-| [K1](#k1) | KTL-MULMASK | tapnext | method | Replay modelled "non-zero"; acq.cond tests bit 0 | |
-| [K2](#k2) | MUL-LATENCY | tapnext | measured-here | MULLAT measured the suspected latency: not the cause | |
-| [K3](#k3) | STALE-HEADER | tapnext | method | Kernel run with another schedule's header | |
+| [K1](#k1) | KTL-MULMASK | tapnext | method | Replay modelled "non-zero"; acq.cond tests bit 0 | [machine](machine.md#what-didnt-work) |
+| [K2](#k2) | MUL-LATENCY | tapnext | measured-here | MULLAT measured the suspected latency: not the cause | [machine](machine.md#what-didnt-work) |
+| [K3](#k3) | STALE-HEADER | tapnext | method | Kernel run with another schedule's header | [toolchain](toolchain.md#the-asm-route) |
 | [K4](#k4) | ATTVS-II | tapnext | measured-here | <= -0.02 ms: 27 cycles x ~1,280 calls | |
 | [K5](#k5) | S3 on the new attkb / attv | tapnext | measured-here | -0.01..-0.04 ms even with lockstep amplification | |
-| [L1](#l1) | KTL-R68-CP | tapnext | unfinished | No R 68-69 schedule without conflicts in the CP budgets; more workers in a quiet window could settle it | |
+| [L1](#l1) | KTL-R68-CP | tapnext | unfinished | No R 68-69 schedule without conflicts in the CP budgets; more workers in a quiet window could settle it | [gemm](gemm.md#what-didnt-work) |
 | [L2](#l2) | FSX-CP | tapnext | unfinished | No CP schedule at II 30-33; its "read-capped" value bound is stale after M1 | |
-| [L3](#l3) | WINDOW-AVERAGE | tapnext | method | Window average compared against a cap of a different kind | |
+| [L3](#l3) | WINDOW-AVERAGE | tapnext | method | Window average compared against a cap of a different kind | [measurement](measurement.md#timelines) |
 | [L4](#l4) | OUT-TILES-ON-HEADS | tapnext | fundamental | Four 18 KB C objects (72 KB) exceed the 64 KB L1 | |
 | [L5](#l5) | MSPLIT-OUT | tapnext | measured-here | +0.43 / +0.14 / neutral | |
 | [L6](#l6) | YXH | tapnext | measured-here | +0.48 / +0.09: drain queue depth and a read-capped SSM span | |
-| [M1](#m1) | NEAR-CAP-AS-CAP | tapnext | method | Near the cap priced as capped; SSMCUT shows compute-bound | |
+| [M1](#m1) | NEAR-CAP-AS-CAP | tapnext | method | Near the cap priced as capped; SSMCUT shows compute-bound | [method](method.md#how-mispredictions-happened) |
 | [M2](#m2) | SSM-TWIN-H_C | tapnext | measured-here | Chunk 2,034 with 529 cycles of input waits: cuts beyond ~255 need fewer input bytes | |
-| [M3](#m3) | CLKLOAD-DRAM / WIDTH | general | measured-here | NPU clock drop tracks floating-point threads at ~100 W, not DRAM traffic or AVX width | |
+| [M3](#m3) | CLKLOAD-DRAM / WIDTH | general | measured-here | NPU clock drop tracks floating-point threads at ~100 W, not DRAM traffic or AVX width | [measurement](measurement.md#clock-and-cpu-load) |
 
 
 ## A. GEMM k-step and L1
