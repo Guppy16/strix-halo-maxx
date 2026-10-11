@@ -6,7 +6,11 @@
 constexpr int AEXP_N = 80, AEXP_STEP = -2, AEXP_BIAS = 44;
 constexpr float AEXP_SLOPE_SCALE = 0.125f;
 constexpr float AEXP_LO = -11.0f, AEXP_HI = 9.0f;
+#if defined(E7) || defined(AEXP3)  // round 21 E7'': bank 0 gives 1,152 B to the X buffers; the table moves to bank 3 (non-const: one section type there)
+alignas(64) float aexp_ab[320] __attribute__((section(".aie.bank3"))) = {
+#else
 alignas(64) float aexp_ab[320] = {
+#endif
   0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f,
   0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f, 0.000000000e+00f,
   6.407499313e-06f, 5.578423152e-04f, 8.225440979e-06f, 6.996795419e-04f, 1.055002213e-05f, 8.764139493e-04f, 1.358985901e-05f, 1.101391506e-03f,

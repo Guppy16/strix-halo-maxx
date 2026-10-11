@@ -147,6 +147,9 @@ void acc_zero_hi() {
 #if defined(CSUB) && (!defined(CSPLIT) || !defined(EPLR) || !defined(BGELU) || !defined(PAN) || !defined(VTK) || !defined(MM_PIECES))
 #error "CSUB: the sub-part releases are written for CSPLIT + EPLR with the BGELU / PAN / VTK / MM_PIECES epilogues"
 #endif
+#if defined(E7) && (!defined(ZLOAD) || !defined(P35) || !defined(KS_X0) || !defined(KS_X1))
+#error "E7: written on ZLOAD + P35 (mm_ktile), with the X buffer addresses KS_X0 / KS_X1 (r21/e7patch.py)"
+#endif
 #if defined(ZLOAD) && (!defined(P35) || !defined(MM_ROT) || !defined(ZHI) || !defined(ZASM))
 #error "ZLOAD: written for P35's mm_ktile with MM_ROT, ZHI and ZASM"
 #endif
@@ -316,7 +319,9 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
     const uint32_t c0 = read_tm(0x31520), c1 = read_tm(0x31524), c2 = read_tm(0x31528), c3 = read_tm(0x340F8);
     __builtin_aie2p_sched_barrier();
 #endif
-#ifdef ZLOAD  // round 21: the first k-step's MACs ignore the loaded accumulators (no zeroing anywhere)
+#if defined(E7)  // round 21: X buffer i holds the tail of the object in B buffer i
+    mm_rot(rot_rec.r, b, pc, (const bfp16ebs8 *)((uintptr_t)b == (uintptr_t)KS_B0 ? KS_X0 : KS_X1), k == 0 ? 781 : 780);
+#elif defined(ZLOAD)  // round 21: the first k-step's MACs ignore the loaded accumulators (no zeroing anywhere)
     mm_rot(rot_rec.r, b, pc, k == 0 ? 781 : 780);
 #else
     mm_rot(rot_rec.r, b, pc);

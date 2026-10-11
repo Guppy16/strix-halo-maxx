@@ -54,6 +54,9 @@ COLS, ROWS_G = 8, 3
 PEANO = "/opt/ironenv/lib/python3.13/site-packages/llvm-aie"
 
 
+E7_YW = 1056  # round 21 E7'': the Y buffer (4,224 B: the DMA writes 4,032; the attention's -m rows use the K object's 3,456 .. 4,224)
+E7_XB = 1152  # the two X buffers (576 B each) the stack gives up after r21/e7patch.py
+
 def asm_object(flags):
     """mm8.cc (as the design compiles it) + the generated mm_core.s, merged by ld.lld -r -> build/mm8asm.o"""
     import subprocess
@@ -286,7 +289,8 @@ def step8(
     unit = ra // 2
 
     A_l1 = np.ndarray[(wa,), np.dtype[np.uint32]]
-    B_l1 = np.ndarray[(wb,), np.dtype[np.uint32]]
+    e7 = os.environ.get("E7", "0") == "1"  # round 21 E7'' (B on both FIFOs): L1 B objects keep only the Y part (r21/e7patch.py splits the BDs)
+    B_l1 = np.ndarray[(E7_YW if e7 else wb,), np.dtype[np.uint32]]
     C_l1 = np.ndarray[(m * n,), np.dtype[bfloat16]]
     B_l2 = np.ndarray[(wb,), np.dtype[np.uint32]]
     C_l2 = np.ndarray[(ROWS_G * m * n,), np.dtype[bfloat16]]
@@ -662,12 +666,13 @@ def step8(
         for c in range(COLS):
             bufs, free, fill = a_l1[(r, c)]
             t = cores[r][c]
-            tabs = [Buffer(tile=t, initial_value=a, name=f"tb{n}{r}{c}") for n, a in (("k", tbl_k), ("n", tbl_n), ("t", tbl_t), ("a", tbl_a), ("c", tbl_c))]
+            tabs = [Buffer(tile=t, initial_value=a, name=f"tb{n}{r}{c}", **(dict(mem_bank=1) if e7 else {}))  # E7: bank 3 is full
+                    for n, a in (("k", tbl_k), ("n", tbl_n), ("t", tbl_t), ("a", tbl_a), ("c", tbl_c))]
             workers.append(Worker(make_core_fn(r), [free, fill, *bufs, b_l1[r].cons(), c_l1[r][c].prod(), mm, zero, epi,
                                                     at_begin, at_qcopy, at_chunk_k, at_chunk_v, at_end, *tabs]
                                   + ([mmk] if mmk is not None else []) + ([mmt] if p35 else []) + ([zhi] if zhi_on else []),
-                                  tile=t, stack_size=(0xA00 if "-DGELU_FLAT" in flags else 0xB00) if ks_core else 0xC00,
-                                  data_size=28160 + (256 if ks_core else 0) + (256 if "-DGELU_FLAT" in flags else 0)))
+                                  tile=t, stack_size=((0xA00 if "-DGELU_FLAT" in flags else 0xB00) if ks_core else 0xC00) + (E7_XB if e7 else 0),
+                                  data_size=28160 + (256 if ks_core else 0) + (256 if "-DGELU_FLAT" in flags else 0) - (E7_XB if e7 else 0)))
             # round 12: the flat-edge tables' ab copies (+256 B) from the stack (stackaudit: 1,664 of 2,816 B used)  # stack: deepest chain 2.24 KB measured (r7); data: +2 KB the GELU tables' ab copies (cd: bank 3), +1.25 KB the exp table (r7)
     workers += ew_workers
 

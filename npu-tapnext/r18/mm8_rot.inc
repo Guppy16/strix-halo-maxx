@@ -4,7 +4,11 @@
 // in k-panel order 0..7 on the same panels.
 // Include after mm8.cc's MM_PIECES helpers (piece(), rho) with -DMM_ROT; with -DKSC the records are build-time data.
 #include "build/mm_rot.h"
-#ifdef ZLOAD  // round 21 (r21/mkzload.py): the kp-0 MACs take their config from the 4th argument (781 = zero_acc: a tile's first k-step)
+#if defined(E7)  // round 21 E7'' (npu-research r22/gen_e7.py via r21/mke7.py): B in the Y buffer (bank 3) and the X buffer (bank 0)
+extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pY, float *piece0, const bfp16ebs8 *pX, int32_t conf0);
+#define MM_ROT_CONF0 , nullptr, 780
+static_assert(MM_E7_YB == 4032);
+#elif defined(ZLOAD)  // round 21 (r21/mkzload.py): the kp-0 MACs take their config from the 4th argument (781 = zero_acc: a tile's first k-step)
 extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pB, float *piece0, int32_t conf0);
 #define MM_ROT_CONF0 , 780
 #else
