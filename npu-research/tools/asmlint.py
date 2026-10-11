@@ -855,10 +855,10 @@ def check_lock(f, rep):
     the last pop / fill of a stream opened that way."""
     seen = set()
     for seq, _ in streams(f):
-        cyc, last_acq, loaded, guarded, last_use = 0, None, set(), set(), {}
+        cyc, last_acq, loaded, guarded, last_use, moved = 0, None, set(), set(), {}, set()
         for x in seq:
             if x is None or x == "CALL":
-                last_acq, loaded, guarded, last_use = None, set(), set(), {}
+                last_acq, loaded, guarded, last_use, moved = None, set(), set(), {}, set()
                 continue
             b = f.bundles[x]
             cyc += 1
@@ -877,7 +877,11 @@ def check_lock(f, rep):
                                     f"the lock (deployed ROT g2a: 8)")
                 elif m and ".fill" in i.mn:
                     ptr, lf = m.groups()
-                    if ptr in loaded:
+                    if ptr in moved:  # pass 17 (E7''): a restart from a register copy (mov p0, p6) opens an unguarded stream
+                        moved.discard(ptr)
+                        guarded.discard(lf)
+                        last_use.pop(lf, None)
+                    elif ptr in loaded:
                         loaded.discard(ptr)
                         guarded.add(lf)
                         last_use[lf] = (cyc, b.addr, i.text)
@@ -893,6 +897,10 @@ def check_lock(f, rep):
                     if re.fullmatch(r"p\d+", r):
                         if i.mn == "lda":
                             loaded.add(r)
+                            moved.discard(r)
+                        elif i.mn in ("mov", "movs"):
+                            moved.add(r)
+                            loaded.discard(r)
 
 
 def check_source(path, rep, model=None):

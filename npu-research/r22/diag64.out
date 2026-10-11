@@ -1,0 +1,8 @@
+== drop soft,nb,bank3,bank0,qey (240 s)
+{"status": "FEASIBLE", "R": 64, "n1": 32, "nx": 8, "nb": 4, "emax": 6, "margin": 1, "wall": 240.103802523, "hard_banks": false, "absolute": false, "F": 0, "E": -40, "prologue": 40, "bank_conflicts_model": 0, "bound": 38.0, "objective": 40.0, "places": []}
+== drop soft,nb (300 s)
+{"status": "UNKNOWN", "R": 64, "n1": 32, "nx": 8, "nb": 4, "emax": 6, "margin": 1, "wall": 300.2294233, "hard_banks": false, "absolute": false, "places": []}
+== drop soft,bank3 (300 s)
+{"status": "FEASIBLE", "R": 64, "n1": 32, "nx": 8, "nb": 4, "emax": 6, "margin": 1, "wall": 300.16489431400004, "hard_banks": false, "absolute": false, "F": 0, "E": -56, "prologue": 56, "bank_conflicts_model": 0, "bound": 37.0, "objective": 56.0, "places": []}
+== drop soft (400 s)
+{"status": "UNKNOWN", "R": 64, "n1": 32, "nx": 8, "nb": 4, "emax": 6, "margin": 1, "wall": 400.21200246800004, "hard_banks": false, "absolute": false, "places": []}

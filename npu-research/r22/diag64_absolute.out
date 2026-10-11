@@ -1,0 +1,7 @@
+== drop soft,nb,bank3,bank0,qey
+{"status": "INFEASIBLE", "R": 64, "n1": 32, "nx": 8, "nb": 4, "emax": 6, "margin": 1, "wall": 138.193267679, "hard_banks": false, "absolute": true, "places": []}
+== drop soft,nb
+{"status": "INFEASIBLE", "R": 64, "n1": 32, "nx": 8, "nb": 4, "emax": 6, "margin": 1, "wall": 169.440598341, "hard_banks": false, "absolute": true, "places": []}
+== drop soft,bank3
+{"status": "INFEASIBLE", "R": 64, "n1": 32, "nx": 8, "nb": 4, "emax": 6, "margin": 1, "wall": 35.56168262, "hard_banks": false, "absolute": true, "places": []}
+== drop soft
