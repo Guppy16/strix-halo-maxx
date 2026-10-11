@@ -816,7 +816,9 @@ def step8(
                         t["last"][h].start()
 
         pending = []  # [(name, TaskGroup)]
-        aqpre = os.environ.get("AQPRE") == "1"  # round 20: attention Q in half 1, filled before the wait on qkv's K / V drains
+        aqpre = os.environ.get("AQPRE") == "1"
+        akvpre = os.environ.get("AKVPRE") == "1"  # round 20: head group 0's K / V fills after qkv's step-8 drain group
+        assert not akvpre or aqpre  # round 20: attention Q in half 1, filled before the wait on qkv's K / V drains
         assert not aqpre or os.environ.get("IL") == "1", "AQPRE needs the per-half full locks (IL)"
 
         def finish_all():
@@ -922,16 +924,19 @@ def step8(
                 if qkv:  # 12 drains per column, issued 4 tiles at a time, 2 groups in flight; the fills ride in the last group
                     finish_all()
                     groups = []
-                    for g in range(3):
-                        tgd = tg if g == 2 else G()
+                    # round 20 AKVPRE: V's first step (8 = heads 0-2: the attention's head group 0) is a group of its own, so the
+                    # attention can fill head group 0's K / V before qkv's last three steps are drained
+                    spans = [(0, 4), (4, 8), (8, 9), (9, 12)] if akvpre else [(0, 4), (4, 8), (8, 12)]
+                    for g, (j0, j1) in enumerate(spans):
+                        tgd = tg if g == len(spans) - 1 else G()
                         for c in range(COLS):
-                            for j in range(4 * g, 4 * g + 4):
+                            for j in range(j0, j1):
                                 drain(C_conses[c], op["c"][c][j], group=tgd, wait=True)
                         groups.append(tgd)
                         if len(groups) > 2:
                             groups.pop(0).finish()
-                    for tgd in groups:
-                        pending.append((op["name"], tgd))
+                    for k_, tgd in enumerate(groups):
+                        pending.append((op["name"] + ("#v0" if akvpre and k_ == 0 else ""), tgd))
                 else:
                     for c in range(COLS):
                         drain(C_conses[c], op["c"][c], group=tg, wait=True)
@@ -948,13 +953,22 @@ def step8(
                     for c in range(COLS):
                         fill_a(op, c, group=tg, wait=False)
                     a_sends(op)  # (2 tasks behind qkv's mid + last on the 4-deep queue; lock-governed)
+                if akvpre:  # V of heads 0-2 (step 8) is drained: head group 0's K / V fills (pass 0) go now
+                    qn = ops[ops.index(op) - 1]["name"] + "#v0"
+                    for name, g_ in list(pending):
+                        if name == qn:
+                            g_.finish()
+                            pending.remove((name, g_))
+                    for r in range(ROWS_G):
+                        fill(B_prods[r], op["b"][r][0], group=tg, wait=False)
                 finish_deps(op)
                 for c in range(COLS) if not aqpre else ():
                     fill_a(op, c, group=tg, wait=False)
                 for pi in range(len(op["passes"])):
                     for r in range(ROWS_G):
-                        for t in op["b"][r]:
-                            fill(B_prods[r], t, group=tg, wait=False)
+                        for i_, t in enumerate(op["b"][r]):
+                            if not (akvpre and pi == 0 and i_ == 0):
+                                fill(B_prods[r], t, group=tg, wait=False)
                     if pi == 0 and not aqpre:
                         a_sends(op)
                 push(op["name"], tg)
