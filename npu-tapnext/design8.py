@@ -105,6 +105,10 @@ def asm_object(flags):
         s2 = ["--s2", "--times", str(HERE / "r17" / "attks.json")] if "-DATTKS2MAX" in flags else ["--times", str(HERE / "r14" / "attkb.json")]
         extra += [["python3", str(HERE / "r14" / "gen_attkb.py"), str(bd / "attkb.s")] + s2 + fit,  # round 17: --s2 = the running max
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "attkb.s"), "-o", str(bd / "attkb.o")]]
+    k2 = "-DK2" in flags  # round 22 (research K2): chunk 0's running maxima by a QK-only loop (r22/gen_attkq.py, schedule r22/attkq.json)
+    if k2:
+        extra += [["python3", str(HERE / "r22" / "gen_attkq.py"), str(bd / "attkq.s"), "--times", str(HERE / "r22" / "attkq.json")] + fit,
+                  [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "attkq.s"), "-o", str(bd / "attkq.o")]]
     av = "-DATTV" in flags  # round 14: the V phase in asm (r14/gen_attv.py, schedule r14/attv.json)
     if av:
         extra += [["python3", str(HERE / "r14" / "gen_attv.py"), str(bd / "attv.s"), "--times", str(HERE / "r14" / "attv.json")] + fit
@@ -139,7 +143,7 @@ def asm_object(flags):
              [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(so), "-o", str(so.with_suffix(".o"))]] + extra + [
              [f"{b}/clang++"] + base + flags + [f"-I{HERE}", "-c", str(HERE / "mm8.cc"), "-o", str(bd / "mm8cpp.o")],
              [f"{b}/ld.lld", "-r", str(bd / "mm8cpp.o")] + ([] if "-DMM_ROT" in flags else [str(so.with_suffix(".o"))]) + ([str(bd / "gelu_ms.o")] if gm else []) + ([str(bd / "gup.o")] if gu else []) + ([str(bd / "cpy32.o")] if cp else []) + ([str(bd / "pan.o")] if pn else []) + ([str(bd / "bgelu.o")] if bg else [])
-             + ([str(bd / "attqk.o"), str(bd / "aexp.o")] if ak else []) + ([str(bd / "attk.o")] if af else []) + ([str(bd / "attkb.o")] if ab else []) + ([str(bd / "attv.o"), str(bd / "attvs.o")] if av else []) + ([str(bd / "vtk.o")] if vk else []) + ([str(bd / "zero2.o")] if za else []) + ([str(bd / "resc.o")] if rk else []) + ([str(bd / "mm_rot.o")] if "-DMM_ROT" in flags else [])
+             + ([str(bd / "attqk.o"), str(bd / "aexp.o")] if ak else []) + ([str(bd / "attk.o")] if af else []) + ([str(bd / "attkb.o")] if ab else []) + ([str(bd / "attkq.o")] if k2 else []) + ([str(bd / "attv.o"), str(bd / "attvs.o")] if av else []) + ([str(bd / "vtk.o")] if vk else []) + ([str(bd / "zero2.o")] if za else []) + ([str(bd / "resc.o")] if rk else []) + ([str(bd / "mm_rot.o")] if "-DMM_ROT" in flags else [])
              + ["-o", str(bd / "mm8asm.o")]]
     for cmd in steps:
         subprocess.run(cmd, check=True)

@@ -1311,6 +1311,9 @@ static __attribute__((noinline, minsize)) void slow_rb(int t, int rb, bfp16ebs8 
 #ifdef ATTKB  // round 14 (research P63): r14/gen_attkb.py, the fused loop over all row blocks of a (tile, chunk) in one call
 }  // namespace at
 #ifdef ATTKS2MAX  // round 17 (research rev 11 S2): the loop keeps a running max per row block in `slots` and returns its flags' OR
+#ifdef K2
+extern "C" void attkq(const bfp16ebs8 *q, const bfp16ebs8 *kt, bfloat16 *slots, int32_t trips);  // r22/gen_attkq.py
+#endif
 extern "C" int32_t attkb(const bfp16ebs8 *q, const bfp16ebs8 *kt, bfp16ebs8 *dst, const bfloat16 *mrows, bfloat16 *srb, bfloat16 *slots,
                          int32_t trips, int32_t hi);
 #else
@@ -1415,6 +1418,20 @@ static WRAP_FOLD void chunk_k_fused(int t, const bfp16ebs8 *q, const bfp16ebs8 *
   if (nkb == CB && g_chunk != 0) {  // chunk 0 (every row block flags) and the last chunk go row block by row block
 #endif
     int32_t f = 1;
+#ifdef K0TWIN  // round 22 timing twins (outputs wrong): chunk 0 skips its batched fast pass (the upper bound of K2);
+    // K0TWIN == 2: every row block of chunk 0 still runs the exact path (k_rb, force) as in production
+    if (g_chunk == 0 && K0TWIN == 2) {
+      for (int rb = 0; rb < RB; rb++) k_rb(t, rb, q, kt, CB, sl + 64 * rb, true);
+      return;
+    }
+    if (g_chunk != 0)
+#endif
+#ifdef K2  // round 22 (research K2): chunk 0 only needs the slots' maxima (the per-row-block test below then flags every row block, as
+    // after attkb): a QK-only loop with attkb's vmax_lt operands and order fills them bit-identically
+    if (g_chunk == 0)
+      attkq(q, kt, sl, RB * CB);
+    else
+#endif
     if (!ATTK_SKIP(1)) f = attkb(q, kt, erb(t), mr, g_srb, sl, RB * CB, HI_FAST);
     if ((!f && !ATTK_SKIP(8) && !ATTK_SKIP(32)) || ATTK_SKIP(128)) return;  // the common case: nothing flagged
 #pragma clang loop unroll(disable)
