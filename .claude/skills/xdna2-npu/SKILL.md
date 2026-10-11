@@ -3,6 +3,8 @@ name: xdna2-npu
 description: Build, run, verify and time hand-written kernels on testbox's XDNA2 NPU (Strix Halo, AIE2P) with IRON/mlir-aie + Peano, incl. the asm route, the bfp16 codec, safety rules and the moondream/TAPNext precedents.
 ---
 
+Canonical copy: the strix-halo-maxx repo, `.claude/skills/xdna2-npu/SKILL.md` (testbox: ~/git/app/strix-halo-maxx). Edit it there; other copies are synced from it.
+
 # XDNA2 NPU on testbox — how to work
 
 The NPU is the 32-core AIE2P array (8 columns x 4 rows, memtile per column) in testbox's Strix Halo. Everything
