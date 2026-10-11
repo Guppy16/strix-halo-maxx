@@ -1,0 +1,420 @@
+sync   0:  177 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +160
+sync   1:  176 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +175
+sync   2:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync   3:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync   4:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync   5:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync   6:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync   7:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync   8:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync   9:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  10:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  11:   88 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +67
+sync  12:   97 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +24
+sync  13:   81 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +8
+sync  14:  212 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +91
+sync  15:  280 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +103
+sync  16:  104 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +67
+sync  17:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  18:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync  19:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync  20:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync  21:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync  22:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync  23:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync  24:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  25:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  26:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  27:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync  28:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  29:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync  30:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync  31:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync  32:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync  33:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  34:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync  35:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync  36:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync  37:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  38:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  39:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  40:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  41:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  42:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  43:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  44:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  45:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  46:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync  47:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync  48:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync  49:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync  50:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync  51:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync  52:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  53:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync  54:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync  55:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync  56:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync  57:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync  58:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync  59:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  60:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  61:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  62:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync  63:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  64:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync  65:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync  66:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync  67:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync  68:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  69:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync  70:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync  71:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync  72:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  73:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  74:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  75:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  76:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  77:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  78:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  79:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  80:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync  81:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync  82:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync  83:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync  84:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync  85:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync  86:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync  87:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  88:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync  89:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync  90:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync  91:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync  92:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync  93:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync  94:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  95:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  96:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync  97:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync  98:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync  99:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 100:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 101:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 102:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 103:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 104:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 105:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 106:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 107:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 108:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 109:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 110:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 111:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 112:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 113:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 114:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 115:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 116:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 117:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 118:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 119:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 120:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 121:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 122:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 123:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 124:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 125:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 126:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 127:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 128:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 129:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 130:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 131:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 132:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 133:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 134:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 135:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 136:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 137:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 138:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 139:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 140:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 141:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 142:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 143:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 144:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 145:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 146:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 147:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 148:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 149:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 150:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 151:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 152:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 153:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 154:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 155:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 156:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 157:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 158:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 159:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 160:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 161:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 162:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 163:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 164:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 165:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 166:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 167:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 168:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 169:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 170:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 171:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 172:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 173:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 174:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 175:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 176:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 177:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 178:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 179:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 180:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 181:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 182:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 183:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 184:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 185:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 186:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 187:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 188:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 189:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 190:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 191:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 192:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 193:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 194:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 195:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 196:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 197:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 198:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 199:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 200:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 201:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 202:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 203:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 204:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 205:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 206:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 207:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 208:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 209:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 210:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 211:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 212:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 213:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 214:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 215:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 216:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 217:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 218:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 219:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 220:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 221:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 222:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 223:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 224:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 225:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 226:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 227:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 228:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 229:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 230:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 231:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 232:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 233:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 234:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 235:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 236:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 237:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 238:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 239:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 240:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 241:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 242:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 243:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 244:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 245:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 246:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 247:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 248:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 249:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 250:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 251:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 252:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 253:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 254:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 255:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 256:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 257:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 258:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 259:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 260:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 261:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 262:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 263:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 264:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 265:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 266:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 267:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 268:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 269:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 270:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 271:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 272:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 273:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 274:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 275:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 276:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 277:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 278:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 279:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 280:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 281:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 282:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 283:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 284:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 285:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 286:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 287:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 288:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 289:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 290:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 291:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 292:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 293:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 294:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 295:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 296:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 297:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 298:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 299:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 300:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 301:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 302:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 303:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 304:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 305:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 306:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 307:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 308:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 309:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 310:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 311:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 312:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 313:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 314:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 315:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 316:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 317:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 318:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 319:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 320:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 321:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 322:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 323:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 324:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 325:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 326:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 327:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 328:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 329:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 330:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 331:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 332:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 333:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 334:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 335:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 336:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 337:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 338:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 339:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 340:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 341:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 342:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 343:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 344:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 345:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 346:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 347:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 348:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 349:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 350:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 351:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 352:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 353:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 354:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 355:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 356:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 357:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 358:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 359:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 360:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 361:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 362:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 363:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 364:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 365:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 366:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 367:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 368:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 369:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 370:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 371:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 372:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 373:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 374:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 375:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 376:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 377:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 378:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 379:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 380:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 381:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 382:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 383:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 384:  236 instr; configured shim pushes {'shimM1': 3, 'shimS0': 32}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 385:  204 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8, 'shimS1': 8, 'shimM0': 8}; bare pushes {'memM2': 9, 'memM1': 15, 'memS5': 8}; last shim MM2S at +187
+sync 386:  184 instr; configured shim pushes {'shimM0': 32}; bare pushes {'shimM0': 8}; last shim MM2S at +183
+sync 387:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 388:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 389:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 390:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 391:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 392:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 393:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 394:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 395:   80 instr; configured shim pushes {'shimM0': 16}; bare pushes {}; last shim MM2S at +79
+sync 396:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 397:  100 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'shimM0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +27
+sync 398:   84 instr; configured shim pushes {'shimM1': 3, 'shimS0': 8}; bare pushes {'memM2': 6, 'memM1': 10}; last shim MM2S at +11
+sync 399:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 400:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 401:  112 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +75
+sync 402:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 403:   79 instr; configured shim pushes {'shimM1': 3}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +30
+sync 404:  360 instr; configured shim pushes {'shimS0': 72}; bare pushes {}; last shim MM2S at +None
+sync 405:  120 instr; configured shim pushes {'shimS0': 24}; bare pushes {}; last shim MM2S at +None
+sync 406:  120 instr; configured shim pushes {'shimS0': 8, 'shimM0': 8}; bare pushes {'memS0': 8, 'memM2': 6, 'memM1': 10}; last shim MM2S at +87
+sync 407:   12 instr; configured shim pushes {'shimM1': 3}; bare pushes {}; last shim MM2S at +11
+sync 408:  339 instr; configured shim pushes {'shimM1': 27, 'shimS0': 32}; bare pushes {'memS0': 8, 'memM2': 12, 'memM1': 20}; last shim MM2S at +258
+sync 409:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 410:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 411:   32 instr; configured shim pushes {'shimM0': 8}; bare pushes {}; last shim MM2S at +31
+sync 412:  224 instr; configured shim pushes {'shimM0': 16, 'shimS0': 16, 'shimS1': 8}; bare pushes {'memS5': 8}; last shim MM2S at +187
+sync 413:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 414:  156 instr; configured shim pushes {'shimM1': 3, 'shimS0': 16}; bare pushes {'shimM0': 8, 'memM2': 9, 'memM1': 15}; last shim MM2S at +27
+sync 415:  228 instr; configured shim pushes {'shimM1': 3, 'shimM0': 16, 'shimS0': 8}; bare pushes {'memS0': 16, 'memM2': 15, 'memM1': 25}; last shim MM2S at +107
+sync 416:  296 instr; configured shim pushes {'shimM1': 6, 'shimM0': 16, 'shimS0': 16}; bare pushes {'memS0': 16, 'memM2': 18, 'memM1': 30}; last shim MM2S at +119
+sync 417:   96 instr; configured shim pushes {'shimM0': 8, 'shimS1': 8}; bare pushes {}; last shim MM2S at +59
+sync 418:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15
+sync 419:   16 instr; configured shim pushes {}; bare pushes {'shimM0': 8}; last shim MM2S at +15

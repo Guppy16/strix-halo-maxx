@@ -966,6 +966,8 @@ def step8(
         ops_by_name = {o["name"]: o for o in ops}
         msdefer = os.environ.get("MSDEFER") == "1"  # round 24
         oppre2 = os.environ.get("OPPRE2") == "1"  # round 24: out_proj's A per attention head group (pass 1)
+        p0free = os.environ.get("P0FREE") == "1"  # round 25: the attention's Q + pass-0 K / V fills in pass 0's drain group
+        assert not p0free or oppre2
         assert not oppre2 or (seqpre and os.environ.get("SEQPRE") == "1" and a_half), "OPPRE2: SEQPRE=1 (a_loads before the waits), A_HALF"
         deferred = []  # (rt_tasks entries whose pass sends wait for the SSM)
 
@@ -1040,13 +1042,16 @@ def step8(
 
                         pst = {}  # round 24 CPPRE: part g + 1 configured right after part g is pushed (all four at once: BD peak 20 > 16)
                         for g in range(-1, 4):
-                            if cppre and os.environ.get("CPPRE_OP") == "1" and g + 1 < 4:  # (off: static BD peak 20 > 16 at out_proj)
+                            early = cppre and os.environ.get("CPPRE_OP") == "1" and g + 1 < 4  # (round 24: static BD peak 20 > 16 at out_proj)
+                            if early and not (p0free and g < 0):
                                 pst[g + 1] = [prefill(a_inb[c], part_(c, g + 1), tg, False) for c in range(COLS)]
                             want = an + ("#p0" if g < 0 else f"#h{g}")
                             for n_, g_ in list(pending):
                                 if n_ == want:
                                     g_.finish()
                                     pending.remove((n_, g_))
+                            if early and p0free and g < 0:  # round 25 P0FREE: part 0 configured once #p0 freed the pass-0 fills' BDs
+                                pst[0] = [prefill(a_inb[c], part_(c, 0), tg, False) for c in range(COLS)]
                             for c in range(COLS) if g >= 0 else ():
                                 pst[g][c]() if g in pst else fill(a_inb[c], part_(c, g), group=tg, wait=False)
                     finish_deps(op)
@@ -1163,11 +1168,14 @@ def step8(
                 for pi in range(1 if op2 else len(op["passes"])):
                     for c in range(COLS):
                         drain(C_conses[c], op["c"][pi][c], group=p0g, wait=True)
+                # round 25 P0FREE: the Q fill and pass 0's K / V fills ride in pass 0's drain group, so out_proj's wait on "#p0" frees
+                # their shim BDs (pass 0's drains complete after pass 0 consumed them); round 24 kept them in tg until the end
+                kvg0 = p0g if p0free and op2 else tg
                 if aqpre:  # round 20: qkv's Q drains (steps 0-3, its first drain group) were finished inside qkv's sequence when its
                     # third group was issued; the Q fill (into half 1) goes before the wait on the K / V groups
                     assert ops[ops.index(op) - 1].get("rr") and ops[ops.index(op) - 1]["epi"] == "qkv"
                     for c in range(COLS):
-                        fill_a(op, c, group=tg, wait=False)
+                        fill_a(op, c, group=kvg0, wait=False)
                     a_sends(op)  # (2 tasks behind qkv's mid + last on the 4-deep queue; lock-governed)
                 if akvpre:  # V of heads 0-2 (step 8) is drained: head group 0's K / V fills (pass 0) go now
                     qn = ops[ops.index(op) - 1]["name"] + "#v0"
@@ -1176,7 +1184,7 @@ def step8(
                             g_.finish()
                             pending.remove((name, g_))
                     for r in range(ROWS_G):
-                        fill(B_prods[r], op["b"][r][0], group=tg, wait=False)
+                        fill(B_prods[r], op["b"][r][0], group=kvg0, wait=False)
                 finish_deps(op)
                 for c in range(COLS) if not aqpre else ():
                     fill_a(op, c, group=tg, wait=False)
@@ -1184,7 +1192,7 @@ def step8(
                     for r in range(ROWS_G):
                         for i_, t in enumerate(op["b"][r]):
                             if not (akvpre and pi == 0 and i_ == 0):
-                                fill(B_prods[r], t, group=tg, wait=False)
+                                fill(B_prods[r], t, group=kvg0 if pi == 0 else tg, wait=False)
                     if pi == 0 and not aqpre:
                         a_sends(op)
                 if op2:  # round 24 OPPRE2: pass 1's O in four head-group drains ([4 groups][3 rows][object]), groups past the lookahead
