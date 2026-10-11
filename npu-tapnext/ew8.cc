@@ -559,11 +559,11 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
 #ifdef NRES
   const int ub = pring ? KB : UNIT_B;  // output ring bytes per unit: X' only under NRES
   int pslot = 0;                       // (216 units per op: the 2-slot ring is back at slot 0 after every op)
+#else
+  constexpr int ub = UNIT_B;
 #endif
 #ifdef RRES
   int rslot = 0;  // (12 x RRB units per op, an even count: slot 0 again at the next op)
-#else
-  constexpr int ub = UNIT_B;
 #endif
   const B32 ones = aie::broadcast<bfloat16, 32>(1.0f);
   const int unit = n_in * KB;
