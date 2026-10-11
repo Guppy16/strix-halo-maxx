@@ -123,7 +123,7 @@ L1, text and tile-shape limits killed these (all in [negative-results](../../com
 - [A24](../../common/book/negative-results.md#a24) <!-- nr: A24 --> shrinking the GEMM stack to free bank-0 room: the deepest path is 1,856 B, so at most ~512 B can go. Name the bytes before proposing an L1 lever.
 - [A25](../../common/book/negative-results.md#a25) <!-- nr: A25 --> moving the GELU tables' bank-0 copies to bank 3: never built; moving `aexp_ab` instead is open.
 - [J3](../../common/book/negative-results.md#j3) <!-- nr: J3 --> K = 3072 as one op: 48 chunks = 497 KB of the 512 KB memtile with this chunking (3A already took it to 36).
-- [J6](../../common/book/negative-results.md#j6) <!-- nr: J6 --> alternating the popped B bank per k-step needs a second 4,032 B Y buffer in bank 0, which has no room.
+- [J6](../../common/book/negative-results.md#j6) <!-- nr: J6 --> alternating the popped B bank per k-step needs a second 4,224 B Y buffer in bank 0, which has no room.
 - [L4](../../common/book/negative-results.md#l4) <!-- nr: L4 --> `out`'s tiles 1-3 following the SSM heads like tile 0: four 18 KB C objects (72 KB) exceed the 64 KB L1, and the 1.77 MB drain would land after the last head anyway.
 - [B13](../../common/book/negative-results.md#b13) <!-- nr: B13 --> gated tiles in the CSUB group loop: +0.02 ms against −0.04..−0.08 predicted; kept only as a −256 B text lever (`72a06ad`).
 - [B14](../../common/book/negative-results.md#b14) <!-- nr: B14 --> runtime-driven C drains with per-op lengths (74 MB of junk writes per step): the junk sits in part 2 and tiles are not write-bound, so ~−0.05..−0.1 ms for ~17 runtime pushes per block on the in-order CP.

@@ -4,13 +4,13 @@ Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo
 
 ## The five classes
 
-- **fundamental**: almost surely dead. A named hardware or ISA rule rules it out (a GEMM core has two input streams; the aggregate DDR cap; a FIFO cannot pop twice in a bundle; a CP proof under the ISA's latency and register rules).
+- **fundamental**: almost surely dead. A named hardware or ISA rule rules it out (a GEMM core has two input streams; a FIFO cannot pop twice in a bundle; a CP proof under the ISA's latency and register rules). The aggregate DDR caps are not in this class: they are observations under our memory config and load, so entries that rest on them are `measured-here`.
 - **measured-here**: dead in this context by measurement. A different model, shape, layout or toolchain version could change the answer; the entry says what would have to change.
 - **unfinished**: abandoned for time, a bug that was never chased, an untested hypothesis, or a solver that found nothing within its budget. A possible dead end. The entry says what would settle it.
 - **revived**: once called dead, later made to work. The entry says what changed. Do not cite these as dead.
 - **method**: a mistake in method (a wrong model of a bound, a stale header, a mis-averaged window). The idea itself may be fine; the lesson is about how to measure.
 
-Counts (187): fundamental 22 | measured-here 82 | unfinished 16 | revived 13 | method 54.
+Counts (187): fundamental 17 | measured-here 87 | unfinished 16 | revived 13 | method 54.
 
 How to read the index: the `why` column names the limit, the measurement, or what is missing. Anchors are lowercase ids (`#a28`). The `project` column is where the evidence came from: `tapnext`, `moondream`, or `general` (toolchain and method lessons that apply to any AIE2P project). Classes are judgements from the entry text and the sources; where the evidence only supports "unfinished" it is not upgraded to "fundamental". Capacity arguments are called `fundamental` only when the shortfall follows from a hardware number and the model dimensions, and `measured-here` when a different tile shape or layout could change it.
 
@@ -61,7 +61,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [B7](#b7) | P43 / P43b | tapnext | measured-here | Boundary is the A slot load from DDR (B is 14 % of bytes): -0.35 vs -0.8 | |
 | [B8](#b8) | CSPLIT4 | tapnext | revived | Built as CSUB (3 sub-parts, release-by-0 BDs, commit 0a0b485): -0.13 ms, round 21 | [gemm](gemm.md#epilogues-and-the-c-path) |
 | [B9](#b9) | LATE-C | tapnext | unfinished | Not built; re-priced -0.08..-0.12; revives if the C wait grows | [gemm](gemm.md#epilogues-and-the-c-path) |
-| [B10](#b10) | DUALDRAIN | tapnext | fundamental | DDR write cap is aggregate (~55 GB/s); a second channel per column adds nothing | [data-movement](data-movement.md#the-ddr-caps) |
+| [B10](#b10) | DUALDRAIN | tapnext | measured-here | DDR write cap is aggregate (~55 GB/s) under our conditions; a second channel per column adds nothing | [data-movement](data-movement.md#the-ddr-caps) |
 | [B11](#b11) | MRES | tapnext | measured-here | 124 KB park vs 112 KB free in memtile holes; MLPRR got -0.40 through DDR instead | |
 | [B12](#b12) | MD-GELU-STAGED | moondream | measured-here | Peano issues ~1 op per bundle on long chains (register allocation); rolled 1177 vs 1108 us | [elementwise](elementwise.md#gelu) |
 | [B13](#b13) | CSUB-G | tapnext | measured-here | Gated tiles in the CSUB loop measured +0.02 ms vs -0.04..-0.08 predicted; kept only as a -256 B text lever | |
@@ -78,10 +78,10 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [C10](#c10) | SENDPRE | tapnext | measured-here | +0.16 ms: early pushes delay the critical path; cause not separately measured | |
 | [C11](#c11) | OPPRE | tapnext | revived | Worked as OPPRE2 (e70a106, round 24): sends issued before the waits, -0.15 ms | |
 | [C12](#c12) | DDR84 | tapnext | method | Derived from norm walls x bytes; DDRCAP measured ~55-59 GB/s aggregate | [data-movement](data-movement.md#the-ddr-caps) |
-| [C13](#c13) | NIN2 | tapnext | fundamental | 3-input norms already at the aggregate DDR read cap (55.5 GB/s) | [data-movement](data-movement.md#the-ddr-caps) |
+| [C13](#c13) | NIN2 | tapnext | measured-here | 3-input norms already at the aggregate DDR read cap (55.5 GB/s), an observation under our conditions | [data-movement](data-movement.md#the-ddr-caps) |
 | [C14](#c14) | H_WR | tapnext | method | Hypothesis refuted: one stream writes ~6.7 B/cycle; tail is the aggregate write cap | [data-movement](data-movement.md#the-ddr-caps) |
 | [C15](#c15) | H_TOK | tapnext | method | Hypothesis refuted: the tail is 442 KB at the aggregate write cap | [data-movement](data-movement.md#the-ddr-caps) |
-| [C16](#c16) | DDRW-2ch | tapnext | fundamental | Moot: DDRW series already shows an aggregate write cap | [data-movement](data-movement.md#the-ddr-caps) |
+| [C16](#c16) | DDRW-2ch | tapnext | measured-here | Moot: DDRW series already shows an aggregate write cap (an observation under our conditions) | [data-movement](data-movement.md#the-ddr-caps) |
 | [C17](#c17) | NRES-RBMAJOR | tapnext | revived | Design broke correctness; built chunk-major with a 3D TAP scatter: -0.84 ms with norm1 | |
 | [C18](#c18) | NRES-ALONE | tapnext | revived | Alone misses (-0.06..-0.11) because of column stagger; with NSEQ -0.18..-0.21 | [fusion](fusion.md#what-didnt-work) |
 | [C19](#c19) | P60-1TAP | tapnext | fundamental | Exhaustive search plus an identity: only d = 0 is one TAP per column; P60g (-1.06 ms) replaced it | |
@@ -116,7 +116,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [E1](#e1) | OUT64 | tapnext | measured-here | Per-call overhead dominates small-grain output: 3x slower than the DMA bound | [elementwise](elementwise.md#norms-the-general-structure) |
 | [E2](#e2) | ROUT235 | tapnext | method | Fit put the missing pass-2 time on R_out; stamps show out_begin ~5 net cycles | |
 | [E3](#e3) | NPIPE | tapnext | measured-here | Built on E2's wrong bound; G 4-6 -0.05..-0.15 vs -0.55 | |
-| [E4](#e4) | NG1 / NG2 / NS / N-IO-ASM | tapnext | measured-here | 3-input and RMS norms sit at the DDR read cap; only LN 2-input is compute-bound (<= -0.2 ms) | |
+| [E4](#e4) | NG1 / NG2 / NS / N-IO-ASM | tapnext | measured-here | 3-input norms sit at the DDR read cap; both 2-input norms are compute-bound (~480 RMS / ~560 LN cycles per unit, RRTWIN) | |
 | [E5](#e5) | RIN575 | tapnext | method | Free constants absorbed the 3-input time; the bound is the aggregate DDR read cap | |
 | [E6](#e6) | FOLD | tapnext | unfinished | Retired under a refuted fit; under the DDR-cap reading fewer inputs is the lever, never re-priced | |
 | [E7](#e7) | EWO / OSLOT | tapnext | measured-here | R_out not binding (follows from E2) | |
@@ -192,11 +192,11 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [H28](#h28) | STAMP-CONTAINS-CALL | general | method | Stamp intervals include the call's own cycles | [measurement](measurement.md#in-kernel-stamps-and-counters) |
 | [H29](#h29) | RESIDUE-PROLOGUE | tapnext | method | Per-call prologue left out of a k-step price | [gemm](gemm.md#pricing-a-k-step-change) |
 | [J1](#j1) | RADD / KSUM | tapnext | fundamental | Each GEMM core has two input ports and no third S2MM | [gemm](gemm.md#epilogues-and-the-c-path) |
-| [J2](#j2) | EW-PRESUM | tapnext | fundamental | No DDR headroom: those ops already run at ~66 GB/s | |
+| [J2](#j2) | EW-PRESUM | tapnext | measured-here | No DDR headroom under our conditions: those ops already run at ~66 GB/s | |
 | [J3](#j3) | KCONCAT | tapnext | measured-here | A slot would be 497 KB of a 512 KB memtile with this chunking | |
 | [J4](#j4) | YRES / SSPM | tapnext | measured-here | SSM is compute-bound (~255 cycles per chunk above its input floor); revives once glue reaches the floor | |
-| [J5](#j5) | GELU-EW | tapnext | fundamental | Needs ~11 MB per block on top of ~42 GB/s, over the DDR cap | |
-| [J6](#j6) | B-ALT | tapnext | measured-here | No room for a second 4,032 B Y buffer in bank 0 | |
+| [J5](#j5) | GELU-EW | tapnext | measured-here | Needs ~11 MB per block on top of ~42 GB/s, over the observed DDR cap | |
+| [J6](#j6) | B-ALT | tapnext | measured-here | No room for a second 4,224 B Y buffer in bank 0 | |
 | [K1](#k1) | KTL-MULMASK | tapnext | method | Replay modelled "non-zero"; acq.cond tests bit 0 | [machine](machine.md#what-didnt-work) |
 | [K2](#k2) | MUL-LATENCY | tapnext | measured-here | MULLAT measured the suspected latency: not the cause | [machine](machine.md#what-didnt-work) |
 | [K3](#k3) | STALE-HEADER | tapnext | method | Kernel run with another schedule's header | [toolchain](toolchain.md#the-asm-route) |
@@ -276,7 +276,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 **Class:** measured-here — B bank busy 0.97 under ROT and no idle bank to move the prefetch to (this L1 layout). Would have to change: A layout with an idle bank (a freed L1 region) for the B prefetch.
 
 <a id="a13"></a>
-**A13 — B-2BANK: B objects in two banks** (rev 14 ranks 4–5; rev 15) [MODEL, capacity proof]. A bank holding a popped B object can hold nothing the k-step touches; two such banks need 2 × (16 − 4.5) = 23 KB of k-step-cold data, the GEMM core has 14.6 KB (stack 2.5, tables 5.6, C tail 6, misc 0.5). Partial version (B1 in bank 0 with 5 pieces): ~125 cycles per k-step of internal conflicts for ~70 saved (rev15/P "GEMM L1 layout"). Dropped round 19 (RFM round 19 table). Remaining B-collision floor ~92 cycles per k-step "has no lever".
+**A13 — B-2BANK: B objects in two banks** (rev 14 ranks 4–5; rev 15) [MODEL, capacity proof]. A bank holding a popped B object can hold nothing the k-step touches; two such banks need 2 × (16 − 4.5) = 23 KB of k-step-cold data, the GEMM core has 14.6 KB (stack 2.5, tables 5.6, C tail 6, misc 0.5). Partial version (B1 in bank 0 with 5 pieces): ~125 cycles per k-step of internal conflicts for ~70 saved (rev15/P "GEMM L1 layout"). The one-FIFO form was dropped in round 19 (RFM round 19 table; with one FIFO the remaining B-collision floor of ~92 cycles per k-step "has no lever"). It was revived as E7'' (B on both FIFOs, R 68), which was built (A14, A28).
 
 **Class:** revived — One FIFO could not split B; E7'' (B on both FIFOs, R 68) was built.
 
@@ -354,9 +354,7 @@ in the prologue) is the working form; the longer prologue is what KTL amortises.
 **Class:** fundamental — CP-infeasible at R = 64 even with banks, regs and ports dropped: one instance serves at most R-3 cycles of an ~85-cycle row block.
 
 <a id="a27"></a>
-**A27 — E7-R64-NX8: E7'' at R = 64 with a 576 B X segment** (pass 17; main round 21) [MODEL + MEAS]. Bank 3 must take 63 line reads in 64 cycles (56 panels + 7 fills). No conflict-free schedule in 25 + 7 min; with the bank-3 cap as a cost CP-SAT returned 4 excess residues + 55 soft conflicts: replay 1,244 static + 129 stalls = 1,373 vs R 68's 1,338 + 0. Main measured it in situ (full12r21e5 vs r21e3): +0.04 / −0.04 / −0.08 ms, neutral, as the replay said. Lesson: price by static + replayed stalls; the A-port floor (1,304 per k-step) also caps what R < 68 can buy.
-panels + 7 fills); no schedule found in 25 + 7 min (r22/solve_r64.log, diag64.out) while every other constraint group is satisfiable
-(dropping only the bank-3 cap: FEASIBLE in 300 s). Not a proof; see rev17/P for nx = 12 / R = 65.
+**A27 — E7-R64-NX8: E7'' at R = 64 with a 576 B X segment** (pass 17; main round 21) [MODEL + MEAS]. Bank 3 must take 63 line reads in 64 cycles (56 panels + 7 fills). No conflict-free schedule in 25 + 7 min; with the bank-3 cap as a cost CP-SAT returned 4 excess residues + 55 soft conflicts: replay 1,244 static + 129 stalls = 1,373 vs R 68's 1,338 + 0. Main measured it in situ (full12r21e5 vs r21e3): +0.04 / −0.04 / −0.08 ms, neutral, as the replay said. Lesson: price by static + replayed stalls; the A-port floor (1,304 per k-step) also caps what R < 68 can buy. The 25 + 7 min search is in r22/solve_r64.log and diag64.out; every other constraint group is satisfiable (dropping only the bank-3 cap: FEASIBLE in 300 s). Not a proof; see rev17/P for nx = 12 / R = 65.
 
 **Class:** unfinished — No conflict-free R = 64 schedule found in 32 min; best soft schedule measured neutral; A-port floor caps the gain. What would settle it: A conflict-free R = 64 schedule from a longer CP run; expected gain is capped by the 1,304-cycle A-port floor.
 
@@ -416,7 +414,7 @@ panels + 7 fills); no schedule found in 25 + 7 min (r22/solve_r64.log, diag64.ou
 <a id="b10"></a>
 **B10 — DUALDRAIN: C drains over shim S2MM 0 + 1 per column** (rev 16 rank 8: −0.3 if the write limit is per channel, 0 if per column) [MEAS]. DDRW (RFM round 20): one stream 12.1 GB/s (~6.7 B/cycle), 2 columns 24.4, 4 columns 45.3, 8 columns ~50–60 GB/s: the write cap is AGGREGATE (= the read cap ~55 GB/s), so a second channel per column adds nothing. Dead.
 
-**Class:** fundamental — DDR write cap is aggregate (~55 GB/s); a second channel per column adds nothing.
+**Class:** measured-here — DDR write cap is aggregate (~55 GB/s) under our conditions; a second channel per column adds nothing. Would have to change: A different memory config or load (a higher aggregate DDR cap); the cap is an observation under our conditions.
 
 <a id="b11"></a>
 **B11 — MRES: GEMM → GEMM APAN output resident in the memtile** (rev 16, ~−0.4) [MODEL, capacity]. Infeasible on memtiles 0–2: a 124 KB park against 112 KB free in two holes (rev 16 P/A §4). MLPRR (mlp0 dealt round-robin, mlp3_a waits for the first drain group) got most of it through DDR: −0.40 (RFM round 20).
@@ -507,7 +505,7 @@ pushes per block on the in-order CP (4-deep queues). Not proposed.
 <a id="c13"></a>
 **C13 — NIN2: the norms' inputs over a second shim channel into the EW core's free S2MM 1** (rev 15 rank 2, with N-IO-ASM −0.7..−1.5) [MEAS]. Void (RFM round 19 DDRCAP): 3-input norms read 3,072 B × 8 per 801 cycles = 55.5 GB/s, already at the aggregate read cap; channel count per column is irrelevant (4 × 1 = 2 × 2). Not built. Lesson: the norm floor is bytes; only fewer DDR bytes move it (NRES −0.65 for the panels).
 
-**Class:** fundamental — 3-input norms already at the aggregate DDR read cap (55.5 GB/s).
+**Class:** measured-here — 3-input norms already at the aggregate DDR read cap (55.5 GB/s), an observation under our conditions. Would have to change: A different memory config or load (a higher aggregate DDR cap); the cap is an observation under our conditions.
 
 <a id="c14"></a>
 **C14 — H_WR: the 12 µs producer tail is a per-channel shim S2MM write limit (~4 B/cycle)** (rev 16 headline 3) [MEAS]. DDRW: one column writes 12.1 GB/s (~6.7 B/cycle), not 3.5–4.5 (RFM round 20 table). Refuted. Rev 16's evidence (down_a / mlp3_a spans 15 µs longer than down_b / mlp3_b) is explained by the 2 MB A preload sharing the aggregate cap.
@@ -522,7 +520,7 @@ pushes per block on the in-order CP (4-deep queues). Not proposed.
 <a id="c16"></a>
 **C16 — DDRW-2ch: two drains per column to separate per-channel from per-column write limits** (rev 16 probe gating B10) [MEAS by implication]. Moot: the 1 / 2 / 4 / 8-column DDRW series already shows an aggregate cap; not run.
 
-**Class:** fundamental — Moot: DDRW series already shows an aggregate write cap.
+**Class:** measured-here — Moot: DDRW series already shows an aggregate write cap (an observation under our conditions). Would have to change: A different memory config or load (a higher aggregate DDR cap); the cap is an observation under our conditions.
 
 <a id="c17"></a>
 **C17 — NRES-RBMAJOR: NRES with an rb-major A-slot half 0 and new sends** (rev 16 rank 2 design; round 20) [MEAS]. Broke correctness: the last tile's chunk-wise `last` release let the next op's chunk-0 load overwrite rows 0–1 of every chunk (G chunks 31 / 39 / 47 wrong). Built instead: memtile S2MM 5 scatters the rb-major stream into the usual chunk-major half with a 3D TAP `[18 rb][12 q][144 words]`, normal sends kept (RFM round 20 "NRES as built"). Lesson: keep the A slot layout the sends and lock releases expect.
@@ -709,9 +707,9 @@ rev17/P 3A.
 **Class:** measured-here — Built on E2's wrong bound; G 4-6 -0.05..-0.15 vs -0.55. Would have to change: A cheaper n1k_end / n1k_begin than ~45 cycles per group.
 
 <a id="e4"></a>
-**E4 — NG1 / NG2 / NS / N-IO-ASM: norm glue and statistics in asm** (rev 12 parked → rev 13 revived → round 19 capped) [MODEL + MEAS]. Rev 12 retired them to parked under E2 (NG1 ~0 after NPIPE, NG2 −0.09, NS ~−0.02). Rev 13 revived them (NG1 −0.44, NG2 −0.56, NS −0.34; N-IO1 −0.45..−0.55, N-IO2 −0.5..−0.7). The C++ form NIOC measured −0.17..−0.23 vs tcall static −0.55 (pass 1 waits on input; RESULTS 27.1). DDRCAP (round 19): the 3-input and RMS 2-input norms sit at the DDR read cap; only LN 2-input (norm3, 693 vs ~540 cycles per unit) is compute-bound: ≤ −0.2 ms. Conditional: revives where a norm becomes compute-bound again (after byte cuts such as NRES lower its DDR floor).
+**E4 — NG1 / NG2 / NS / N-IO-ASM: norm glue and statistics in asm** (rev 12 parked → rev 13 revived → round 19 capped) [MODEL + MEAS]. Rev 12 retired them to parked under E2 (NG1 ~0 after NPIPE, NG2 −0.09, NS ~−0.02). Rev 13 revived them (NG1 −0.44, NG2 −0.56, NS −0.34; N-IO1 −0.45..−0.55, N-IO2 −0.5..−0.7). The C++ form NIOC measured −0.17..−0.23 vs tcall static −0.55 (pass 1 waits on input; RESULTS 27.1). DDRCAP (round 19) put the 3-input norms at the DDR read cap. RRTWIN (round 25, RESULTS 34.2) separated the two kinds: removing the residual stream drops the 3-input norms (norm0 90 → 67 µs, norm2 92 → 74) but not the 2-input ones (norm1 63.4 → 60.5, norm3 71.7 → 70.3), so both 2-input norms, RMS and LN, are compute-bound, at ~480 (RMS) / ~560 (LN) cycles per unit. NIO2 stamps: pass 2 costs 287 / 364 per unit against 117 / 177 static, so the glue (~170-190 cycles) is the larger half: ≤ −0.1..−0.3 ms (HANDOFF round 25 queue item 3). Conditional: the 3-input norms revive where byte cuts such as NRES lower their DDR floor below the compute bound.
 
-**Class:** measured-here — 3-input and RMS norms sit at the DDR read cap; only LN 2-input is compute-bound (<= -0.2 ms). Would have to change: Fewer DDR bytes (NRES-like) that make norms compute-bound again.
+**Class:** measured-here — 3-input norms sit at the DDR read cap; both 2-input norms are compute-bound (~480 RMS / ~560 LN cycles per unit, RRTWIN). Would have to change: Fewer DDR bytes (NRES-like) for the 3-input norms; less glue per unit (~170-190 cycles) for the 2-input ones.
 
 <a id="e5"></a>
 **E5 — RIN575: fitted EW input rate R_in 5.75 B/cycle** (rev 13 fit13) [MEAS]. Round 19 walls (r19d): 3-input norms 801 / 821 cycles per 3,072 B unit = 3.84 / 3.74 B/cycle (input-bound), 2-input 567 / 693 (RFM round 19). The fit's free per-op constant F and fitted s2 absorbed the n3 input time; its one miss was this signal (n3 − n2 wall 10.7 µs modelled vs 15–19 measured) (rev15/P norm plan). Rev 15's replacement explanation — ONE shim MM2S channel at ~3.8 B/cycle — was refuted in turn by DDRCAP (one stream ~7 B/cycle; 4 × 1 = 2 × 2 streams): the bound is the aggregate DDR read cap (8 × 3,072 B per 801 cycles = 55.5 GB/s). MACHINE R15.3 still says "one shim MM2S channel" (stale).
@@ -901,7 +899,7 @@ rev17/P 3A.
 
 - Tile BDs refuse stride 0: P5a's "write twice into half 1" was impossible; K = 1536 ops write the whole slot over both channels instead (round 10).
 - padds / padda immediates must be multiples of 64: no per-frame bump of a 40 B record (round 9, P20c).
-- Two BDs for a joined fifo's producer (CSPLIT): not expressible in IRON; patch the lowered MLIR and re-run aiecc (round 19). An acquire-only BD is legal in hardware; its lowering is UNVERIFIED (blocks CSPLIT4).
+- Two BDs for a joined fifo's producer (CSPLIT): not expressible in IRON; patch the lowered MLIR and re-run aiecc (round 19). An acquire-only BD is legal in hardware; the MLIR verifier refuses it and a release by 0 is the working form, verified by G19 and by CSUB (0a0b485).
 
 <a id="g11"></a>
 **G11 — BDSTEP20: a BD step larger than 20 bits (words)** (round 4) [MEAS]. norm3 took 6 ms: its 2-input fill had a 10.5 MB step; the transfer was correct but the columns ran one after another. R4 now follows R3 (NOTES 9.2).
@@ -1115,7 +1113,7 @@ the per-core input ports before moving an operand into a GEMM.
 **J2 — EW-PRESUM: the EW core adds x + d1 while the second K half runs** (pass 18) [MODEL]. Moves 5.3 MB per op (read x, d1; write
 x + d1) into mlp3_b / down_b, which already run at ~66 GB/s read + write (r21 ddrbudget): no DDR headroom there.
 
-**Class:** fundamental — No DDR headroom: those ops already run at ~66 GB/s.
+**Class:** measured-here — No DDR headroom under our conditions: those ops already run at ~66 GB/s. Would have to change: A different memory config or load (a higher aggregate DDR cap); the cap is an observation under our conditions.
 
 <a id="j3"></a>
 **J3 — KCONCAT: mlp3 / down as one K = 3072 op** (pass 18) [DOC]. Removes the K split (and the third norm input), but the A slot would be
@@ -1135,14 +1133,14 @@ conditional]. Save 3.5 MB / 1.0 MB of DDR per block, but the SSM is compute-boun
 panels (~11 MB per block) during mlp0, which already uses ~42 GB/s: over the cap. GELU stays in the GEMM epilogue (~0.55 ms per step,
 LUT-bound).
 
-**Class:** fundamental — Needs ~11 MB per block on top of ~42 GB/s, over the DDR cap.
+**Class:** measured-here — Needs ~11 MB per block on top of ~42 GB/s, over the observed DDR cap. Would have to change: A different memory config or load (a higher aggregate DDR cap); the cap is an observation under our conditions.
 
 <a id="j6"></a>
 **J6 — B-ALT: alternate the popped B bank per k-step so the DMA writes the idle one** (pass 18) [MODEL]. Would cut E7'''s B write
-collisions (~70 cycles per k-step in bank 3 at 0.9 busy), but both banks would need a whole 4,032 B Y buffer; bank 0 has no room (A24 /
+collisions (~70 cycles per k-step in bank 3 at 0.9 busy), but both banks would need a whole 4,224 B Y buffer (NOTES 26.1: the Y part of the design8 B objects); bank 0 has no room (A24 /
 A25).
 
-**Class:** measured-here — No room for a second 4,032 B Y buffer in bank 0. Would have to change: Bank-0 room for a second Y buffer.
+**Class:** measured-here — No room for a second 4,224 B Y buffer in bank 0. Would have to change: Bank-0 room for a second Y buffer.
 
 
 ## K. Added by research pass 19
