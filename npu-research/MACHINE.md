@@ -576,3 +576,34 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   fields; release value 0 = no release, so an acquire-only BD is legal in hardware. [UNVERIFIED] that the MLIR lowering emits one.
 - **R16.9 [INF, UNVERIFIED]** The 12 us tail is either the shim S2MM write path (~4 B/cycle per channel would make the last 55 KB
   per column ~7.6 us) or ~6 us of token / CP latency. DDRW (main, r20/ddrw.py) and DDRW-2ch decide.
+
+## Revision 17 additions (2026-10-11, from research pass 17)
+- **R17.1 [DOC tcall, full12r20z / r21 kernels]** A modulo k-step pays its whole call per k-step: ROT g0a 1,357 = 18 x 72 + 61, E7''
+  R 68 1,338 = 18 x 68 + 114, plus mm_ktile's per-k-step loop 13 (incl. the B lock pair).
+- **R17.2 [MODEL CP + replay; MEAS main r21]** E7'' (B on lf0 + lf1, X in bank 0, Y in bank 3): bank 3 takes panels + one fill per 8
+  per segment = 63 line reads per row block for a 576 B X segment. R 68 conflict-free (1,338, 0 stalls); R 64 best 1,244 + 129
+  replayed stalls, measured neutral vs R 68 (+0.04 / -0.04 / -0.08). Segment bases must be 64 B aligned (ny multiple of 8; main).
+- **R17.3 [MEAS main r21]** E7'' R 68 in situ -0.28 ms at 1.405 GHz (~-0.22..-0.30 at 1.81) for -19 static cycles per k-step: the
+  in-situ gain exceeds the static one [INF: B DMA writes split over banks 3 / 0, bank-3 busy 0.97 -> 0.93].
+- **R17.4 [MODEL]** A-port floor: 10,368 B of A per k-step at <= 7.95 B/cycle = 1,304 cycles. Once the in-situ k-step nears
+  ~1,300-1,450, body cuts stop paying.
+- **R17.5 [MODEL]** A loop across k-steps (KTL) needs every B stream instance to serve one row block (consecutive k-steps read
+  different buffers); one row block's 64 pops span ~85 cycles, so a single B FIFO cannot, E7'' with lf1 split in two can (CP-feasible
+  at R 70; replay-verified whole-tile kernel mm_e7k_r70: 76 + 1,260 x nks).
+- **R17.6 [MEAS assembler]** acq.cond / rel.cond take their condition in r26 only ("invalid operand" for r28 / r29 / r30).
+- **R17.7 [DOC aie2p_lat.json / .td]** scalar mul latency 2 (R_WA_PORT stage 1); and / xor / add 1; sel.eqz / sel.nez select on r27
+  and use L_RM_PORT (shared with acq / rel); movs writes p / m (dn, dj, dc) from r / m / p on the st slot; lda.2d (LDA_2D_dms_lda,
+  dst p / r / m) exists and assembles [UNVERIFIED on hardware].
+- **R17.8 [MEAS main r21]** A DMA BD block takes an acquire AND a release or neither: acquire-only is refused by the verifier;
+  release-by-0 works; acquire-by-0 passes the verifier but fails CDO generation (use a hand-off lock).
+- **R17.9 [MEAS stackaudit + disassembly, full12r20z]** GEMM cores: deepest path 1,856 B + attkb's own 64 B frame against 2,560
+  reserved; L1 free ~576 B overall.
+- **R17.10 [DOC mtmap, r20z]** Memtiles 0-2: 128,000 B free in five holes (largest 56,320; B fifo objects scattered); 3-7: 141,312
+  contiguous. IRON re-packs them when the A slot grows to 36 chunks (main round 22 3A: 3,584 B left, C joins still 64 KB aligned).
+- **R17.11 [INF from ddrbudget bytes]** Attention pass 1 reads ~17 GB/s of K / V; +1 MB of out_proj A gives ~23 GB/s, far under the
+  ~55 GB/s cap: OPPRE's +0.18 is not aggregate DDR (H_CP or H_SHIM; OPPRE-W separates).
+- **R17.12 [MEAS main r21, r7/clk.py]** The NPU core clock drops to 1.405 GHz (from 1.81) with ~20 busy CPU threads. [UNVERIFIED
+  cause] SoC power budget (STAPM / PPT shared by CPU and NPU) vs a DPM policy: CLKLOAD (PROPOSALS rev 17) separates them by
+  comparing vector-heavy vs scalar-spin CPU load at equal thread counts against package power.
+- **R17.13 [MODEL CP]** In gen_e7's soft bank-3 objective one excess unit = 18 stalls per call, one conflict unit = 1 (weights
+  1,800 : 100; main's correction).
