@@ -46,25 +46,33 @@ Revision 17, 2026-10-11, research pass 17, written during main's round 21 (which
    - It needs 124,416 B contiguous on memtiles 0–2 (repack B + the C joins, or l2 depth 7).
    - GEMM → norm tails: no lever above ~0.1 ms.
 
-## Ranking (rev 17; base full12r21e3 ≈ 31.3 EXTRAPOLATED)
+## Status at hand-off (main's round 22, read 08:15)
+
+- Round 21 ended at **full12r21k1: 31.30 ms at d12** (quiet sweep, MEASURED), −0.70 vs r20z in one process.
+- Round 22 so far:
+  - 3A built and kept: −0.08 (this revision's re-price −0.07..−0.10: hit).
+  - K2 −0.02 (pre-registered −0.05..−0.10: miss), off by default for its 608 B of text.
+  - E7'' nx = 10: no better than nx = 8.
+- So S3 / K2 drop in rank: chunk 0's compute is mostly hidden behind the K / V stream start.
+
+## Ranking (rev 17, final; base full12r21k1 31.30 MEASURED, + 3A ≈ 31.22)
 
 | rank | id | what | cost | whole-call price | expected (d12) | separating probe / pre-registered check |
 |---|---|---|---|---|---|---|
-| 1 | **KTL** | mm_e7k: one call per tile (r22/mm_e7k_r70.s) | M (C++ + records + one aiecc) | per tile 76 + 1,260 × nks vs 1,351 × nks | **−0.50..−0.70** | replay bit-correct (done); in situ: BIT-IDENTICAL, TPROF steady k-step −60..−85 cycles, tile time −(85 nks − 76) ± 15 %; a hang = B lock order (one-core KTLP first if in doubt) |
-| 2 | S3 + K2 | attention slow path in asm (S3: T + R −60 per flagged unit), chunk 0 QK-only + test (K2: 1,005 → ~600 per rb) | M | rev 10 / 11 | −0.3..−0.4 | text: KTL frees 114 B of kernel text (+ mm_ktile's loop), S3 frees ~400 (k_rb) |
-| 3 | SSM ssq2 + FSX | rev 13 | M | FSX −50 per unit | −0.18 | EW text 112 B free: text first |
-| 4 | E7'' R 66 | lower R for KTL (aligned + KTL ops at R 66–68) | S (CP time) | −18..−36 per k-step static | −0.1..−0.2 on top of KTL | gen_e7 `--ktl --R 68` with longer runs / hints; the A-port floor (1,304) bounds it |
-| 5 | **3A** | third A-slot region so down_b / mlp3_b load during down_a / mlp3_a | L | paces 4.15 + 3.92 µs per block | −0.07..−0.10 | mtmap after the repack; tpgap paces → ≤ 1 µs |
-| 6 | OPPRE-lag | out_proj part g filled after head group g + 2's K / V pushes | S | out_proj pace 6.7 µs per block | −0.04..−0.10 | only if OPPRE-W shows H_CP |
+| 1 | **KTL** | mm_e7k: one call per tile (r22/mm_e7k_r70.s, fitted) | M (C++ + records + one aiecc) | per tile 76 + 1,260 × nks vs 1,351 × nks | **−0.50..−0.70** | replay bit-correct for 1–25 k-steps (done); in situ: BIT-IDENTICAL, TPROF steady k-step −60..−85 cycles; a hang = B lock order (one-core KTLP first if in doubt) |
+| 2 | E7'' + KTL at R 66–68 | aligned + KTL schedules at lower R (`gen_e7.py --ktl --R 68 --hint r22/e7k_r70_n16.json`, longer runs) | S (CP time) | −36..−72 static per k-step vs R 70 | −0.15..−0.3 on top of KTL | replay 0 stalls first; the A-port floor (1,304) bounds it |
+| 3 | SSM ssq2 + FSX | rev 13 | M | FSX −50 per unit | −0.18 | EW text 112 B free: text first (norm_rows_k 3,504 B of C++) |
+| 4 | S3 | the attention's exact test + rescale + −m store in asm (T + R −60 per flagged unit) | M | rev 10 | −0.05..−0.10 | K2's miss says chunk 0 is hidden; price S3 on flagged non-chunk-0 units only |
+| 5 | OPPRE-W → OPPRE-lag | probe, then out_proj part g after head group g + 2's K / V pushes | S | out_proj pace 6.7 µs per block | −0.04..−0.10 | OPPRE-W: H_CP +0.12..+0.20, H_SHIM ≤ +0.03 |
 | — | LATE-C | — | — | — | dead (hang) | round 21 LATEC |
 | — | RTC, NTAIL-PF, NTAIL-M | — | — | — | not proposed | DEAD_ENDS B14, C25 |
 
-**Ceiling, stacked (EXTRAPOLATED):** r21e3 ~31.3 → KTL −0.6 → **30.7** → S3 + K2 −0.35 → 30.35 → SSM −0.18 → 30.2 → R 66 −0.15 → 30.0 →
-3A −0.08, OPPRE-lag −0.07 → **~29.9**.
+**Ceiling, stacked:** r21k1 31.30 (MEASURED) → 3A −0.08 → 31.22 → KTL −0.6 → **30.6** → R 66–68 −0.2 → 30.4 → SSM −0.18 → 30.2 →
+S3 −0.07, OPPRE-lag −0.07 → **~30.1** (EXTRAPOLATED).
 
 - **Floors:**
-  - GEMM k-steps: in situ ~1,460 after KTL against the A-port floor of 1,304.
-  - Epilogues ~1.75 (CSUB grew them); attention ~5.5 after S3 / K2; the EW DDR read floor 6.6; boundaries ~0.8.
+  - GEMM k-steps: ~1,460 in situ after KTL against the A-port floor of 1,304.
+  - Epilogues ~1.6 ms; attention ~6.3; the EW DDR read floor 6.6; boundaries ~0.75 (tails 0.58 + paces ~0.17).
 - **Floor ≈ 27.5 ± 1 ms.** Stacked prices below 31 carry ±1 ms.
 
 ## KTL — what is built and how to drop it in (rank 1)
@@ -106,7 +114,7 @@ Revision 17, 2026-10-11, research pass 17, written during main's round 21 (which
 - Watch: B lock order inside the kernel (the replay models the DMA refilling a released buffer at once).
 - Not modelled: the in-situ cost of the in-kernel B acquire stall (today C++ waits there).
 
-## E7'' — status and recipe (rank 4: lower R)
+## E7'' — status and recipe (rank 2: lower R with KTL)
 
 - **Built and deployed (main, round 21):** R 68 from `gen_e7.py` (residue matching), via E7PATCH (X buffers at 0x70A00 / 0x70C40,
   Y 4,224 B, aexp_ab in bank 3, tbn / tba in bank 1, the B S2MM split with a hand-off lock).
@@ -154,6 +162,7 @@ Revision 17, 2026-10-11, research pass 17, written during main's round 21 (which
 | **OPPRE-W** | OPPRE's CP order, 64 B A parts | H_CP vs H_SHIM | H_CP +0.12..+0.20; H_SHIM ≤ +0.03 |
 | KTLP (optional) | one-core mm_e7k bench, DMA-fed A and B rings (r20/rotdb pattern), 3 k-steps | in-kernel B locks, lda.2d wrap on hardware | bit-exact; 76 + 3 × 1,260 + B waits |
 | ACQ0 | done by main | — | acquire by 0 REFUSED at CDO generation; hand-off lock used |
+| **CLKLOAD** (main's MACHINE question) | r7/clk.py (NPU clock) at 0 / 4 / 8 / 12 / 16 / 20 busy CPU threads, two kinds of load: vector-heavy (numpy matmul threads) vs scalar spin (`yes > /dev/null`), with hwmon package power where readable (no installs, no sudo) | SoC power budget (STAPM / PPT shared by CPU and NPU) vs a DPM policy | power budget: the NPU clock tracks package power, so the vector load drops it at fewer threads than the spin; DPM: the clock depends on thread count (or not at all), not on the load's power |
 
 ## Tools (rev 17, `r22/`)
 

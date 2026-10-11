@@ -76,6 +76,8 @@ class Cfg:
         self.delta = {**dict(L=0, N=-1, X=0, Y=0), **(delta or {})}
         self.yb = 72 * (self.ny + n1)  # bytes of the object in the Y buffer
         assert OBJ - self.yb == 72 * nx
+        # every stream segment must start 64 B aligned (main, round 22): lf1's L at Y + 72 ny, N at Y + 72 (ny + n1 - n1b)
+        assert (72 * self.ny) % 64 == 0 and (72 * (self.ny + n1 - n1b)) % 64 == 0, "segment bases must be 64 B aligned"
 
     def d(self):
         return dict(R=self.R, n1=self.n1, nx=self.nx, n1b=self.n1b, aligned=self.aligned, delta=self.delta, ktl=self.ktl)
@@ -460,7 +462,8 @@ def solve(cfg, time_limit=600.0, workers=12, emax=6, nb=4, margin=1, hard_banks=
                                   mem_bank_of(n, r, pl) == bank(caddr(r + dr, cb2, q2, pl)))
                         penal(T[n] - J(f"{kind}{q2}", cb2), dr * R, cnt)
     conf = sum(cost) if cost else 0
-    m.Minimize(100 * conf + pro + 10000 * sum(bank3x))
+    # one bank-3 excess unit = 1 stall per row block = 18 per call; one conf unit = 1 stall per call (main, round 22: 1,800 : 100)
+    m.Minimize(100 * conf + pro + int(os.environ.get("E7_W3", 1800)) * sum(bank3x))
     if hint:  # e.g. a relaxed model's solution (E7_DROP=soft,bank3): CP-SAT repairs it
         for n, v in hint.items():
             if n in T:
