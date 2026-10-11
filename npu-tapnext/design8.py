@@ -298,7 +298,9 @@ def step8(
     C_l1 = np.ndarray[(m * n,), np.dtype[bfloat16]]
     B_l2 = np.ndarray[(wb,), np.dtype[np.uint32]]
     C_l2 = np.ndarray[(ROWS_G * m * n,), np.dtype[bfloat16]]
-    slot_ty = np.ndarray[(ra,), np.dtype[np.uint32]]
+    a3 = os.environ.get("A3") == "1"  # round 22 (research 3A): a third half-slot region after the slot (chunks 24-35)
+    ra_buf = ra * 3 // 2 if a3 else ra  # slot buffer words (TAP shapes over it)
+    slot_ty = np.ndarray[(ra_buf,), np.dtype[np.uint32]]
 
     flags = [f"-I{INC}", f"-DDIM_M={m}", f"-DDIM_N={n}", f"-DDIM_K={k}", f"-DRHO={rho}", "-DBLKU=1", f"-DATTN_KEYS={attn_keys}",
              "-DATTN_SCALE=0.125f", "-Os"] + kdefs.replace(",", " ").split()
@@ -387,6 +389,9 @@ def step8(
                       Elo=Lock(tile=mems[c], init=12, name=f"AElo{c}"), Ehi=Lock(tile=mems[c], init=12, name=f"AEhi{c}"))
             if os.environ.get("IL") == "1":  # round 20 IL: half 1's loaded chunks get their own full lock (it may load first)
                 lk["Fhi"] = Lock(tile=mems[c], init=0, name=f"AFhi{c}")
+            if a3:  # round 22 3A: region 3's free / loaded chunks
+                lk["E3"] = Lock(tile=mems[c], init=12, name=f"AE3_{c}")
+                lk["F3"] = Lock(tile=mems[c], init=0, name=f"AF3_{c}")
             rt_locks.append(lk)
             rt_slots.append(slot)
             continue
@@ -786,16 +791,20 @@ def step8(
                 me_in, me_out = a_in[c].endpoint(mems[c]), a_out[c].endpoint(mems[c])
 
                 def chunk(h, acq, rel):
-                    return Bd(slot, tap=TensorAccessPattern((ra,), 12 * CH * h, [1, 1, 1, CH], [0, 0, 0, 1]), acquires=[Acquire(acq)],
+                    return Bd(slot, tap=TensorAccessPattern((ra_buf,), 12 * CH * h, [1, 1, 1, CH], [0, 0, 0, 1]), acquires=[Acquire(acq)],
                               releases=[Release(rel)], iteration=BdIteration(size=12, stride=CH))
 
-                E = [lk["Elo"], lk["Ehi"]]
-                F = [lk["F"], lk.get("Fhi", lk["F"])]
-                t = dict(ld=[me_in.task(chunk(h, E[h], F[h]), runs=12) for h in range(2)],
-                         t0=[me_out.task(chunk(h, F[h], lk["F2"]), runs=12) for h in range(2)],
-                         last=[me_out.task(chunk(h, lk["F2"], E[h]), runs=12) for h in range(2)],
+                E = [lk["Elo"], lk["Ehi"]] + ([lk["E3"]] if a3 else [])
+                F = [lk["F"], lk.get("Fhi", lk["F"])] + ([lk["F3"]] if a3 else [])
+                t = dict(ld=[me_in.task(chunk(h, E[h], F[h]), runs=12) for h in range(len(E))],
+                         t0=[me_out.task(chunk(h, F[h], lk["F2"]), runs=12) for h in range(len(E))],
+                         last=[me_out.task(chunk(h, lk["F2"], E[h]), runs=12) for h in range(len(E))],
                          mid={K_: me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 1, 1, (K_ // k) * CH], [0, 0, 0, 1])))
                               for K_ in (768, 1536)})
+                if a3:  # round 22 3A: a K=1536 op's middle tiles read k-steps 0-11 from half 0 and 12-23 from region 3
+                    assert (12 * CH) % 972 == 0
+                    t["mid"]["r3"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 0, [1, 2, 12 * CH // 972, 972],
+                                                                                   [0, 24 * CH, 972, 1])))
                 if p_flow:  # round 20 NRES: the norm's units arrive rb-major (rb, q); a 3D TAP puts unit (rb, q) at chunk q, row block rb
                     # (the usual chunk-major half 0: the op's sends and the last tile's chunk-wise release stay as they are; an rb-major
                     # half let the next op's chunk-0 load overwrite every chunk's first row blocks while the last tile still read them)
@@ -815,6 +824,8 @@ def step8(
                 if op.get("h1first"):  # round 20 IL: the fill sends chunks 12-23 first
                     assert os.environ.get("IL") == "1"  # (the per-half full locks)
                     hs = hs[::-1]
+                if op.get("r3"):  # round 22 3A: k-steps 12-23 into region 3 first (free since the last r3 op), then 0-11 into half 0
+                    hs = [2, 0]
                 for c in range(COLS):
                     for h in hs:
                         rt_tasks[c]["ld"][h].start()
@@ -829,6 +840,8 @@ def step8(
             nmid = tiles - (0 if op.get("reuse_a") else 1) - (0 if reused_next else 1)
             assert nmid >= 0, op["name"]
             hs = [1] if op["kind"] == "attn" and aqpre else list(range(K // 768))
+            if op.get("r3"):  # round 22 3A: k order = half 0, then region 3
+                hs = [0, 2]
             assert not (nmid and hs == [1])  # (the attention: two passes = t0 + last, no whole-slot mid send)
             for c in range(COLS):
                 t = rt_tasks[c]
@@ -836,7 +849,7 @@ def step8(
                     for h in hs:
                         t["t0"][h].start()
                 if nmid:
-                    t["mid"][K].start(repeat_count=nmid - 1)
+                    t["mid"]["r3" if op.get("r3") else K].start(repeat_count=nmid - 1)
                 if not reused_next:
                     for h in hs:
                         t["last"][h].start()
@@ -1156,7 +1169,7 @@ def main():
     Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT, rot_v=os.environ.get("ROT_V", "g2f"),
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
-                                                     il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1",
+                                                     il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1", a3=os.environ.get("A3") == "1",
                                                      nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1")))
 
 

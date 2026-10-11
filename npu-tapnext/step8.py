@@ -80,6 +80,7 @@ class Step8:
         plan8.XROT, plan8.XPH = int(bj.get("xrot", 0)), 0
         plan8.IL = bool(bj.get("il", False))  # round 20: mlp0 rr + split drain, mlp3_a half 1 first
         plan8.DAPRE = bool(bj.get("dapre", False))  # round 20: down_a half 1 first
+        plan8.A3 = bool(bj.get("a3", False))  # round 22 3A: down_b / mlp3_b fills split for region 3
         plan8.NRES = tuple(bj.get("nres", []))
         plan8.SRES = bool(bj.get("sres", False))  # round 20: norms whose panels go on chip to the next GEMM's A slot
         plan8.AL1 = bool(bj.get("al1", False))  # round 17: params fills padded to 1 KB (the per-head SSM stride: op["pstride"])
