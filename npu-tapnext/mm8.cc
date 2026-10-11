@@ -283,6 +283,12 @@ static const bfp16ebs8 *g_bnext = (const bfp16ebs8 *)KS_B0;
 #ifdef MSPLIT  // round 23 MSPLIT-P: the current C object's row blocks (18; a split op's row passes 6 = rb 0-5, 12 = rb 6-17) and the
 // count of the op's objects so far
 static int32_t g_trips = 18, g_ms = 0;
+#ifdef MM_E7K_NPER
+static int32_t g_kpass = 0;
+static const int32_t ktl_pv[3][5] = {{ktl_pval(0, 0), ktl_pval(0, 1), ktl_pval(0, 2), ktl_pval(0, 3), ktl_pval(0, 4)},
+                                     {ktl_pval(1, 0), ktl_pval(1, 1), ktl_pval(1, 2), ktl_pval(1, 3), ktl_pval(1, 4)},
+                                     {ktl_pval(2, 0), ktl_pval(2, 1), ktl_pval(2, 2), ktl_pval(2, 3), ktl_pval(2, 4)}};
+#endif
 #if !defined(E7) || !defined(CSUB) || !defined(ZLOAD)
 #error "MSPLIT: written for E7 (r23/mm_rot_e7r68t) + CSUB + ZLOAD"
 #endif
@@ -303,20 +309,41 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
 #ifdef MSPLIT  // round 23 MSPLIT-P: nks bits 8+ = the op's C object count (design8); its last two objects are the last tile's row passes
   const int32_t *rec = rot_rec.r;
   int32_t trips = 18;
+#ifdef MM_E7K_NPER  // (KTL: each pass has its own one-k-step table and first jump)
+  int32_t j0c = KTL_J0C;
+#endif
   if (nks > 255) {
     const int32_t nobj = nks >> 8, t = g_ms + 1;
     g_ms = t == nobj ? 0 : t;
     nks &= 255;
     if (t == nobj - 1) {
-      rec = rot_rec_a.r;
       trips = 6;
+#ifndef MM_E7K_NPER  // (KTL pass 1: the whole-tile head, j0c = KTL_J0C)
+      rec = rot_rec_a.r;
+#endif
     }
-    if (t == nobj) {  // the kernel jumps by row block 6's first record from piece(5, 1) + 1 KB into piece(6, 0)
-      rec = rot_rec.r + 30;
+    if (t == nobj) {
       trips = 12;
+#ifdef MM_E7K_NPER
+      rec = rot_rec.r + 36;
+      j0c = KTL_J0B;
+      pc = piece(c_out, 6, 0);
+#else  // the kernel jumps by row block 6's first record from piece(5, 1) + 1 KB into piece(6, 0)
+      rec = rot_rec.r + 30;
       pc = piece(c_out, 5, 1) + 256;
+#endif
     }
   }
+#ifdef MM_E7K_NPER  // the pass's five patched records (only when the pass kind changes)
+  {
+    const int32_t pass = trips == 18 ? 0 : trips / 6;
+    if (pass != g_kpass) {
+      g_kpass = pass;
+#pragma clang loop unroll(disable)
+      for (int k = 0; k < 5; k++) rot_rec.r[KTL_P[k]] = ktl_pv[pass][k];
+    }
+  }
+#endif
   g_trips = trips;
 #endif
 #ifdef TPROF
@@ -343,8 +370,13 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
   }
 #elif defined(MM_E7K_NPER)  // round 22 KTL: one call per tile; the kernel acquires B(1..nks - 1) and releases every B (research r22/gen_e7k.py)
   acquire_greater_equal((void *)b, 48 + KS_BCONS, 1);
+#ifdef MSPLIT  // round 23: the pass's table, row blocks per k-step and record period (lda.2d dn = 6 trips - 1, m = -4 dn)
+  mm_e7k(rec, (float *)((uintptr_t)pc - j0c), 781, trips * nks, (int32_t)(uintptr_t)b,
+         (int32_t)((uintptr_t)b == (uintptr_t)KS_B0 ? KS_X0 : KS_X1), 6 * trips - 1, 4 - 24 * trips);
+#else
   mm_e7k(rot_rec.r, (float *)((uintptr_t)pc - KTL_J0C), 781, 18 * nks, (int32_t)(uintptr_t)b,
          (int32_t)((uintptr_t)b == (uintptr_t)KS_B0 ? KS_X0 : KS_X1));
+#endif
 #else
 #pragma clang loop unroll(disable)
   for (int k = 0; k < nks; k++) {
