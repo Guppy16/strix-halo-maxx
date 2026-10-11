@@ -1,0 +1,1 @@
+{"status": "FEASIBLE", "R": 65, "n1": 32, "nx": 8, "n1b": 0, "aligned": false, "delta": {"L": 0, "N": -1, "X": 0, "Y": 0}, "ktl": false, "nb": 4, "emax": 6, "margin": 1, "wall": 1800.1527263990001, "hard_banks": false, "absolute": false, "F": 15, "E": -32, "prologue": 47, "bank_conflicts_model": 43, "bank3_excess": 2, "bound": 30.0, "objective": 7947.0, "places": []}
