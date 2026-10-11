@@ -31,7 +31,8 @@ def rot_order(build_json):
         return None
     import re
     v = json.load(open(build_json)).get("rot_v", "g2f")
-    h = (Path(__file__).resolve().parent / "r18" / f"mm_rot_{v}.h").read_text()
+    here = Path(__file__).resolve().parent
+    h = next(d / f"mm_rot_{v}.h" for d in (here / "r19", here / "r18") if (d / f"mm_rot_{v}.h").exists()).read_text()  # r19: g1a / g0a
     order = [int(v) for v in re.search(r"mm_rot_border\[64\] = \{([^}]*)\}", h).group(1).split(",")]
     assert sorted(order) == list(range(64)), order
     return order

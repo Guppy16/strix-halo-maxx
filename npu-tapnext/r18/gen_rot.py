@@ -19,8 +19,10 @@ quarters are stored and 16 loaded (459 cycles per k-step). ROT:
 Restart gap g (bundles per row block in which the B bank idles while the B stream restarts):
   g = 2  `mov r25, #0` with the pass's last pop, `mov p1, p5` next, the next fill 2 later: gen_ks's mechanism (deployed);
   g = 1  `padda [p1], m2` (m2 = -4608) instead of the mov, the fill 1 later: .td latency 1, UNVERIFIED (probe in PROPOSALS);
-  g = 0  the pass's last pop is `vldb.pop.576.2d .., [p1, lf1, r25, d2]` (m2 = -4544, dn2 = 0): the pointer wraps in the pop
-         itself, UNVERIFIED (probe).
+  g = 0  the pass's last pop is `vldb.pop.576.2d .., [p1, lf1, r25, d2]` (m2 = -4608, dn2 = 0): the pointer wraps in the pop
+         itself. Round 19 probe (r19/wrapb.py, one core): the 2D post-modify is ADDED to the 64 B line step (m2 = -4544, as
+         pre-registered, gave a wrong pass 2; -4608 is right); g = 1 (padda one bundle before the fill) right, padda in the
+         fill's own bundle wrong.
 
 solve(): one CP-SAT model: issue cycles of one job's 24 ops (copied to the 8 jobs of a row block at 9-cycle offsets) and of the
 row block's 21 control ops; slots and itinerary ports modulo R; the B stream's fixed fill / pop / gap pattern; .td latencies
@@ -423,7 +425,7 @@ def emit(times, info, name="mm_rot", full_pro=frozenset()):
     if g == 1:
         setup += ["movxm m2, #-4608"]
     if g == 0:
-        setup += ["movxm m2, #-4544", "mova dn2, #0", "mova dj2, #64", "mova dc2, #0"]
+        setup += ["movxm m2, #-4608", "mova dn2, #0", "mova dj2, #64", "mova dc2, #0"]
     lines += ["\t" + s for s in setup]
     lines += ["\t.p2align\t4", f".L{name}_pro:"]
     order = []
@@ -602,7 +604,7 @@ def check(text, info, pl=PLACE, pad=0, name="mm_rot", order=None, border=None, v
         step = 64
         if two_d:
             if rd(c, "dn2") == 0:
-                step = rd(c, "m2")
+                step = 64 + rd(c, "m2")  # round 19 probe: the 2D modifier adds to the line step
         wr(c, ptr, p + step, 1)
         wr(c, pos, "S", 1)
         return val, p

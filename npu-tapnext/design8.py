@@ -128,8 +128,9 @@ def asm_object(flags):
 
         v = os.environ.get("ROT_V", "g2f")  # round 18: g2a = re-solved with 6 bundles from acq.cond to the A fill (r18/gen_rot.py)
         rs = f"mm_rot_{v}_rel.s" if "-DMM_ROT_REL" in flags else f"mm_rot_{v}.s"
-        for src, dst in ((rs, "mm_rot.s"), (f"mm_rot_{v}.h", "mm_rot.h"), ("mm8_rot.inc", "mm_rot.inc")):
-            shutil.copy(HERE / "r18" / src, bd / dst)
+        rd = HERE / "r19" if (HERE / "r19" / rs).exists() else HERE / "r18"  # round 19: g1a / g0a (r19/build_rot.sh)
+        for src, dst in ((rd / rs, "mm_rot.s"), (rd / f"mm_rot_{v}.h", "mm_rot.h"), (HERE / "r18" / "mm8_rot.inc", "mm_rot.inc")):
+            shutil.copy(src, bd / dst)
         extra += [[f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "mm_rot.s"), "-o", str(bd / "mm_rot.o")]]
     steps = [gen,
              [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(so), "-o", str(so.with_suffix(".o"))]] + extra + [
