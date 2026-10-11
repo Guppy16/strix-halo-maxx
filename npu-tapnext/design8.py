@@ -773,6 +773,9 @@ def step8(
                 if p_flow:  # round 20 NRES: the norm's units arrive rb-major (rb, q); a 3D TAP puts unit (rb, q) at chunk q, row block rb
                     # (the usual chunk-major half 0: the op's sends and the last tile's chunk-wise release stay as they are; an rb-major
                     # half let the next op's chunk-0 load overwrite every chunk's first row blocks while the last tile still read them)
+                    t["ldz"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 1, 216, 144], [0, 0, 144, 1]),
+                                                                    acquires=[Acquire(lk["Elo"], value=12)], releases=[Release(lk["F"], value=12)]))
+                    # (SRES: the SSM's z panels arrive head-major = chunk-major already)
                     t["ldn"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 18, 12, 144], [0, 144, CH, 1]),
                                                                     acquires=[Acquire(lk["Elo"], value=12)], releases=[Release(lk["F"], value=12)]))
                 rt_tasks.append(t)
@@ -985,6 +988,9 @@ def step8(
                     else:
                         tg.finish()
                 else:  # patch / ssm: one drain per column, per-head fill pairs with a lookahead of 2
+                    if op.get("sres"):  # round 20 SRES: the memtile takes the z panels (S2MM 5)
+                        for c in range(COLS):
+                            rt_tasks[c]["ldz"].start()
                     tgd = G()
                     for c in range(COLS):
                         drain(e_out[c], op["c"][c], group=tgd, wait=True)
@@ -999,12 +1005,15 @@ def step8(
                             groups.pop(0).finish()
                     for tg in groups:
                         tg.finish()
-                    tgd.finish()
+                    if op.get("sres"):  # the GEMM after it issues its work before the SSM's drains are awaited
+                        push(op["name"], tgd)
+                    else:
+                        tgd.finish()
             else:
                 raise NotImplementedError(op["kind"])
         finish_all()
         for t in rt_tasks:
-            for task in (*t["ld"], *t["t0"], *t["last"], *t["mid"].values(), *[t[x] for x in ("ldn",) if x in t]):
+            for task in (*t["ld"], *t["t0"], *t["last"], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz") if x in t]):
                 task.free()
         print(f"[design8] shim BD peak {bd_peak[0]} at {bd_peak[1]} (limit 16)")
 
@@ -1096,7 +1105,7 @@ def main():
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
                                                      il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1",
-                                                     nres=[x for x in os.environ.get("NRES", "").split(",") if x])))
+                                                     nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1")))
 
 
 if __name__ == "__main__":

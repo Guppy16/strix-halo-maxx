@@ -80,7 +80,8 @@ class Step8:
         plan8.XROT, plan8.XPH = int(bj.get("xrot", 0)), 0
         plan8.IL = bool(bj.get("il", False))  # round 20: mlp0 rr + split drain, mlp3_a half 1 first
         plan8.DAPRE = bool(bj.get("dapre", False))  # round 20: down_a half 1 first
-        plan8.NRES = tuple(bj.get("nres", []))  # round 20: norms whose panels go on chip to the next GEMM's A slot
+        plan8.NRES = tuple(bj.get("nres", []))
+        plan8.SRES = bool(bj.get("sres", False))  # round 20: norms whose panels go on chip to the next GEMM's A slot
         plan8.AL1 = bool(bj.get("al1", False))  # round 17: params fills padded to 1 KB (the per-head SSM stride: op["pstride"])
         self.nph, self.phase = max(plan8.XROT, 1), 0
         self.p_all, self.info_all = full_step(MAX_DEPTH)  # every block: the weights are packed once for all depths
@@ -205,6 +206,8 @@ class Step8:
                 for q in range(12):
                     sl = slice(q * 64, q * 64 + 64)
                     prm = P.ssm_params(q, cw[:, sl], cb[sl], ap[sl], wx[q], bx[sl], wa[q], ba[sl], 1)
+                    if op.get("sres"):  # round 20 SRES: the z panels to the EW core's panel ring
+                        prm[3] |= 8
                     ps = op.get("pstride", SSM_PARAM_BYTES)
                     put_w(op["params_w"] + q * ps, prm)
                     for r in range(4 if op.get("params_rot") is not None else 0):

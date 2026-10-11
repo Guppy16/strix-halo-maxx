@@ -48,7 +48,8 @@ IL = os.environ.get("IL") == "1"
 DAPRE = os.environ.get("DAPRE") == "1"
 # round 20 (research rev 16 NRES): the named norms (e.g. "norm1,norm3") send their panels from the EW core's MM2S 1 straight into
 # memtile c's A slot half 0 (rb-major: unit (rb, q) at rb 6,912 + q 576); only X' goes to DDR; the GEMM after the norm loads no A
-NRES = tuple(x for x in os.environ.get("NRES", "").split(",") if x)  # round 20 (research rev 15 R4 / DAPRE): down_a's A half 1 first too (it loads during up_b)
+NRES = tuple(x for x in os.environ.get("NRES", "").split(",") if x)
+SRES = os.environ.get("SRES") == "1"  # round 20: the SSM's z panels (out's A) the same way (units arrive head-major: contiguous)  # round 20 (research rev 15 R4 / DAPRE): down_a's A half 1 first too (it loads during up_b)
 # round 15 (research rev 10 P60g): P60G=1 deals the attention's query half tiles (3 row blocks, 1,728 B per head) across the
 # columns in the two GATHERS only (the attention Q fill and out_proj's A fill; drains, K / V, cores, host unchanged), so the
 # lazy-max slow rows (clustered in the lower image) spread over the columns that the K / V multicast keeps in lockstep.
@@ -236,7 +237,7 @@ class Plan:
             if prev.get("nres"):
                 op["nres"] = True  # (the slot holds the NRES layout: this op's sends read it too)
         if nres:  # round 20 NRES: the A arrives from the norm on chip (no fill, no load); the previous op must be that norm
-            assert K == 768 and A_HALF and self.ops[-1]["kind"] == "ew" and self.ops[-1].get("nres") and self.ops[-1]["dst"] is src, name
+            assert K == 768 and A_HALF and self.ops[-1]["kind"] == "ew" and (self.ops[-1].get("nres") or self.ops[-1].get("sres")) and self.ops[-1]["dst"] is src, name
             op["a"] = [[] for _ in range(COLS)]
             op["nres"] = True
         self.ops.append(op)
@@ -305,7 +306,7 @@ class Plan:
             self.ops[-1]["nres"] = True
         return dst
 
-    def ssm(self, name, area, params_w, params_rot=None):
+    def ssm(self, name, area, params_w, params_rot=None, sres=False):
         """The recurrent block's elementwise part on the row-3 cores, head (k-step) major: per head one params fill
         (SSM_PARAM_BYTES) and one chunk fill of the 7 input streams, one drain for the 6 output streams (round 17 XROT: 3
         streams, h and z, in the rotating phases, with the params copy whose header says so)."""
@@ -318,6 +319,9 @@ class Plan:
         drains = [self.tap("act", area["out"] + c * col, [12, RB, 3 if rot else 6, XB], [KSTEP16, UNIT, S, 1]) for c in range(COLS)]
         self.ops.append(dict(kind="ew", fn="ssm", name=name, fills=fills, c=drains, dst=area["z"], area=area, params_w=params_w,
                              params_rot=params_rot, pstride=ps))
+        if sres:
+            assert rot, "SRES: the XROT layout (3 KB per chunk)"
+            self.ops[-1]["sres"] = True
         return area["z"]
 
     def patch(self, name, frame, params_w, dst=None):
@@ -333,7 +337,7 @@ class Plan:
 
     # ---- serialisation for the design (compile-time) -------------------------------------------------------------
     def sched_json(self):
-        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres")
+        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres", "sres")
         return json.dumps([{k: op[k] for k in keep if k in op} for op in self.ops])
 
 
@@ -389,8 +393,8 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
         if XROT:  # round 17: the four phases' params (header word 2 = 1 + phase)
             wb["ssm_rot"] = p.alloc_w(4 * 12 * kb_pad(SSM_PARAM_BYTES))
         if "ssm" not in skip:
-            p.ssm(f"b{b}_ssm", areas[b], wb["ssm"], wb.get("ssm_rot"))
-        p.gemm(f"b{b}_out", areas[b]["z"], 768, 4, dst=r["R1"])
+            p.ssm(f"b{b}_ssm", areas[b], wb["ssm"], wb.get("ssm_rot"), sres=SRES)
+        p.gemm(f"b{b}_out", areas[b]["z"], 768, 4, dst=r["R1"], nres=SRES and "ssm" not in skip)
         wb["norm1"] = p.alloc_w(kb_pad(3 * SLOT))
         p.norm(f"b{b}_norm1", "rms", [r["R1"], r["R0"]], wb["norm1"], dst=r["R2"], nres="norm1" in NRES)
         p.gemm(f"b{b}_up_a", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=0), nres="norm1" in NRES)

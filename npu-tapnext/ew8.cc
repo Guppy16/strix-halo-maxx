@@ -1129,8 +1129,11 @@ static __attribute__((noinline, minsize)) void ssm_tables() {  // once per head
   bias_tab(g_sv + 512, g_tba);
 }
 
-void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
+void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
   aie::set_rounding(aie::rounding_mode::conv_even);
+#ifdef NRES
+  int pslot = 0;  // round 20 SRES: pring != null: the z panels (out's A) go to the panel ring (216 chunks per op: even)
+#endif
   const nk8::ExpC kc;
   const B32 ones = aie::broadcast<bfloat16, 32>(1.0f);
 #if defined(PROF) || defined(NPROF)
@@ -1336,6 +1339,14 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring) {
 #endif
 #ifdef ZK
         static_assert(o_z % 64 == 0);
+#ifdef NRES
+        if (pring) {  // (the ring's z part then drains stale bytes nobody reads)
+          lacq(pring, L_P_FREE, 1);
+          zk(g_hb, P[0], (bfp16ebs8 *)(pring + pslot * PANB));
+          lrel(pring, L_P_FILL, 1);
+          pslot ^= 1;
+        } else
+#endif
         zk(g_hb, P[0], (bfp16ebs8 *)out_at(out_ring, o_z));
 #else
         OutS zs((bfp16ebs8 *)out_at(out_ring, o_z));
@@ -1412,16 +1423,21 @@ void ew_op(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
   const int kind = *(const int32_t *)in_at(in_ring, 12);
 #ifdef EW_NO_NORM  // profiling builds of SSM-only tests (t3): the norm code out of program memory
   (void)kind;
+#ifdef NRES
+  ew_ssm(in_ring, out_ring, nullptr);
+#else
   ew_ssm(in_ring, out_ring);
+#endif
+#elif defined(NRES)  // round 20: + 8 = the panels to the MM2S 1 ring (NRES norms, SRES ssm)
+  if ((kind & 7) == 4)
+    ew_ssm(in_ring, out_ring, kind & 8 ? pring : nullptr);
+  else
+    ew_norm(in_ring, out_ring, kind, pring);
 #else
   if (kind == 4)
     ew_ssm(in_ring, out_ring);
   else
-#ifdef NRES
-    ew_norm(in_ring, out_ring, kind, pring);
-#else
     ew_norm(in_ring, out_ring, kind);
-#endif
 #endif
 }
 }
