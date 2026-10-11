@@ -239,10 +239,14 @@ def build(II=None, times=None, cp=None, max_ii=40):
             print(f"II {ii}: {e}", file=sys.stderr)
             import re
             m = re.search(r"cycle \d+ (\w+) it \d+: port \S+ at \d+ taken by (\w+) it", str(e))
+            bad = m.group(2) if m else None
+            if not m:  # round 22: a pad-replay register read too (forbid the reader's time)
+                m = re.search(r"cycle \d+ (\w+) it \d+ reads", str(e))
+                bad = m.group(1) if m else None
             if m and FORBID_TRIES[0] > 0:  # round 17: forbid the colliding op's time and re-solve at the same II
                 FORBID_TRIES[0] -= 1
                 cp = dict(cp or {})
-                cp["forbid"] = list(cp.get("forbid", [])) + [(m.group(2), res[0][m.group(2)])]
+                cp["forbid"] = list(cp.get("forbid", [])) + [(bad, res[0][bad])]
                 cp["hint"] = res[0]
                 print(f"II {ii}: forbid {cp['forbid'][-1]}, re-solve", file=sys.stderr)
                 return build(ii, None, cp, max_ii)
