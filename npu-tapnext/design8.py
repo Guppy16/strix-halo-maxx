@@ -1041,7 +1041,9 @@ def step8(
                         for c in range(COLS):
                             fill(e_in[c], op["fills"][c][0], group=tg, wait=False)
                             drain(e_out[c], op["c"][c], group=tg, wait=True)
-                        finish_all()
+                        ntwin = [x for x in os.environ.get("NTWIN", "").split(",") if x]  # round 22 timing twin (research NTWIN, outputs wrong):
+                        if op["name"].split("_", 1)[-1] not in ntwin:  # these norms do not wait for their producer's drains
+                            finish_all()
                         for c in range(COLS):
                             fill(e_in[c], op["fills"][c][1], group=tg, wait=False)
                     for c in range(COLS) if not nseq else ():
