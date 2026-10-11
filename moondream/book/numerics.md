@@ -92,12 +92,11 @@ The conversions also depend on the core's rounding mode, which defaults to floor
 
 - [F4](../../common/book/negative-results.md#f4) <!-- nr: F4 --> bf16 C between 64-K chunks (the stock mlir-aie design): -1.4 points. Lesson: fp32 accumulator over the whole K.
 - [F5](../../common/book/negative-results.md#f5) <!-- nr: F5 --> Hadamard rotation along K: 96.1 % against 96.6 %.
-- [F6](../../common/book/negative-results.md#f6) <!-- nr: F6 --> int8: 89.2 % in the vision tower and no MAC-rate gain on the NPU.
-- Not yet in the index (see the hand-back):
-  - **GELU in the tanh form** in bf16 (up to 2.2 margin shift, 10 flips).
-  - **A plain bf16 exp and reciprocal in the GELU**: 38.8 % one-ulp flips against 0.998 % for the split-operand form.
-  - **The folded projection (its two K halves summed) and the fused residual epilogue on the GPU** (98.4 % and 98.8 % agreement): bf16 rounding of a changed order moves decisions.
-  - **fp16 on the GPU**: 96.1 %.
+- [N23](../../common/book/negative-results.md#n23) <!-- nr: N23 --> int8 in the vision tower (GPU path): 89.2 %. [F6](../../common/book/negative-results.md#f6) <!-- nr: F6 --> is the NPU side: the dense int8 mmul runs at the bfp16 rate, so int8 buys no MACs.
+- [N18](../../common/book/negative-results.md#n18) <!-- nr: N18 --> GELU in the tanh form in bf16 (up to 2.2 margin shift, 10 flips).
+- [N19](../../common/book/negative-results.md#n19) <!-- nr: N19 --> A plain bf16 exp and reciprocal in the GELU: 38.8 % one-ulp flips against 0.998 % for the split-operand form.
+- [N27](../../common/book/negative-results.md#n27) <!-- nr: N27 --> The folded projection (its two K halves summed) and the fused residual epilogue on the GPU (98.4 % and 98.8 % agreement): bf16 rounding of a changed order moves decisions.
+- [N22](../../common/book/negative-results.md#n22) <!-- nr: N22 --> fp16 on the GPU: 96.1 %.
 
 ## Lessons
 

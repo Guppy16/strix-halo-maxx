@@ -67,13 +67,12 @@ fully unrolled with 2 / 4 / 8 vectors (70 / 122 / 302 spills). Peano issues abou
 - [B12](../../common/book/negative-results.md#b12) <!-- nr: B12 --> staged GELU chains for Peano: no gain, allocation-bound. Lesson: the asm route, or fewer ops.
 - [F7](../../common/book/negative-results.md#f7) <!-- nr: F7 --> hardware exp2, tanh and reciprocal for the GELU and softmax: too coarse.
 - [F8](../../common/book/negative-results.md#f8) <!-- nr: F8 --> the 8-lane bf16 max (also hit in phase 8 attention).
-- Not yet in the index (see the hand-back):
-  - **fp32 elementwise on AIE2P**: emulated, 120 ms per frame for GELU alone, 13.5 ms for LN. A hardware fact (fundamental).
-  - **GELU in the tanh form in bf16**: cancellation, 1.4-2.1e-2 per call; the same function in the sigmoid form is 5-10x better.
-  - **A plain bf16 Horner exp and Newton reciprocal**: 38.8 % one-ulp flips, rms 3.8e-3; the split-operand version is needed.
-  - **Residual add in the GEMM epilogue**: no third input stream; not built.
-  - **Fusing GELU into the block loop** (program memory) and 64-lane fp32 temporaries (5.5 KB of stack): did not link or spilled.
-  - **The GELU hand schedule** is open (unfinished): the bound is ~114 bundles, the compiler gets 492.
+- [N17](../../common/book/negative-results.md#n17) <!-- nr: N17 --> fp32 elementwise on AIE2P: emulated, 120 ms per frame for GELU alone, 13.5 ms for LN. A hardware fact.
+- [N18](../../common/book/negative-results.md#n18) <!-- nr: N18 --> GELU in the tanh form in bf16: cancellation, 1.4-2.1e-2 per call; the same function in the sigmoid form is 5-10x better.
+- [N19](../../common/book/negative-results.md#n19) <!-- nr: N19 --> A plain bf16 Horner exp and Newton reciprocal: 38.8 % one-ulp flips, rms 3.8e-3; the split-operand version is needed.
+- [N6](../../common/book/negative-results.md#n6) <!-- nr: N6 --> A residual add in the GEMM epilogue: no third input stream; not built.
+- [N20](../../common/book/negative-results.md#n20) <!-- nr: N20 --> Fusing GELU into the block loop (program memory) and 64-lane fp32 temporaries (5.5 KB of stack): did not link or spilled.
+- [N21](../../common/book/negative-results.md#n21) <!-- nr: N21 --> The GELU hand schedule is open: the bound is ~114 bundles, the compiler gets 492.
 
 ## Lessons
 

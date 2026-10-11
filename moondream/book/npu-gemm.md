@@ -34,8 +34,8 @@ caps are in [data-movement](../../common/book/data-movement.md#the-ddr-caps) ([C
 
 Hypothesis: keep each column's A tile in the memtile and re-send it per N tile; qkv traffic drops 18.8 -> 10.8 MB.
 - **design2** drove the memtile with per-op runtime tasks. First run: ERT timeout and an amdxdna TDR. The lowered MLIR looked right
-  (no channel or lock clash); the suspect is the runtime memtile-task path itself, which nothing in the mlir-aie examples uses. It was never
-  debugged (MD NOTES phase 2a-2b).
+  (no channel or lock clash); the suspects are the memtile tasks' lock credits, the core's ping-pong order and the channel assignment of runtime tasks
+  (nothing in the mlir-aie examples uses that path). It was never debugged (MD NOTES phase 2a-2b, [N1](../../common/book/negative-results.md#n1) <!-- nr: N1 -->).
 - **design3** replaced it with a static chain: two 124 KB slots per memtile, the memtile MM2S chain is always [slot0, slot1] and loops,
   and "repeat for this op" is a lock value on the load BD. Nothing can wait for data that never comes. First dispatch was correct and bit-exact.
   The verification step that mattered: reading the lowered MLIR for lock values before the first run.
@@ -116,14 +116,14 @@ the topology does not suit ([numerics](numerics.md#int8) for the arithmetic).
   needs conveyor-intent assertions, and any hand loop must be bit-compared. TAPNext's later generators made hand scheduling pay.
 - [C12](../../common/book/negative-results.md#c12) <!-- nr: C12 --> The "~55-60 GB/s" DDR ceiling from the early probes; superseded by the aggregate caps.
 - [H1](../../common/book/negative-results.md#h1) <!-- nr: H1 --> The 1.4 GHz clock from the spin probe and the "% of peak" figures built on it.
-- Not yet in the index (see the hand-back):
-  - **design2, runtime memtile tasks**: ERT timeout, TDR, cause never found; replaced, not fixed.
-  - **A whole-block static chain with fc2's streamed A**: 24 BDs per channel half; solved only by design6's merged buffer, at +6.7 ms for fc2.
-  - **Port and depth tuning**: A ring 6, B depths 3 and 4, C over 16 streams, no handshakes: all <= 2 % on qkv.
-  - **Sharing operands between neighbours**: an AIE2 core reads only its own, north, south and west L1, so a 2x2 quad cannot halve both ports. The K-split pair that can is parked (the kernel,
-    not the ports, was the limit).
-  - **Text model on the NPU** (180 ms pooled), and a residual add in the GEMM epilogue (a third input stream is not available).
-  - **Turbo as a free multiplier**: the plan said "scales every compute number"; it moved the clock ~3 %.
+- [N1](../../common/book/negative-results.md#n1) <!-- nr: N1 --> design2's runtime memtile tasks: ERT timeout and a TDR, cause never found; replaced, not fixed. Lesson: static repeats, and read the lowered MLIR.
+- [N2](../../common/book/negative-results.md#n2) <!-- nr: N2 --> A whole-block static chain with fc2's streamed A: 24 BDs per channel half ("Allocator exhausted available BD IDs"); solved only by design6's merged buffer, at +6.7 ms for fc2.
+- [N3](../../common/book/negative-results.md#n3) <!-- nr: N3 --> Port and depth tuning (A ring 6, B depths 3 and 4, C over 16 streams, no handshakes): each <= 2 % on qkv; a second B stream per row is impossible (two input channels).
+- [N4](../../common/book/negative-results.md#n4) <!-- nr: N4 --> Sharing operands in a 2x2 quad: an AIE2 core reads only its own, north, south and west L1, so the quad cannot halve both ports. The K-split pair that can is parked (the kernel,
+  not the ports, was the limit).
+- [N5](../../common/book/negative-results.md#n5) <!-- nr: N5 --> The text model on the NPU: 180 ms pooled against 25-48 ms on the GPU.
+- [N6](../../common/book/negative-results.md#n6) <!-- nr: N6 --> A residual add in the GEMM epilogue: a third input stream is not available.
+- [N7](../../common/book/negative-results.md#n7) <!-- nr: N7 --> Turbo as a free multiplier: the plan said "scales every compute number"; it moved the clock ~3 %.
 
 ## Lessons
 

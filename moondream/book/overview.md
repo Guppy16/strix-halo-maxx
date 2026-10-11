@@ -102,11 +102,11 @@ that no single item delivers (phase 12 prices the reachable GEMM traffic cut at 
   pays. The 1.4 GHz clock behind the "% of peak" figures was a lower bound, not the clock ([H1](../../common/book/negative-results.md#h1) <!-- nr: H1 -->;
   [machine](../../common/book/machine.md#array-and-clock)). Bundles per MAC are clock-free and stay valid.
 - **The text model on the NPU**: 180 ms pooled (MEASURED, one dispatch of 24 layers) against ~25-48 ms on the GPU. A port-topology
-  limit, not a tuning gap ([F6](../../common/book/negative-results.md#f6) <!-- nr: F6 -->).
+  limit, not a tuning gap ([N5](../../common/book/negative-results.md#n5) <!-- nr: N5 -->).
 - **Pricing from structure**: attention was priced at ~27 ms per frame (phase 7) and measured 102 ms (phase 8). The fp32 elementwise
-  estimate (120 ms GELU) was the first to turn the plan around. See [method](../../common/book/method.md) for the general pattern.
+  estimate (120 ms GELU) was the first to turn the plan around ([N11](../../common/book/negative-results.md#n11) <!-- nr: N11 -->, [N17](../../common/book/negative-results.md#n17) <!-- nr: N17 -->). See [method](../../common/book/method.md) for the general pattern.
 - **Calling the asm route closed** after one failed inline-asm attempt (phase 5); phase 10 built it from `clang -S` output
-  ([A23](../../common/book/negative-results.md#a23) <!-- nr: A23 -->, [npu-attention](npu-attention.md#what-didnt-work)).
+  ([N16](../../common/book/negative-results.md#n16) <!-- nr: N16 -->, [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 -->, [npu-attention](npu-attention.md#what-didnt-work)).
 - Per-chapter failures are in [npu-gemm](npu-gemm.md#what-didnt-work), [npu-attention](npu-attention.md#what-didnt-work),
   [npu-elementwise](npu-elementwise.md#what-didnt-work), [numerics](numerics.md#what-didnt-work), [gpu](gpu.md#what-didnt-work) and
   [moondream3](moondream3.md#what-didnt-work).

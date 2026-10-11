@@ -1,6 +1,6 @@
 # Negative results (was DEAD_ENDS.md)
 
-Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo, XDNA2 / AIE2P), 187 entries. **Check here before trying an idea.** Each entry says what the idea was, the measured number, why it failed and what the lesson was, and is classified by HOW SURE we are that it is dead. An `unfinished` entry is an invitation, not a stop sign.
+Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo, XDNA2 / AIE2P), 223 entries. **Check here before trying an idea.** Each entry says what the idea was, the measured number, why it failed and what the lesson was, and is classified by HOW SURE we are that it is dead. An `unfinished` entry is an invitation, not a stop sign.
 
 ## The five classes
 
@@ -10,11 +10,11 @@ Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo
 - **revived**: once called dead, later made to work. The entry says what changed. Do not cite these as dead.
 - **method**: a mistake in method (a wrong model of a bound, a stale header, a mis-averaged window). The idea itself may be fine; the lesson is about how to measure.
 
-Counts (187): fundamental 17 | measured-here 87 | unfinished 16 | revived 13 | method 54.
+Counts (223): fundamental 20 | measured-here 108 | unfinished 18 | revived 15 | method 62.
 
 How to read the index: the `why` column names the limit, the measurement, or what is missing. Anchors are lowercase ids (`#a28`). The `project` column is where the evidence came from: `tapnext`, `moondream`, or `general` (toolchain and method lessons that apply to any AIE2P project). Classes are judgements from the entry text and the sources; where the evidence only supports "unfinished" it is not upgraded to "fundamental". Capacity arguments are called `fundamental` only when the shortfall follows from a hardware number and the model dimensions, and `measured-here` when a different tile shape or layout could change it.
 
-Last updated 2026-10-11 (research pass 21; 187 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
+Last updated 2026-10-11 (research pass 21; 223 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
 Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show bbff6a1:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Rx.y = `common/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
@@ -211,6 +211,42 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [M1](#m1) | NEAR-CAP-AS-CAP | tapnext | method | Near the cap priced as capped; SSMCUT shows compute-bound | [method](method.md#how-mispredictions-happened) |
 | [M2](#m2) | SSM-TWIN-H_C | tapnext | measured-here | Chunk 2,034 with 529 cycles of input waits: cuts beyond ~255 need fewer input bytes | |
 | [M3](#m3) | CLKLOAD-DRAM / WIDTH | general | measured-here | NPU clock drop tracks floating-point threads at ~100 W, not DRAM traffic or AVX width | [measurement](measurement.md#clock-and-cpu-load) |
+| [N1](#n1) | MD-DESIGN2-RT | moondream | unfinished | Runtime memtile tasks (design2) hit an ERT timeout and a TDR; cause never found, the static chain replaced it | |
+| [N2](#n2) | MD-BD-EXHAUST | moondream | revived | The whole-block static chain ran out of memtile BD ids; design6's merged A buffer fits it in 17 BDs (40.4 → 33.8 ms) | |
+| [N3](#n3) | MD-PORT-TUNE | moondream | measured-here | Port and depth tuning moved qkv by 2 % or less, and a second B stream per row is impossible | |
+| [N4](#n4) | MD-NEIGHBOUR-QUAD | moondream | fundamental | AIE2 core memory affinity (own, north, south, west L1 only): a 2x2 quad cannot halve both operand ports | |
+| [N5](#n5) | MD-TEXT-NPU | moondream | measured-here | Text-model GEMMs on the NPU: 180 ms pooled (368 exact) against 25-48 ms on the GPU | |
+| [N6](#n6) | MD-RESID-EPILOGUE | moondream | fundamental | A residual add in the GEMM epilogue needs a third input stream (a core has two) or 166 KB per column in the memtile | |
+| [N7](#n7) | MD-TURBO-SCALE | moondream | method | Plan assumed Turbo "scales every compute number"; it moved the core clock by ~3 % | |
+| [N8](#n8) | MD-FLOOR-ROUND | moondream | method | Floor rounding was the default in attention v2-v7: every number before v7r was taken in the wrong mode | |
+| [N9](#n9) | MD-BV-ALIGN | moondream | measured-here | A block-vector stream seek or start off a 64 B boundary gives NaN; panel groups are padded to 64 B | |
+| [N10](#n10) | MD-ACQ2-NOPREFETCH | moondream | measured-here | A forwarded L1 fifo gets at most 3 free slots, so a paired acquire(2) leaves no prefetch; depth 6 lowers to 3 as well | |
+| [N11](#n11) | MD-PRICE-STRUCTURE | moondream | method | Attention priced at ~27 ms per frame from bundle counts, measured 102 ms (3.8x) | |
+| [N12](#n12) | MD-SCORES-HANDSCHED | moondream | measured-here | A hand-scheduled score block (162 bundles, bit-exact) matched Peano and changed nothing: 0.672 vs 0.671 ms | |
+| [N13](#n13) | MD-BYTE-EVENT | moondream | measured-here | Injecting the standalone `event` encoding as .byte into a bundle stream hung the core (twice) | |
+| [N14](#n14) | MD-TRACE-8COL | moondream | measured-here | The trace unit cannot be routed beside 8 broadcast columns; trace a one-column build | |
+| [N15](#n15) | MD-REDUCE-TRAPS | moondream | measured-here | First vectorised reductions: wrong shuffle lane mapping, no fp32 64-lane transpose, scalar fp32 divide in software | |
+| [N16](#n16) | MD-ASM-CLOSED | moondream | method | "Asm route closed with this toolchain" (phase 5) was overturned in phase 10: clang -S output reassembles byte-identically | |
+| [N17](#n17) | MD-FP32-EMULATION | moondream | fundamental | AIE2P has no native fp32 vector arithmetic: fp32 GELU in the fc1 epilogue costs 5.1 vs 0.56 ms (~120 ms per frame) | |
+| [N18](#n18) | MD-GELU-TANH | moondream | measured-here | bf16 tanh-form GELU 1 - 2/(exp(2u)+1) cancels (1.4-2.1e-2 per call); the sigmoid form is 5-10x better | |
+| [N19](#n19) | MD-GELU-BF16EXP | moondream | measured-here | A plain bf16 Horner exp and Newton reciprocal in the GELU: 38.8 % one-ulp flips (rms 3.8e-3) against 0.998 % for the split-operand form | |
+| [N20](#n20) | MD-GELU-TEXT | moondream | measured-here | GELU inlined into the 12x12 block loop overflows the 16 KB program memory; 64-lane fp32 temporaries spilled 5.5 KB of stack | |
+| [N21](#n21) | MD-GELU-HANDSCHED | moondream | unfinished | GELU hand schedule never started: slot bound ~114 bundles per 64 elements, Peano emits 492 | |
+| [N22](#n22) | GPU-FP16 | moondream | measured-here | fp16 rocBLAS kernels are faster (203 vs 248 ms) but accuracy drifts to 96.1 % (19 tv false positives vs 11) | |
+| [N23](#n23) | GPU-INT8-VISION | moondream | measured-here | Per-token int8 on the vision tower: 113 ms but 89.2 % (53 tv false positives); SigLIP activations do not survive it | |
+| [N24](#n24) | GPU-INT8-NOT-2X | moondream | method | Assumed int8 WMMA is 2x bf16; the register-only probe gave 57 TOPS vs 55 TFLOPS on gfx1151 | |
+| [N25](#n25) | GPU-HIPBLASLT-I8 | moondream | measured-here | hipBLASLt int8 on gfx1151: 6-8 Tensile kernels, 33-41 TOPS, no per-row/column scaling (a separate dequant pass) | |
+| [N26](#n26) | GPU-LIBS | moondream | measured-here | TunableOp deadlocks with HIP graph capture (eager 198 ms), torch.compile gives nothing, _int_mm runs at bf16 speed, fp8 _scaled_mm is unsupported | |
+| [N27](#n27) | GPU-FUSE-DRIFT | moondream | measured-here | A fused residual epilogue was slower and drifted (98.8 vs 99.4 % agreement); folding the projection's K halves moved decisions (98.4 %) | |
+| [N28](#n28) | GPU-HIP-TILES | moondream | measured-here | Other HIP tile shapes, BK = 32, prefetch distance 2, s_setprio and 16-wave work-groups were all worse than 128x128x128 | |
+| [N29](#n29) | GPU-WMMA-ATTENTION | moondream | measured-here | WMMA flash-attention prefill: 7-9 % faster per call, -0.5 ms in situ (noise); the 32-rows-per-wave variant spills 217 registers | |
+| [N30](#n30) | GPU-HOT-MICROBENCH | moondream | method | Hot-cache microbenchmarks hid a 2x in-situ slowdown; weights are 1.2 GB per frame against a 32 MB MALL | |
+| [N31](#n31) | GPU-NK-ALIASING | moondream | revived | The natural (N,K) weight layout aliased DRAM channels; the tiled layout fixed it (text 58.1 → 48.4 ms, vision 23.6 → 20.7) | |
+| [N32](#n32) | GPU-POOL12 | moondream | measured-here | Image-token pooling to 12x12 or below fails the sanity gate (the reference mug frame answers no) | |
+| [N33](#n33) | GPU-AUTOTUNE-FLIP | moondream | method | Triton's autotuner picked different tiles per process; the changed fp32 accumulation order flipped borderline frames (97.0-98.0 %) | |
+| [N34](#n34) | MD3-GROUNDING | moondream | measured-here | moondream3-preview for grounding: no accuracy gain (44/5 vs 44/4), 2.7x slower (1,290 vs 464 ms), 4.5x the GPU memory (19 vs 4.4 GB) | |
+| [N35](#n35) | MD05-GATE | moondream | measured-here | moondream 0.5B as the yes/no gate: 38.5 % against 98.0 %; yes-acquiescence on plausible objects | |
+| [N36](#n36) | MD3-NOOP-COMPILE | moondream | method | A no-op `nn.Module.compile` gave a 2.2 s detect; the real `model.model.compile()` gained only ~7 % | |
 
 
 ## A. GEMM k-step and L1
@@ -321,7 +357,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 **Class:** method — Premise "the 67-cycle gap is code" wrong: the gap is mostly waits (-0.10 vs -0.44 priced).
 
 <a id="a22"></a>
-**A22 — MD-KLOOP: Peano k-loop variants (moondream)** [MEAS]. Inner block loop 68–70 bundles per 32 MACs: pipeline(disable) + min count 68, II hint 40 ignored (70), unroll 2 (140 per 2 blocks), full unroll spills (worse) — "DISCARD all". rho (A sub-tiles per k-step) 2: 2x slower (unexplained; bank conflicts?). fp32 C prefetch of the next block needs 6 dm registers (AIE2P has dm0–dm4): spills, -DNO_PREFETCH better (MD NOTES lines 80–88). Lesson: these limits carried over to TAPNext (A6).
+**A22 — MD-KLOOP: Peano k-loop variants (moondream)** [MEAS]. Inner block loop 68–70 bundles per 32 MACs: pipeline(disable) + min count 68, II hint 40 ignored (70), unroll 2 (140 per 2 blocks), full unroll spills (worse) — "DISCARD all". rho (A sub-tiles per k-step) 2: 2x slower (unexplained; bank conflicts?). fp32 C prefetch of the next block needs 6 dm registers (AIE2P has dm0–dm4): spills, -DNO_PREFETCH better (MD NOTES lines 80–88). Phase 2c's K2 (two k-steps, 2×2 blocks: 154 bundles per 64 MACs, 89 spills) and K3 (2×2 with one row half of A hoisted: 80 per 32, 36 spills; 96 without OPAQUE_A, 132 spills) and phase 3's split accumulators, partial A hoists and unroll 3 (28–92 bundles per block against 27) all spill or tie the old 68 per 32. Lesson: these limits carried over to TAPNext (A6).
 
 **Class:** measured-here — Peano k-loop variants all slower or spill (AIE2P has dm0-dm4); Peano-version dependent. Would have to change: A newer Peano or more dm registers; otherwise use the asm route.
 
@@ -1260,6 +1296,190 @@ floating-point compute with the package at ~100 W. Lesson for any app beside the
 
 **Class:** measured-here — NPU clock drop tracks floating-point threads at ~100 W, not DRAM traffic or AVX width. Would have to change: Fewer than ~6 floating-point threads beside the NPU.
 
+## N. Added with the moondream chapters (2026-10-11)
+
+Moondream failures from the "What didn't work" sections of `moondream/book/`. Sources: `moondream/npu/{NOTES,RESULTS}.md` (MD), `moondream/gpu/RESULTS.md`, `moondream/moondream3-eval/NOTES.md`.
+
+<a id="n1"></a>
+**N1 — MD-DESIGN2-RT: A resident in the memtile through per-op runtime memtile tasks (design2)** (moondream phase 2a-2b) [MEAS]. Built; the first run gave an ERT timeout and an amdxdna TDR ("Device isn't making progress", count 11) and the lowered MLIR showed no channel or lock clash. MD NOTES lists the suspects: the lock credits of the memtile tasks (`Acquire(value=nt)` on the slot-empty locks), the core's S2MM ping-pong against its acquire order, and the BD / channel assignment of runtime tasks next to ObjectFifo channels. The 1-op, nt = 1 run under a short timeout was never made (NPU work stopped under the three-timeout rule). Replaced by design3's static chain (the repeat is a lock value on the load BD): qkv 547 → 446 µs, DDR 18.8 → 10.8 MB. Lesson: make the repeat structure static and read the lowered MLIR for lock values before the first run.
+
+**Class:** unfinished — Runtime memtile tasks (design2) hit an ERT timeout and a TDR; cause never found, the static chain replaced it. What would settle it: A 1-op, nt = 1 design2 run under a short XRT timeout, varying the lock credits, the core acquire order and the memtile channel assignment one at a time; not needed while design3 / design6 work.
+
+<a id="n2"></a>
+**N2 — MD-BD-EXHAUST: one static chain for qkv, attn_out, fc1 and fc2 (design3 extended)** (moondream phase 2b-5) [MEAS build]. aiecc refused the whole-block build: "Allocator exhausted available BD IDs (maximum 24 available for channel 5)". The memtile's 48 BDs are two halves of 24, and fc2's streamed A alone needs 4608 / 1152 × 3 N tiles × 2 = 24 load BDs per block pass (each streamed chunk is its own BD), plus 6 for the cached ops. design6 merged the two half slots into one 31,104-word A buffer with one lock pair, so a cached op is one load BD and an fc2 K chunk one: 15 loads + 2 sends = 17 BDs (checked in the lowered MLIR), 33.8 ms per frame in one dispatch against 40.4 ms for four dispatches with three context switches, bit-exact. Price: one buffer cannot double-buffer fc2's chunks, so fc2 runs ~550 µs instead of 308 (+6.7 ms per frame). Lesson: count BDs per channel half before drawing a chain, and merge buffers rather than slots.
+
+**Class:** revived — The whole-block static chain ran out of memtile BD ids; design6's merged A buffer fits it in 17 BDs (40.4 → 33.8 ms). Would have to change: Nothing: design6 built it. The remaining cost is fc2's +6.7 ms, which a fused fc1-GELU-fc2 that never streams A would remove (465 KB per M tile, does not fit).
+
+<a id="n3"></a>
+**N3 — MD-PORT-TUNE: more buffering and streams for the per-core input ports** (moondream phase 2c-3) [MEAS]. A ring depth 6, B depth 3 in L1, B depth 4 in the memtile, C over 16 shim streams and removing the A handshakes (~12 µs) each changed qkv (446 µs) by 2 % or less (MD NOTES phase 2c; MD RESULTS phase 3). A second B stream per row is not available: a core has two input channels, A and B (the same rule as J1). Why: the NOCOMPUTE twin takes 369 of 446 µs, and the per-core input port (~4 B/cycle) carries 1.1 MB of B and 1.1 MB of A per qkv (~176 µs each, in parallel): the floor is data movement plus launch, not buffering. Lesson: after a twin names the bound, tune that resource, not its neighbours.
+
+**Class:** measured-here — Port and depth tuning moved qkv by 2 % or less, and a second B stream per row is impossible. Would have to change: Fewer bytes per core port (the K-split pair of N4, or more reuse of A) or a faster kernel; the second B stream is the hardware rule of J1.
+
+<a id="n4"></a>
+**N4 — MD-NEIGHBOUR-QUAD: share A and B between neighbouring cores through their L1, in a 2x2 quad** (moondream phase 2c-3) [DOC + MODEL]. Each core would DMA-receive half the tiles and read the other half from a neighbour, halving the ~4 B/cycle port floor. `AIETargetModel::isLegalMemAffinity` lets a core read its own, north, south and west neighbour's L1 only (MACHINE: neighbour memory), so vertical pairs share A (same M tile) but need different B, and symmetric horizontal sharing is impossible. The design that does halve both ports is a K-split pair (cores (c,2) / (c,3) compute the same 96×96 tile over the two K halves and the north partial is summed by the south core through shared L1: ports 1,728 → 864 cycles per k-step for ~2,000 cycles per N tile, ~10 %). That pair is parked, not refuted: the kernel (1,944 cycles per k-step) rather than the ports was the limit. See A10 (P39, A from the neighbour core) for the TAPNext version. Lesson: check the affinity table before drawing a sharing pattern.
+
+**Class:** fundamental — AIE2 core memory affinity (own, north, south, west L1 only): a 2x2 quad cannot halve both operand ports.
+
+<a id="n5"></a>
+**N5 — MD-TEXT-NPU: the W8A8 text model on the NPU** (moondream phase 4) [MEAS]. The GPU's int8 text GEMMs were mirrored on the NPU (`p4/`, 0.0000-0.0005 % mismatch to the reference). A pooled qkv takes 639 µs (~19 GB/s of weights), a whole layer 7.6 ms, and 24 layers in ONE dispatch 180 ms pooled (183 extrapolated; 368 ms exact), against ~25 ms pooled (estimated) and 48.4 ms exact (in situ) on the GPU; even the DMA-only floor of a layer (2.75 ms × 24 = 66 ms) is above the GPU. Why: prefill is ~0.5 MAC per weight byte, and every weight byte reaches four core rows through four per-core ports, so it is bandwidth-shaped work that this topology serves badly. The overview's earlier citation of F6 for this was wrong (F6 is the int8 mmul rate). Lesson: price a port-limited op from the weight bytes per core, not from MACs.
+
+**Class:** measured-here — Text-model GEMMs on the NPU: 180 ms pooled (368 exact) against 25-48 ms on the GPU. Would have to change: A way to deliver each weight byte once to the four rows of a column (or many more tokens per weight byte, i.e. a long prefill).
+
+<a id="n6"></a>
+**N6 — MD-RESID-EPILOGUE: fold the residual add into the attn_out / fc2 epilogue** (moondream phase 7) [MODEL, not built]. The residual tile would have to reach the core as a third input stream (a GEMM core has two input channels, A and B: the rule of J1) or sit in the memtile, 166 KB per column next to the A slots. Instead the LN + residual kernel adds it where the residual already streams (146 µs, both outputs bit-exact), so the add costs nothing extra. Lesson: put an elementwise add on the pass that already reads both operands.
+
+**Class:** fundamental — A residual add in the GEMM epilogue needs a third input stream (a core has two) or 166 KB per column in the memtile.
+
+<a id="n7"></a>
+**N7 — MD-TURBO-SCALE: Turbo as a free multiplier on the compute estimates** (moondream phase 2c plan; phase 3 measurement) [MEAS]. The phase 2c notes said turbo "scales every compute number by its clock ratio". The spin probe (a 364-bundle call: 0.254 µs in Turbo, 0.261 in Default) gave 1.43 vs 1.39 GHz, +3 %; the frame went 33.2 → 31.4 ms for the same build, because Turbo mostly trims dispatch and DMA latency. Later work (MACHINE §1) found Default and Turbo both run the array at 1.8 GHz while a context is open and Turbo only disables clock gating. Lesson: measure the clock with a register-only loop before scaling a plan by it (see H1).
+
+**Class:** method — Plan assumed Turbo "scales every compute number"; it moved the core clock by ~3 %.
+
+<a id="n8"></a>
+**N8 — MD-FLOOR-ROUND: attention v2 to v7 ran in the floor rounding mode** (moondream phase 9) [MEAS]. The core's bf16 / bfp16 conversions default to floor; ln.cc and the GEMM set round-to-even, no attention kernel did. `set_rounding(conv_even)` (v7r) left the speed alone (0.88 → 0.885 ms per block) and moved rms 1.40e-2 → 1.03e-2; the v6 exp had been exact all along. Phase 8's 6.2e-3 against v15's 9.8e-3 is therefore not like for like. Lesson: fix the numerics baseline (rounding mode, reference) before comparing versions.
+
+**Class:** method — Floor rounding was the default in attention v2-v7: every number before v7r was taken in the wrong mode.
+
+<a id="n9"></a>
+**N9 — MD-BV-ALIGN: bfp16 panel streams with unaligned groups** (moondream phase 9, v4) [MEAS]. v4 ran (2.0 ms per block) but returned NaN: the block-vector streams load 512-bit words and reset their position on `seek`, so a seek target must be 64 B aligned, and 9 panels = 648 B is not. Each group is now padded to a 64 B multiple (Q / K: 9 panels → 704 B; V^T: 6 panels → 448 B; objects 4,224 B). The same family as D22 (`seek_byte(0)` per row block, NaN) and G5 (RESEEK). Class: found by the NaN and fixed by padding; the stream's behaviour is an AIE-API property, not a documented hardware rule.
+
+**Class:** measured-here — A block-vector stream seek or start off a 64 B boundary gives NaN; panel groups are padded to 64 B. Would have to change: A stream API that seeks at panel granularity, or hand-written 64 B loads.
+
+<a id="n10"></a>
+**N10 — MD-ACQ2-NOPREFETCH: K and V in one forwarded fifo with a paired `acquire(2)`** (moondream phase 9, v9-v12) [MEAS trace]. The hardware trace showed ~1,000 cycles of lock stall between chunks: DMA-in ran only between chunks. IRON gives a forwarded L1 fifo at most 3 free slots (lock init 3 for depth 4 or 6, 2 for depth 3), and the paired `acquire(2)` left one, so there was no prefetch. A deeper fifo does not help (depth 6 still lowers to 3). The cure was to split the kernel per object (v13: a K object and a V^T object, one held at a time): gaps 1,002 → 36 cycles, 0.90 → 0.845 ms. Lesson: read the lock init of a forwarded fifo before sizing its depth.
+
+**Class:** measured-here — A forwarded L1 fifo gets at most 3 free slots, so a paired acquire(2) leaves no prefetch; depth 6 lowers to 3 as well. Would have to change: An IRON version that lowers deeper forwarded fifos to deeper lock counts.
+
+<a id="n11"></a>
+**N11 — MD-PRICE-STRUCTURE: pricing a fused kernel from its counted vector work** (moondream phase 7 → 8) [MEAS]. Phase 7 priced QK^T, softmax and PV at ~1 ms per block (~27 ms per frame). Phase 8 built it (`p8/attn.cc`): 3.78 ms per block, 102 ms per frame. The kernel ran ~14k cycles per 32-key chunk for ~6k cycles of counted vector work: 9.9 KB of spills, 288 register transposes and 576 block loads per chunk. The fp32 GELU estimate (120 ms, N17) was the other early case. Lesson: price a fused kernel from a measured prototype, not from bundle counts (H7, H8).
+
+**Class:** method — Attention priced at ~27 ms per frame from bundle counts, measured 102 ms (3.8x).
+
+<a id="n12"></a>
+**N12 — MD-SCORES-HANDSCHED: hand-schedule the attention score block** (moondream phase 10) [MEAS]. `p10/gen_scores.py` produced 162 bundles per row block, bit-exact, against ~160 cycles from Peano; the K phase stayed at 6,730 cycles per chunk and the block at 0.672 vs 0.671 ms, so Peano's own score section was already at the mmul chain bound. The earlier "scores 0.2 ms" differential had also removed the P stream and pops. The cost is in the exp (~440 cycles per row block, ~2.6k of the 6.7k K-phase cycles; bound ~13 vector ops per 32 lanes, ~0.13 ms per block). Related: A23 (the first GEMM hand schedule), N16.
+
+**Class:** measured-here — A hand-scheduled score block (162 bundles, bit-exact) matched Peano and changed nothing: 0.672 vs 0.671 ms. Would have to change: Aim the hand schedule at the exp block and the softmax bookkeeping, not the scores.
+
+<a id="n13"></a>
+**N13 — MD-BYTE-EVENT: keep trace event markers in a hand-built object by writing the `event` encoding as `.byte`** (moondream phase 10) [MEAS]. Both timeouts of the phase were this experiment (known-good run fine afterwards, device recovered). Working form: compile the C++ part normally (events intact), assemble only the hand-written `.s`, and merge with `ld.lld -r` (buildmerge.sh). The cause was not chased. Lesson: never splice raw encodings into a bundle stream; the three-timeout budget went on it.
+
+**Class:** measured-here — Injecting the standalone `event` encoding as .byte into a bundle stream hung the core (twice). Would have to change: An assembler directive that places `event` in a real bundle slot.
+
+<a id="n14"></a>
+**N14 — MD-TRACE-8COL: `Program.enable_trace` on the full 8-column attention build** (moondream phase 9) [MEAS]. The trace route could not be placed next to the 8 broadcast columns, so the trace came from a one-column build (8.4k cycles per chunk with ~1,000 cycles of lock stall, N10). The one-column build omits the 8-column DDR contention, so the trace gives the schedule, not the full timing. Related: G9 (IRON-2CH, a route the pathfinder does not find).
+
+**Class:** measured-here — The trace unit cannot be routed beside 8 broadcast columns; trace a one-column build. Would have to change: A router (IRON / mlir-aie version) that finds the trace route beside the broadcast columns.
+
+<a id="n15"></a>
+**N15 — MD-REDUCE-TRAPS: row max and row sum with shuffles and transposes** (moondream phase 8) [MEAS]. `shuffle_down` + `filter_even` reductions (4.1 ms) gave rms 2.9e-2: a debug build that wrote the per-row max / sum showed maxima 0.39 vs 0.82 and sums off by exactly e^(dmax), so the lane mapping was wrong. A fp32 64-lane `aie::transpose` does not exist (incomplete type; bf16 8×8 does), and scalar fp32 divide and compare are software calls (`__divsf3`, `__gesf2`). The working form is three native 16-lane bf16 maxes and four MAC-unit sums over the transposed block plus one 8-lane fp32 op (rms 6.2e-3). Related: F8 (the 8-lane bf16 max). Lesson: plan on 16 and 32 lanes in bf16 and MAC-unit sums, and dump a tile of partial results before debugging by rms.
+
+**Class:** measured-here — First vectorised reductions: wrong shuffle lane mapping, no fp32 64-lane transpose, scalar fp32 divide in software. Would have to change: An aie_api with the missing fp32 64-lane transpose, or a documented shuffle lane map.
+
+<a id="n16"></a>
+**N16 — MD-ASM-CLOSED: the hand-scheduled route declared closed** (moondream phase 5 → 10) [MEAS]. Phase 5 found that Peano rejects inline asm (`asm volatile` → "unable to translate instruction"), ships no ISA documents and no llvm-mc, and wrote "the route is closed with this toolchain, not merely risky; it was not attempted". Phase 10 proved that `clang++ -S` output reassembles byte-identically with a three-line dialect fix (`##sym`, `.word`, `event`) and links through IRON, built a 879-instruction latency table and a checker, and hand-scheduled the score block (N12). TAPNext's generators (gen_mm → gen_ks → gen_rot) then made hand scheduling pay (A23). Lesson: "cannot be written with this toolchain" is a statement about one route; look for another entry point before closing a direction.
+
+**Class:** method — "Asm route closed with this toolchain" (phase 5) was overturned in phase 10: clang -S output reassembles byte-identically.
+
+<a id="n17"></a>
+**N17 — MD-FP32-EMULATION: GELU, LayerNorm and exp in fp32 vector math** (moondream phase 6) [MEAS]. A tanh GELU fused into fc1's `acc_store` in fp32 built and was correct (0.0226 % of outputs one bf16 ulp off) but fc1 took 5.1 ms against 0.56 ms without it (`d8_fc1g`): fp32 vector ops are emulated at ~21 bundles per 16-lane op (~1.3 cycles per element per op), so a 40-op GELU is ~55 cycles per element, ~120 ms per frame (×27, per op). The phase-4 int8 dequant epilogue (3 ops) paid 6 cycles per element for the same reason; the fp32 LayerNorm was 246 µs per pass (~13.5 ms per frame); an fp32 exp per softmax score was priced at ~80 ms per frame. This is the hardware fact behind MACHINE's "no fp32 vectors" row. Lesson: elementwise math on this NPU is bf16 (32 lanes) with fp32 only inside the MAC accumulator.
+
+**Class:** fundamental — AIE2P has no native fp32 vector arithmetic: fp32 GELU in the fc1 epilogue costs 5.1 vs 0.56 ms (~120 ms per frame).
+
+<a id="n18"></a>
+**N18 — MD-GELU-TANH: the tanh GELU in bf16, written as `1 - 2/(exp(2u)+1)`** (moondream phase 7, GPU emulation) [MEAS]. The per-op error of the bf16 emulation (`bf16emu.py`) was 1.4-2.1e-2 for this form, ten times LayerNorm (3.7-4.4e-3) and softmax (4.2-7.6e-3), from cancellation near 1. The sigmoid form `x / (1 + exp(-2u))` is the same function at 0.5-4.5e-3 (`moondream/gpu/BF16_ELEMENTWISE.md`). At the task level, with only GELU rounded to bf16, the tanh form gave 14 false positives (exact path 8), 10 decision flips and a margin shift of 2.22; the sigmoid form 13, 5 and 0.97. Fixed by switching to the sigmoid form. Lesson: choose the numerically stable form of a function before spending effort on kernel accuracy.
+
+**Class:** measured-here — bf16 tanh-form GELU 1 - 2/(exp(2u)+1) cancels (1.4-2.1e-2 per call); the sigmoid form is 5-10x better. Would have to change: Nothing: the sigmoid form replaced it. The tanh form would need extra precision in the final subtraction.
+
+<a id="n19"></a>
+**N19 — MD-GELU-BF16EXP: sigmoid GELU with a bf16 Horner exp and a bf16 Newton reciprocal** (moondream phase 8) [MEAS]. 392 bundles per 64 elements and fc1 948 µs, but 38.8 % of outputs one ulp off (rms 3.8e-3). The split-operand version (an fp32 value as hi + lo bf16, three MACs per product, a degree-4 Horner and two Newton steps) is 0.998 % one-ulp, rms 1.5e-4, at 492 bundles and fc1 1,117 µs (+169 µs), and is shared with the attention softmax (`p8/expsplit.h`). Lesson: split a value into hi and lo bf16 and accumulate three products in fp32 when you need more than bf16 precision from MAC-only hardware.
+
+**Class:** measured-here — A plain bf16 Horner exp and Newton reciprocal in the GELU: 38.8 % one-ulp flips (rms 3.8e-3) against 0.998 % for the split-operand form. Would have to change: A cheaper exact exp (a LUT route as in TAPNext's nk8 tables) that reaches the same flip rate in fewer bundles.
+
+<a id="n20"></a>
+**N20 — MD-GELU-TEXT: fusing the fp32 GELU into the block loop with 64-lane temporaries** (moondream phase 6) [MEAS build]. Getting even the fp32 GELU to build took four changes: no inlining into the 12×12 block loop (16 KB program memory, G18), 16-lane vectors (64-lane temporaries spilled 5.5 KB of stack), two chains per out-of-line call, and a larger worker stack. Lesson: on a 16 KB program memory every inlined epilogue is paid for in text; out-of-line calls and smaller vectors.
+
+**Class:** measured-here — GELU inlined into the 12x12 block loop overflows the 16 KB program memory; 64-lane fp32 temporaries spilled 5.5 KB of stack. Would have to change: More program memory, or a smaller epilogue (the asm route of N21).
+
+<a id="n21"></a>
+**N21 — MD-GELU-HANDSCHED: a hand schedule for the phase-8 GELU epilogue (`gelu_b2`)** (moondream phases 11-12) [MODEL]. The slot bound is ~114 vector-slot ops per 64 elements (52 `vmac.f`, 16 `vmul.f`, 20 `vsub.f`, ...) and ~110 in the store slot (55 fp32-to-bf16 conversions); Peano emits 492 bundles with 94 (phase 11) or 74 (phase 12) spills and 154 nops, ~11 of the 15 ms per frame. Staged chains (B12) did not help: the loop is allocation-bound. Estimated by hand: 150-200 bundles, GELU 15 → 5-6 ms per frame. Not started; phases 11-12 spent their budget on the GEMM.
+
+**Class:** unfinished — GELU hand schedule never started: slot bound ~114 bundles per 64 elements, Peano emits 492. What would settle it: A list scheduler with register allocation over ~80-op chains (12 x registers allow ~3 chains) and the exact Peano forms for the fp32-to-int emulations; one build and a bit-compare against `gelu_b2`.
+
+<a id="n22"></a>
+**N22 — GPU-FP16: run the vision and text GEMMs in fp16** (moondream GPU, `fast-fp16-graph`) [MEAS]. Encode 165 / query 38 / total 203 ms against 248 ms for the bf16 graph, but 96.1 % on the 493 frames (tv fp 19 vs 11), borderline on the 95.8 % gate, so not chosen (`moondream/gpu/RESULTS.md`). The cause was not chased.
+
+**Class:** measured-here — fp16 rocBLAS kernels are faster (203 vs 248 ms) but accuracy drifts to 96.1 % (19 tv false positives vs 11). Would have to change: An fp16 path with the sensitive ops kept in fp32 or bf16 that holds the 98 % gate.
+
+<a id="n23"></a>
+**N23 — GPU-INT8-VISION: W8A8 int8 for the vision encoder too** (moondream GPU, `fast-all-int8-graph`) [MEAS]. 113.0 ms (encode 101.5, query 11.5) but 89.2 % on 493 frames (tv fp 53, agreement with stock 91.5 %); the text model alone in int8 holds 97.8 %. The 89.2 % is `moondream/gpu/RESULTS.md` (`fast-all-int8-graph`), not the NPU notes. Split out of F6, which keeps the NPU mmul-rate fact. For comparison, bfp16 operands with an fp32 accumulator hold 97.6 % on the same frames (numerics chapter).
+
+**Class:** measured-here — Per-token int8 on the vision tower: 113 ms but 89.2 % (53 tv false positives); SigLIP activations do not survive it. Would have to change: A quantisation that keeps the outlier channels (smoothing or block floating point) in the vision tower.
+
+<a id="n24"></a>
+**N24 — GPU-INT8-NOT-2X: build the design on a 2x int8 peak** (moondream GPU round 3) [MEAS]. The `wmma_peak_*` probes (`hip/i8gemm.hip`, register-only WMMA loops) give int8 WMMA (`v_wmma_i32_16x16x16_iu8`) 57 TOPS and bf16 WMMA 55 TFLOPS, the same issue rate (512 ops / clk / CU at 2.9 GHz × 40 CU). Int8 only halves operand traffic, which still pays for the text model (1.2 B parameters streamed every frame). Class: method, because the idea (int8 text) stands; the error was the unmeasured ratio. Lesson: check a hardware ratio with a register-only probe before building on it.
+
+**Class:** method — Assumed int8 WMMA is 2x bf16; the register-only probe gave 57 TOPS vs 55 TFLOPS on gfx1151.
+
+<a id="n25"></a>
+**N25 — GPU-HIPBLASLT-I8: hipBLASLt for the int8 text GEMMs** (moondream GPU round 3, `hip/hblt_i8.cpp`) [MEAS]. All algorithms enumerated (`getAllAlgos`): only 6 (i32 out) / 8 (i8 out) int8 kernels exist for gfx1151, no bf16 / fp16 output for int8 inputs and no per-row / column (`OUTER_VEC_32F`) scaling. Best 33-41 TOPS (730×2048×6144: 33; 730×8192×2048: 34 / 41), no better than the Triton int8, and it needs a separate dequant pass.
+
+**Class:** measured-here — hipBLASLt int8 on gfx1151: 6-8 Tensile kernels, 33-41 TOPS, no per-row/column scaling (a separate dequant pass). Would have to change: More int8 Tensile kernels for gfx1151 in a newer hipBLASLt.
+
+<a id="n26"></a>
+**N26 — GPU-LIBS: library routes to faster GEMMs** (moondream GPU, `RESULTS.md` rounds 1-2) [MEAS]. TunableOp with HIP graph capture hangs in a futex; eager it reaches 198 ms. `torch.compile` / inductor: no gain. `torch._int_mm` works but at bf16 speed (28-32 TOPS); `torch._scaled_mm` (fp8) is unsupported on this arch. Nothing in rocBLAS, hipBLASLt, TunableOp or inductor-Triton exceeds ~32 TFLOPS at M = 729 against a ~57 WMMA peak, which is why the hand-written kernels exist.
+
+**Class:** measured-here — TunableOp deadlocks with HIP graph capture (eager 198 ms), torch.compile gives nothing, _int_mm runs at bf16 speed, fp8 _scaled_mm is unsupported. Would have to change: A newer ROCm / torch where graph capture and TunableOp coexist, or fp8 on gfx1151.
+
+<a id="n27"></a>
+**N27 — GPU-FUSE-DRIFT: fuse the residual add into the GEMM epilogue; fold the projection's two K halves** (moondream GPU round 2) [MEAS]. The fused residual was slower (the autotuner picks worse tiles with the extra load) and drifted numerically (agreement with stock 98.8 % vs 99.4 %); default off. The projection's input is `cat([x, x])`, so summing the two weight halves is exact in real arithmetic, but bf16 rounding of the summed weight changes decisions (agreement 98.4 %). Lesson: a changed accumulation order or rounding is a numerics change on a 15-borderline-frame test set; gate it as one (numerics chapter).
+
+**Class:** measured-here — A fused residual epilogue was slower and drifted (98.8 vs 99.4 % agreement); folding the projection's K halves moved decisions (98.4 %). Would have to change: A fused epilogue that keeps the bf16 rounding points of the unfused path.
+
+<a id="n28"></a>
+**N28 — GPU-HIP-TILES: tuning the HIP WMMA GEMM** (moondream GPU round 3) [MEAS]. 64×128, 128×256 and 256×128 tiles are worse; BK = 32 is 2× slower (48 B LDS stride conflicts); double-buffered LDS helps only at BK = 64 (40 KB, one work-group per CU); `s_setprio` gives nothing. Smaller tiles balance the tail of the N = 2,048 shapes (96 work-groups on 40 CUs) but lose more per work-group. The kernel is core-bound (barriers, LDS latency): an L2-resident control reached only 41-43 TOPS.
+
+**Class:** measured-here — Other HIP tile shapes, BK = 32, prefetch distance 2, s_setprio and 16-wave work-groups were all worse than 128x128x128. Would have to change: A different LDS scheme or a compiler that schedules the barriers better.
+
+<a id="n29"></a>
+**N29 — GPU-WMMA-ATTENTION: a hand-written flash-attention prefill (`hip/attn.hip`)** (moondream GPU round 3) [MEAS]. v1 (P through LDS) was slower than SDPA; v2 (S^T = K Q^T, row softmax in-lane) 225 / 152 µs per call against 231-240 / 166-175 (7-9 % faster, rel error 0.0022 = torch's bf16 SDPA); v3 (32 query rows per wave) 256 VGPRs + 217 spilled, 346 / 224 µs. In situ −0.5 ms (<1 %, inside the noise of the shared GPU) and 2 borderline frames flipped on a 150-frame subset. Left off.
+
+**Class:** measured-here — WMMA flash-attention prefill: 7-9 % faster per call, -0.5 ms in situ (noise); the 32-rows-per-wave variant spills 217 registers. Would have to change: A variant that keeps Q in LDS (to avoid the spills) and a quiet GPU to see a sub-1 % gain.
+
+<a id="n30"></a>
+**N30 — GPU-HOT-MICROBENCH: tune weight-streaming kernels with hot-cache microbenchmarks** (moondream GPU round 3) [MEAS]. The first HIP build was slower in situ than Triton although faster in the microbench; a cold bench over 8 weight copies (96-128 MB, more than the MALL) reproduced it: 730×8192×2048 took 1,166-1,298 µs cold against 673-688 hot (`coldbench.py`). All earlier "TOPS" had to be re-taken cold. Lesson: measure weight-streaming kernels with more weights than the last-level cache (see N31).
+
+**Class:** method — Hot-cache microbenchmarks hid a 2x in-situ slowdown; weights are 1.2 GB per frame against a 32 MB MALL.
+
+<a id="n31"></a>
+**N31 — GPU-NK-ALIASING: the natural (N,K) layout for the HIP GEMM weights** (moondream GPU round 3) [MEAS]. With K = 2,048 or 8,192 bytes per row the chunk at the same k of every row lands on one DRAM channel (power-of-two stride), which only a cold bench shows (N30). The tiled layout `[N/128][K/TK][128][TK]` makes each work-group stream one contiguous 16 KB block per K step: text GEMMs 58.1 → 48.4 ms and vision GEMMs 23.6 → 20.7 ms in situ (`coldbench.py`, `insitu_time.py`). A different thing from the Triton in-register-transpose (N,K) route, which was 8-25 % slower. Lesson: check the stride of a layout before the kernel.
+
+**Class:** revived — The natural (N,K) weight layout aliased DRAM channels; the tiled layout fixed it (text 58.1 → 48.4 ms, vision 23.6 → 20.7). Would have to change: Nothing: built.
+
+<a id="n32"></a>
+**N32 — GPU-POOL12: pool the 27×27 projected tokens harder than 16×16** (moondream GPU) [MEAS]. Pool 12 (55.6 ms) fails the sanity gate; pool 9 (51.0 ms) loses accuracy; pool 16 (66.8 ms, 98.4 %) is the recommended fast mode. Pooling changes the model input, so the gate and the accuracy row are the check.
+
+**Class:** measured-here — Image-token pooling to 12x12 or below fails the sanity gate (the reference mug frame answers no). Would have to change: A model fine-tuned for fewer image tokens, or a different sanity gate.
+
+<a id="n33"></a>
+**N33 — GPU-AUTOTUNE-FLIP: runs that differ only in the autotuner's tile choice** (moondream GPU) [MEAS]. Across processes the autotuner chose different tiles, so the fp32 accumulation order changed; 48 of the 493 frames have a yes/no margin below 1, and identical configs scored 97.0-98.0 %. `cache_results=True` pins the choice. Lesson: keep numerics bit-identical across kernel swaps (the HIP outputs match the Triton ones) when the gate is a few frames wide; otherwise each run measures noise.
+
+**Class:** method — Triton's autotuner picked different tiles per process; the changed fp32 accumulation order flipped borderline frames (97.0-98.0 %).
+
+<a id="n34"></a>
+**N34 — MD3-GROUNDING: moondream3-preview in place of moondream2 for boxes and points** (moondream3 evaluation, 2026-10-09) [MEAS]. 50 queries on full 720×1280 frames with the production grader: detect 44 correct / 5 wrong against 44 / 4 (it loses the tiny far object and boxes a object for the absent one, gains the water bottle), detect 1,290 ms against 464 ms, GTT peak 19.3 GB against 4.9. The one clear win, `point` as a presence test (6 of 10 absent frames right against 4), is not how App asks. Caption and query latency 2.9 s against 1.1-1.4 s (`moondream/moondream3-eval/NOTES.md`).
+
+**Class:** measured-here — moondream3-preview for grounding: no accuracy gain (44/5 vs 44/4), 2.7x slower (1,290 vs 464 ms), 4.5x the GPU memory (19 vs 4.4 GB). Would have to change: A faster or smaller moondream3 release, or a task where its point-as-presence behaviour is the question.
+
+<a id="n35"></a>
+**N35 — MD05-GATE: the 0.5B model as a smaller yes/no gate** (moondream GPU, `gpu/RESULTS-0.5b.md`) [MEAS]. The only release is the January 2025 ONNX int8 bundle for CPU, so the official file ran on CPU: all 38.5 % (tv 36.8, mug 46.2), agreement with stock 39.1 %. Recall is 100 % but 303 of 440 negatives also answer yes, including the black sanity frame; four wordings stayed biased and a giraffe control answered no, so it is a model property, not a pipeline fault. A threshold on the margin separates tv (AUC 0.998, in-sample threshold +2.6 gives 99.0 %) but not mug (AUC 0.908), and thresholds fitted on 53 positives are not a deployable rule. CPU 640 ms encode + 41 ms; a GPU port (est. 25-35 ms, EXTRAPOLATED) was not made.
+
+**Class:** measured-here — moondream 0.5B as the yes/no gate: 38.5 % against 98.0 %; yes-acquiescence on plausible objects. Would have to change: A 0.5B checkpoint with bf16 weights and a yes/no calibration validated on a held-out set per object.
+
+<a id="n36"></a>
+**N36 — MD3-NOOP-COMPILE: timing moondream3 after calling `model.compile()`** (moondream3 evaluation) [MEAS]. The first attempt called the no-op `nn.Module.compile`, and detect took ~2.2 s for unexplained reasons (the number was ignored). The real `model.model.compile()` gained ~7 % (1,204 against 1,290 ms) after a 39 s compile and 19 s warm-up. Lesson: check that a "compile" call compiled something before timing it, and discard the run if the time is unexplained.
+
+**Class:** method — A no-op `nn.Module.compile` gave a 2.2 s detect; the real `model.model.compile()` gained only ~7 %.
+
 ## Where the sources disagree (resolve before citing)
 - **D13 chunk-0 rescale skip:** NOTES 18.5 "no measurable gain, reverted" (round 13) vs RFM round 14 "worth ~−0.3".
 - **E15 asm z loop:** RFM round 15 dead end ("no faster than C++, 100 vs 97") vs round 18 ZK −0.17 (in situ the C++ was serial).
@@ -1283,5 +1503,6 @@ floating-point compute with the package at ~100 W. Lesson for any app beside the
   ~8 x 0.55 = 4.4 us per wait, which the B multicast then waits for.
 - **J4 YRES / SSPM** (pass 20, corrected pass 21): conditional revival. The SSM is compute-bound ~255 cycles per chunk above an input
   floor of ~2,030 (SSMCUT); after the SSM glue reaches that floor, read bytes per chunk (params read by all 8 columns) pay.
+- **N2 MD-BD-EXHAUST** (design6's merged A buffer: 17 BDs, 40.4 → 33.8 ms) and **N31 GPU-NK-ALIASING** (the tiled weight layout: text 58.1 → 48.4 ms).
 - **B8 CSPLIT4** (built as CSUB, 3 sub-parts: -0.13 ms, round 21) and **C11 OPPRE** (worked as OPPRE2: -0.15 ms, round 24, sends before the waits).
 - Classification notes (this pass): **C18 NRES-ALONE** (missed alone, hit with NSEQ), **A28 ROT-KTL** (KTL built on E7'' at -0.82 ms), **E13 SIG-SYM**, **A23 MD-HANDSCHED** and **G17 READ_TM** are also classed `revived`. **E6 FOLD** is classed `unfinished` here, not `revived`: it was only re-priced, never built, so it has not yet been shown to work. **J4 YRES / SSPM** is classed `measured-here` (conditional), for the same reason.

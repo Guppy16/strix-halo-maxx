@@ -88,15 +88,15 @@ pool 16 (99.6 % against 99.4 % for the GPU path); the flips are tv frames the GP
 - [G5](../../common/book/negative-results.md#g5) <!-- nr: G5 --> re-seeking a block-vector stream (v12): the fill pointer is not where you think.
 - [G7](../../common/book/negative-results.md#g7) <!-- nr: G7 --> vectors assigned under a runtime condition crash Peano ("Bad PHI"); apply masks unconditionally.
 - [D2](../../common/book/negative-results.md#d2) <!-- nr: D2 --> v8's K/V broadcast: fewer bytes, no gain.
-- [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 --> the hand-scheduled score block matched Peano (162 vs ~160 cycles) and changed nothing.
-- Not yet in the index (see the hand-back):
-  - **Floor rounding as the default** for v2 to v7: a method failure; every number before v7r is in the wrong mode.
-  - **Block-vector stream alignment**: a seek or start not on a 64 B boundary gives NaN (v4); panel groups are padded.
-  - **A forwarded fifo with `acquire(2)`**: no prefetch because of the 3-slot cap; deeper fifos lower to 3 as well.
-  - **The first reductions** (shuffle lane mapping, no fp32 64-lane transpose, scalar `__divsf3` calls): plan on 16 and 32 lanes in bf16 and MAC-unit sums.
-  - **Estimating from structure** (27 vs 102 ms per frame).
-  - **Injecting the standalone `event` encoding as `.byte` into a bundle stream** hung the core twice (both of phase 10's timeouts); assemble only the hand `.s` and merge with `ld.lld -r`.
-  - **Tracing eight broadcast columns**: the trace unit cannot be routed; use one column.
+- [N12](../../common/book/negative-results.md#n12) <!-- nr: N12 --> the hand-scheduled score block matched Peano (162 vs ~160 cycles) and changed nothing; the exp block is the target. [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 --> is the GEMM's first hand schedule.
+- [N8](../../common/book/negative-results.md#n8) <!-- nr: N8 --> Floor rounding as the default for v2 to v7: every number before v7r is in the wrong mode.
+- [N9](../../common/book/negative-results.md#n9) <!-- nr: N9 --> Block-vector stream alignment: a seek or start not on a 64 B boundary gives NaN (v4); panel groups are padded.
+- [N10](../../common/book/negative-results.md#n10) <!-- nr: N10 --> A forwarded fifo with `acquire(2)`: no prefetch because of the 3-slot cap; deeper fifos lower to 3 as well.
+- [N15](../../common/book/negative-results.md#n15) <!-- nr: N15 --> The first reductions (shuffle lane mapping, no fp32 64-lane transpose, scalar `__divsf3` calls): plan on 16 and 32 lanes in bf16 and MAC-unit sums.
+- [N11](../../common/book/negative-results.md#n11) <!-- nr: N11 --> Estimating from structure (27 vs 102 ms per frame).
+- [N13](../../common/book/negative-results.md#n13) <!-- nr: N13 --> Injecting the standalone `event` encoding as `.byte` into a bundle stream hung the core twice (both of phase 10's timeouts); assemble only the hand `.s` and merge with `ld.lld -r`.
+- [N14](../../common/book/negative-results.md#n14) <!-- nr: N14 --> Tracing eight broadcast columns: the trace unit cannot be routed; use one column.
+- [N16](../../common/book/negative-results.md#n16) <!-- nr: N16 --> Calling the asm route closed after phase 5's failed inline-asm attempt; phase 10 reassembled `clang -S` output byte-identically.
 
 ## Lessons
 

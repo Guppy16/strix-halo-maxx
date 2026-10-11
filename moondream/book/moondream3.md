@@ -57,11 +57,9 @@ md3 is better as a presence test through `point` (6 of 10 absent frames correct 
 
 ## What didn't work
 
-None of these is in the [negative-results index](../../common/book/negative-results.md) yet (it records NPU ideas); see the hand-back.
-
-- **moondream3-preview for grounding**: no accuracy gain, 2.7x latency, 4.5x memory. The one clear win (`point` as a presence test) is not how the product asks.
-- **`model.compile()`**: the first attempt was the no-op `nn.Module.compile` and detect took ~2.2 s for unexplained reasons (ignored); the real `model.model.compile()` gained ~7 % (1,204 against 1,290 ms) after a 39 s compile.
-- **moondream 0.5B**: 38.5 %; no checkpoint to port to the GPU; the threshold rescue works for one object of two.
+- [N34](../../common/book/negative-results.md#n34) <!-- nr: N34 --> **moondream3-preview for grounding**: no accuracy gain, 2.7x latency, 4.5x memory. The one clear win (`point` as a presence test) is not how the product asks.
+- [N36](../../common/book/negative-results.md#n36) <!-- nr: N36 --> **`model.compile()`**: the first attempt was the no-op `nn.Module.compile` and detect took ~2.2 s for unexplained reasons (ignored); the real `model.model.compile()` gained ~7 % (1,204 against 1,290 ms) after a 39 s compile.
+- [N35](../../common/book/negative-results.md#n35) <!-- nr: N35 --> **moondream 0.5B**: 38.5 %; no checkpoint to port to the GPU; the threshold rescue works for one object of two.
 - **Segmentation**: only in the vendor cloud.
 
 ## Lessons

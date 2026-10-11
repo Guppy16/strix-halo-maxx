@@ -38,7 +38,7 @@ pipeline is GPU-bound. Top-1 token is identical to stock on all checked frames, 
 - **Hypothesis: the libraries are the limit.** Nothing in rocBLAS, hipBLASLt, TunableOp or inductor-Triton exceeds ~32 TFLOPS at M = 729,
   against a WMMA peak of ~57 (hot-cache microbench, `gemm_bench.py`), and small-M query GEMMs reach 1.4-2.2 TFLOPS. Hand-written Triton
   with fused bias/GELU epilogues cut encode GEMM time 172 -> 94 ms and query GEMM time 42 -> 15 ms (MEASURED).
-- **The "int8 is 2x" assumption was wrong.** The probes (`wmma_peak_*` in `hip/i8gemm.hip`) give int8 WMMA 57 TOPS and bf16 WMMA 55 TFLOPS,
+- **The "int8 is 2x" assumption was wrong** ([N24](../../common/book/negative-results.md#n24) <!-- nr: N24 -->). The probes (`wmma_peak_*` in `hip/i8gemm.hip`) give int8 WMMA 57 TOPS and bf16 WMMA 55 TFLOPS,
   the same issue rate. Int8 only halves operand traffic. It still pays for the text model, whose 1.2 B parameters are streamed every frame.
 - **The HIP kernel**: 128x128x128 tile, 8 waves of 32x64, register prefetch of the next K tile, one padded LDS buffer, dequant, bias and
   GELU fused. Cold-cache int8: 35-41 TOPS (~70 % of peak; Triton 31-33). bf16 vision shapes 33-37 TFLOPS except K = 8192 at 23.4.
@@ -76,24 +76,24 @@ of the pooled path with bf16 NPU numerics is in [numerics](numerics.md).
 
 ## What didn't work
 
-None of these are in the [negative-results index](../../common/book/negative-results.md) yet (F6 covers the NPU side of int8);
-they are the GPU path's measured dead ends.
-
-- **fp16** (`fast-fp16-graph`): rocBLAS fp16 kernels are faster (203 vs 248 ms) but numerics drift to 96.1 %.
-- **int8 for the vision tower** (`fast-all-int8-graph`): 113 ms but 89.2 % (53 tv false positives); SigLIP activations do not
-  survive per-token int8 ([F6](../../common/book/negative-results.md#f6) <!-- nr: F6 --> records the same 89.2 % for the NPU question).
-- **hipBLASLt int8**: only 6-8 Tensile kernels exist for gfx1151, 33-41 TOPS, no per-row/column scaling, so a separate dequant pass.
-- **TunableOp** deadlocks with HIP graph capture (process hangs in a futex); eager it reaches 198 ms. **torch.compile**: no gain.
+- [N22](../../common/book/negative-results.md#n22) <!-- nr: N22 --> **fp16** (`fast-fp16-graph`): rocBLAS fp16 kernels are faster (203 vs 248 ms) but numerics drift to 96.1 %.
+- [N23](../../common/book/negative-results.md#n23) <!-- nr: N23 --> **int8 for the vision tower** (`fast-all-int8-graph`): 113 ms but 89.2 % (53 tv false positives); SigLIP activations do not
+  survive per-token int8. ([F6](../../common/book/negative-results.md#f6) <!-- nr: F6 --> is the NPU side: the dense int8 mmul runs at the bfp16 rate.)
+- [N24](../../common/book/negative-results.md#n24) <!-- nr: N24 --> **"int8 is 2x bf16"**: the register-only probes give 57 vs 55 T(FL)OPS.
+- [N25](../../common/book/negative-results.md#n25) <!-- nr: N25 --> **hipBLASLt int8**: only 6-8 Tensile kernels exist for gfx1151, 33-41 TOPS, no per-row/column scaling, so a separate dequant pass.
+- [N26](../../common/book/negative-results.md#n26) <!-- nr: N26 --> **TunableOp** deadlocks with HIP graph capture (process hangs in a futex); eager it reaches 198 ms. **torch.compile**: no gain.
   `torch._int_mm` runs at bf16 speed; fp8 `_scaled_mm` is unsupported.
-- **Fused residual in the GEMM epilogue** was slower (the autotuner chose worse tiles) and drifted (agreement 98.8 vs 99.4 %).
+- [N27](../../common/book/negative-results.md#n27) <!-- nr: N27 --> **Fused residual in the GEMM epilogue** was slower (the autotuner chose worse tiles) and drifted (agreement 98.8 vs 99.4 %).
   **Folding the two K halves of the projection** (input is `cat([x, x])`) is exact in real arithmetic but bf16 rounding of the summed
   weight changes decisions (98.4 %).
-- **Other HIP tile shapes**, prefetch distance 2, `s_setprio`, 16-wave work-groups: the 128x128 tile stays best; smaller tiles balance
+- [N28](../../common/book/negative-results.md#n28) <!-- nr: N28 --> **Other HIP tile shapes**, prefetch distance 2, `s_setprio`, 16-wave work-groups: the 128x128 tile stays best; smaller tiles balance
   the tail of the N = 2,048 shapes (96 work-groups on 40 CUs) but lose more per work-group.
-- **WMMA flash-attention prefill** (`hip/attn.hip`): 7-9 % faster than SDPA per call, -0.5 ms in situ (inside noise); a 32-rows-per-wave variant
+- [N29](../../common/book/negative-results.md#n29) <!-- nr: N29 --> **WMMA flash-attention prefill** (`hip/attn.hip`): 7-9 % faster than SDPA per call, -0.5 ms in situ (inside noise); a 32-rows-per-wave variant
   spills 217 registers. Left off.
-- **Hot-cache microbenchmarks** as a guide for weight-streaming kernels (a method failure; all earlier "TOPS" had to be re-taken cold).
-- **Pool <= 12**: fails the sanity gate.
+- [N30](../../common/book/negative-results.md#n30) <!-- nr: N30 --> **Hot-cache microbenchmarks** as a guide for weight-streaming kernels hid a 2x in-situ slowdown (all earlier "TOPS" had to be re-taken cold);
+  [N31](../../common/book/negative-results.md#n31) <!-- nr: N31 --> the natural (N,K) layout aliased DRAM channels until the tiled layout fixed it.
+- [N32](../../common/book/negative-results.md#n32) <!-- nr: N32 --> **Pool <= 12**: fails the sanity gate.
+- [N33](../../common/book/negative-results.md#n33) <!-- nr: N33 --> **Triton's autotuner** picked different tiles per process and flipped borderline frames (97.0-98.0 % for identical configs); `cache_results=True` pins it.
 
 ## Lessons
 
