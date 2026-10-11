@@ -639,6 +639,29 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - Peano: `#pragma unroll` over a loop with a conditional vector reference stayed rolled (selects + branches): unroll by macro. Put
   flag stores BEFORE a final call so it becomes a tail call (no callee-saved frame: ~-100 B per small wrapper).
 - A one-core bench that #includes build/<k>.h gets whatever the last design build left there: copy the variant's header first.
+- **A BD block needs one acquire AND one release, or neither (round 21, MEASURED)**: aiecc's verifier refuses an acquire-only block
+  ("does not fit its buffer descriptor"). Release any lock by 0 instead (`aie.use_lock(%l, Release, %c0)`: a no-op, bit-identical).
+  That is how CSUB splits the C object's part 1 into sub-parts that the epilogue releases one by one (r19/csplit.py --sub).
+- **Zero-load accumulators (round 21 ZLOAD, MEASURED)**: the mmul config's bit 0 is zero_acc (aie2p_vmult.h `aie2p_compute_control`;
+  780 -> 781). A MAC with it ignores its accumulator input, so a tile's first k-step needs no zeroed pieces: give the chain-head MACs
+  their config from a spare register set per call (r21/mkzload.py: in ROT they are exactly the MACs whose A operand is ex0).
+  Bit-identical; removes acc_zero / acc_zero_hi (36 KB of stores per tile).
+- `acq.cond` / `rel.cond` / `acq` / `rel` have register-id forms (`acq.cond rId, rV, r26`; Peano emits them for a runtime id, same id
+  values as the immediate, 48 + id = this tile).
+- **Never make a core wait for its own C drain while it holds multicast inputs (round 21 LATEC, a hang; cause INFERRED)**: moving the
+  C sub-part acquires into the first k-step (after the B object and A stripes were taken) hung the step on its first dispatch.
+- **Heavy CPU load lowers the NPU clock (round 21, MEASURED r7/clk.py)**: with ~20 busy CPU threads (another project's 8-core job +
+  a 12-worker CP-SAT) the core clock was **1.405 GHz** instead of 1.81 and the step 41.0 instead of 32.3 ms. A/B pairs in one process
+  stay valid; label absolute numbers with the clock and keep your own CP-SAT small while sweeping.
+- Draining while the epilogue runs costs the epilogue (round 21 CSUB TPROF): plain 1,356 -> 1,575, gelu_pan 4,934 -> 5,495 cycles
+  (extra calls + DMA reads of the bank it works in); the hands fell far more (1,355 -> 345, 1,807 -> 668).
+- `vldb.pop.576` / `vldb.fill.512` on lf0 work (POPLF0, one core, 128 / 128): both FIFOs pop and fill on both load slots.
+- **Run the generator's `fit` on every delivered modulo kernel (round 21, twice)**: an unfitted E7'' kernel (prologue not ending
+  16 B aligned, so `.p2align` adds a nop before the body) built, ran without a hang and lost exactly the jobs its prologue starts
+  (rows 0-7 of every column, 3 column blocks); the replay at pad 1 fails, at pad 0 passes. r21/e7dbg.py finds this signature
+  (differences by row block and column block) in one dispatch.
+- E7'' (B split over two FIFOs / banks): the replay's bank stalls are real: R 64 with 129 stalls per call was neutral against R 68
+  with 0 (1,373 vs 1,338 effective cycles). Price a kernel by static + replayed stalls.
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
   timeouts per phase; stop if the device does not recover. Never loop retries on a failing design.
@@ -848,6 +871,12 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   (mm8 -DCPST + design8 CPST_OP / CPST_ADDR), binpatch.py (.bin re-ordering), cpdump.py (CP instructions per sync segment), ddrw.py
   (DDR write cap), nresfix.py, poplf1gen.py / poplf1b.* (lf1 pop probe), atprof.py (mm8 -DATPROF attention stamps), actdiff.py (two
   builds' ACT images diffed by region / column / k-step). design8 env: IL DAPRE NSEQ NRES (list) SRES AQPRE AKVPRE EOUTPKT CPST_*.
+- `npu-tapnext/r21/` (round 21): try21.sh (current best: r20z + CSUB + ZLOAD + E7; CSUB=0 / ZLOAD=0 / E7=0, E7_V=<kernel>), csprobe.sh
+  (csplit + aiecc compile probe), hand.py (TPROF hands per op), mtmap.py (memtile buffer map / holes), mkzload.py (kp-0 MACs -> r6
+  config), mke7.py (research's mm_e7 into the ROT slot), e7patch.py (B object split Y / X + X buffers + stack, via csplit20
+  E7PATCH=1), e7dbg.py (two builds' yx output diffed by column block / row block), poplf0* (lf0 pop probe), latec.diff /
+  mklatec.py (the hung LATEC), patch_csubg.py / patch_acsub.py (dead variants). Flags: mm8 CSUB ZLOAD E7 (+ KS_X0 / KS_X1) AEXP3;
+  design8 env E7; r19/csplit.py --sub / --latec.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);

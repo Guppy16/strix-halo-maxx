@@ -971,3 +971,43 @@ Text at r20z: GEMM 15,984 / 16,384, EW 16,272 (NRES + SRES +464 B; 112 free).
 | 10 | 28.30 (27.13) | 31.55 | 29.95 (28.51) |
 | 8 | 22.35 (21.51) | 25.58 | 23.91 (22.96) |
 | 6 | 16.76 (16.20) | 19.82 | 17.89 (17.14) |
+
+## 30. Round 21 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks; until ~06:20
+crop_study (~8 cores) and research CP-SAT (up to 12 workers) loaded the CPU and **the NPU clock was 1.405 GHz** for much of that
+window (r7/clk.py), marked below; the final sweep and A/B ran with only research CP-SAT at 4 workers + the background job)
+### 30.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 1 (LATEC))
+| build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
+|---|---|---|---|---|
+| full12r21a | r20z + CSUB | -0.135 / -0.133 / -0.131 (vs r20z, 20 x 20) | -0.12..-0.25 | hit |
+| full12r21b | + CSUB-G | +0.027 / +0.021 / +0.023 | -0.04..-0.08 | dead |
+| full12r21z1 | r21a + ZLOAD | 20 x 20: -0.151 / -0.096 / +0.02 (bimodal); 30 x 20: p10 -0.138, p25 -0.132 (fast mode), median -0.19 (slow mode) | -0.10..-0.18 | hit |
+| full12r21q1 | + CSUB-QK | -0.022 / -0.013 / +0.014 (1.405 GHz) | -0.03..-0.06 | neutral, kept (-16 B) |
+| full12r21l1 | + LATEC | first dispatch TIMED OUT (recovered) | ~-0.07 | dead |
+| full12r21c1 | + ACSUB | -0.020 / -0.001 / +0.022 (1.405 GHz) | 0..-0.05 | neutral, reverted |
+| full12r21e1 | r21q1 + E7'' r68try | twin (rows 0-7 wrong): -0.438 / -0.458 / -0.399 (1.405 GHz) | | unfitted kernel |
+| full12r21e3 | r21q1 + E7'' r68b | -0.385 / -0.282 / -0.285 (1.405 GHz; ~-0.22..-0.30 at 1.81) | rev 16: -0.9 +- 0.3 at R 64 | kept, partial (R 68) |
+| full12r21e5 | E7'' R 64 (fitted) | +0.041 / -0.035 / -0.080 vs r21e3 | replay: 1,373 vs 1,338 effective | neutral |
+| full12r21v4 | r21e3 + IV32 | -0.004 / -0.004 / +0.011 (GEMM text 16,320 -> 15,760) | text only | kept |
+| full12r21k1 | + K0B | -0.032 / -0.010 / -0.006 | ~-0.03 | kept (small) |
+| **full12r21k1** | **the round's best** | **-0.686 / -0.705 / -0.721 vs r20z** (30 x 20, quiet: p25 -0.696) | | |
+Text at r21k1: GEMM 15,760 / 16,384 (624 free), EW 16,272 (112 free).
+### 30.2 Probes
+- TPROF r21t2 (r21z1 + CSUB-G + TPROF, KS_ACC_HI 0x71A00): hands plain 345, up 75, mlp0 668, V^T 671, Q / K 1,108 (before CSUB-QK);
+  epilogues plain 1,575 / up 3,589 / qkv 2,123 / mlp0 5,495 cycles; first-tile paces (us per block) out_proj 6.7, down_b 4.15, mlp3_b
+  3.92, mlp0 1.9, up_a 1.5 (sum 20.8).
+- Clock under load (r7/clk.py): 1.4052 GHz (fit on medians and mins) while ~20 CPU threads ran; 32.3 -> 41.0 ms for r20z.
+- POPLF0 (r21/poplf0*, one core): vldb on lf0, vlda on lf0, alternating, vlda.fill + vldb pops: 128 / 128 each.
+- Acquire-only BD: refused by the MLIR verifier; release-by-0 accepted (CSUB); acquire-by-0 accepted by the verifier but refused at CDO
+  generation (E7 split: hand-off lock instead).
+- AEXP3 (aexp_ab in .aie.bank3, sgelu_cd in the data area; r21x2): bit-identical.
+- E7 rb-0 diagnosis (r21/e7dbg.py, depth 1): 2.2 % of yx values differ, all in rows 0-7 of each column's 144 rows and column blocks
+  1-3 (r68try) / 2-4 (R 64 unfitted): the jobs the prologue starts; the fitted kernels are exact.
+### 30.3 Depth sweep (full12r21k1, one xclbin, 4 phase sequences; r20z re-swept in the same session; quiet box: crop_study finished,
+research CP-SAT 4 workers + the background job)
+| depth | r21k1 dispatch median (min) | whole step | r20z same session median (min) | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 31.30 (31.23) | 34.06 (DAVIS loop 34.4) | 32.33 (31.94) | 70.84 (92.57) |
+| 10 | 26.22 (26.17) | 29.02 (DAVIS loop 29.5) | 26.89 (26.79) | 69.90 (91.02) |
+| 8 | 21.06 (21.00) | 24.11 | 21.53 (21.47) | not run |
+| 6 | 16.16 (15.76) | 19.44 | 16.23 (16.17) | not run |
+(an earlier same-session sweep of r21v4 = r21k1 without K0B: 31.32 / 26.25 / 21.04 / 15.93 vs r20z 32.02 / 26.86 / 21.83 / 16.26)

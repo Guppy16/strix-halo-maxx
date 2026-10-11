@@ -885,3 +885,41 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - SENDPRE (memtile sends before the wait after EW ops): +0.16. OPPRE (out_proj's A loaded per attention head group during pass 1): +0.18
   (cause not measured; DDR contention with the K / V stream suspected).
 - Not built: CSPLIT4-lite, LATE-C, E7'' (POPLF1 passed), S3 / K2, ssq2 / FSX, a third A region (B fifos off memtiles 0-2).
+
+## 26. Round 21 (2026-10-11): -0.70 ms vs r20z (A/B), 31.30 ms at depth 12 (quiet sweep; r20z 32.33 same session): C waits, E7'', IV32
+### 26.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 30; build `r21/try21.sh NAME`, everything below on by default)
+1. **CSUB**: the C object's part 1 drains in three sub-parts [0, 3,456) / [3,456, 6,912) / [6,912, 12,288) (r19/csplit.py --sub
+   1728,3456: the first two BDs release the prod lock by 0, because aiecc's verifier refuses a BD block with an acquire only). Every
+   epilogue releases the C cons lock once per sub-part as soon as it has written it: plain / yx GELU in row-block groups 0-3, 4-7,
+   8-11 (csub_rows: 4 / 8 / 12 KB cover the sub-part ends), gelu_pan and Q / K per 6 row blocks (bias / bias + GELU, then the
+   panels; one loop for flags 4-6, CSUB-QK), V^T per object, gated and attention all three at the end.
+2. **ZLOAD**: a tile's first k-step zero-loads its accumulators: the kp-0 MACs (in ROT exactly those with A operand ex0) take their
+   mmul config from r6 = a 4th argument (r21/mkzload.py), mm_ktile passes 781 (780 | zero_acc, bit 0) for k == 0. acc_zero /
+   acc_zero_hi keep only their flags (no 36 KB of zero stores per tile).
+3. **E7''** (research pass 17, B on both FIFOs; kernel r21/mm_rot_e7r68b = npu-research r22 R 68, fitted): design8 E7=1 (L1 B
+   objects = the Y part, 4,224 B; GEMM stack +1,152 B so core_data starts at 0x70E80 in the IRON build and the KSC addresses are final;
+   tbn / tba in bank 1), mm8 -DE7 (aexp_ab in .aie.bank3; mm_ktile passes the X buffer paired with the B buffer), r21/e7patch.py
+   via csplit20 E7PATCH=1 (X buffers 0x70A00 / 0x70C40, the stack back to 2,560, each B S2MM BD split Y -> X with a hand-off lock
+   e7h: an acquire by 0 is refused at CDO generation), r21/mke7.py (research's mm_e7 into the ROT slot).
+4. **IV32**: design8 range32() = scf.for with i32 bounds for the GEMM core's loops (IRON's range_ forces index = i64): GEMM text
+   16,320 -> 15,760, time neutral.
+5. **K0B**: the attention's chunk 0 through the batched fast pass (then the per-row-block exact reruns as before): -0.01..-0.03.
+### 26.2 What the numbers say
+- TPROF r21t2: hands (previous epilogue end -> mm_ktile entry) plain 1,355 -> 345, gated 676 -> 75, mlp0 1,807 -> 668, V^T 671, Q / K
+  1,108 (before CSUB-QK); the epilogues grew with the overlapped drain and the extra calls (plain 1,356 -> 1,575, mlp0 4,934 -> 5,495).
+- **Under heavy CPU load the NPU clock drops to 1.405 GHz** (r7/clk.py; crop_study ~8 cores + a 12-worker CP-SAT + the serverless
+  worker): r20z 32.3 -> 41.0 ms. A/B pairs stay valid; absolute numbers from that window do not.
+- E7'': the replay's bank stalls are real (R 64: 1,244 + 129 stalls = neutral vs R 68's 1,338 + 0). Unfitted kernels (the prologue
+  not ending 16 B aligned) lose exactly the jobs the prologue starts (rows 0-7, three column blocks); a wrong-output twin (-0.44)
+  overstated the exact kernel (-0.28 at 1.405 GHz).
+### 26.3 Facts / rules (also in the skill)
+- A BD block takes one acquire and one release or none: release by 0 is a no-op; an acquire by 0 fails at CDO generation.
+- zero_acc = config bit 0 (aie2p_vmult.h); `acq.cond rId, rV, r26` takes the lock id from a register (Peano's form for runtime ids).
+- vldb pops / fills on lf0 work (POPLF0). IRON's range_ casts every bound to index; build scf.ForOp with i32 bounds directly.
+### 26.4 Dead ends
+- CSUB-G (gated in the group loop) +0.02 (frees 256 B; r21/patch_csubg.py). ACSUB (attention O per tile) neutral (r21/patch_acsub.py).
+- LATEC (C sub-parts 2 / 3 acquired inside the first k-step by lock-id records, csplit --latec): the step HUNG (1 timeout, recovered);
+  probably the core waiting for its own drain while holding multicast inputs (r21/latec.diff).
+- E7'' R 64 (fitted, exact): neutral vs R 68 (+0.04 / -0.04 / -0.08).
+- CSUB4 for plain (a 4th sub-part) needs 1-trip bias_pcs calls: MIN_ITERATION_COUNT(1) changes the loop (752 -> 448 B): not built.
+- bgelu at II 12 is at its port bound (ldb 11 / DM_ADA ~12 incl. the LUT loads): no epilogue lever there.

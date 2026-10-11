@@ -1,17 +1,34 @@
-# ROUND 21 IN PROGRESS (2026-10-11) - read this block first; the round-20 block below is the base
+# ROUND 21 DONE (2026-10-11) - read this block first; the round-20 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
-## State: best **full12r21e3** = r20z + CSUB + CSUB-QK + ZLOAD + E7'' (research's R 68 kernel r21/mm_rot_e7r68b), BIT-IDENTICAL
-- Build: `r21/try21.sh NAME [--sweep]` (CSUB, ZLOAD, E7 on by default; CSUB=0 / ZLOAD=0 / E7=0 turn them off; E7_V=<v> picks an
-  r21/mm_rot_<v>.s made by `python3 r21/mke7.py ../npu-research/r22/mm_e7_<x>.s r21/mm_rot_<v>.s`). csplit20 applies CSPLIT + CSUB
-  sub-parts + NRESFIX + E7PATCH (r21/e7patch.py) to the lowered MLIR: never dispatch *.unpatched.xclbin.
-- A/B (one process): CSUB vs r20z -0.13; ZLOAD vs CSUB -0.13; E7 r68b vs r21q1 -0.28 (at 1.405 GHz); r21e3 vs r20z p10 -0.64 (fast
-  mode) / median -0.84 (slow mode).
-- **The NPU clock is 1.405 GHz while crop_study + research CP-SAT load the CPU** (r7/clk.py): r20z 32.3 -> 41.0 ms. A/B ratios hold.
-- GEMM text 16,320 / 16,384 (64 B free; CSUB-G frees 256 at +0.02), EW 16,272.
-- Timeouts this round: 1 (LATEC, recovered).
-## Next
-1. E7'' at lower R (research r22/gen_e7.py: R 64 infeasible with nx 8; trying nx 12 / R 66): drop in with E7_V.
-2. Round end: quiet sweep (crop_study must finish) with r20z re-swept, DAVIS d12 / d10, RESULTS_FROM_MAIN round 21, skill copy.
+## State: **full12r21k1**, A/B in one process vs r20z **-0.70 ms** (30 x 20: -0.686 / -0.705 / -0.721), BIT-IDENTICAL vs full12r9a
+| depth | r21k1 sweep median (min) | whole step | r20z same session | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 31.30 (31.23) | 34.06 (DAVIS loop 34.4) | 32.33 (31.94) | 70.84 (92.57) |
+| 10 | 26.22 (26.17) | 29.02 (DAVIS loop 29.5) | 26.89 (26.79) | 69.90 (91.02) |
+| 8 | 21.06 (21.00) | 24.11 | 21.53 (21.47) | not run |
+| 6 | 16.16 (15.76) | 19.44 | 16.23 (16.17) | not run |
+Quiet box for the sweep (crop_study finished; research CP-SAT 4 workers + the background job; 1.81 GHz).
+Build: `r21/try21.sh NAME [--sweep]` = r20/try20.sh + CSUB + CSUB-QK + ZLOAD + E7'' (E7_V=e7r68b) + K0B (each with an env =0 switch;
+IV32 is design8's default), then csplit20 with CSUB sub-parts + NRESFIX + E7PATCH. Never dispatch *.unpatched.xclbin. A new E7 kernel:
+`python3 r21/mke7.py ../npu-research/r22/mm_e7_<x>.s r21/mm_rot_<v>.s` (FITTED .s only) then `E7_V=<v> r21/try21.sh NAME`.
+Text: GEMM 15,760 / 16,384 (624 B free), EW 16,272 (112 free). Timeouts this round: 1 (LATEC; recovered).
+## What changed (NOTES 26, RESULTS 30): the C drain overlaps the epilogue (CSUB) and the first k-step needs no zeroing (ZLOAD);
+B is popped from both FIFOs out of two banks (E7'', research's generator, main's layout + BD split); i32 loop counters (IV32).
+## Where the time goes: GEMM k-steps (E7 R 68: 1,338 static per call), epilogues ~1.6 ms (+ the drain collisions CSUB moved there),
+attention ~6.5, norms ~4.6 (DDR read cap), SSM ~3.6 (DDR), first-tile paces ~0.25 ms, GEMM -> norm tails ~0.58 ms.
+**The NPU clock falls to 1.405 GHz under ~20 busy CPU threads** (r7/clk.py): label absolute numbers; A/B pairs stay valid.
+## Next concrete actions (round 22)
+1. KTL (research rev 17 rank 1, -0.40..-0.52): one modulo loop per tile on the E7 kernel (research gen_e7 --aligned in flight); main:
+   mm_ktile's call sequence (B(0) acquire, mm_rot(.., 781), release, the multi-k-step call), KTLP one-core probe if research asks.
+2. E7'' at R 64-66 with near-zero replay bank stalls (R 64 + 129 stalls was neutral).
+3. Attention S3 / K2 (text is there now: 624 B): K2 on the K0B batched form (QK-only + running max for chunk 0).
+4. 3A (-0.10..-0.14; memtile repack or l2 depth 7), OPPRE-W (the round-20 OPPRE patch is lost: rebuild from NOTES 25.4).
+5. SSM ssq2 / FSX once EW text is found (EW 112 B free; norm_rows_k is 3,504 B of C++).
+## Rules that bit us this round (also in the skill)
+- A BD block needs one acquire and one release or none: release-by-0 works; acquire-by-0 fails at CDO generation (use a hand-off lock).
+- An unfitted modulo kernel (prologue not ending 16 B aligned) runs and loses exactly its prologue's jobs: always fit; e7dbg finds it.
+- Never make a core wait on its own C drain while it holds multicast inputs (LATEC hang).
+
 # ROUND 20 DONE (2026-10-11) - read this block first; the round-19 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r20z**, A/B in one process vs r19z **-2.07 ms** (40 x 20: -1.99 / -2.07 / -2.06), BIT-IDENTICAL vs full12r9a
