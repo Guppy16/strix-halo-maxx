@@ -307,6 +307,19 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
   }
 #endif
 #endif
+#if defined(MM_E7K_NPER) && defined(KTL1)  // round 22 debug bisect: the KTL kernel one k-step per call (it releases B itself)
+#pragma clang loop unroll(disable)
+  for (int k = 0; k < nks; k++) {
+    acquire_greater_equal((void *)b, 48 + KS_BCONS, 1);
+    mm_e7k(rot_rec.r, (float *)((uintptr_t)pc - KTL_J0C), k == 0 ? 781 : 780, 18, (int32_t)(uintptr_t)b,
+           (int32_t)((uintptr_t)b == (uintptr_t)KS_B0 ? KS_X0 : KS_X1));
+    b = (const bfp16ebs8 *)((uintptr_t)b ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
+  }
+#elif defined(MM_E7K_NPER)  // round 22 KTL: one call per tile; the kernel acquires B(1..nks - 1) and releases every B (research r22/gen_e7k.py)
+  acquire_greater_equal((void *)b, 48 + KS_BCONS, 1);
+  mm_e7k(rot_rec.r, (float *)((uintptr_t)pc - KTL_J0C), 781, 18 * nks, (int32_t)(uintptr_t)b,
+         (int32_t)((uintptr_t)b == (uintptr_t)KS_B0 ? KS_X0 : KS_X1));
+#else
 #pragma clang loop unroll(disable)
   for (int k = 0; k < nks; k++) {
 #ifdef TPROF
@@ -341,6 +354,7 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
     release((void *)b, 48 + KS_BPROD, 1);
     b = (const bfp16ebs8 *)((uintptr_t)b ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
   }
+#endif
 #ifdef TPROF
   g_t2 = tst();
 #endif

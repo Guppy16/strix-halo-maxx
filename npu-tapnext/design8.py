@@ -102,7 +102,7 @@ def asm_object(flags):
     ab = "-DATTKB" in flags  # round 14: the batched fused K loop (r14/gen_attkb.py, schedule r14/attkb.json) replaces attk
     af = "-DATTKF" in flags and not ab  # round 13: the fused K loop (r13/gen_attk.py, schedule r13/attk.json)
     if ab:
-        s2 = ["--s2", "--times", str(HERE / "r17" / "attks.json")] if "-DATTKS2MAX" in flags else ["--times", str(HERE / "r14" / "attkb.json")]
+        s2 = ["--s2", "--times", str(HERE / os.environ.get("ATTKS_JSON", "r17/attks.json"))] if "-DATTKS2MAX" in flags else ["--times", str(HERE / "r14" / "attkb.json")]
         extra += [["python3", str(HERE / "r14" / "gen_attkb.py"), str(bd / "attkb.s")] + s2 + fit,  # round 17: --s2 = the running max
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "attkb.s"), "-o", str(bd / "attkb.o")]]
     k2 = "-DK2" in flags  # round 22 (research K2): chunk 0's running maxima by a QK-only loop (r22/gen_attkq.py, schedule r22/attkq.json)
@@ -135,7 +135,7 @@ def asm_object(flags):
 
         v = os.environ.get("ROT_V", "g2f")  # round 18: g2a = re-solved with 6 bundles from acq.cond to the A fill (r18/gen_rot.py)
         rs = f"mm_rot_{v}_rel.s" if "-DMM_ROT_REL" in flags else f"mm_rot_{v}.s"
-        rd = next(HERE / d for d in ("r21", "r19", "r18") if (HERE / d / rs).exists())  # round 19: g1a / g0a (r19/build_rot.sh); round 21: g0z (r21/mkzload.py)
+        rd = next(HERE / d for d in ("r22", "r21", "r19", "r18") if (HERE / d / rs).exists())  # round 19: g1a / g0a (r19/build_rot.sh); round 21: g0z (r21/mkzload.py)
         for src, dst in ((rd / rs, "mm_rot.s"), (rd / f"mm_rot_{v}.h", "mm_rot.h"), (HERE / "r18" / "mm8_rot.inc", "mm_rot.inc")):
             shutil.copy(src, bd / dst)
         extra += [[f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "mm_rot.s"), "-o", str(bd / "mm_rot.o")]]

@@ -4,7 +4,13 @@
 // in k-panel order 0..7 on the same panels.
 // Include after mm8.cc's MM_PIECES helpers (piece(), rho) with -DMM_ROT; with -DKSC the records are build-time data.
 #include "build/mm_rot.h"
-#if defined(E7)  // round 21 E7'' (npu-research r22/gen_e7.py via r21/mke7.py): B in the Y buffer (bank 3) and the X buffer (bank 0)
+#if defined(MM_E7K_NPER)  // round 22 KTL (npu-research r22/gen_e7k.py via r22/mkktl.py): one modulo loop over a tile's k-steps; the
+// caller acquires B(0), the kernel takes / releases every other B lock itself (mm_ktile)
+extern "C" void mm_e7k(const int32_t *rec, float *pc, int32_t cfg, int32_t trips, int32_t y0, int32_t x0);
+static_assert(MM_E7K_YB == 4032);
+#define MM_ROT_NREC (MM_E7K_NHEAD + MM_E7K_NPER)
+#define mm_rot_order mm_e7k_order
+#elif defined(E7)  // round 21 E7'' (npu-research r22/gen_e7.py via r21/mke7.py): B in the Y buffer (bank 3) and the X buffer (bank 0)
 extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pY, float *piece0, const bfp16ebs8 *pX, int32_t conf0);
 #define MM_ROT_CONF0 , nullptr, 780
 static_assert(MM_E7_YB == 4032);
@@ -20,6 +26,31 @@ extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pB, float *piece0);
 constexpr int32_t rot_piece(int32_t c, int32_t hi, int rb, int pair) {
   return pair ? hi + 1024 * (6 + rb) : rb < 12 ? c + 1024 * rb : hi + 1024 * (rb - 12);
 }
+#ifdef MM_E7K_NPER
+// KTL records (npu-research r22/gen_e7k.py record()): any k-step's row block rb mod 18; rb 0's jump continues from rb 17; field 5 = the
+// B flag (rb 17: release B(j), acquire B(j + 1), toggle the buffer bases)
+constexpr int32_t rot_record(int rb, int f, int32_t c, int32_t hi, int32_t a0, int32_t a1, int32_t a2) {
+  const int nrb = 2 * rho;
+  rb %= nrb;
+  const int32_t slot[3] = {a0, a1, a2};
+  switch (f) {
+    case 0:
+      return slot[(rb / 2) % 3] + 576 * (rb % 2);
+    case 1:
+      return rot_piece(c, hi, rb, 0) - rot_piece(c, hi, (rb + nrb - 1) % nrb, 1) - 1024;
+    case 2:
+      return rot_piece(c, hi, rb, 1) - rot_piece(c, hi, rb, 0) - 1024;
+    case 3:
+      return rb % 2 == 0;
+    case 4:
+      return rb % 2 == 1;
+    default:
+      return rb == nrb - 1;
+  }
+}
+// rb 0's (continue) jump: the kernel takes piece(0, 0) minus it, so the prologue's jump lands on piece(0, 0)
+constexpr int32_t KTL_J0C = rot_record(0, 1, (int32_t)KS_C, (int32_t)KS_ACC_HI, 0, 0, 0);
+#else
 // record field f of row block rb (gen_rot.py record()); rb = 2 rho is the dummy row block the last trip starts
 constexpr int32_t rot_record(int rb, int f, int32_t c, int32_t hi, int32_t a0, int32_t a1, int32_t a2) {
   const int nrb = 2 * rho;
@@ -41,6 +72,7 @@ constexpr int32_t rot_record(int rb, int f, int32_t c, int32_t hi, int32_t a0, i
       return real && rb % 2 == 1;
   }
 }
+#endif
 #ifdef KSC
 struct RotRec {
   int32_t r[MM_ROT_NREC];
@@ -52,9 +84,13 @@ static constexpr RotRec rot_rec = [] {
                         (int32_t)KS_A1, (int32_t)KS_A2);
   return t;
 }();
+#ifdef MM_E7K_NPER  // (mm_kstep is not bound under P35; KTL runs only from mm_ktile)
+static inline void rot_kstep(bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *, bfloat16 *) {}
+#else
 static inline void rot_kstep(bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *pB, bfloat16 *c_out) {
   mm_rot(rot_rec.r, pB, piece(c_out, 0, 0) MM_ROT_CONF0);
 }
+#endif
 // with P35 (round 18 mm_ktile): replace `mm_ks(ks_rec.r, b, pc);` in mm_ktile's loop by `mm_rot(rot_rec.r, b, pc);` (both B
 // buffers sit in bank 3 as the schedule assumes; mm_rot takes B by pointer)
 #else
