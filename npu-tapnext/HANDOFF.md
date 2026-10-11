@@ -1,3 +1,34 @@
+# ROUND 20 DONE (2026-10-11) - read this block first; the round-19 block below is the base it builds on
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: **full12r20z**, A/B in one process vs r19z **-2.07 ms** (40 x 20: -1.99 / -2.07 / -2.06), BIT-IDENTICAL vs full12r9a
+Every number after ~03:50 was taken under a second foreign CPU job (crop_study, ~7.6 cores) besides the usual worker: the sweep below
+is inflated for BOTH builds (r19z quiet 33.88 vs 35.65 here); quiet-box estimate for r20z ~31.8 ms at depth 12.
+| depth | r20z sweep median (min) | whole step | r19z same session | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 33.71 (32.15) | 36.87 (DAVIS loop 36.9) | 35.65 (34.03) | 70.84 (92.57) |
+| 10 | 28.30 (27.13) | 31.55 (DAVIS loop 31.7) | 29.95 (28.51) | 69.90 (91.02) |
+| 8 | 22.35 (21.51) | 25.58 | 23.91 (22.96) | not run |
+| 6 | 16.76 (16.20) | 19.82 | 17.89 (17.14) | not run |
+Build: `r20/try20.sh NAME [--sweep] [--k-add ..] [--env ..]` = r19z + IL DAPRE NSEQ NRES(norm0-3) SRES AQPRE AKVPRE (env defaults;
+NRES=, SRES=0 etc. override), then r20/csplit20.sh (CSPLIT patch + **NRESFIX**: the EW MM2S 1 panel route; never dispatch any
+*.unpatched.xclbin or a depth build's own xclbin). Text: GEMM 15,984, **EW 16,272 (112 B free)**. Timeouts this round: 0.
+Commits 80202f6 .. b83c7e4 + round end.
+## What changed (NOTES 25, RESULTS 29): the op boundaries = DDR bytes (drain tail at the write cap + CP + first tile at the read cap);
+A kept on chip from the EW producers (NRES, SRES), the next A loaded into the free slot half (IL, DAPRE, AQPRE, AKVPRE), NSEQ.
+## Where the time goes (timeline r20z1, ms, loaded box): attention 6.6, norms 4.7 (DDR read cap), SSM 3.6, GEMMs ~17 (k-step model
+~14.8); remaining first-tile pace per block: out_proj 6.8, down_b 6.0, mlp3_b 5.3 us; C waits ~0.48 ms per step (hand 1,355 plain /
+1,807 gelu_pan, qkv, gated-second vs 676 floor).
+## Next concrete actions (round 21)
+1. E7'' (B on both FIFOs, research -0.9 +- 0.3): POPLF1 passed; needs research's generator design (gen_rot variant).
+2. C waits: CSPLIT4-lite (gelu_pan restructure: bgelu3 + pan split at rb 12, 1a = [0, 6,912)), LATE-C / zero-load first k-step, or a
+   runtime-driven C path with per-op object sizes (also drops 74 MB of junk writes).
+3. down_b / mlp3_b pace: a third A region needs ~124 KB on memtiles 0-2 (B fifos there: move B_r's forward to memtiles 3-5?).
+4. out_proj boundary (OPPRE was +0.18: stamp it with ATPROF + TPROF first); attention S3 / K2; SSM ssq2 / FSX (EW text is tight).
+## Rules that bit us this round (also in the skill)
+- IRON's pathfinder: no route for two packet flows from two DMA channels of one tile: declare from one, patch the switchbox rule.
+- One full lock for both slot halves breaks any half-1-first load: per-half F locks.
+- A scattered slot layout must stay chunk-major (the last tile's chunk-wise release).
+
 # ROUND 19 DONE (2026-10-11) - read this block first; the round-18 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r19z 33.88 ms** at depth 12 (sweep median; A/B vs r18m -0.88 in one process), BIT-IDENTICAL vs full12r9a

@@ -935,3 +935,39 @@ Text at r19z: GEMM 15,984 / 16,384, EW 15,808.
 | 10 | 28.37 (28.34) | 30.25 | 33.1 | 69.90 (91.02); loop 30.7 ms per frame (dispatch 28.55) | 29.20 / 32.09 |
 | 8 | 22.74 (22.70) | 24.96 | 40.1 | not run | 23.33 / 25.55 |
 | 6 | 17.09 (17.07) | 18.99 | 52.7 | not run | 17.56 / 20.02 |
+
+## 29. Round 20 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the foreign CPU worker ran throughout and from ~03:50 a
+second foreign 7.6-core CPU job (crop_study) too: A/B spreads wider after that; A/B by r18/ab.py, one process, 22-dispatch blocks)
+### 29.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0; timeouts this round: 0)
+| build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
+|---|---|---|---|---|
+| full12r20i1 | r19z + IL | -0.415 / -0.399 / -0.405 (vs r19z, 20 x 20) | -0.35 +- 0.1 | hit |
+| full12r20i2 | + DAPRE | -0.127 / -0.129 / -0.108 | -0.07..-0.10 (rev 16 -0.10..-0.14) | hit |
+| full12r20s1 | + SENDPRE | +0.197 / +0.162 / +0.155 | -0.05..-0.15 | dead |
+| full12r20n7 | r20i2 + NRES norm1 (no NSEQ) | 40 x 20: -0.113 / -0.057 / -0.091 | -0.15..-0.28 | miss (column stagger) |
+| full12r20q1 | r20i2 + NSEQ | -0.167 / -0.174 / -0.166 (30 x 20) | -0.08..-0.20 | hit |
+| full12r20n8 | + NRES norm1 | -0.177 / -0.186 / -0.208 (vs q1) | -0.15..-0.28 | hit |
+| full12r20n9 | + NRES norm0 / 2 / 3 | -0.690 / -0.651 / -0.641 | -0.45..-0.9 | hit |
+| full12r20z1 | + SRES | -0.106 / -0.195 / -0.156 | -0.10..-0.20 | hit |
+| full12r20q3 | + AQPRE | 30 x 20 -0.037 / -0.230 / -0.177; 40 x 20 -0.087 / -0.106 / -0.127 (crop_study load) | -0.10..-0.20 | hit |
+| full12r20k1 | + AKVPRE | -0.241 / -0.134 / -0.168 (40 x 20, loaded) | -0.10..-0.14 | hit |
+| full12r20o1 | + OPPRE | +0.117 / +0.205 / +0.184 | -0.18..-0.3 | dead |
+| **full12r20z** | = r20k1 (the round's best) | **-1.992 / -2.074 / -2.057 vs r19z** (40 x 20, loaded) | | |
+Text at r20z: GEMM 15,984 / 16,384, EW 16,272 (NRES + SRES +464 B; 112 free).
+### 29.2 Probes
+- TPROF r20t2 (r19z + TPROF, records in C part 2 + tile counter): first-tile k-steps of every GEMM whose A loads at its start 2,003-2,977
+  cycles (steady 1,576): 72 us per block = 0.87 ms per step at the DDR read cap. After NRES etc. (r20t5): 31 us per block.
+- CPST (r20c4 + binpatch k1 / k4): mlp0 -> mlp3_a, us after mlp0's last k-step: epilogue end 2.7, CP past tct 1 14.9, tct 4 15.4, tct 8
+  15.8, column 0's first k-step 20.0, columns 0..7 20.0 .. 25.5 (0.78 per column).
+- CPST-N (r20cn*): up_a: column 0's first k-step 4.1 us after the CP pass, +0.31 us per column; qkv 9.6 us.
+- DDRW (r20/ddrw.py, drains only, 4 MiB per column): 1 column 12.1 GB/s, 2 24.4, 4 45.3, 8 ~50-60 (slope; 0.06 ms dispatch overhead).
+- POPLF1 (r20/poplf1*.py, one core): vldb control, vlda.pop on lf1, vlda / vldb alternating, vlda.fill: 128 / 128 each.
+- ATPROF (mm8 -DATPROF, r20/atprof.py): r20z1 first Q copy 28.6 us after qkv's last epilogue, begin +4.6, first K +0.5, groups 72-75 /
+  40 us; with AQPRE Q copy at 0.4 us, first K +12 us (then AKVPRE).
+### 29.3 Depth sweep (full12r20z, one xclbin, 4 phase sequences; r19z re-swept in the same session; both under the crop_study load)
+| depth | r20z dispatch median (min) | whole step | r19z same session median (min) |
+|---|---|---|---|
+| 12 | 33.71 (32.15) | 36.87 | 35.65 (34.03) |
+| 10 | 28.30 (27.13) | 31.55 | 29.95 (28.51) |
+| 8 | 22.35 (21.51) | 25.58 | 23.91 (22.96) |
+| 6 | 16.76 (16.20) | 19.82 | 17.89 (17.14) |

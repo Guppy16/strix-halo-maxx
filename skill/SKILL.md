@@ -583,6 +583,48 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   moving post-sync work before the producer wait did NOT shorten the boundaries (round 19 SEQPRE: slot loads first -0.04 ms,
   drains first +0.15, memtile sends first +1.1): the boundary is not the CP instruction count. Never push a memtile MM2S task
   before the same op's fills: the 4-deep queue fills and the blocked push waits on work the CP has not issued yet.
+- **What a dependent op boundary IS (round 20 TPROF + CPST, MEASURED by main; decomposition research rev 16)**: for mlp0 -> mlp3_a
+  the CP passes the token wait 12.2 us after the producer's last epilogue (the "tail": its last C drain + completion token),
+  the 8-tct run takes ~1 us, then 8 A fills + the memtile sends reach column 0's first k-step in ~4.2 us (+0.85 us per further
+  column for K = 1536: 5 send pushes x 0.17), and the first tile is then paced by the A load at the DDR read cap (k-step
+  2,630-2,980 cycles instead of 1,576; 6.5-8.5 us per K = 768 op, 13.3 for K = 1536; 0.87 ms per step). A BD write + patch
+  costs only ~0.10 us (INFERRED from CPST), so hoisting BD writes is worth <= 0.1 ms. Boundaries total ~3 ms per step, not 5:
+  the timeline "gap" of a GEMM contains its whole first tile. **DDRW (main round 20, npu-tapnext r20/ddrw.py, MEASURED)**: one
+  shim S2MM stream writes ~7 B/cycle (12.1 GB/s), 4 columns 45 GB/s, 8 columns ~50-60 GB/s: the tail is the last 442 KB of C
+  objects (store-and-forward joins) at the AGGREGATE DDR write cap (= the read cap), not token latency or a per-channel limit.
+- **Host-poll timeline medians are quantised** (rev 16, verified on r18m / r19d JSONs): polls come every ~16.5-17.5 us, so a
+  per-op median gap is 0 / 16.5 / 33 / 49.5 us. Use the MEAN over blocks 1-11 (SE ~1-2 us with 3 runs); norm gaps are 8.6-11 us,
+  not "16.5 every op".
+- **A_RT chunk locks are identity-free** (rev 16, from design8): the slot loads release ONE lock F for both halves and the t0
+  sends acquire F per chunk, so loading half 1 before half 0 would let half-0 sends go before their data. Any reordered slot load
+  (DAPRE, MLPRR) needs per-half F locks.
+- **DDR bytes (rev 16, `npu-research/r21/ddrbudget.py`, plan8 TAPs vs r19d shares)**: a step reads 914 MB and writes 676 MB;
+  every EW op reads at 48-55 GB/s inside its span (norms, SSM: at or near the cap), GEMM steady tiles 13-24 GB/s. APAN outputs
+  (gated / gelu_pan) drain whole 18,432 B objects with 10,368 B of data: 74 MB of junk writes per step.
+- **An acquire-only DMA BD is legal hardware-wise** (DOC aie-rt BD layout, as txn_trace decodes it): lock acquire enable /
+  value and release id / value are independent fields; release value 0 = no release. The MLIR lowering of a BD block with
+  only an acquire is UNVERIFIED (check the lowered BD words).
+- **Boundary cures (round 20, all MEASURED and bit-identical, -2.07 ms together)**: keep the dependent A on chip (NRES / SRES: the EW
+  producer streams the panels into the memtile A slot through its MM2S 1), or load the next op's A into the slot half the current op
+  leaves free before the producer ends (IL / DAPRE / AQPRE / AKVPRE: per-half F locks, h1first fills, drain groups split so the
+  consumer waits only for the chunks it needs), and issue everything independent before the wait (NSEQ). The CP's serial per-column
+  issue staggers the columns and the B multicast holds every column to the last one (NRES alone gave -0.09; with NSEQ -0.19).
+- **IRON 1.4.4 pathfinder: two packet flows from two DMA channels of ONE tile merging onto one port find no route** (even in one
+  column; from one channel they route). Declare both from MM2S 0, give the second DMA channel by index (`DmaChannel(MM2S, 1, ...)`,
+  `Bd(..., packet=(0, id))`), and patch the lowered switchbox (`aie.packet_rules(DMA : 1) { aie.rule(31, id, %amsel) }`,
+  npu-tapnext r20/nresfix.py) before aiecc re-runs: the unpatched xclbin must never run. The core tile's 4 south ports are full
+  (C x 3 + the EW output): a fifth southbound flow must share a packet port.
+- A memtile S2MM runtime task may scatter a stream with a 3D TAP (`[18 rb][12 q][576 B]` -> chunk-major); keep the A slot layout the
+  sends expect, or the last tile's chunk-wise release lets the next op overwrite rows still being read (round 20: an rb-major NRES
+  half gave wrong G chunks 31 / 39 / 47).
+- **Probing the CP (round 20 CPST)**: `npu_write32(address=<core-local> - 0x70000, column=c, row=r)` writes a core's data memory
+  from the runtime sequence; a core spinning on that word stamps when the CP passed a point. The 24 GEMM cores' timers agree within
+  ~1k cycles. A .bin is a TXN stream: `aie.utils.txn_trace.decode` + re-serialising (header op count / size) moves CP instructions
+  (r20/binpatch.py). TPROF-style records under CSPLIT + EPLR go into C part 2 (part 1 may drain first).
+- `vlda.pop.576` / `vlda.fill.512` on lf1 work (POPLF1, one core, 128 / 128; E7'' is not blocked by the pops). The EW core's deepest
+  stack is ~3.2 KB (stack_size 0x1300 left room for a 1,152 B ring in bank 0).
+- Dead (round 20): memtile sends before the wait after EW ops (SENDPRE +0.16); out_proj's A loaded per attention head group during
+  pass 1 (OPPRE +0.18, cause not measured).
 - **GEMM tiles wait for their own C drain (round 19 TPROF, mm8 -DTPROF + npu-tapnext r19/tprof.py)**: the C object (18,432 B)
   drains whole at 7.9 B/cycle and 12,288 B of the accumulators live in it, so each next tile waited ~2,330 cycles (~1.2 ms per
   step) plus acc_zero (~600). Zero acc_hi after the release (ZHI), drain the accumulator part first (CSPLIT), release it as soon
@@ -801,6 +843,11 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   -DTPROF tile stamps), wrapgen.py / wrapb.* (pop-wrap probes), build_rot.sh (mm_rot_g0a / g1a with the lock gaps), kcc.sh (mm8.cc
   alone with a build's kdefs + one function's disassembly), ddrcap.py (DDR rate probe), cbytes.py. Flags: mm8 ZHI CSPLIT (+ CS_Z)
   EPLR (+ CS_CONS) KPREP TPROF; design8 env SEQPRE (bits) CPRATE / CPRATE_POLL; design8 / pack8 take ROT variants from r19/.
+- `npu-tapnext/r20/` (round 20): try20.sh (current best: r19z + IL DAPRE NSEQ NRES x4 SRES AQPRE AKVPRE, csplit20.sh with the
+  NRESFIX route patch), tprof20.py / tpan.py / tpgap.py (TPROF records + core tile counter: first-tile pace, gaps), cpst.py / cpst2.py
+  (mm8 -DCPST + design8 CPST_OP / CPST_ADDR), binpatch.py (.bin re-ordering), cpdump.py (CP instructions per sync segment), ddrw.py
+  (DDR write cap), nresfix.py, poplf1gen.py / poplf1b.* (lf1 pop probe), atprof.py (mm8 -DATPROF attention stamps), actdiff.py (two
+  builds' ACT images diffed by region / column / k-step). design8 env: IL DAPRE NSEQ NRES (list) SRES AQPRE AKVPRE EOUTPKT CPST_*.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);
@@ -831,6 +878,9 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   GEMM kind from timelines), `cpseq.py` (CP instructions on each op boundary's critical path, now vs SEQPRE), `rotdb.py` / `rotdb.cc`
   (one-core k-step bench with a DMA-FED A ring: IRON Buffers + locks 4 / 5 + a shim -> core flow, so acquires really wait).
   asmlint rev 15: LOCK-ACQ-GAP, LOCK-REL-GAP, IMM-SRC (immediates checked on the .s source; the hist suite has 23 cases).
+  Pass 16 (`r21/`): `tlhist21.py` (per-op gap means + poll-quantum histograms), `bexcess.py` (per-op excess over steady tiles),
+  `ddrbudget.py` (DDR bytes per op from plan8 TAPs vs the timeline), `cpsig.py` / `cpdump.py` / `bduse.py` (.bin segment
+  signatures, instruction dumps, shim BD usage; npu-iron), `bndmodel.py` (boundary decomposition against main's TPROF npz).
 - `npu-tapnext/` design8 (round 3, the fused step): `plan8.py` (memory plan + op list: Q16 / APAN / QKV layouts,
   deps), `design8.py` (the frame: table-driven GEMM cores, attention op, EW ops, BD accounting), `mm8.cc` (GEMM +
   flag-driven epilogues + attention), `ew8.cc` (norm / patch / ssm on the row-3 cores), `nk8.h` (exp32, recip,

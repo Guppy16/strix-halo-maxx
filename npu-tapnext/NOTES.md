@@ -842,3 +842,46 @@ r19/cbytes.py, design8 env CPRATE / CPRATE_POLL / SEQPRE; r19/try19.sh = the cur
 - SEQPRE v1 / v2 / drains-first; NIN2 (DDR cap); GEMM L1 layout (research: B in two banks infeasible, A slots <= 15 cycles).
 - Not built: CSPLIT4 (needs pan / gup / the stash copy split at a static sub-part boundary + an acquire-only BD, unverified), LATE-C,
   DAPRE, attention S3 / K2, SSM ssq2 / FSX, N-IO / NS (LN 2-input only, <= 0.2).
+
+## 25. Round 20 (2026-10-11): 33.88 -> ~31.8 ms (A/B vs r19z -2.07 in one process), the op boundaries taken apart and bypassed
+### 25.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 29; commits 80202f6 .. b83c7e4 + round end)
+1. **IL** (plan8 / design8 env IL=1): mlp0 dealt round-robin (P23 rr for gelu_pan: step j of row r = chunk 3j + r), its drain split at
+   step 8 into its own dependency group "<name>#0" (= mlp3_a's chunks 0-23), mlp3_a filled half 1 first (h1first: two shim fills, ld[1]
+   before ld[0]) and **per-half full locks** (lk["Fhi"]: half 1 may load first; one F for both halves would send half-0 chunks unloaded).
+2. **DAPRE** (env DAPRE=1): down_a h1first: its half 1 loads during up_b (which reuses half 0).
+3. **NSEQ** (env NSEQ=1): a norm's params fills and drains before the producer wait, only the 8 input fills after it.
+4. **NRES** (env NRES=norm0,norm1,norm2,norm3 + EW_DEFS -DNRES): the norm writes its panels into a 2-slot ring (EW L1, bank 0) drained by
+   the EW core's MM2S 1 as packet 5 into memtile c's S2MM 5, whose runtime task (acquire Elo 12, release F 12) scatters the rb-major units
+   into the usual chunk-major half 0 with a 3D TAP; X' alone (1,024 B per unit) goes to DDR as packet 3 (EW MM2S 0 -> shim S2MM 1). The
+   GEMM after the norm loads no A, drops its dependency on the norm and is issued before the norm is awaited (the norm's group is pushed,
+   not finished). Params header kind | 8. EW stack 6 KB -> 4.75 KB (deepest ~3.2 KB) for the ring. **Routing**: IRON 1.4.4's
+   pathfinder finds no route when two packet flows from two DMA channels of one tile merge (single column fails too; both from MM2S 0
+   routes): design8 declares Pn from MM2S 0, r20/nresfix.py adds the switchbox packet_rules(DMA : 1) rule after the build (via
+   r20/csplit20.sh NRESFIX=1). Never dispatch an unpatched NRES xclbin.
+5. **SRES** (env SRES=1): the SSM's z panels (out's A) the same way (zk into the panel ring; units arrive head-major = contiguous).
+6. **AQPRE** (env AQPRE=1): the attention's Q lives in half 1; its Q fill and memtile sends go before the wait on qkv's K / V drain groups
+   (qkv's Q drains = its first group, already awaited inside qkv's sequence).
+7. **AKVPRE** (env AKVPRE=1): qkv's step 8 (V of heads 0-2) is a drain group of its own; head group 0's K / V fills go after it.
+r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = csplit.sh + NRESFIX.
+### 25.2 What the numbers say
+- **The op boundary is DDR bytes, not CP instructions** (CPST probe on mlp0 -> mlp3_a): ~12 us drain tail (the last 442 KB of C objects
+  through the memtile joins written at the DDR write cap ~55 GB/s, DDRW), 0.13 us per tct, 0.3-0.8 us of CP issue per column (serial),
+  then the consumer's first tile at the DDR read cap (0.87 ms per step over all first tiles at r19z). Keeping the A on chip (NRES /
+  SRES) or loading it into the free slot half before the producer ends (IL / DAPRE / AQPRE / AKVPRE) removes most of it.
+- The CP's serial per-column issue staggers the columns; the B multicast holds every column to the last one (NRES without NSEQ: up_a's
+  columns started 1.5 us apart, first-tile k-steps 3,247 .. 1,569 cycles by column): issue the independent work before the wait.
+- Remaining pace per block (r20t5, after NRES): out 7.7 (now SRES), out_proj 6.8, down_b 6.0, mlp3_b 5.3 us.
+- Attention (ATPROF): head groups ~72-75 us (pass 0) / 40 us (pass 1); qkv -> first Q copy 28.6 us at r20z1, 0.4 us with AQPRE, first K
+  then waited 12 us (AKVPRE).
+### 25.3 Facts / rules (also in the skill)
+- The CP can write a core's data memory (npu_write32 at the tile address = core-local - 0x70000): a CP-progress stamp (CPST). The 24 GEMM
+  cores' timers agree within ~1k cycles. A .bin (TXN) can be decoded and re-serialised (aie.utils.txn_trace) to move CP instructions.
+- DDR write cap ~55 GB/s aggregate (one stream ~7 B/cycle; 4 columns 45 GB/s).
+- TPROF records under CSPLIT + EPLR go into C part 2 (part 1 drains before the record would be written).
+- vlda.pop.576 / vlda.fill.512 on lf1 work (POPLF1, 128/128).
+- A memtile S2MM TAP may scatter a stream; keep the A slot chunk-major so the last tile's chunk-wise release stays right (an rb-major
+  half let the next op's chunk-0 load overwrite rows still being read: G chunks 31 / 39 / 47 wrong).
+### 25.4 Dead ends / not done
+- SENDPRE (memtile sends before the wait after EW ops): +0.16. OPPRE (out_proj's A loaded per attention head group during pass 1): +0.18
+  (cause not measured; DDR contention with the K / V stream suspected).
+- Not built: CSPLIT4-lite, LATE-C, E7'' (POPLF1 passed), S3 / K2, ssq2 / FSX, a third A region (B fifos off memtiles 0-2).
