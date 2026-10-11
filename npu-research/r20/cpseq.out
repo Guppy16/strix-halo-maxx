@@ -1,0 +1,30 @@
+segment    kind        ops   now   pre  saved
+yx         gemm/attn   148   108    36     72
+ssm0       ew          272   272   200     72
+ssm1       ew           80    80    40     40
+ssm2       ew           80    80    40     40
+ssm3       ew           80    80    40     40
+ssm4       ew           80    80    40     40
+ssm5       ew           80    80    40     40
+ssm6       ew           80    80    40     40
+ssm7       ew           80    80    40     40
+ssm8       ew           80    80    40     40
+ssm9       ew           80    80    40     40
+out        gemm/attn   148   108    36     72
+norm1      ew           96    92    40     52
+up_a+b     gemm/attn   216    92    36     56
+down_a     gemm/attn   196   156    36    120
+down_b     gemm/attn   196   156    36    120
+norm2      ew           96    92    40     52
+qkv        gemm/attn   599   119    36     83
+attn       gemm/attn   256   116    36     80
+out_proj   gemm/attn   136    96    36     60
+norm3      ew           96    92    40     52
+mlp0       gemm/attn   160   108    36     72
+mlp3_a+b   gemm/attn   380   144    36    108
+norm0      ew           96    92    40     52
+step: 288 segments, post-sync CP instructions on the A path now 30667, after SEQPRE 12960: 17707 saved
+  t_op 0.13 us -> 2.30 ms per step (upper bound: the SSM per-head segments are paced by compute, not by the CP; subtract them below)
+  t_op 0.17 us -> 3.01 ms per step (upper bound: the SSM per-head segments are paced by compute, not by the CP; subtract them below)
+  t_op 0.22 us -> 3.90 ms per step (upper bound: the SSM per-head segments are paced by compute, not by the CP; subtract them below)
+  critical boundaries only (dependent ops, 12 blocks): 10515 CP instructions -> 1.37, 1.79, 2.31 ms at t_op 0.13,0.17,0.22 us

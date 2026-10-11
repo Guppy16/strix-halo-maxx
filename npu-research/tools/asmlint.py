@@ -70,7 +70,18 @@ RULES = {
     "ASSEMBLE": ("error", "assembler", "the .s does not assemble (out-of-range immediates, a push not on p2, ...): the other checks did not run"),
     "FIFO-POP9": ("error", "measured r16 (popprobe 6 / 7)", "more than 8 dense 576-bit pops from one FIFO (lf0 / lf1) without a fill on it: a pop consumes 72 B and refills 64, so pops 9-12 read zeros / half exponents; put a fill at the same position after every 8 pops (restarts of <= 8 pops are fine)"),
     "RAW-BYTES": ("error", "measured (hung the core twice)", "raw .byte / .word data in a .text section of a .s"),
+    "LOCK-ACQ-GAP": ("error", "measured r18 (ROT g2f raced in situ; mm_ks / g2a with 6 are exact)", "a FIFO fill that opens freshly "
+                     "loaded memory (its pointer came from a scalar lda since the stream's last fill) issues < 6 bundles after a lock "
+                     "acquire: the fill reads the slot before the acquire has stalled the core (one-core benches with pre-released "
+                     "locks cannot see it)"),
+    "LOCK-REL-GAP": ("warning", "unverified threshold (g2a deploys 8; 6 = the pop's memory stage 5 + 1)", "a lock release < 6 "
+                     "bundles after the last pop / fill of a stream opened under a lock: the DMA may overwrite the slot before the "
+                     "pop has read it"),
+    "IMM-SRC": ("error", "measured r18 (V2T: `add r1, r1, #64` assembled SILENTLY as #-64, a hang)", "an immediate in the .s SOURCE "
+                "outside its .td operand type: the assembler may wrap it without an error (add takes c7s = [-64, 63]), so the "
+                "disassembly looks legal; checked on the source text"),
 }
+LOCK_ACQ_GAP, LOCK_REL_GAP = 6, 6
 NOT_STATIC = [
     ("bank conflicts (two accesses to one bank in a bundle stall)", "needs addresses: one-core bench with operands at chosen offsets (r8/mmb.py)"),
     ("a drain's garbage store landing on data a later stage still reads", "needs the buffer map: msched check / guard-zone benches"),
@@ -837,7 +848,54 @@ def check_fifo(f, rep):
                                 f"(or since an unknown point): add a fill at the same position every 8 pops")
 
 
-def check_source(path, rep):
+def check_lock(f, rep):
+    """LOCK-ACQ-GAP / LOCK-REL-GAP (round 18). A fill `v*.fill* [pN, lfK, ..]` whose pointer register was written by a
+    scalar load (`lda pN, ..`: the next slot's address from a record) since lfK's previous fill opens freshly acquired memory:
+    it must issue >= LOCK_ACQ_GAP bundles after the most recent acquire. A release must come >= LOCK_REL_GAP bundles after
+    the last pop / fill of a stream opened that way."""
+    seen = set()
+    for seq, _ in streams(f):
+        cyc, last_acq, loaded, guarded, last_use = 0, None, set(), set(), {}
+        for x in seq:
+            if x is None or x == "CALL":
+                last_acq, loaded, guarded, last_use = None, set(), set(), {}
+                continue
+            b = f.bundles[x]
+            cyc += 1
+            for i in b.instrs:
+                if i.is_nop():
+                    continue
+                m = re.search(r"\[\s*(p\d+)\s*,\s*(lf[01])\b", i.ops)
+                if i.mn.startswith("acq"):
+                    last_acq = (cyc, b.addr, i.text)
+                elif i.mn.startswith("rel"):
+                    for lf in guarded:
+                        if lf in last_use and cyc - last_use[lf][0] < LOCK_REL_GAP and (b.addr, "rel") not in seen:
+                            seen.add((b.addr, "rel"))
+                            rep.add("LOCK-REL-GAP", f.name, b.addr, f"'{i.text}' {cyc - last_use[lf][0]} bundle(s) after "
+                                    f"'{last_use[lf][2]}' (0x{last_use[lf][1]:x}), the last access of the {lf} stream opened under "
+                                    f"the lock (deployed ROT g2a: 8)")
+                elif m and ".fill" in i.mn:
+                    ptr, lf = m.groups()
+                    if ptr in loaded:
+                        loaded.discard(ptr)
+                        guarded.add(lf)
+                        last_use[lf] = (cyc, b.addr, i.text)
+                        if last_acq is not None and cyc - last_acq[0] < LOCK_ACQ_GAP and (b.addr, "acq") not in seen:
+                            seen.add((b.addr, "acq"))
+                            rep.add("LOCK-ACQ-GAP", f.name, b.addr, f"'{i.text}' opens a freshly loaded {ptr} "
+                                    f"{cyc - last_acq[0]} bundle(s) after '{last_acq[2]}' (0x{last_acq[1]:x}): need >= {LOCK_ACQ_GAP}")
+                    elif lf in guarded:
+                        last_use[lf] = (cyc, b.addr, i.text)
+                elif m and POP_RE.match(i.mn) and m.group(2) in guarded:
+                    last_use[m.group(2)] = (cyc, b.addr, i.text)
+                for r, _ in i.writes:
+                    if re.fullmatch(r"p\d+", r):
+                        if i.mn == "lda":
+                            loaded.add(r)
+
+
+def check_source(path, rep, model=None):
     """text-level rules on a .s"""
     sec = ".text"
     for n, ln in enumerate(open(path).read().splitlines(), 1):
@@ -849,6 +907,20 @@ def check_source(path, rep):
         for slot in s.split(";"):
             if re.match(r"\s*vst\.(push|flush)", slot) and not re.search(r"\[\s*p2\s*,\s*sf", slot):
                 rep.add("PUSH-P2", Path(path).name, n, f"line {n}: '{slot.strip()}': output-stream pushes / flushes use [p2, sf, r26]")
+            # IMM-SRC (round 18): immediates as WRITTEN, against the .td operand types (the assembler may wrap silently)
+            txt = slot.strip()
+            if model is None or not txt or txt.startswith((".", "#")) or txt.endswith(":") or not re.search(r"#-?\d", txt):
+                continue
+            ins = Instr(txt)
+            annotate(model, ins)
+            for nm, (v, ty) in ins.imms.items():
+                mm = re.fullmatch(r"c(\d+)([sun])(?:_step(\d+))?", ty)
+                bits, kind, step = int(mm.group(1)), mm.group(2), int(mm.group(3) or 1)
+                lo, hi = {"s": (-(1 << (bits - 1)), (1 << (bits - 1)) - step), "u": (0, (1 << bits) - step),
+                          "n": (-(1 << (bits - 1)), 0)}[kind]
+                if v < lo or v > hi or v % step:
+                    rep.add("IMM-SRC", Path(path).name, n, f"line {n}: '{txt}': #{v} outside {ty} = [{lo}, {hi}] step {step} "
+                            f"(the assembler may wrap it silently)")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -894,6 +966,7 @@ def lint(funcs, labels, rep, only=None, asm_only=False, zstats=None, calib=None)
         check_misc(f, rep)
         check_stage(f, rep)
         check_fifo(f, rep)
+        check_lock(f, rep)
     return zstats, calib
 
 
@@ -907,7 +980,7 @@ def load_input(path, tools, model, rep, keep=False):
     tmp = None
     src = None
     if p.suffix == ".s":
-        check_source(p, rep)
+        check_source(p, rep, model)
         src = p
         try:
             p, tmp = tools.assemble_link(p)

@@ -1,0 +1,6 @@
+calibrated alpha = 0.720 (MEMORY_STALL 167.5 on full12r18m)
+r18m (deployed, slots b1 b2 b2)    static 1383 internal   0.0 MEM A   75.3 B   91.6 =  166.9 (phase spread 21.6)  LOCK   0.0  k-step  1588.9
+slots b1 b2 b0 (scan best)         static 1383 internal   0.0 MEM A   63.2 B   89.2 =  152.3 (phase spread 15.8)  LOCK   0.0  k-step  1574.3
+slots b0 b1 b2                     static 1383 internal   0.0 MEM A   75.8 B   85.8 =  161.6 (phase spread 11.5)  LOCK   0.0  k-step  1583.6
+all slots b2                       static 1383 internal   0.0 MEM A   93.8 B   85.1 =  178.9 (phase spread 19.4)  LOCK   0.0  k-step  1600.9
+bound: A slots in a private bank   static 1383 internal   0.0 MEM A   28.9 B   90.3 =  119.2 (phase spread 15.8)  LOCK   0.0  k-step  1541.2

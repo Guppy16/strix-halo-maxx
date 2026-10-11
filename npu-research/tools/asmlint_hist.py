@@ -40,6 +40,9 @@ CASES = [
     ("ggk_r16_nofill.s", ["FIFO-POP9"], [], "r16 first ggk: the B stream popped 16 x per np after one fill (kk 4-6 terms lost)"),
     ("ggk2_r16_good.s", [], ["FIFO-POP9"], "r16 deployed ggk: a fill before every 8th B pop"),
     ("nrm_ln_nosave.s", ["ABI-CALLEE-SAVED"], [], "r15 rule: p6 / p7 written without save / restore (RECONSTRUCTED from nrm_ln.s)"),
+    ("mm_rot_g2f_r18.s", ["LOCK-ACQ-GAP"], [], "r18 ROT g2f: acq.cond one bundle before the A fill (in situ: wrong, run-to-run varying)"),
+    ("mm_rot_g2a_r18_good.s", [], ["LOCK-ACQ-GAP", "LOCK-REL-GAP"], "r18 deployed ROT g2a (acquire 6 bundles before the fill)"),
+    ("add64_r18.s", ["IMM-SRC"], [], "r18 V2T preamble: add r1, r1, #64 assembled as #-64 (RECONSTRUCTED snippet)"),
 ]
 
 
