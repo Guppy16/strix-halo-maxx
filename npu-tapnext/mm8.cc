@@ -134,11 +134,11 @@ static inline __attribute__((always_inline)) void cs_take(void *c) {
 }
 #endif
 void acc_zero_hi() {
-  zero2(acc_hi, acc_hi + 2048, 128);  // 8 KB at a + 16 KB at b
   g_hi_clean = 1;
 #ifdef CSPLIT
   g_zh = 0;
 #endif
+  zero2(acc_hi, acc_hi + 2048, 128);  // 8 KB at a + 16 KB at b (a tail call: no frame)
 }
 #endif
 #if defined(CSPLIT) && !defined(ZHI)
@@ -148,13 +148,17 @@ void acc_zero(bfloat16 *c_out) {
 #ifdef PROF
   const uint32_t tz = stamp();
 #endif
-#if defined(ZASM) && defined(ZHI)
+#if defined(ZASM) && defined(ZHI) && !defined(PROF)
   static_assert(ACC_LO * n * 4 == 12288 && (m - ACC_LO) * n * 4 == 24576);
-  if (g_hi_clean)
-    zero2((float *)c_out, (float *)c_out + 1024, 64);  // the C part only (12,288 B = 4 KB at a + 8 KB at b)
-  else
-    zero2((float *)c_out, acc_hi, ACC_LO * n * 4 / 64);
-  g_hi_clean = 0;
+  {  // the C part only (12,288 B = 4 KB at a + 8 KB at b) when acc_hi is clean; flags first, zero2 as a tail call (no frame)
+    const int32_t cl = g_hi_clean;
+    g_hi_clean = 0;
+    g_stripe = 0;
+    zero2((float *)c_out, cl ? (float *)c_out + 1024 : acc_hi, cl ? 64 : ACC_LO * n * 4 / 64);
+    return;
+  }
+#elif defined(ZASM) && defined(ZHI)
+#error "ZHI under PROF: not wired"
 #elif defined(ZASM)
   static_assert(ACC_LO * n * 4 % 64 == 0 && (m - ACC_LO) * n * 4 == 2 * ACC_LO * n * 4);
   zero2((float *)c_out, acc_hi, ACC_LO * n * 4 / 64);
@@ -502,9 +506,19 @@ static inline void bias_rows(bfloat16 *c_out, const bfloat16 *bias) {
 }
 // -> the drained layout: row block rb at C byte 1024 rb, half h at + 512 h
 static inline void bias_to_c(bfloat16 *c_out, const bfloat16 *bias) {
+#if defined(CSPLIT) && defined(EPLR)
+  // round 19: rb 0..11 (both halves) first: they are the C object's part 1 (bytes 0 .. 12,287), released here so its drain overlaps
+  // rb 12..17; the same values op for op (each pass reads only what no earlier pass wrote over)
+  bias_pcs((const float *)c_out, c_out, bias, 12, 512);
+  bias_pcs(acc_hi + 256 * 6, c_out + 256, bias + 256, 12, 512);
+  release(c_out, 48 + CS_CONS, 1);
+  bias_pcs(acc_hi, c_out + 512 * 12, bias, 6, 512);
+  bias_pcs(acc_hi + 256 * 18, c_out + 256 + 512 * 12, bias + 256, 6, 512);
+#else
   bias_pcs((const float *)c_out, c_out, bias, 12, 512);
   bias_pcs(acc_hi, c_out + 512 * 12, bias, 6, 512);
   bias_pcs(acc_hi + 256 * 6, c_out + 256, bias + 256, 18, 512);
+#endif
 }
 #else
 // every row block -> rb_bf (compact bf16, 8 blocks of 64 at the start of its fp32 area)
@@ -830,6 +844,15 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
   const uint32_t tte = tst();
 #endif
   acc_epi(c_out, bias);
+#if defined(CSPLIT) && defined(EPLR)
+#if !defined(BGELU) || !defined(MM_PIECES)
+#error "EPLR: only the BGELU / MM_PIECES epilogue releases the plain tiles' part 1 in bias_to_c"
+#endif
+  {  // the C cons lock's first release per object (part 1); IRON's out_c.release is the second (part 2). Plain tiles (flag 0) released
+    const int flag = ((const int *)bias)[256];  // in bias_to_c; a gated object's first tile (flag 2) not at all
+    if (flag != 0 && flag != 2) release(c_out, 48 + CS_CONS, 1);
+  }
+#endif
 #ifdef TPROF  // record over the tile's first output words (timing build): magic 'TPRF'
   {
     const uint32_t t3 = tst();
@@ -1651,6 +1674,9 @@ void attn_end(bfloat16 *c_out) {  // -O2 (round 7)
 #endif
 #ifdef CSPLIT
   g_zh = 0;
+#ifdef EPLR
+  release(c_out, 48 + CS_CONS, 1);  // part 1 (IRON's out_c.release is part 2)
+#endif
 #endif
 }
 }

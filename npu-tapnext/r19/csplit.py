@@ -16,6 +16,8 @@ ap.add_argument("inp")
 ap.add_argument("out")
 ap.add_argument("--z", type=int, default=6)
 ap.add_argument("--split", type=int, default=6144)
+ap.add_argument("--core-rel", type=int, default=2, help="the core's IRON release of the C cons lock (1 with -DEPLR: the kernel releases part 1)")
+ap.add_argument("--cons-id", type=int, default=3, help="the C cons lock id every GEMM tile must have (mm8.cc CS_CONS)")
 o = ap.parse_args()
 src = open(o.inp).read()
 lines = src.split("\n")
@@ -28,6 +30,7 @@ n_bd = n_core = 0
 for buf, c, i, tile in cbufs:
     pre = f"C{c}_{i}"
     cons, prod = f"%{pre}_cons_lock_0", f"%{pre}_prod_lock_0"
+    assert re.search(rf"{cons} = aie\.lock\(%{tile}, {o.cons_id}\)", src), (tile, "C cons lock id")
     # locks on this tile
     ids = {int(m) for m in re.findall(rf"aie\.lock\(%{tile}, (\d+)\)", src)}
     assert o.z not in ids, (tile, ids)
@@ -67,6 +70,11 @@ for buf, c, i, tile in cbufs:
     k1 = next(j for j in range(k0 + 1, len(out)) if out[j].startswith("    }"))
     cname = f"%cs2_{tile[5:]}"
     cnt = 0
+    if o.core_rel == 1:
+        cnt = sum(1 for j in range(k0, k1) if re.search(rf"aie\.use_lock\({cons}, Release,", out[j]))
+        assert cnt >= 1, tile
+        n_core += cnt
+        continue
     for j in range(k0, k1):
         if re.search(rf"aie\.use_lock\({cons}, Release, %\w+\)", out[j]):
             out[j] = re.sub(rf"aie\.use_lock\({cons}, Release, %\w+\)", f"aie.use_lock({cons}, Release, {cname})", out[j])
@@ -75,4 +83,4 @@ for buf, c, i, tile in cbufs:
     out.insert(k0 + 1, f"      {cname} = arith.constant 2 : i32")
     n_core += cnt
 open(o.out, "w").write("\n".join(out))
-print(f"csplit: {n_bd} C MM2S chains split at {2 * o.split} B, {n_core} core releases -> 2, lock id {o.z}")
+print(f"csplit: {n_bd} C MM2S chains split at {2 * o.split} B, {n_core} core releases -> {o.core_rel}, lock id {o.z}")
