@@ -1,3 +1,17 @@
+# ROUND 21 IN PROGRESS (2026-10-11) - read this block first; the round-20 block below is the base
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: best **full12r21e3** = r20z + CSUB + CSUB-QK + ZLOAD + E7'' (research's R 68 kernel r21/mm_rot_e7r68b), BIT-IDENTICAL
+- Build: `r21/try21.sh NAME [--sweep]` (CSUB, ZLOAD, E7 on by default; CSUB=0 / ZLOAD=0 / E7=0 turn them off; E7_V=<v> picks an
+  r21/mm_rot_<v>.s made by `python3 r21/mke7.py ../npu-research/r22/mm_e7_<x>.s r21/mm_rot_<v>.s`). csplit20 applies CSPLIT + CSUB
+  sub-parts + NRESFIX + E7PATCH (r21/e7patch.py) to the lowered MLIR: never dispatch *.unpatched.xclbin.
+- A/B (one process): CSUB vs r20z -0.13; ZLOAD vs CSUB -0.13; E7 r68b vs r21q1 -0.28 (at 1.405 GHz); r21e3 vs r20z p10 -0.64 (fast
+  mode) / median -0.84 (slow mode).
+- **The NPU clock is 1.405 GHz while crop_study + research CP-SAT load the CPU** (r7/clk.py): r20z 32.3 -> 41.0 ms. A/B ratios hold.
+- GEMM text 16,320 / 16,384 (64 B free; CSUB-G frees 256 at +0.02), EW 16,272.
+- Timeouts this round: 1 (LATEC, recovered).
+## Next
+1. E7'' at lower R (research r22/gen_e7.py: R 64 infeasible with nx 8; trying nx 12 / R 66): drop in with E7_V.
+2. Round end: quiet sweep (crop_study must finish) with r20z re-swept, DAVIS d12 / d10, RESULTS_FROM_MAIN round 21, skill copy.
 # ROUND 20 DONE (2026-10-11) - read this block first; the round-19 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r20z**, A/B in one process vs r19z **-2.07 ms** (40 x 20: -1.99 / -2.07 / -2.06), BIT-IDENTICAL vs full12r9a
