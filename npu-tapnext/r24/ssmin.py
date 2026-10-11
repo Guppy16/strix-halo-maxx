@@ -30,7 +30,7 @@ def main():
     ssm = [op for op in s.p.ops if op["kind"] == "ew" and op["fn"] == "ssm"]
     per = {}
     for h in hits:
-        rec = act[h + 1:h + 6].astype(np.int64)
+        rec = act[h + 1:h + 7].astype(np.int64)
         b = int(h) * 4
         for op in ssm:
             for c, t in enumerate(op["c"]):
@@ -56,6 +56,18 @@ def main():
         print(f"{name:8s} {r[:, 1].mean():6.0f} {r[:, 2].mean():8.0f} {r[:, 3].mean():8.0f} {r[:, 4].mean():8.0f}  " + " ".join(f"{v:5.0f}" for v in r[:, 2]))
     t = np.mean(tot, 0)
     print(f"{'mean':8s} {'':6s} {t[0]:8.0f} {t[1]:8.0f} {t[2]:8.0f}")
+    # round 24: word 6 = the core timer at the record (EW cores' timers): per op, each column's first / last chunk time (us, relative to
+    # the op's earliest first chunk) -> the column skew at the SSM's start and end
+    print("column skew (us at 1.81 GHz): first-chunk spread, last-chunk spread, and the last chunk per column relative to the earliest")
+    for name in [op["name"] for op in ssm if op["name"] in per]:
+        fs, ls = [], []
+        for c, rs in sorted(per[name].items()):
+            rs = sorted(rs, key=lambda v: v[0])
+            fs.append(rs[0][5] & 0xFFFFFFFF)
+            ls.append(rs[-1][5] & 0xFFFFFFFF)
+        fs, ls = np.array(fs, np.int64), np.array(ls, np.int64)
+        print(f"{name:8s} start spread {(fs.max() - fs.min()) / 1810:6.2f}  end spread {(ls.max() - ls.min()) / 1810:6.2f}  ends "
+              + " ".join(f"{(v - ls.min()) / 1810:5.2f}" for v in ls) + "  starts " + " ".join(f"{(v - fs.min()) / 1810:5.2f}" for v in fs))
 
 
 if __name__ == "__main__":

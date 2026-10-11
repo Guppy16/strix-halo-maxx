@@ -1608,6 +1608,7 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
         rec[1] = ++g_nchunk;
         g_sw[2] += stamp() - sc0;
         for (int i = 0; i < 4; i++) rec[2 + i] = g_sw[i];
+        rec[6] = stamp();  // (the core timer: column skew)
       }
 #endif
 #if defined(PROF) || defined(NPROF)  // record in the pad (unused bytes of the output): magic, chunks so far, phase totals (r8/ewprof.py)

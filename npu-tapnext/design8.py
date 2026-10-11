@@ -1238,6 +1238,12 @@ def step8(
                     for c in range(COLS):
                         drain(e_out[c], op["c"][c], group=tgd, wait=True)
                     groups = []
+                    ssmpre = os.environ.get("SSMPRE") == "1" and op["fn"] == "ssm"  # round 24: head 0's params before the yx wait
+                    if ssmpre:
+                        tg_p0 = G()
+                        for c in range(COLS):
+                            assert len(op["fills"][c][0]) == 2 and op["fills"][c][0][0]["buf"] == "w", op["fills"][c][0]
+                            fill(e_in[c], op["fills"][c][0][0], group=tg_p0, wait=True)
                     for q in range(len(op["fills"][0])):
                         yxh_ = yxg and ops_by_name[yxg[0][0].split("#")[0]].get("yxh")
                         if yxg and (q in (0, 1, 3, 6) if yxh_ else q % 3 == 0):  # (yx's group: YXR "#0" .. "#2" at q 0 / 3 / 6, the op's own
@@ -1249,9 +1255,9 @@ def step8(
                                     pending.remove((n_, g_))
                             if gi == 3:  # round 24 MSDEFER: yx is drained, its memtile tasks are done
                                 push_deferred()
-                        tg = G()
+                        tg = tg_p0 if ssmpre and q == 0 else G()
                         for c in range(COLS):
-                            for f in op["fills"][c][q]:
+                            for f in op["fills"][c][q][1 if ssmpre and q == 0 else 0:]:
                                 fill(e_in[c], f, group=tg, wait=True)  # finished two heads later: must be awaited, not just freed
                         groups.append(tg)
                         if len(groups) > 2:
