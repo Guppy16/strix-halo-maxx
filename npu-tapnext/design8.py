@@ -539,6 +539,7 @@ def step8(
     # segments around attention cost two copies, ~1 KB). The attention loops take their trip counts from tbl_c (an
     # L1 table: constants let LLVM unroll the 3 x 3 Q-copy loop, 9 calls)
     one_seg = os.environ.get("ONE_SEG", "1") == "1"
+    iv32 = os.environ.get("IV32", "1") == "1"  # round 21 (research rev 13 IV32): i32 loop counters in the GEMM core body
     attn_ops = [o for o in core_body if o["kind"] == "attn"]
     assert len({json.dumps(o["passes"]) for o in attn_ops}) <= 1
     if one_seg:
@@ -556,6 +557,20 @@ def step8(
 
     def to_i32(v):
         return arith.IndexCastOp(IntegerType.get_signless(32), v).result
+
+    def range32(stop):
+        """round 21 IV32: an scf.for with i32 bounds (IRON's range_ casts everything to index, which lowers to i64)"""
+        from aie.dialects.scf import ForOp, yield_
+        from aie.ir import InsertionPoint
+        i32 = IntegerType.get_signless(32)
+        if isinstance(stop, int):
+            stop = arith.ConstantOp(i32, stop).result
+        f = ForOp(arith.ConstantOp(i32, 0).result, stop, arith.ConstantOp(i32, 1).result)
+        with InsertionPoint(f.body):
+            yield f.induction_variable
+            yield_([])
+
+    rng = range32 if iv32 else range_
 
     def make_core_fn(myrow):
         def core_fn(a_free, a_full, *rest):
@@ -593,24 +608,25 @@ def step8(
                 # per pass the 36 Q objects stream through the A ring in [head][tile] order (3 sub-tiles each);
                 # this core keeps those of heads myrow + 3 i and processes each head after its triple arrived.
                 # pass 0 = query tiles {0, 1}, pass 1 = tile {2}: ntiles = 2 - pass
-                two = arith.ConstantOp(IndexType.get(), 2).result
-                three = to_index(bc[0])
-                for pi in range_(to_index(bc[3]) if one_seg else len(op["passes"])):
-                    ntiles = to_i32(arith.SubIOp(two, pi).result)
-                    pi32 = to_i32(pi)
-                    for _ in range_(to_index(bc[1]) if one_seg else 4):
-                        for hh in range_(three if one_seg else 3):
-                            for t in range_(three if one_seg else 3):
+                # (round 21 IV32: i32 loop counters straight from the L1 tables; IRON's index type lowers to i64)
+                two = arith.ConstantOp(IntegerType.get_signless(32) if iv32 else IndexType.get(), 2).result
+                three = bc[0] if iv32 else to_index(bc[0])
+                for pi in rng((bc[3] if iv32 else to_index(bc[3])) if one_seg else len(op["passes"])):
+                    ntiles = arith.SubIOp(two, pi).result if iv32 else to_i32(arith.SubIOp(two, pi).result)
+                    pi32 = pi if iv32 else to_i32(pi)
+                    for _ in rng((bc[1] if iv32 else to_index(bc[1])) if one_seg else 4):
+                        for hh in rng(three if one_seg else 3):
+                            for t in rng(three if one_seg else 3):
                                 a_full.acquire(1)
                                 a_full.acquire(1)
                                 a_full.acquire(1)
-                                at_qcopy(abufs[0], abufs[1], abufs[2], to_i32(hh), to_i32(t), pi32, myrow)
+                                at_qcopy(abufs[0], abufs[1], abufs[2], hh if iv32 else to_i32(hh), t if iv32 else to_i32(t), pi32, myrow)
                                 a_free.release(1)
                                 a_free.release(1)
                                 a_free.release(1)
                         cbuf = out_c.acquire(1)
                         at_begin(cbuf, ntiles)
-                        for _ in range_(to_index(bc[2]) if one_seg else 24):
+                        for _ in rng((bc[2] if iv32 else to_index(bc[2])) if one_seg else 24):
                             kobj = in_b.acquire(1)
                             at_chunk_k(kobj)
                             in_b.release(1)
@@ -623,11 +639,12 @@ def step8(
             # one block per worker-loop iteration (IRON wraps the body in an endless loop): the core code does not
             # depend on the depth, so one xclbin serves every depth; only the runtime sequence (.bin) differs
             if one_seg:
-                for i in range_(len(tops)):
-                    ksteps, nobj, tpo = to_index(bk[i]), to_index(bn[i]), to_index(bt[i])
-                    for _ in range_(nobj):
+                for i0 in rng(len(tops)):
+                    i = to_index(i0) if iv32 else i0
+                    ksteps, nobj, tpo = (bk[i], bn[i], bt[i]) if iv32 else (to_index(bk[i]), to_index(bn[i]), to_index(bt[i]))
+                    for _ in rng(nobj):
                         cbuf = out_c.acquire(1)
-                        for _ in range_(tpo):
+                        for _ in rng(tpo):
                             zero(cbuf)
                             if mmt is not None:
                                 mmt(abufs[0], abufs[1], abufs[2], cbuf, bk[i])
@@ -649,7 +666,7 @@ def step8(
                         if zhi_k is not None:
                             zhi_k()
                     if attn_ops:
-                        for _ in range_(to_index(ba[i])):
+                        for _ in rng(ba[i] if iv32 else to_index(ba[i])):
                             one_attn(attn_ops[0])
             else:
                 for seg in segments:
