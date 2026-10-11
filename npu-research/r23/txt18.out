@@ -1,0 +1,23 @@
+# ewsize: deployed flags (full12r22c EW_DEFS, -O2); C++ object text (ew_patch, gemm8, out64 are dropped at link)
+## ew8.cc as deployed
+  11056	   8768	  23572	  43396	   a984	npu-research/r23/.ew.o
+   464 ew_norm
+   672 _ZL5gemm8PK9bfp16ebs8S1_iPKN3aie6vectorI8bfloat16Lj64EEEPS4_i
+   672 _ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_
+   704 ew_patch
+  1632 ew_ssm
+  3504 _ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEiPh
+## variant without -DTXT18 (must equal the deployed)
+  11056	   8768	  23572	  43396	   a984	npu-research/r23/.ew.o
+  1632 ew_ssm
+  3504 _ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEiPh
+## variant with -DTXT18
+  10656	   8768	  23572	  42996	   a7f4	npu-research/r23/.ew.o
+   432 _ZL7rsqrt_iN3aie6vectorI8bfloat16Lj32EEES2_
+   464 _ZL10ssm_tablesv
+   464 ew_norm
+   672 _ZL5gemm8PK9bfp16ebs8S1_iPKN3aie6vectorI8bfloat16Lj64EEEPS4_i
+   672 _ZL8ln_statsN3aie5accumIu10__accfloatLj32EEES1_NS_6vectorI8bfloat16Lj32EEERS4_S5_RS1_
+   704 ew_patch
+  1680 ew_ssm
+  3216 _ZL11norm_rows_kPjS_iiN3aie6vectorI8bfloat16Lj32EEEiPh

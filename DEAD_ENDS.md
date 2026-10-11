@@ -1,6 +1,6 @@
 # DEAD_ENDS.md — ideas tried and refuted on the TAPNext++ NPU port (check before proposing)
 
-Last updated 2026-10-11 (research pass 17; 167 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
+Last updated 2026-10-11 (research pass 18; 173 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
 Source keys: RFM = `npu-research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `npu-tapnext/*.md` (§ = section number); revN/P, revN/A = `npu-research/revN/PROPOSALS.md` / `ANALYSIS.md` (rev 16 = the top-level files); MACHINE Rx.y = `npu-research/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `.scratch/npu-moondream/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
@@ -165,6 +165,12 @@ Not listed: proposals that were built and hit or merely missed their price but w
 | H26 | NUMERICS-30F | method | SSM numerics judged by 30-frame max deviations |
 | H27 | HALF-BUILT | method | a half-built proposal scored as a whole (P43) |
 | H28 | STAMP-CONTAINS-CALL | method | stamp intervals include the call's own cycles |
+| J1 | RADD / KSUM | GEMM / norms | residual add or K-split sum in the GEMM epilogue: no third core input port |
+| J2 | EW-PRESUM | norms | EW presum during the second K half: no DDR headroom there |
+| J3 | KCONCAT | GEMM | mlp3 / down as K = 3072: A slot 497 KB |
+| J4 | YRES / SSPM | SSM | yx on chip / params multicast: SSM compute-bound, ~0 today (conditional) |
+| J5 | GELU-EW | epilogue | GELU on the EW cores: DDR over the cap during mlp0 |
+| J6 | B-ALT | GEMM L1 | alternate the popped B bank: no room for a second Y buffer in bank 0 |
 | A24 | E7L-STACK | GEMM L1 | shrink the GEMM stack for bank-0 room: ≤ ~512 B (deepest 1,856 + 64) |
 | A25 | E7L-LUT | GEMM L1 | GELU LUT bank-0 copies into bank 3: both copies in one bank, +8 cycles / 32 lanes |
 | A26 | E7-ABS | GEMM k-step | rb 0's pops from rb 0's stream instance: CP-infeasible at R = 64 |
@@ -569,3 +575,29 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 - **B2 GELU_II** (−0.88 ms once the loop really pipelined), **E15 ZASM-BENCH** (ZK −0.17 in situ), **D13 CHUNK0-SKIP** (~−0.3 in round 14),
   **C17 NRES** (the idea, built chunk-major: −0.84 ms with norm1), **A13 B-2BANK** (void with one FIFO; E7'' splits B over two banks with
   two FIFOs and is live), **E6 FOLD** (retired under a refuted fit: re-price under the DDR-cap reading).
+
+## J. Added by research pass 18 (2026-10-11)
+
+**J1 — RADD / KSUM: the residual add (or the K-split partial sum) in the producing GEMM's epilogue** (pass 18) [MODEL]. Would turn the
+3-input norms (norm0 = x + mlp3_a + mlp3_b, norm2 = x + down_a + down_b) into 1–2-input ones (−0.5 ms of DDR-bound norm time) and stay
+bit-identical (same fp32 order). Blocked: each GEMM core has two input ports (A from the memtile broadcast, B the multicast weights); the
+residual / partial tile is per core (its rows × its N columns), so neither stream can carry it, and there is no third S2MM. Lesson: check
+the per-core input ports before moving an operand into a GEMM.
+
+**J2 — EW-PRESUM: the EW core adds x + d1 while the second K half runs** (pass 18) [MODEL]. Moves 5.3 MB per op (read x, d1; write
+x + d1) into mlp3_b / down_b, which already run at ~66 GB/s read + write (r21 ddrbudget): no DDR headroom there.
+
+**J3 — KCONCAT: mlp3 / down as one K = 3072 op** (pass 18) [DOC]. Removes the K split (and the third norm input), but the A slot would be
+48 chunks = 497 KB of a 512 KB memtile (3A already took it to 36).
+
+**J4 — YRES / SSPM: yx's output to the SSM on chip; the SSM params multicast once instead of 8 column fills** (pass 18) [MODEL,
+conditional]. Save 3.5 MB / 1.0 MB of DDR per block, but the SSM is compute-bound (in situ ~2,340 cycles per unit vs a DDR floor of
+2,010): ~0 today. Revive once the SSM glue work brings it to its DDR floor.
+
+**J5 — GELU-EW: mlp0's GELU + panel packing on the idle EW cores** (pass 18) [MODEL]. The EW would read the pre-activations and write the
+panels (~11 MB per block) during mlp0, which already uses ~42 GB/s: over the cap. GELU stays in the GEMM epilogue (~0.55 ms per step,
+LUT-bound).
+
+**J6 — B-ALT: alternate the popped B bank per k-step so the DMA writes the idle one** (pass 18) [MODEL]. Would cut E7'''s B write
+collisions (~70 cycles per k-step in bank 3 at 0.9 busy), but both banks would need a whole 4,032 B Y buffer; bank 0 has no room (A24 /
+A25).
