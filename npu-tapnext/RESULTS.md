@@ -1130,3 +1130,27 @@ Text at r24z: GEMM 16,256 / 16,384, EW 15,728 (656 free). Timing builds (not tim
 | 8 | 19.10 (19.07) | 21.56 | 19.47 (19.39) | not run |
 | 6 | 14.38 (14.34) | 16.62 | 14.62 (14.58) | not run |
 (the sweep inside r24z's own build: d12 28.41, d10 23.81, d8 19.09, d6 14.37)
+
+## 34. Round 25 measurements (MEASURED, Turbo, gpu_busy 0; A/B by r18/ab.py in one process, 22-dispatch blocks (2 skipped))
+### 34.1 Step at depth 12 (no kept build; best full12r24z)
+| build | change | A/B vs | p10 / median / mean ms | predicted | verdict |
+|---|---|---|---|---|---|
+| full12r25a | r24z + P0FREE + CPPRE_OP | r24z | -0.003 / +0.009 / +0.176 (60 x 20, load 13.5 -> 9.0, 1.806 GHz) | -0.01..-0.04 | neutral, off |
+| full12r25t | r24z + RRTWIN (timing twin) | - | norm walls below | H_IO 3-input 60-68; 2-input 35-55 | 3-input hit, 2-input miss |
+| full12r25n | r24z + -DNIO2 -DNIO2_NONRM (stamps) | - | per unit below | - | - |
+| full12r25r | r24z + RRES=norm0,norm2 | - | aiecc: memtile (0,1) BD budget, EW bank overflow | ~-0.27 | not built |
+| full12r25z | r24/try24.sh defaults | r24z | byte-identical (16 .bin, 32 elfs, CDO) | identical | reproduces |
+### 34.2 Probes
+- TL_ONLY norm walls (3 runs each, same session, load 13.7 -> 7.3), r24z -> RRTWIN: norm0 90.1 -> 67.0, norm1 63.4 -> 60.5, norm2 91.7 ->
+  73.7, norm3 71.7 -> 70.3 us; norm0 -> yx 16.4, norm1 -> up_a 24.2, norm2 -> qkv 13.4, norm3 -> mlp0 13.9 us (r24z).
+- NIO2 (3 frames, 8 columns): cycles per unit RMS pass 2 287, pass 1 720; LN pass 2 364, pass 1 695 (pass 1 incl. input waits).
+- TPROF r24tp (block 11): out tile 0 bias wait by column 9.23 / 8.30 / 6.66 / 5.36 / 3.62 / 2.60 / 0.66 / 0.03 us (columns 0..7); hands per
+  tile median: gated 0.11-0.44 (max 0.85), mlp0 / qkv 0.36, plain 0.18 us; ~28 us per block in total.
+- CP audit (r25/cpcompact.py, r24z syncs 35-69): post-wait configured shim fills left on boundaries: OPPRE2's parts only.
+### 34.3 Depth sweep (full12r25z = r24z bytes, one xclbin, 4 phase sequences; load 3.0-9.1, r7/clk.py 1.808 GHz)
+| depth | dispatch median (min) | whole step | DAVIS AJ (OA) |
+|---|---|---|---|
+| 12 | 28.42 (28.37) | 30.45 | 70.84 (92.57), re-run: identical to round 24 |
+| 10 | 23.83 (23.78) | 25.84 | 69.90 (91.02), re-run: identical |
+| 8 | 19.09 (19.05) | 20.98 | not run |
+| 6 | 14.40 (14.35) | 16.86 | not run |

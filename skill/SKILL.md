@@ -714,6 +714,25 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   + ~2.0 MB of the overlapping yx) are 54 GB/s, at the 55-59 GB/s read cap. After YXSSM the SSM span is read-capped (INFERRED; main's
   r24d: starting it earlier slowed it by 19 us), so SSM compute cuts (glue, FSX) are ~0 and read bytes in the span are the lever:
   the SSM params (12,288 B per head, the same DDR address for every column) are read 8 times, 1.18 MB per block.
+- **Measure the distance to an input floor with a removal twin + input-wait stamps** (research pass 21, MEASURED SSMCUT): the SSM
+  read at ~95 % of the read cap yet was compute-bound (SSMIN waits ~8 net per chunk); removing ~1,000 cycles of compute (sigk + ssq,
+  -DSSM_NO_GATES) cut the chunk only 2,289 -> 2,034 and raised in_need 71 -> 529. Floor ~2,030 cycles per chunk = 7,851 B per column at
+  3.86 B/cycle. Near a cap is not on it; a compute cut lands only down to the floor.
+- **EW core L1 map (r24z)**: stack 0x70000 + 0x1300 (deepest path 1,792 B, asm frames 64 B in ggk / convk / nrm_ln only), ewp 0x71300
+  (1,152), ewo 0x71780 (9,216), .aie.bank0 0x73B80, data 0x74000-0x7AC00 (arena 22 KB in .bss), .aie.bank2 0x7AC00, input ring
+  0x7C000 (20 x 768), .aie.bank3 0x7FC00. Free: ~2.5 KB in section tails; `stack_size` 0x800 frees 2.8 KB more.
+- **Shim BD pressure: a fill's BD lives until its TaskGroup finishes** (design8's static accounting = IRON's free-on-finish; aiecc
+  --reclaim-runtime-bds would instead insert maskpolls that can hang). Put each fill in the earliest drain group whose completion
+  proves the fill was consumed (main's P0FREE: attention Q + pass-0 K/V into "#p0": peak 20 -> 16).
+- **Norms by input count (round 25 RRTWIN, MEASURED)**: without their residual input the 3-input norms drop 90 -> 67 (norm0) and 92 -> 74
+  us (norm2): byte-bound; the 2-input norms barely move (63 -> 61, 72 -> 70): compute-bound at ~480 (RMS) / ~560 (LN) cycles per unit,
+  which equals their 2-input I/O rate. NIO2 stamps: norm pass 2 costs 287 / 364 cycles per unit in situ vs nrm_rms 117 / nrm_ln 177
+  static. Price norm levers per input count; byte cuts pay only on 3-input norms, compute cuts only once bytes allow.
+- IRON: a routed `Flow(memtile, core)` with a pinned `dst_channel` is refused at aiecc ("pinned S2MM DMA channel 1 ... already in use");
+  leave both channels to the compiler and take the core end from `flow.endpoint(tile)`.
+- **Build the default configuration after every flag-guarded kernel edit** (round 25): an `#ifdef RRES` inserted between `#ifdef NRES`
+  and its `#else` broke the default build while the flagged build failed for other reasons. Compare the default build's elfs to the
+  best's (npu-tapnext r25/elfcmp.sh) before committing kernel edits.
 - **KTL at R 68-69 is a hard CP model** (research pass 20, MODEL): with <= 4 workers, 20-30 min runs found no schedule (hard banks,
   or even soft at R 69); main's 12 workers found R 68 with 35 bank conflicts per k-step. Bank 3 alone carries 63 accesses per row
   block (Y 27 + lf1 L 18 + N 18).

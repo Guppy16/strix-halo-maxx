@@ -1,3 +1,67 @@
+# ROUND 25 DONE - STATE AT PAUSE (2026-10-11) - read this block first; NPU optimisation is paused here (the maintainer), round 24's block is the base
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: best = **full12r24z** (no kept change in round 25), reproduced byte-identically from this checkout as full12r25z (all 16
+runtime sequences d12 / 10 / 8 / 6 x 4 phases, the 32 elfs and the CDO equal); regress BIT-IDENTICAL vs full12r9a; asmlint 0.
+| depth | sweep median (min), r25z = r24z bytes | whole step | DAVIS AJ (OA), 10 videos, this round |
+|---|---|---|---|
+| 12 | 28.42 (28.37) | 30.45 | 70.84 (92.57), re-run: identical to round 24 |
+| 10 | 23.83 (23.78) | 25.84 | 69.90 (91.02), re-run: identical |
+| 8 | 19.09 (19.05) | 20.98 | not run |
+| 6 | 14.40 (14.35) | 16.86 | not run |
+Box for the sweep: load 3.0-9.1 (the background job + research CP-SAT, scalar), r7/clk.py 1.808 GHz, gpu_busy 0. Timeouts: 0.
+References: bf16 CPU 70.54 (10 videos); round-24 DAVIS 70.84 (92.57) d12, 69.90 (91.02) d10.
+## Exact build (from a clean checkout of strix-halo-maxx; .scratch/npu-tapnext is a symlink into it; ~10 min CPU, docker only):
+    cd ~/git/app/.scratch/npu-tapnext && r24/try24.sh NAME [--sweep]
+  (--sweep also builds depths 10 / 8 / 6 and times them; NOREG=1 / NOTIME=1 skip regress / time). The chain is r24/try24.sh ->
+  r23/try23.sh -> r22/try22.sh -> r21/try21.sh -> r20/try20.sh -> r18/try18.sh -> r17/xtry.sh -> npu-research/tools/try.sh, then
+  r20/csplit20.sh (lowered-MLIR patch: CSPLIT / CSUB sub-parts 1728,3456, NRESFIX route, E7PATCH B split) rebuilds the xclbin;
+  **never dispatch build/*.unpatched.xclbin**. Run: `r16/nrun.sh LOG python3 step8.py {regress|time|sweep|timeline} --build full12NAME`,
+  DAVIS: `TMO=3000 ./s8.sh LOG davis --build full12NAME --depth 12 --videos 10`.
+## Every switch of the best build (as the docker build sees them):
+- design8 / plan8 env: P60G=1 P43=1 A_RT=1 P23=1 A_HALF=1 A_BANKS=1,2,2 ASM_FIT=1 EW_OPT=-O2 AIECC_EXTRA=--reclaim-runtime-bds XROT=4
+  AL1=1 IL=1 DAPRE=1 NSEQ=1 SRES=1 AQPRE=1 AKVPRE=1 NRES=norm0,norm1,norm2,norm3 SEQPRE=1 E7=1 ROT_V=k70p A3=1
+  ATTKS_JSON=r22/attks33.json ATTKB_DM=0,1,2,4,3 ATTV_JSON=r22/attv20.json MSPLIT=down_b,mlp3_b,out_proj YXSSM=1 YXR=1 ZCH=1
+  OUTPRE=1 OPH1=1 OPPRE2=1 SSMPRE=1 CPPRE=1; design args --lookahead 2 --l2-depth 3.
+- EW_DEFS: -DSSM_LUT -DSSM_EXP3 -DSIGK -DCPY64 -DCONVK -DRECK -DNRMK -DZRING -DSQK -DINPART_INLINE -DXONE -DGGK -DSSQ -DSIG10 -DN1K
+  -DXROT -DAL1 -DNPIPE -DNPIPE_G=6 -DHRING -DPTRG -DZK -DNIOC -DCGF -DNRES -DTXT18 -DSTATS64.
+- GEMM kdefs: -O2 -DMM_ASM -DMM_KSTEP -DMM_PIECES -DMM_KS -DGELU_MS -DGUP -DCPY32 -DPAN -DGELU_FLAT -DBGELU -DATTKF -DATTKE -DATTKB
+  -DKFOLD -DZASM -DATTV -DVTK -DRESCK -DATTKS2MAX -DV2T -DKSC -DKS_ACC_HI=0x71A00 -DKS_C=0x78900 -DKS_A0=0x77B80 -DKS_A1=0x78000
+  -DKS_A2=0x78480 -DP35 -DKS_B0=0x7D100 -DKS_B1=0x7E180 -DKS_BPROD=0 -DKS_BCONS=1 -DMM_ROT -DZHI -DCSPLIT -DCS_Z=6 -DEPLR -DCS_CONS=3
+  -DKPREP -DZLOAD -DE7 -DKS_X0=0x70A00 -DKS_X1=0x70C40 -DK0B -DCSUB -DMSPLIT.
+- Off by default (switches kept): round 25 P0FREE, CPPRE_OP, RRTWIN (timing twin), RRES / -DRRES (not buildable yet), -DNIO2(_NONRM)
+  (stamps); round 24 MSDEFER, YXH, ZDROP; earlier ones in their blocks below. Text: GEMM 16,256 / 16,384, EW 15,728.
+## Round 25 (NOTES 30, RESULTS 34): nothing kept. P0FREE + CPPRE_OP (OPPRE2's A parts configured before the waits; BD peak 16) neutral
+(+0.009 median). Out's bias wait is off the critical path (the slowest SSM column waits 0.03 us). MSPLIT-C up_a priced ~0 (norm1 at the
+read cap: pass 1's B re-read lands in its span). **RRTWIN**: 3-input norms are byte-bound (norm0 90 -> 67, norm2 92 -> 74 us without
+the residual), 2-input norms compute-bound at ~500 (RMS) / ~560 (LN) cycles per unit; NIO2: pass 2 costs 287 / 364 per unit vs
+117 / 177 static. RRES (residual rows on chip) designed and coded, blocked at aiecc. C hand-offs priced ~28 us per block.
+## Known risks
+- **CPU vector load drops the NPU clock**: 12 AVX-512 numpy threads -> 1.41 GHz (x1.27 slower) at the same package power that 12 spin
+  threads run at 1.81 (CLKLOAD, round 23; cause unseparated, npu-research/r25/clkload2.sh not run). Keep <= 6 vector threads beside it.
+- **The NPU with the GPU busy is untested**: every number here is gpu_busy 0. An LLM on the GPU shares DDR (the norms and the SSM sit at
+  the 55-59 GB/s read cap) and maybe power: expect slower steps; measure before relying on 28 ms.
+- Dispatch-time noise under foreign CPU load is bimodal (p90 ~32 ms with a busy box): compare A/Bs in one process (r18/ab.py).
+- A changed design must be checked: SEQLOG for CP-order deadlocks, the shim BD peak <= 16 in the build log, asmlint 0, one short
+  dispatch first; a kernel taking a new lock hangs on an unpatched xclbin.
+## Open queue with prices (ms per step at d12; all need a build + one-process A/B)
+1. **RRES** (residual rows rb < 10 of norm0 / norm2 parked in memtile half 1 during mlp3_b / down_b, fed to the EW S2MM 1): ~-0.27
+   (RRTWIN bound -0.49). Code in place (RRES=norm0,norm2 + --ew-add -DRRES); blockers: memtile (0,1) runtime-BD budget ("Too many
+   simultaneously active buffer descriptors") and the 2 KB R ring's placement (pin it after core_data; data_size 26,240). L.
+2. **SSM glue by chunk pairs** (ssq2 / reck2 / ggk2): -0.15..-0.25 (research SSMCUT: lands to the ~2,030-cycle input floor); needs ~5 KB
+   EW L1 (stack / arena: RRES takes the data tail). M-L.
+3. Norm pass-2 glue (287 / 364 cycles per unit vs 117 / 177 static, every norm at that floor once bytes allow): up to ~-0.1..-0.3 if
+   halved; needs research's static decomposition first. M.
+4. KTL R 68-69 bank-clean (research CP-SAT): -0.2..-0.3 if a schedule exists. S once found.
+5. attkb II 33 -> 32 (bound 31): -0.035..-0.065 if CP finds it (12 workers, 3,600 s, --life 1, stages 3 / 4). S.
+6. C hand-offs (~28 us per block): <= -0.1..-0.15, needs LATEC-style split C locks (hung in round 21). L, risky.
+7. Dead / ~0: MSPLIT-C up_a / qkv / mlp0 (read-capped norm spans), out's bias wait, CPPRE_OP, SSPM-B alone.
+## Rules that bit us this round (also in the skill)
+- A 2-input norm is compute-bound and a 3-input norm byte-bound: price norm levers per input count (RRTWIN).
+- A pinned dst_channel on a routed Flow into a core tile is refused ("already in use"): let the compiler assign it.
+- Build the DEFAULT configuration after every flag-guarded kernel edit: an #ifdef inserted inside another's #else broke the default
+  build while the flagged build failed elsewhere (fixed in a57c764).
+- Re-read RESULTS_FROM_MAIN right before starting a build: research may have asked for a build-free window (my slip at 15:52).
+
 # ROUND 24 DONE (2026-10-11) - read this block first; the round-23 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r24z**, A/B in one process vs r23z **-0.48 ms** (60 x 20: -0.476 / -0.483 / -0.508), BIT-IDENTICAL vs full12r9a

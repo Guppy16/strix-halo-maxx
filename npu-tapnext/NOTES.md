@@ -1063,3 +1063,35 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - **SSM glue by chunk pairs** (ssq2 / reck2 / ggk2): ~4.5-5 KB of doubled chunk buffers vs ~2.5 KB free L1 (+ maybe the stack): not built.
 - **SSPM-B** (research rev 20 rank 1, params read once): priced ~0 by SSMIN (the SSM is not input-starved), not built.
 - **CPPRE_OP** (OPPRE2 parts configured early): static BD peak 20 > 16, never dispatched.
+
+## 30. Round 25 (2026-10-11, last round before the pause): nothing kept; best stays full12r24z (28.42 ms at d12, re-swept, 1.808 GHz)
+### 30.1 What was tried (each against r24z; RESULTS 34)
+1. **Post-wait fill audit** (r25/cpcompact.py on full12r24z.bin, one block = syncs 35-69): after CPPRE the only configured post-wait shim
+   fills on a boundary are OPPRE2's four A parts (8 per head-group wait); the SSM's heads 1-11 (ring ahead: SSMIN), qkv's 72 drains
+   (needed tiles later), down / mlp3 A fills (DAPRE / IL hide them) and the attention's K / V groups are off the critical path.
+2. **P0FREE + CPPRE_OP** (design8 env): the attention's Q and pass-0 K / V fills ride in pass 0's drain group, so out_proj's "#p0" wait
+   frees 5 shim BDs; the parts then fit configured one ahead (static peak 16, was 20). A/B -0.003 / +0.009 / +0.176 (p10 / median / mean;
+   predicted -0.01..-0.04): neutral. Off.
+3. **Out's tile-0 bias wait** (plan item 3): ~0 by TPROF (r25/outt0.py on r24tp): column 7, the slowest SSM column, waits 0.03 us; the
+   others wait for it. Not built.
+4. **MSPLIT-C up_a** (item 2): ~0 priced: norm1 runs 2,048 B per 503 cycles = the read cap, and pass 1's B (360 KB) would be re-read in
+   its span against ~6.3 us of moved compute; the gated pass epilogue would not fit the GEMM text (128 B free). Not built.
+5. **C hand-offs** (item 4): ~28 us per block (r25/hands.py: up_a 6.4, up_b 7.1, mlp0 5.2, qkv 3.8); double buffering needs 18 KB GEMM L1
+   (124 B free); partial release = LATEC's split acquire (hung). Parked.
+6. **RRTWIN** (own probe; plan8 / step8 / design8 env, outputs wrong): norms without their residual input. TL_ONLY walls: norm0 90.1 -> 67.0,
+   norm1 63.4 -> 60.5, norm2 91.7 -> 73.7, norm3 71.7 -> 70.3 us. The 3-input norms are byte-bound, the 2-input ones at a compute floor of
+   ~480 (RMS) / ~560 (LN) cycles per unit that coincides with their 2-input I/O rate.
+7. **NIO2** (full12r25n, -DNIO2 -DNIO2_NONRM to fit the text): pass 2 per unit 287 (RMS) / 364 (LN) cycles in situ vs nrm static 117 /
+   177; pass 1 720 / 695 including the input waits.
+8. **RRES** (own find, coded, not built): norm0 / norm2 take the residual rows rb < 10 from a 2 x 1 KB EW S2MM 1 ring, fed by a memtile
+   task from half 1 where the GEMM before the norm parked them (memtile S2MM 0 task on the A load flow + one shim fill per column). aiecc
+   refuses it on memtile (0,1)'s runtime BD budget and the R ring's placement (.aie.bank0 / .aie.bank2 overflow). Priced ~-0.27 ms.
+### 30.2 Facts / rules
+- The two norm kinds bind differently: price norm levers per input count. Norm pass 2 (the per-unit asm + ~170-190 cycles of glue) is
+  the larger half of a compute-bound norm unit.
+- IRON: a routed Flow into a core tile with a pinned dst_channel is refused; leave channels to the compiler.
+- After a flag-guarded kernel edit build the default configuration too (a57c764 fixed a default-build break that the flagged build hid).
+- The best build reproduces byte-identically from the checkout (r25z = r24z: 16 sequences, 32 elfs, CDO).
+### 30.3 Dead ends (measured or priced)
+- CPPRE_OP with P0FREE: +0.009 median (neutral). Out's bias decoupling: 0.03 us on the critical column. MSPLIT-C up_a: ~0 (read-capped
+  norm span). C double buffering: no L1.
