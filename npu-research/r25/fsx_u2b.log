@@ -1,0 +1,3 @@
+ops 109; ResMII 30: {('bank', 2): 30, 'm': 29, ('port', 'QEY_WA_L0_PORT'): 28, ('port', 'DM_ADA'): 27, 'b': 26, ('port', 'QEY_WB_L0_PORT'): 26, 'v': 22, 's': 21}
+II 32: CP-SAT found none in 600 s
+II 33: CP-SAT found none in 600 s

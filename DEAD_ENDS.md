@@ -1,6 +1,6 @@
 # DEAD_ENDS.md — ideas tried and refuted on the TAPNext++ NPU port (check before proposing)
 
-Last updated 2026-10-11 (research pass 19; 178 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
+Last updated 2026-10-11 (research pass 20; 184 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
 Source keys: RFM = `npu-research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `npu-tapnext/*.md` (§ = section number); revN/P, revN/A = `npu-research/revN/PROPOSALS.md` / `ANALYSIS.md` (rev 16 = the top-level files); MACHINE Rx.y = `npu-research/MACHINE.md` revision additions; SKILL = `~/.claude/skills/xdna2-npu/SKILL.md` (laptop); MD = `.scratch/npu-moondream/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
@@ -165,6 +165,12 @@ Not listed: proposals that were built and hit or merely missed their price but w
 | H26 | NUMERICS-30F | method | SSM numerics judged by 30-frame max deviations |
 | H27 | HALF-BUILT | method | a half-built proposal scored as a whole (P43) |
 | H28 | STAMP-CONTAINS-CALL | method | stamp intervals include the call's own cycles |
+| L1 | KTL-R68-CP | GEMM k-step | KTL at R 68-69 without bank conflicts: not found within 4 CP workers (bank 3 at 63 / R) |
+| L2 | FSX-CP | SSM | FSX: no schedule at II 30-33 (ResMII 30); worth <= -0.05 in a read-capped SSM span |
+| L3 | WINDOW-AVERAGE | method | DDR headroom read from a window average (r+w over 320 us) while the SSM's own span sits at the read cap |
+| L4 | OUT-TILES-ON-HEADS | GEMM | out's tiles 1-3 following the SSM heads: 4 resident C tiles per core |
+| L5 | MSPLIT-OUT | boundaries | out in two row passes for norm1: +0.43 / +0.14 / neutral (main r23, r24a) |
+| L6 | YXH | SSM / yx | yx head-major with finer drain groups: +0.48 (7 TAPs), +0.09 (4 TAPs; the SSM slows) |
 | K1 | KTL-MULMASK | GEMM k-step | lock condition flag x counter: acq.cond tests bit 0, acquires skipped: the KTL hang |
 | K2 | MUL-LATENCY | asm | scalar mul / add latency in a ZOL body as the .td says: not the KTL cause |
 | K3 | STALE-HEADER | method | kernel run with another schedule's record header: a timeout |
@@ -580,6 +586,8 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 - **B2 GELU_II** (−0.88 ms once the loop really pipelined), **E15 ZASM-BENCH** (ZK −0.17 in situ), **D13 CHUNK0-SKIP** (~−0.3 in round 14),
   **C17 NRES** (the idea, built chunk-major: −0.84 ms with norm1), **A13 B-2BANK** (void with one FIFO; E7'' splits B over two banks with
   two FIFOs and is live), **E6 FOLD** (retired under a refuted fit: re-price under the DDR-cap reading).
+- **J4 YRES / SSPM** (pass 20): "the SSM is compute-bound, byte cuts ~0" no longer holds after YXSSM: the SSM's span is at the DDR
+  read cap, so read bytes in it pay and compute cuts do not. SSPM (params read once, broadcast) is PROPOSALS rev 20 rank 1.
 
 ## J. Added by research pass 18 (2026-10-11)
 
@@ -631,3 +639,33 @@ per step = <= -0.02 ms. Not proposed.
 **K5 — S3 on the new attkb / attv** (pass 19) [MODEL]. ~220 flagged row blocks per core per step (chunk 0's 144 + ~2.3 % after it)
 x -60 cycles, even with a x6 lockstep amplification: -0.01..-0.04 ms. K2 (-0.02 measured) already said chunk 0 is hidden. Not
 proposed except as a text lever (~400 B of k_rb C++).
+
+## L. Added by research pass 20 (2026-10-11)
+
+**L1 — KTL-R68-CP: KTL at R 68-69 with no bank conflicts** (pass 20) [MODEL CP, conditional]. r22/gen_e7.py --ktl: R 69 --hard-banks
+1,800 s at 4 workers (r70b hint) and 1,500 s at 2 workers (hint scaled to R 69): no solution; R 69 soft 1,200 s at 2 workers: no
+solution at all; main's R 68 soft (12 workers, 1,800 s): 35 modelled conflicts per k-step against 36 cycles saved; repaired from it
+at 4 workers for 1,200 s: still 35 (prologue 45 -> 41), a plateau. Bank 3 holds 63
+accesses per row block (Y 27, L 18, N 18), i.e. 91-93 % of the bundles at R 68-69; the A pops' bank (1 / 2) and the accumulator
+pieces' banks both change with the row block, so an A pop's bundle can rarely hold an accumulator op. Revive with more CP workers in
+a quiet window, or with a placement whose A slots and accumulator pieces never share a bank.
+
+**L2 — FSX-CP: gate_a's sigmoid inside ssq** (pass 20) [MODEL CP]. r25/gen_fsx.py: 109 ops, ResMII 30 (bank 2: 30, mv 29, ldb 26 with
+eight constants on lda); cpsched found no schedule at II 30, 31 (700 s each) or 32, 33 (600 s each), 2 workers. Even at II 30 FSX
+removes only compute (~160 static cycles per SSM unit), and the SSM span is at the DDR read cap: <= -0.05 ms. E16 stands.
+
+**L3 — WINDOW-AVERAGE: DDR headroom read from a window average** (pass 20, research's own note to main at 15:05, corrected at
+15:20) [METHOD]. Reads + writes over the whole yx / SSM window (24.9 MB in ~320 us = 78 GB/s) compared with norm0's 90 GB/s r+w said
+"headroom: the SSM is channel-bound". Inside the SSM's own 288 us span the reads are 15.5 MB = 54 GB/s, at the measured read cap
+(55-59, round 19 DDRCAP). Lesson: price a bound over the span of the op that binds, with the cap of the same kind (read vs r+w).
+
+**L4 — OUT-TILES-ON-HEADS: out's tiles 1-3 following the SSM heads like tile 0** (pass 20) [MODEL]. k-outer across tiles needs every
+tile's C resident at once: four 18 KB C objects per core in a 64 KB L1 that has ~576 B free. And the whole 1.77 MB drain would then
+land after the last head (~35-50 us at the drain rate): no gain over today's 52 us tail.
+
+**L5 — MSPLIT-OUT: out in two row passes so norm1 starts on rows 0-5** (main rounds 23-24) [MEAS main]. +0.43 with OUTPRE (it
+delayed the SSM's fills), +0.14 without, neutral with MSDEFER (r24a: norm1 ends 6.7 us earlier, up_a's first word 5.5 us later).
+
+**L6 — YXH: yx steps head-major with finer drain groups** (main round 24) [MEAS main]. 7 drain TAPs per column: +0.48 (a shim S2MM
+channel queues ~5 tasks); 4 TAPs: +0.09 (the SSM starts 15 us earlier but its wall grows 289 -> 308 us: more of yx's reads inside the
+read-capped SSM span). The order alone is free (r24c).

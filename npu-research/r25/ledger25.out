@@ -1,0 +1,17 @@
+segment                                       now   floor lo-hi   ms/step now / floor  bound
+norm0 (+ mlp3_b pass 2)                      93.0   90.4-  93.0    1.12 /  1.08- 1.12  DDR read cap (= channel 0)
+yx + SSM (YXSSM / YXR)                      334.4  272.4- 305.1    4.01 /  3.27- 3.66  DDR read cap in the SSM span (channel 0 and compute just under)
+out (tiles 1-3 + drain after the SSM)        52.0   20.0-  30.0    0.62 /  0.24- 0.36  tile 0 follows the heads (ZCH); tiles 1-3 need all
+norm1                                        78.8   70.3-  75.3    0.95 /  0.84- 0.90  DDR read cap (= channel 0)
+up_a + up_b                                 390.8  334.3- 357.0    4.69 /  4.01- 4.28  k-steps + gated epilogues
+down_a + down_b + norm2                     254.6  222.5- 240.5    3.06 /  2.67- 2.89  k-steps + norm2 DDR (MSPLIT-P overlaps ~13)
+qkv                                         154.6  117.0- 125.5    1.86 /  1.40- 1.51  k-steps + qkv epilogues
+attention                                   493.4  470.0- 490.0    5.92 /  5.64- 5.88  compute (rev 18 floor ~5.7-5.9 ms per step)
+out_proj                                     75.4   37.8-  40.6    0.90 /  0.45- 0.49  k-steps; A after attention (OPPRE)
+norm3                                        76.1   70.6-  75.6    0.91 /  0.85- 0.91  LN compute (STATS64 r24e -0.10) vs DDR
+mlp0                                        226.7  182.5- 193.9    2.72 /  2.19- 2.33  k-steps + gelu_pan epilogues (LUT)
+mlp3_a + mlp3_b                             176.4  144.7- 156.1    2.12 /  1.74- 1.87  k-steps + plain epilogues
+total (+ final norm once)                  2406.2 2032.6-2182.7   28.97 / 24.48-26.28
+block bytes: read 70.8 MB, write 53.5 MB; step DDR floor 14.4-15.5 ms (read cap)
+SSM per column on channel 0: 1695744 B (247 us at 3.8 B / cycle; + yx A 18 us); per unit 2066 cycles vs static compute 2,115, in situ 2,416 (r23z) / 2,336 (r22t)
+stretch norm0..norm1: now 558 us / block; DDR floor 475-509 us
