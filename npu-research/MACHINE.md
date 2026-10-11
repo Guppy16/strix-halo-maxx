@@ -661,3 +661,19 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   - The A pops' bank (1 / 2) and the accumulator pieces' banks (2/0, 2/1, 0/1 by row block) all change with the row block.
   - With <= 4 workers no R 69 schedule was found (hard or soft banks). R 68 stays at 35 modelled conflicts per k-step (main's 12-worker solution, repaired at 4 workers).
 - **R20.7 [MODEL]** FSX (ssq + gate_a's sigmoid, r25/gen_fsx.py): 109 ops; ResMII 30 with eight constants reloaded on lda (bank 2 30, mv 29, lda port 28, ldb 26). cpsched found nothing at II 30-33 (600-700 s, 2 workers).
+
+## Revision 21 additions (2026-10-11, from research pass 21)
+- **R21.1 [MEAS SSMCUT, r24/ssmin.py on full12r25s / full12r25g]** The SSM chunk is 2,289 cycles with input waits of 71. With sigk + ssq removed it is 2,034 with waits of 529. Input floor ~2,030 cycles per chunk = 7,851 B per column per chunk at 3.86 B/cycle (one shim MM2S channel, R15.3; ~56 GB/s over 8 columns, the read cap). Today the SSM is compute-bound by ~255 cycles per chunk.
+- **R21.2 [MEAS CLKLOAD2, r25/clkload2.sh, r7/clk.py, 12 threads per kind]**
+  - NPU clock: idle 1.809 GHz (27 W); numpy matmul AVX-512 1.408 (99 W); the same with OPENBLAS_CORETYPE=Haswell (AVX2) 1.408 (99 W); 64 × 64 matmul in L1 1.584 (99 W); np.copyto on 64 MB arrays 1.808 (42 W).
+  - With R20.1: the trigger is many threads of FP compute with the package at its ~100 W limit. DRAM bandwidth and vector width are not the cause, and scalar spin at 99 W is not either.
+  - Mechanism (SMU power or current arbitration) UNVERIFIED.
+- **R21.3 [MEAS main r24]** A post-wait shim fill costs the CP ~0.55 µs (blockwrite + patch + maskpoll + maskwrite + push), vs push-only when configured before the wait (CPPRE). This supersedes R16.2's ~0.10 µs.
+- **R21.4 [DOC r24z EW elf, llvm-readobj --stack-sizes, disassembly]**
+  - EW core L1: stack 0x70000 + 0x1300; ewp 0x71300 (1,152); ewo 0x71780 (9,216); .aie.bank0 0x73B80 (1,024 used of 1,152); data 0x74000-0x7AC00 (.data 2,560 + .bss 23,616: arena 22,016, g_panels 1,024, g_nacc 512); .aie.bank2 0x7AC00 (4,160 used of 5,120); input ring 0x7C000 (15,360); .aie.bank3 0x7FC00 (full).
+  - Deepest stack path 1,792 B (norm path via stats64's 1,152 B frame); the SSM path is 320 B.
+  - Asm kernels with frames: ggk, convk, nrm_ln (64 B each); sigk, ssq, reck, zk, n1k_*, nrm_rms, cpy64 have none.
+- **R21.5 [MODEL design8 static BD accounting, r26/design8_bd.py]** At out_proj, shim 0 holds 16-20 live BDs. 9 of them are the attention's Q fill + 8 K/V fills (4 per pass), kept until the attention group finishes; the rest are 5 drain groups (#p0, #h0-3) and out_proj's own.
+  - Moving the Q + pass-0 fills into "#p0" (main's P0FREE) frees 5.
+  - aiecc --reclaim-bds instead inserts completion maskpolls, which can hang when completion depends on a later push.
+- **R21.6 [MODEL CP]** KTL R 69 with hard banks: no schedule with 12 workers (deterministic budget 2,500), nor with 4. R 68 soft from main's solution: a 35-conflict plateau. Stopped at the pause.
