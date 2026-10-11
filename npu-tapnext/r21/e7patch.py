@@ -20,7 +20,9 @@ ap.add_argument("--core-data", type=int, default=3712, help="the GEMM cores' cor
 o = ap.parse_args()
 xs = [int(v) for v in o.x.split(",")]
 xw, yw = (o.obj - o.yb) // 4, o.yb // 4
-assert o.yb % 64 == 0 and len(xs) == 2
+# round 22: YB need not be a 64 B multiple (nx = 10: 3,888; the core's lf1 segment starts at 72 ny, a multiple of 64 when ny % 8 == 0);
+# the X buffers start FIFO streams: 64 B aligned, and they must fit below core_data
+assert o.yb % 4 == 0 and len(xs) == 2 and all(a % 64 == 0 for a in xs) and max(xs) + o.obj - o.yb <= o.core_data
 lines = open(o.inp).read().split("\n")
 src = "\n".join(lines)
 tiles = sorted(set(re.findall(r"%B(\d)L1_(\d)_cons_buff_0 = aie\.buffer\(%tile_(\d)_(\d)\)", src)))
