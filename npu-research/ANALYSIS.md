@@ -1,71 +1,62 @@
 # ANALYSIS.md — where the TAPNext++ step's time goes, what bounds it, and what is left
 
-Revision 17, 2026-10-11, research pass 17. State: full12r21k1 (31.30 ms sweep at d12, quiet box, MEASURED by main; -0.70 vs r20z in
-one process; BIT-IDENTICAL) + 3A (round 22, -0.08). Data: the deployed GEMM-core disassembly (r22/full12r20z_0_2.dis, tcall),
-main's round-20/21/22 results (RESULTS_FROM_MAIN, NOTES 25-26, RESULTS 29-30), r21/ddrbudget, main's r21/mtmap.py, the r22/ CP and
-replay runs. Revision 16 is in rev16/.
+Revision 18, 2026-10-11, research pass 18. State: full12r21k1 (31.30 ms sweep at d12, quiet, MEASURED) + 3A (round 22, -0.08) ~= 31.22;
+KTL in main's round 22. Data: tl_full12r21k1_d12.json (12 blocks, r21/tlops21.py), TPROF build/r21/tp_r21t2.npz (r20/tpgap.py), the
+deployed EW core (r23/full12r21k1_0_5.dis, tcall), the EW C++ compiled with the deployed flags (r23/ewsize.sh), r21 ddrbudget. Rev 17 in
+rev17/.
 
 ## 0. Scorecard
-- Rev 16 prices: MLPRR (-0.40), DAPRE (-0.13), NSEQ (-0.17), NRES (-0.84 with all norms), CSPLIT4-lite (= CSUB -0.13) hit; SENDPRE
-  (+0.16) dead as rev 16 had retired it; OPPRE (+0.18, main's) dead; DDRW refuted both tail hypotheses (aggregate write cap).
-- Rev 17 (this pass, consumed live by main): E7'' built from gen_e7 at R 68: -0.28 at 1.405 GHz (~-0.22..-0.30 at 1.81). My
-  standalone static price was -19 cycles per k-step (~-0.12 ms): the in-situ gain was 1.4-1.9x the static one [INF: the B DMA writes
-  left the busiest bank]. R 64 neutral, as the replay said (1,244 + 129 stalls vs 1,338). 3A re-priced -0.07..-0.10: -0.08 (hit).
-  K2 (rev 16's S3 / K2 -0.3..-0.4) measured -0.02: miss (chunk 0 hidden behind the K / V stream start).
-- Corrected in this pass: the first rev-17 draft priced KTL on ROT; one row block's pops span ~85 cycles > R, so a single-FIFO
-  loop across k-steps is impossible (DEAD_ENDS A28). KTL is built on E7'' with segment-aligned streams.
+- Rev 17: E7'' R 68 kept (-0.28 at 1.405 GHz); R 64 neutral as the replay said; 3A re-priced -0.07..-0.10, built -0.08 (hit); K2 -0.02
+  (miss: chunk 0 hidden). KTL: replay-verified kernel delivered, main integrating.
+- This pass prices with static counts only (tcall, compiled sizes); no device runs.
 
-## 1. Where the time goes (r21k1, ms per step)
-| part | ms | how known |
-|---|---|---|
-| GEMM k-steps | ~12.6 | in-situ k-step ~1,545 (1,576 - E7's ~30) x 14,930 |
-| of which per-call overhead | ~1.0 | 114 (E7 R 68 call minus body) + 13 (mm_ktile loop) cycles per k-step: DOC tcall |
-| GEMM epilogues | ~1.6 | CSUB moved drain collisions into them (+219 / +561 cycles per plain / gelu_pan tile) |
-| C hands | ~0.2 | 345 / 668 cycles (TPROF r21t2) |
-| attention | ~6.5 | timeline; K2 / K0B small |
-| norms | ~4.6 | DDR read cap |
-| SSM | ~3.6 | DDR-near |
-| first-tile paces | ~0.25 -> ~0.17 with 3A | tpgap |
-| GEMM -> norm tails | ~0.58 | 4 x ~12 us per block at the write cap |
-| other boundary (CP issue, EW) | ~1.0 | timeline means |
-
-## 2. The k-step after E7''
-- Static: 18 R + call overhead. E7 R 68 call 1,338 = 1,224 + 114; mm_ktile glue 13. The A-port floor is 1,304 per k-step (10,368 B
-  at 7.95 B/cycle), so a lower R pays only while the in-situ k-step (static + ~190 collisions / locks) stays above ~1,300-1,450.
-- Bank 3 is E7'''s bound: with a 576 B X segment it takes 56 panels + 7 fills = 63 line reads per row block. R 64 had no conflict-free
-  schedule (CP: the bank-3 group alone makes it hard; dropping it is feasible in 300 s); R 68 is conflict-free.
-- Residue matching (a stream instance may serve two row blocks) is what makes R 64-68 schedulable; the absolute form (each instance
-  one row block) is infeasible at R 64 (r22/diag64_absolute.out).
-
-## 3. KTL (one loop per tile)
-- The call overhead (127 cycles per k-step) goes; a tile pays 76 once. mm_e7k_r70: 76 + 1,260 x nks, replay-verified for 1-25 k-steps.
-- Requirement: consecutive k-steps read different B buffers, so every stream instance must serve one row block (gen_e7 --aligned,
-  lf1 split L | N); feasible at R 70 (not found at R 68 in 5 min).
-- Price: -83..-87 static per k-step vs today -> -0.50..-0.70 ms (0.75-1.0 landing). After it the in-situ k-step (~1,460) is ~12 %
-  above the A-port floor: little k-step headroom remains (R 66-68 with KTL: -0.15..-0.3).
-
-## 4. Boundaries
-- Paces: out_proj 6.7 (dependent: OPPRE-lag only), down_b / mlp3_b handled by 3A (-0.08), mlp0 1.9, up_a 1.5 us per block.
-- Tails: the producer's last tile at the aggregate write cap; every row's last 64 columns are in it. No lever above ~0.1 ms
-  (NTAIL-PF <= 0.07, NTAIL-M -0.1..-0.25 for L).
-- OPPRE: pass 1 is ~23 GB/s with the A load (cap ~55): not DDR. H_CP (waits in the in-order CP ahead of K / V pushes) vs H_SHIM;
-  OPPRE-W decides.
-
-## 5. Norms, SSM, attention
-- Unchanged in kind: norms at the DDR read cap (only fewer bytes move them), SSM near it (ssq2 + FSX -0.18 needs EW text),
-  attention ~6.5 with S3 re-priced to -0.05..-0.10 after K2's -0.02.
-
-## 6. C waits
-- CSUB + ZLOAD done (hands 345 / 668); LATE-C hangs (a core waiting on its own drain while holding multicast inputs); RTC not worth
-  its CP pushes. Residual ~0.2 ms.
-
-## 7. Ranking and ceiling (from r21k1 31.30 + 3A = 31.22)
-| rank | item | price | gate |
+## 1. The ledger (ms per step, r21k1)
+| part | now | floor | bound |
 |---|---|---|---|
-| 1 | KTL (mm_e7k_r70) | -0.50..-0.70 | in situ bit-identical; TPROF steady k-step -60..-85 |
-| 2 | E7'' + KTL at R 66-68 | -0.15..-0.3 | replay 0 stalls; A-port floor |
-| 3 | SSM ssq2 + FSX | -0.18 | EW text |
-| 4 | S3 | -0.05..-0.10 | text; flagged non-chunk-0 units |
-| 5 | OPPRE-W -> OPPRE-lag | -0.04..-0.10 | H_CP |
-Ceiling ~30.1 ms (EXTRAPOLATED); floor 27.5 +- 1 (k-steps at the A-port floor ~11.5, epilogues 1.6, attention ~6.3, EW DDR floor
-6.6, boundaries ~0.75). Stacked prices below 31 carry +-1 ms.
+| GEMM k-steps | 12.74 | 11.0-11.9 | A port 1,304 / k-step + ~150 DMA collisions (A writes 93, B writes ~80; no idle bank: capacity) |
+| epilogues + hands | ~1.8 | ~1.7 | GELU LUT (mlp0 gelu_pan 5,495 / tile), CSUB drain collisions |
+| GEMM-side boundaries | ~2.4 | ~1.0 | 5 GEMM<->EW sandwiches ~83 us / block over the EW spans (TPROF k0 - previous GEMM end - EW span - first-unit time: up_a 19, qkv 16, mlp0 22, out 32 (yx->SSM->out), norm0 ~19), first-tile paces 0.25 ms (out_proj 6.7 us / block), attention edges |
+| attention | 6.13 | ~5.9 | compute (pass 0 ~73 us, pass 1 ~40 us per head group) |
+| norms | 4.52 | ~4.35 | DDR read cap (3-input norm0 / norm2 801 / 821 cycles per unit; norm1 2-input RMS at ~52 GB/s); norm3 (LN 2-in, 693 / unit) compute |
+| SSM | 3.59 | 2.86 | compute: ~2,340 / unit in situ (static ~2,115 incl. sigk's trips; glue 740-757) vs DDR floor 2,010 / unit (13.6 MB / block at 57 GB/s) |
+| total | 31.2 | ~27.0 +- 0.7 | |
+
+## 2. GEMM k-step
+- After KTL (in situ ~1,460) the k-step is ~10 % above the A-port floor; R 66 with KTL adds -0.15..-0.3. The rest is DMA collisions:
+  A writes into banks 1 / 2 (busy ~0.4) ~93, B into bank 3 (0.9) ~70 + bank 0 ~12 per k-step. Moving either needs an idle bank, which
+  the GEMM core's L1 (~576 B free) cannot give (DEAD_ENDS A13, A24, A25, J6).
+
+## 3. Boundaries
+- GEMM<->GEMM boundaries are mostly gone (IL, DAPRE, 3A, AQPRE, AKVPRE). What remains are the EW sandwiches: producer tail (its last
+  tile written at the write cap, ~12 us) + the EW op's whole-row dependency + the consumer's k-outer first tile (k-step 0 needs every
+  row's unit q = 0).
+- MSPLIT (new): row-half tiles at those boundaries. Producer side: the last tile as rows 0-9 / 10-17 with separate drain groups, the
+  EW op starts on rows 0-9: saves half a tile + half the tail (16.7 us K 1536, 11.5 us K 768): 68 us / block raw. Consumer side: the
+  first tile on rows 0-9 as the norm passes row 9: 27 us / block raw. Separating probe NTWIN (norm0 / norm2 skip the last drain group;
+  per-op walls).
+- out_proj (dependent on attention): OPPRE-W, rev 17.
+
+## 4. EW ops
+- Norms: at the DDR read cap except norm3; fewer bytes would move them, but every byte lever found is blocked (RADD / KSUM: no third
+  GEMM input port; EW-PRESUM: no DDR headroom in the second K half; KCONCAT: 497 KB A slot; DEAD_ENDS J1-J3). norm3's LN glue <= -0.18.
+- SSM: compute-bound by glue (tcall): convk 228 (68 glue), ggk 282 (90), sigk (45), ssq 674 (194), reck 268 (92), zk 74 (34), in_need /
+  in_done ~60, C++ ~180. ssq2 / FSX / reck2 / ggk2 can land until the DDR floor (2,010 / unit): -0.25..-0.45 (cap -0.47). YRES / SSPM
+  (DDR byte cuts) pay only after that (J4).
+- EW text: TXT18 frees 400 B of the 16,272 (r23/txt18.out), enough for ssq2 + FSX.
+
+## 5. Attention
+- ~6.1 ms; S3 -0.05..-0.1 after K2's miss; no structural lever priced this pass.
+
+## 6. Ranking and ceiling (base 31.22)
+| rank | item | price |
+|---|---|---|
+| 1 | KTL | -0.50..-0.70 |
+| 2 | TXT18 | 0 (text) |
+| 3 | SSM glue | -0.25..-0.45 |
+| 4 | MSPLIT-P (NTWIN first) | -0.35..-0.6 |
+| 5 | E7'' + KTL R 66 | -0.15..-0.3 |
+| 6 | MSPLIT-C | -0.15..-0.3 |
+| 7 | norm3 LN | -0.1..-0.18 |
+| 8 | OPPRE-W -> lag | -0.04..-0.10 |
+Ceiling ~29.2 (EXTRAPOLATED); floor ~27.0 +- 0.7. Between them, unpriced: k-step collisions ~0.9 (capacity), boundary residue
+after MSPLIT ~0.6, SSM glue beyond four kernels ~0.4, attention ~0.2.

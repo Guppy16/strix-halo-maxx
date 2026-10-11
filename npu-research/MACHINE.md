@@ -607,3 +607,23 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   comparing vector-heavy vs scalar-spin CPU load at equal thread counts against package power.
 - **R17.13 [MODEL CP]** In gen_e7's soft bank-3 objective one excess unit = 18 stalls per call, one conflict unit = 1 (weights
   1,800 : 100; main's correction).
+
+## Revision 18 additions (2026-10-11, from research pass 18)
+- **R18.1 [DOC tcall, full12r21k1 EW core]** One SSM unit (the inner loop of ew_ssm) is 1,828 static cycles with sigk counted at one
+  trip (~2,115 with its real trips), of which 740-757 is call glue: ssq 194, reck 92, ggk 90, convk 68, sigk 45, zk 34, in_need /
+  in_done ~60, C++ ~180. In situ ~2,340 per unit (23.3 us per head / 18 units).
+- **R18.2 [INF, r21 ddrbudget]** SSM DDR read floor 2,010 cycles per unit (13.6 MB per block at 57 GB/s): the SSM is compute-bound by
+  ~330 cycles per unit; norm1 (2-input RMS, 567 / unit) reads at ~52 GB/s (at the cap); norm3 (2-input LN, 693 / unit) at ~43 GB/s
+  (compute-bound).
+- **R18.3 [MEAS compile, r23/ewsize.sh]** EW C++ with the deployed flags (full12r22c EW_DEFS, -O2): 11,056 B (norm_rows_k 3,504,
+  ew_ssm 1,632, ln_stats 672, ew_norm 464, ssm_tables 464, rsqrt_i 432, ew_op 320, in_copy / out_copy 288 each, copy_run 272); ew_patch,
+  gemm8 and out64 (1,584 B) are in the object but dropped at link. TXT18: 10,656 B.
+- **R18.4 [MEAS TPROF r21t2 + timeline r21k1]** GEMM <-> EW sandwich overheads (TPROF first-k-step time after the previous GEMM end,
+  minus the EW span and first-unit time): up_a 19, qkv 16, mlp0 22, out (yx -> SSM -> out) 32, norm0 ~19 us per block: ~1.0 ms per
+  step.
+- **R18.5 [DOC]** A GEMM core has exactly two input streams (A: the memtile broadcast to the column's 3 cores; B: the weight
+  multicast to the row's 8 cores); neither can carry per-core data such as a residual tile.
+- **R18.6 [DOC hwmon]** Without sudo: amdgpu hwmon power1_input labelled PPT (package power; 28.0 W at load ~9) and k10temp temp1_input
+  (Tctl; 78 C) are readable. CLKLOAD (r23/clkload.sh, not run) separates power budget, thermal and DPM as causes of the 1.405 GHz clock.
+- **R18.7 [MODEL]** k-step collision floor with E7'': A writes into banks 1 / 2 (busy ~0.4) ~93, B writes into bank 3 (0.9) ~70 and
+  bank 0 (0.46) ~12 cycles per k-step; there is no idle bank to move either into.
