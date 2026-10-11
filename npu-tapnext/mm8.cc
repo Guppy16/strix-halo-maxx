@@ -117,11 +117,27 @@ extern "C" {
 extern "C" void zero2(float *a, float *b, int trips);  // a: 64 B per trip, b: 128 B per trip
 extern "C" {
 #endif
+#ifdef ZHI  // round 19: acc_hi (24,576 B) is zeroed right after the C object's release (design8 calls acc_zero_hi there), which
+// overlaps the C drain the next acc_zero waits for; acc_zero then zeroes only the C part unless something used acc_hi since
+// (the second tile of a 2-tile object, the attention: attn_begin clears the flag)
+static int32_t g_hi_clean = 0;
+void acc_zero_hi() {
+  zero2(acc_hi, acc_hi + 2048, 128);  // 8 KB at a + 16 KB at b
+  g_hi_clean = 1;
+}
+#endif
 void acc_zero(bfloat16 *c_out) {
 #ifdef PROF
   const uint32_t tz = stamp();
 #endif
-#ifdef ZASM
+#if defined(ZASM) && defined(ZHI)
+  static_assert(ACC_LO * n * 4 == 12288 && (m - ACC_LO) * n * 4 == 24576);
+  if (g_hi_clean)
+    zero2((float *)c_out, (float *)c_out + 1024, 64);  // the C part only (12,288 B = 4 KB at a + 8 KB at b)
+  else
+    zero2((float *)c_out, acc_hi, ACC_LO * n * 4 / 64);
+  g_hi_clean = 0;
+#elif defined(ZASM)
   static_assert(ACC_LO * n * 4 % 64 == 0 && (m - ACC_LO) * n * 4 == 2 * ACC_LO * n * 4);
   zero2((float *)c_out, acc_hi, ACC_LO * n * 4 / 64);
 #else
@@ -217,12 +233,28 @@ static void ks_records(bfp16ebs8 *const slot[3], bfloat16 *c_out) {
 // own B index (bias objects, attention) is where it was; acc_epilogue records which buffer the bias came from: the next k-step
 // starts at the other one.
 static const bfp16ebs8 *g_bnext = (const bfp16ebs8 *)KS_B0;
+#ifdef TPROF  // round 19 timing build: per-tile stamps (r19/tprof.py): tile start, after the first k-step, k-steps end, epilogue
+static inline __attribute__((always_inline)) uint32_t tst() {
+  __builtin_aie2p_sched_barrier();
+  const uint32_t v = read_tm(0x340F8);
+  __builtin_aie2p_sched_barrier();
+  return v;
+}
+static uint32_t g_t0, g_t1, g_t2, g_tlast, g_tnks;
+#endif
 extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *c_out, int32_t nks) {
   (void)a0, (void)a1, (void)a2;
   const bfp16ebs8 *b = g_bnext;
   float *pc = piece(c_out, 0, 0);
+#ifdef TPROF
+  g_t0 = tst();
+  g_tnks = nks;
+#endif
 #pragma clang loop unroll(disable)
   for (int k = 0; k < nks; k++) {
+#ifdef TPROF
+    if (k == 1) g_t1 = tst();
+#endif
     acquire_greater_equal((void *)b, 48 + KS_BCONS, 1);
 #ifdef MM_ROT
 #ifdef KSP38  // round 18: the counters around mm_rot (r18/ksp38.py)
@@ -246,6 +278,9 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
     release((void *)b, 48 + KS_BPROD, 1);
     b = (const bfp16ebs8 *)((uintptr_t)b ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
   }
+#ifdef TPROF
+  g_t2 = tst();
+#endif
 }
 #endif
 void mm_kstep(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfp16ebs8 *__restrict pB_in, bfloat16 *c_out) {
@@ -770,7 +805,25 @@ void acc_epilogue(bfloat16 *c_out, bfloat16 *bias) {
 #ifdef PROF
   const uint32_t te = stamp();
 #endif
+#ifdef TPROF
+  const uint32_t tte = tst();
+#endif
   acc_epi(c_out, bias);
+#ifdef TPROF  // record over the tile's first output words (timing build): magic 'TPRF'
+  {
+    const uint32_t t3 = tst();
+    uint32_t *w = (uint32_t *)c_out;
+    w[0] = 0x46525054u;
+    w[1] = g_t1 - g_t0;  // first k-step incl. the B / A waits (k = 0 .. the k == 1 stamp)
+    w[2] = g_t2 - g_t1;  // the other k-steps
+    w[3] = g_tnks;
+    w[4] = tte - g_t2;  // mm_ktile return -> epilogue entry
+    w[5] = t3 - tte;  // epilogue
+    w[6] = g_t0 - g_tlast;  // previous epilogue end -> this tile's mm_ktile entry (C acquire, loop code, ...)
+    w[7] = g_t0;
+    g_tlast = tst();
+  }
+#endif
 #if defined(P35) && defined(KSC)
   g_bnext = (const bfp16ebs8 *)((uintptr_t)bias ^ ((uintptr_t)KS_B0 ^ (uintptr_t)KS_B1));
 #endif
@@ -1372,6 +1425,9 @@ extern "C" {
 // c_out: the C object of the first head of the pass (only used for its address; every head's object is at the
 // same L1 address since the C sub-fifo is single-buffered)
 __attribute__((minsize)) void attn_begin(bfloat16 *c_out, int32_t ntiles) {  // minsize (program memory); 4 stores per loop trip
+#ifdef ZHI
+  g_hi_clean = 0;
+#endif
   using namespace at;
 #ifdef ATTN_STUB
   return;

@@ -305,6 +305,8 @@ def step8(
     # count per tile is even, so IRON's own B index - bias objects, attention - stays right)
     p35 = "-DP35" in flags
     mmt = mm.object_file.bind("mm_ktile", [A_l1, A_l1, A_l1, C_l1, np.int32]) if p35 else None
+    zhi_on = "-DZHI" in flags  # round 19: acc_hi zeroed after the C release (mm8.cc acc_zero_hi)
+    zhi = mm.object_file.bind("acc_zero_hi", []) if zhi_on else None
     # (with P35 mm_kstep is not bound: an unbound entry point and what only it calls - mm_ks under MM_ROT - leave the elf)
     mmk = mm.object_file.bind("mm_kstep", [A_l1, A_l1, A_l1, B_l1, C_l1]) if kstep and not p35 else None
     epi = mm.object_file.bind("acc_epilogue", [C_l1, B_l1])
@@ -529,6 +531,7 @@ def step8(
             in_b, out_c, mm, zero, epi, at_begin, at_qcopy, at_chunk_k, at_chunk_v, at_end, bk, bn, bt, ba, bc = rest[a_ring:a_ring + 15]
             mmk = rest[a_ring + 15] if kstep and not p35 else None
             mmt = rest[a_ring + 15] if p35 else None
+            zhi_k = rest[-1] if zhi_on else None
 
             def gemm_seg(i0, n):
                 for i in range_(i0, i0 + n):
@@ -551,6 +554,8 @@ def step8(
                             epi(cbuf, bias)
                             in_b.release(1)
                         out_c.release(1)
+                        if zhi_k is not None:
+                            zhi_k()
 
             def one_attn(op):
                 # per pass the 36 Q objects stream through the A ring in [head][tile] order (3 sub-tiles each);
@@ -609,6 +614,8 @@ def step8(
                             epi(cbuf, bias)
                             in_b.release(1)
                         out_c.release(1)
+                        if zhi_k is not None:
+                            zhi_k()
                     if attn_ops:
                         for _ in range_(to_index(ba[i])):
                             one_attn(attn_ops[0])
@@ -630,7 +637,7 @@ def step8(
             tabs = [Buffer(tile=t, initial_value=a, name=f"tb{n}{r}{c}") for n, a in (("k", tbl_k), ("n", tbl_n), ("t", tbl_t), ("a", tbl_a), ("c", tbl_c))]
             workers.append(Worker(make_core_fn(r), [free, fill, *bufs, b_l1[r].cons(), c_l1[r][c].prod(), mm, zero, epi,
                                                     at_begin, at_qcopy, at_chunk_k, at_chunk_v, at_end, *tabs]
-                                  + ([mmk] if mmk is not None else []) + ([mmt] if p35 else []),
+                                  + ([mmk] if mmk is not None else []) + ([mmt] if p35 else []) + ([zhi] if zhi_on else []),
                                   tile=t, stack_size=(0xA00 if "-DGELU_FLAT" in flags else 0xB00) if ks_core else 0xC00,
                                   data_size=28160 + (256 if ks_core else 0) + (256 if "-DGELU_FLAT" in flags else 0)))
             # round 12: the flat-edge tables' ab copies (+256 B) from the stack (stackaudit: 1,664 of 2,816 B used)  # stack: deepest chain 2.24 KB measured (r7); data: +2 KB the GELU tables' ab copies (cd: bank 3), +1.25 KB the exp table (r7)
@@ -650,7 +657,7 @@ def step8(
                     npu_maskwrite32(address=0x32038, value=1, mask=1, column=c, row=2 + r)
                     npu_write32(address=0x31500, value=ev[0] | ev[0] << 8 | ev[1] << 16 | ev[1] << 24, column=c, row=2 + r)
                     npu_write32(address=0x31504, value=ev[2] | ev[2] << 8, column=c, row=2 + r)
-        if "-DPROF" in kdefs.replace(",", " ").split():  # round 7 timing build: enable every GEMM core's processor bus
+        if {"-DPROF", "-DTPROF"} & set(kdefs.replace(",", " ").split()):  # round 7 timing build (round 19: TPROF): enable every GEMM core's processor bus
             from aie.dialects.aiex import npu_maskwrite32  # (Core_Processor_Bus 0x32038 bit 0) so read_tm does not hang
 
             for c in range(COLS):
