@@ -601,7 +601,8 @@ hand-written .s, then `ld.lld -r cpp.o asm.o -o merged.o` (buildmerge.sh). Injec
 encoding as `.byte` into a bundle stream hung the core twice (the two timeouts of this phase; known-good test OK).
 
 ## 2. Latency table and checker (done, calibrated)
-tdparse.py turns AIE2PGenInstrInfo.td + AIE2PGenSchedule.td into aie2p_lat.json: 879 instruction defs, slot class
+tdparse.py (now common/tools/gen_isa_timing.py) turns AIE2PGenInstrInfo.td + AIE2PGenSchedule.td into
+aie2p_lat.json (now common/tools/aie2p_isa_timing.json): 879 instruction defs, slot class
 (lda, ldb, st, mv, vec, alu, lng - one instruction per slot per bundle) and per-operand stage latencies. The ones
 that matter here: bfp/bf16 `vmul.f`/`vmac.f` result 6, accumulator operand read at stage 4 (a dependent chain can
 issue every 2 cycles); `vldb/vlda.pop.576` result 8, `vlda/vldb` 7, conversions `vconv.*` 2 (`vconv.bf16.fp32` is

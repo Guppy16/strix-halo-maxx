@@ -8,7 +8,7 @@ loop body run T = n / U times and a drain. The checker replays the emitted progr
 must see the value of ITS iteration (the right def, landed, not yet overwritten), every load / store must hit its
 iteration's address (2D post-modify emulated), and no loop op may write a constant register.
 
-Machine model (SKILL §3, aie2p_lat.json): one op per slot per bundle (a = lda, b = ldb, s = st, x = alu, m = mv,
+Machine model (SKILL §3, aie2p_isa_timing.json): one op per slot per bundle (a = lda, b = ldb, s = st, x = alu, m = mv,
 v = vec) plus the itinerary port resources (ports()); a register written by an op issued at cycle c with .td latency w is
 visible to an operand read at stage r of an op issued at c2 iff c2 + r >= c + w + 1 (LLVM's latency w - r + 1; measured for
 vlda, vldb.4x64, vadd.32, vconv, vfloor, vshuffle, vmin_ge by r11/mk_haz.py); until then reads see the old value (no
@@ -51,12 +51,12 @@ def td():
     if _TD is None:
         import json
         from pathlib import Path
-        _TD = json.load(open(Path(__file__).resolve().parent / "aie2p_lat.json"))
+        _TD = json.load(open(Path(__file__).resolve().parents[3] / "common/tools/aie2p_isa_timing.json"))
     return _TD
 
 
 def ports(instr):
-    """[(stage, resource)] from the instruction's itinerary in llvm-aie's AIE2PGenSchedule.td (aie2p_lat.json):
+    """[(stage, resource)] from the instruction's itinerary in llvm-aie's AIE2PGenSchedule.td (aie2p_isa_timing.json):
     SimpleCycle<R> = R for one cycle then the next stage; PrefixCycle<R> = R in the same cycle as the next stage;
     EmptyCycles<n> = n stages without resources; InstrStage<n, [R]> = R for n cycles. Stage 0 = the issue cycle (a write
     port at stage k is a result with latency k + 1). AvoidPartWordStore / IsPartWordStore only matter for part-word stores."""

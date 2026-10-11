@@ -1,7 +1,8 @@
 """rev 10: per-slot op counts of the zero-overhead loops in a disassembly (-z), with the .td slot classes.
     python3 slots.py X.dis FUNC_SUBSTR..."""
 import json, re, sys
-DEFS = json.load(open("~/git/app/.scratch/npu-tapnext/r11/aie2p_lat.json"))["defs"]
+from pathlib import Path
+DEFS = json.load(open(Path(__file__).resolve().parents[3] / "common/tools/aie2p_isa_timing.json"))["defs"]
 def slot_of(mn):
     cl = sorted({v["cls"].split("_")[2] for v in DEFS.values() if v["mn"] == mn})
     return "/".join(cl) if cl else None

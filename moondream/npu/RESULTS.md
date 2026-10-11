@@ -550,7 +550,7 @@ attn15.cc -> `clang++ -S` -> asmfix.py (`##sym` -> `#sym`, `.word` -> `.4byte`; 
 NPU output identical, 0.673 ms/block (compiled: 0.676). Hand-written .s merged with a normally compiled C++ object
 by `ld.lld -r` keeps the trace markers.
 
-### 2. Machine model: aie2p_lat.json (879 instructions) + asmcheck.py (0 violations on Peano's output)
+### 2. Machine model: aie2p_lat.json, now common/tools/aie2p_isa_timing.json (879 instructions) + asmcheck.py (0 violations on Peano's output)
 mmul/bf16 MAC: result 6, accumulator read 4 (II 2 per chain); pop 8; load 7; conversions 2 (fp32->bf16 in the st
 slot); one instruction per slot (lda, ldb, st, mv, vec, alu, lng).
 

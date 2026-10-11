@@ -85,7 +85,7 @@ tables (DRV `amdxdna_pci_drv.c`, `npu5_regs.c`).
 
 | item | value | tag |
 |---|---|---|
-| VLIW slots | one instruction per slot per bundle: lda, ldb, st, mv, vec, alu, lng | [DOC TD, p10/aie2p_lat.json] |
+| VLIW slots | one instruction per slot per bundle: lda, ldb, st, mv, vec, alu, lng | [DOC TD, common/tools/aie2p_isa_timing.json] |
 | registers that matter for GEMM | **5 accumulators** dm0-dm4 (2048 bit = one 8x8 fp32 block each, quarters bmll/bmlh/bmhl/bmhh); **12 ex registers** ex0-ex11 (576 bit = one bfp16ebs8 block of 64 values); 6 ey pairs | [DOC TD `AIE2PRegisterInfo.td`: eDM, mEXa, eEY] |
 | MMUL rate | 512 MAC per `vmac.f` (bfp16 8x8x8 or 4x8x16; dense int8 the same) | [MEAS moondream] [DOC TD] |
 | bfp16 mmul forms | `vmac.f dmD, dmS, exA, exB, r(780)`: 8x8 x 8x8^T, accumulator in dmS, result in dmD (D != S allowed). EX x EY = 4x8x16 (the AIE API's 8x8x16 is two of these plus an A shuffle). EX x QEY / EY x QEX = structured-sparse B | [DOC TD lines 8872-8908; AIE API `aie2p/mmul_bfp16_bfp16.hpp`] |
@@ -146,7 +146,7 @@ tables (DRV `amdxdna_pci_drv.c`, `npu5_regs.c`).
 
 So an elementwise kernel's floor per 32 lanes is max(MACs, conversions + stores, int / shuffle ops, loads / 2), not
 its op count. Every `NK_BF(...)` is an st-slot op: a bf16 Horner step costs one vec and one st. Peano's 2-chain loops
-run at 3-7x this floor (sigmoid 77 bundles per vector for ~22 MACs). [DOC TD, `aie2p_lat.json`] [MEAS loop counts]
+run at 3-7x this floor (sigmoid 77 bundles per vector for ~22 MACs). [DOC TD, `aie2p_isa_timing.json`] [MEAS loop counts]
 
 ### 2.4 Counters and DMA events for in-situ stall accounting (rev 5, for P38)
 
@@ -259,7 +259,7 @@ Sources (web): [AM020 memory tile](https://docs.amd.com/r/en-US/am020-versal-aie
 
 | fact | value | source |
 |---|---|---|
-| slot classes of the LUT / epilogue ops | ldb: vldb.4x64 / 4x32 / 4x16 lo / hi (latency 7); lda: vlda, vlda.ups; st: vfloor.s32.bf16, vconv.bf16.fp32, vst.conv, vst.push.544.conv (bfp, 64 lanes); mv: vmin_ge / vmax_lt / vadd.32 / vshuffle / vbcst / vbcstshfl / vsel / vconv.fp32.bf16 / vmov x (latency 2); vec: vmac.f / vmsc.f / vmul.f / vnegmul.f (acc read stage 3 [MEAS], result 6) | [DOC aie2p_lat.json] |
+| slot classes of the LUT / epilogue ops | ldb: vldb.4x64 / 4x32 / 4x16 lo / hi (latency 7); lda: vlda, vlda.ups; st: vfloor.s32.bf16, vconv.bf16.fp32, vst.conv, vst.push.544.conv (bfp, 64 lanes); mv: vmin_ge / vmax_lt / vadd.32 / vshuffle / vbcst / vbcstshfl / vsel / vconv.fp32.bf16 / vmov x (latency 2); vec: vmac.f / vmsc.f / vmul.f / vnegmul.f (acc read stage 3 [MEAS], result 6) | [DOC aie2p_isa_timing.json] |
 | GELU-by-table floor | 8 ldb per 32 lanes (4 vldb.4x64 per 16 lanes); mv 8 per 32 lanes with the index adds (6 with a biased table pointer) | [INF from the deployed asm build/r10/gx.s] |
 | register files seen in Peano output | x0-x11 (512-bit, w halves), dm0-dm4 (1,024-bit; bm quarters bmll / bmlh / bmhl / bmhh) | [DOC asm] |
 | GEMM core L1 during epilogues (full12r10r core 0,2) | sgelu_ab 0x70B00 / serf_ab 0x70F00 (bank 0), sgelu_cd 0x7F580 / serf_cd 0x7F980 (bank 3), acc_hi 0x71880-0x7787F (banks 0-1: pieces 0-9 in bank 0), C object 0x78900-0x7D0FF (bank 2, last 4,352 B in bank 3), aexp_ab 0x71300 | [DOC readelf] |
@@ -282,7 +282,7 @@ Sources (web): [AM020 memory tile](https://docs.amd.com/r/en-US/am020-versal-aie
 | zero-overhead loop | the LAST bundle must be 16-B aligned (otherwise the body runs about once); writing every body bundle in the 16-byte full form makes this automatic | [MEAS] |
 
 ### R7.2 Itinerary ports: the structural hazards beside the slots
-`AIE2PGenSchedule.td` itineraries (aie2p_lat.json `itin`; msched.ports) name shared ports. Each holds one op per cycle at the
+`AIE2PGenSchedule.td` itineraries (aie2p_isa_timing.json `itin`; msched.ports) name shared ports. Each holds one op per cycle at the
 listed stage, reserved modulo II exactly like a slot [DOC; the DM_ADA / QEY_RS sharing is MEAS r11]:
 
 | port | held by (stage) |
@@ -359,7 +359,7 @@ GEMM 16,288 B: attention 6,048, epilogues 5,024, k-step 2,992 (mm_kstep 832 is a
 core), IRON control 2,238; 849 all-nop bundles (1,842 B). EW 16,224 B: SSM 7,600, norms 6,752, ring I/O 1,296, control 590.
 No dead entry points. Each GEMM core holds a single C object in L1 (C0_x_buff_0), the cause of the 1.3 us tile handoff.
 
-### R8.3 Instruction facts used by the rev-8 designs [DOC aie2p_lat.json]
+### R8.3 Instruction facts used by the rev-8 designs [DOC aie2p_isa_timing.json]
 - `vlt.bf16 rC, x, x` / `vge.bf16` write a 32-lane mask to a scalar register (mv slot, latency 2); `vmin_ge` / `vmax_lt` write
   theirs to r16. A lane test therefore costs no x register.
 - bfp mmul: `VMAC_f_vmac_bfp_vmul_bfp_core_EX_EX` (acc read at stage 4, result 6); pops `VLDA/VLDB_POP_576_normal_pop` (dst 8,
@@ -591,7 +591,7 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   different buffers); one row block's 64 pops span ~85 cycles, so a single B FIFO cannot, E7'' with lf1 split in two can (CP-feasible
   at R 70; replay-verified whole-tile kernel mm_e7k_r70: 76 + 1,260 x nks).
 - **R17.6 [MEAS assembler]** acq.cond / rel.cond take their condition in r26 only ("invalid operand" for r28 / r29 / r30).
-- **R17.7 [DOC aie2p_lat.json / .td]** scalar mul latency 2 (R_WA_PORT stage 1); and / xor / add 1; sel.eqz / sel.nez select on r27
+- **R17.7 [DOC aie2p_isa_timing.json / .td]** scalar mul latency 2 (R_WA_PORT stage 1); and / xor / add 1; sel.eqz / sel.nez select on r27
   and use L_RM_PORT (shared with acq / rel); movs writes p / m (dn, dj, dc) from r / m / p on the st slot; lda.2d (LDA_2D_dms_lda,
   dst p / r / m) exists and assembles [UNVERIFIED on hardware].
 - **R17.8 [MEAS main r21]** A DMA BD block takes an acquire AND a release or neither: acquire-only is refused by the verifier;

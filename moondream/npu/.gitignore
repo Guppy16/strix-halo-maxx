@@ -18,4 +18,3 @@ build/
 *.prj/
 debs/
 __pycache__/
-aie2p_lat.json

@@ -671,7 +671,7 @@ Best: **full12r15m** = r14f + P60G=1, kdefs + -DRESCK, EW_DEFS + "-DSSX -DCPY64 
 ### 20.3 Measured facts / rules (also in the skill)
 - vld / vst immediate offsets are 4 bits x 64 B (-512 .. 448); padda immediates -512 .. 511.
 - A section-placed table (.aie.bankN) must be non-const: a const one conflicts with the LUT tables' section type.
-- vmov x <- bm has its own itinerary (DM_RM_L0_PORT, latency 2): aie2p_lat.json's generic VMOV_alu_mv_mv_x has none.
+- vmov x <- bm has its own itinerary (DM_RM_L0_PORT, latency 2): aie2p_isa_timing.json's generic VMOV_alu_mv_mv_x has none.
 - 8 bfp pushes of 72 B (576 B, a multiple of 32) + one flush write nothing past the 576 B (bench-checked): direct pushes into a
   ring unit are safe.
 - A value live over the whole chain (x stored in the last stage) needs U >= its lifetime / II; a reload by a second load stream

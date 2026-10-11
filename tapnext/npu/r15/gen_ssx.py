@@ -112,7 +112,7 @@ def ops(rel_slot=None, banks=True):
     conv("C4", "f", "fa")
     for nm, v, q in (("N1", "nlo", "bmll"), ("N2", "nhi", "bmlh")):  # vmov x <- bm: itinerary II_VMOV_alu_mv_mv_x_eXe_eBMLx
         o.append(Op(nm, "mv", f"vmov {{{v}.x}}, {{zn.{q}}}", defs=[(v, "x", 2)], uses=[("zn", q, 1)]))
-        o[-1].ports = [(0, "DM_RM_L0_PORT")]  # (not in aie2p_lat.json: the generic VMOV_alu_mv_mv_x has per-class itineraries)
+        o[-1].ports = [(0, "DM_RM_L0_PORT")]  # (not in aie2p_isa_timing.json: the generic VMOV_alu_mv_mv_x has per-class itineraries)
     o.append(Op("N3", "mv", "vshuffle {n16.x}, {nlo.x}, {nhi.x}, r2", defs=[("n16", "x", 2)], uses=[("nlo", "x", 1), ("nhi", "x", 1)], instr=SHUF))
     o.append(Op("U1", "mv", "vups.2x {nu.cml}, {n16.x}, s0, upssign1", defs=[("nu", "cml", 3)], uses=[("n16", "x", 1)], instr=UPS))
     o.append(Op("S1", "st", "vsrs.2x {n7.x}, {nu.cml}, s1, srssign1", defs=[("n7", "x", 4)], uses=[("nu", "cml", 1)], instr=SRS))

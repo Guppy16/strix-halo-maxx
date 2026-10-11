@@ -1,6 +1,14 @@
-"""Build a latency table for AIE2P from llvm-aie's generated TableGen: mnemonic (+ operand syntax) -> itinerary ->
-per-operand latencies. Output: JSON {instr def name: {mnemonic, args, itin, outs, ins, lat: {opname: cycles}}}.
-Usage: tdparse.py td_dir out.json"""
+"""Build the AIE2P instruction timing table (aie2p_isa_timing.json, next to this script) from llvm-aie's generated
+TableGen: mnemonic (+ operand syntax) -> itinerary -> per-operand latencies, VLIW slot class (cls), itinerary stages.
+Output: JSON {"defs": {def name: {mn, args, cls, outs, ins, itin, lat: {opname: cycles}}}, "itin": {II_X: {lat, stages}}}.
+
+Sources: AIE2PGenInstrInfo.td and AIE2PGenSchedule.td from Xilinx/llvm-aie, branch aie-public (the generated TableGen
+for AIE2P), fetched read-only on 2026-10-08 into moondream/npu/p10/td/ (untracked). Moved here from
+moondream/npu/p10/tdparse.py; its output was aie2p_lat.json.
+
+Regenerate from the repo root (879 defs; byte-identical to the tracked table for those .td files):
+    python3 common/tools/gen_isa_timing.py moondream/npu/p10/td common/tools/aie2p_isa_timing.json
+Usage: gen_isa_timing.py td_dir out.json"""
 import json, re, sys
 td = sys.argv[1]
 info = open(f"{td}/AIE2PGenInstrInfo.td").read()

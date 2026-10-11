@@ -40,7 +40,7 @@ GPU (compiled bf16): 22 ms at depth 12. Depth 10 stays the default pick.
 - Tools (r7/): clk.py/.cc (clock probe, `--stamp` = core timer test), prof.py (per-tile GEMM cycle profile of a
   -DPROF build), t4var.sh (build + time a t4 variant), expemu.py (attention exp candidates on real scores),
   explut.py, gen_mm.py (the asm GEMM call: exact-cycle schedule, EDF on lda, built-in conveyor checks; run
-  `../npu-moondream/p11/asmcheck.py build/mm_core.s mm_core --lat ../npu-moondream/p11/aie2p_lat.json` after edits).
+  `../../moondream/npu/p11/asmcheck.py build/mm_core.s mm_core` after edits).
 - Regression reference: `build/regress_full12r7a_d12.npz` (`./s8.sh LOG regress --build X --ref full12r7a`).
 - Program memory is the binding constraint of the GEMM cores: full12r7g uses 16,176 of 16,384 B of text (208 free)
   (-DPROF together with -DMM_ASM overflows by 80 B).

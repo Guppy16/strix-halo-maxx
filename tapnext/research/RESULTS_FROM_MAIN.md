@@ -314,7 +314,7 @@ re-timed 53.84 ms. Best build **full12r11d: 52.07 ms** (depth 10 43.52, 8 34.84,
    value the cycle before the new one lands" is unsafe for mv readers. This was the round's real GELU bug (lanes 16-23).
 3. **No WAW loss** (H1 as stated is false): an older load and a younger short write to one register land in landing order,
    the younger value is readable until the load lands, nothing is dropped.
-4. **Itinerary ports are structural hazards** the scheduler must reserve (aie2p_lat.json itin stages): DM_ADA (vldb.4x64 AND
+4. **Itinerary ports are structural hazards** the scheduler must reserve (aie2p_isa_timing.json itin stages): DM_ADA (vldb.4x64 AND
    vlda), QEY_RS (LUT index reads, vfloor, vst x), QEY_WA (vlda / vconv / vfloor results), QEY_WB (vldb / LUT results),
    CRRND_RS (vconv, vst.conv). A plain vldb uses only QEY_WB. GELU per 32 lanes: DM_ADA 11 and QEY_RS 11 with an xc spill.
 5. **Zero-overhead loops need the LAST bundle 16-B aligned** (else the body runs ~once). Writing every body bundle in the
@@ -537,7 +537,7 @@ DAVIS 10 videos on full12r14f: depth 12 AJ 70.84 (OA 92.57), depth 10 69.90 (OA 
   in-situ addressing (P[] through the stack) + ring stalls. The SSM wall is code, not ring waits (in_wait 165, out_wait 31).
 - Hardware facts: vld / vst immediate offsets are 4 bits x 64 B (-512 .. 448); padda immediates -512 .. 511; the EW cores' data
   region has 960 B free and bank 2 2,560 B (ssx_tab 704 B now there); a section-placed table must be non-const (section type
-  conflict with the LUT tables); vmov x <- bm has its own itinerary (DM_RM_L0_PORT, latency 2), not in aie2p_lat.json.
+  conflict with the LUT tables); vmov x <- bm has its own itinerary (DM_RM_L0_PORT, latency 2), not in aie2p_isa_timing.json.
 
 ## Round 15 (main), final verdicts keyed by proposal id (2026-10-11)
 Best **full12r15m: 41.52 ms** at depth 12 (r14f re-timed 47.26), regress BIT-IDENTICAL vs full12r9a, DAVIS AJ 70.84 / 69.90 at

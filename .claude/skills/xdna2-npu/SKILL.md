@@ -131,7 +131,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   mv-slot readers one cycle EARLY: never let an mv reader rely on the old value in the cycle before an mv write lands. An older
   load and a younger short write to one register land in landing order (nothing is dropped). Pops land at +8 (gen_ks).
   `vsrs` +4, `vups` +3; pointer moves (`movs`) need 2-3 cycles before a load uses them.
-- **Itinerary ports are structural hazards (round 11)**: aie2p_lat.json `itin` stages (SimpleCycle = one stage, PrefixCycle =
+- **Itinerary ports are structural hazards (round 11)**: aie2p_isa_timing.json `itin` stages (SimpleCycle = one stage, PrefixCycle =
   same stage as the next, EmptyCycles<n>) name shared ports: DM_ADA (vldb.4x64 LUT loads AND vlda), QEY_RS (LUT index reads,
   vfloor, vst x), QEY_WA (vlda / vconv / vfloor results), QEY_WB (vldb / LUT results), CRRND_RS (vconv, vst.conv), L_RM / DM_WM
   (vshuffle into bm). A plain vldb uses only QEY_WB. Reserve them modulo II like slots (r11/msched.py does).
@@ -407,7 +407,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - **Round 15 (npu-tapnext r15/)**: vld / vst immediate offsets are 4 bits x 64 B (-512 .. 448; padda #imm the same: c10s_step64,
   multiples of 64 in [-512, 448] - the assembler's "[-512, 511]" message is only the containing range): point the base at
   table + 512 to reach 16 rows. A table in `.aie.bankN` must be non-const (a const one is a section type conflict with the LUT
-  tables). `vmov x, bmLL` has its own itinerary (DM_RM_L0_PORT, latency 2): set Op.ports by hand (aie2p_lat.json's generic
+  tables). `vmov x, bmLL` has its own itinerary (DM_RM_L0_PORT, latency 2): set Op.ports by hand (aie2p_isa_timing.json's generic
   VMOV_alu_mv_mv_x has none). More bf16 constants than x registers: keep the most-used one resident and reload the others per
   use from a 64 B-row table (spare ldb slots; fp32 1.0 for an accumulator input by vlda.conv.fp32.bf16 from the bf16 1.0 row).
 - **Extra copy passes into the EW output ring cost ~60 cycles PER CALL** (research rev 11, static whole-call count; corrects round
@@ -769,10 +769,11 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   reproduces the object byte for byte (`p10/objcmp.sh`). Hand-written `.s` is assembled alone and merged with the
   normally compiled C++ by `ld.lld -r cpp.o asm.o -o merged.o`; link via `Kernel(...)`. **Never inject raw
   `.byte` bundles** (hung the core twice).
-- Machine model: `p10/tdparse.py` turned llvm-aie's `AIE2PGenInstrInfo.td` + `AIE2PGenSchedule.td` (fetched
-  read-only from Xilinx/llvm-aie branch aie-public into `p10/td/`) into `p10/aie2p_lat.json` (879 instructions:
+- Machine model: `common/tools/gen_isa_timing.py` (was `p10/tdparse.py`) turns llvm-aie's `AIE2PGenInstrInfo.td` +
+  `AIE2PGenSchedule.td` (fetched read-only from Xilinx/llvm-aie branch aie-public into `p10/td/`) into
+  `common/tools/aie2p_isa_timing.json` (one copy for every reader; 879 instructions:
   slot class lda/ldb/st/mv/vec/alu/lng - one instruction per slot per bundle - and per-operand latencies; apply
-  the round-11 visibility rule, section 3, yourself). `p10/asmcheck.py file.s func --lat aie2p_lat.json` flags reads
+  the round-11 visibility rule, section 3, yourself). `p10/asmcheck.py file.s func` flags reads
   whose producer has not landed (info lines for conveyor reads of an older value); generators must additionally
   assert which pop a conveyor read sees (`p11/gen_gemm.py` does). Calling convention: pointers p0-p5, ints
   r0-r7, callee-saved r8-r15/p6/p7, no vector register preserved; fifo-pop pointer field is p0/p1 only;
@@ -905,7 +906,7 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   `run.py`; `p7/ln.py` + `ln.cc` (bf16 LayerNorm, bit-exact), `ln_res.py`; `p8/mm_f32acc.cc` (GEMM kernel with
   `-DGELU_BF16` sigmoid-form GELU epilogue), `expsplit.h`; `p9/attn15.cc` + `attn13.py` + `runattn8.py`
   (attention v15: bfp operands, online softmax, ones-panel row sums, K/V broadcast, trace tooling); `p10/`
-  (asm route: asmfix, asmcheck, tdparse, aie2p_lat.json, td/, gen_scores.py, buildmerge.sh); `p11/`
+  (asm route: asmfix, asmcheck, td/, gen_scores.py, buildmerge.sh); `p11/`
   (gen_gemm.py, the stage-3 finding); `p12/` (GELU staged experiments); `mlir-aie/aie_kernels` headers.
 - `moondream-opt/`: GPU side (bench.py, gpu_safe.sh, bf16emu.py, bfpemu.py).
 - `npu-tapnext/step8.py` (round 4, 5): the real-weights runner of a design8 build (`Step8(build, depth)`: W from the
@@ -923,7 +924,7 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   exact sqrt / exp passes), lprobe.py (primitive probe), cpuemu.py (CPU model with emulated numerics: track noise of a
   numeric change without a build), gen_ks.py (pipelined asm GEMM k-step + checker + `--banks` model), ksb.py (one-core
   k-step bench). Flags: ew8 SSM_LUT / SSM_EXP3, mm8 MM_KSTEP / MM_PIECES / MM_KS; run8 MISMAP=1.
-- `npu-tapnext/r11/` (round 11): msched.py (+ aie2p_lat.json) the modulo-schedule generator, gen_gelu.py, apb.py/.cc (one-core
+- `npu-tapnext/r11/` (round 11): msched.py (reads common/tools/aie2p_isa_timing.json) the modulo-schedule generator, gen_gelu.py, apb.py/.cc (one-core
   asm bench), asmx.py (Peano functions -> probes), mk_copy.py, mk_haz.py + haz.py / rd.py / mid.py (register-timing probes),
   stackaudit.py (bb.sh runs it; aiecc's measured_stack_sizes warnings agree), hostprof.py, q16bench.py, tlcmp.py (timeline
   per-op diff). Flags: mm8 GELU_MS / GELU_II, design8 P43, step8 HOST_FAST / HEAD_THREADS.

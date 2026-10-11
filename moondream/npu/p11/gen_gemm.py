@@ -7,7 +7,7 @@
 Same arithmetic as the compiled BLK12 loop (DIM_M 96, DIM_N 96, DIM_K 64, RHO 6 -> m_a 16, n 96, k 64): for each of
 the 2 row blocks and each of the 6 (8 x 16) column blocks, acc0 / acc1 += sum over the 8 k-subs of A_q x B_{2q}^T /
 B_{2q+1}^T, sequential in q (one chain per accumulator: bit-identical to Peano's kernel).
-Schedule (latencies from aie2p_lat.json): the B panels stream through the ldb-slot FIFO at one pop per cycle -
+Schedule (latencies from aie2p_isa_timing.json): the B panels stream through the ldb-slot FIFO at one pop per cycle -
 the ldb slot is the binding resource (16 pops + 2 fills per 16 MACs -> II 18 per block = 89% of the MAC slot) -
 into a 4-register conveyor (ex8-11) read exactly when the pop lands (+8); the row block's 8 A panels are popped once
 through the lda-slot FIFO into ex0-7 (the second row block's panels are popped into the registers as the first

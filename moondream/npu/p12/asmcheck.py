@@ -3,14 +3,15 @@
 The core has no interlocks: an operand read at stage r of an instruction issued in cycle c sees the register
 as it is in cycle c + r, and a producer issued in cycle c' writes its result in cycle c' + w. The checker walks
 the bundles of one function (one bundle = one cycle, delay slots are explicit) and flags every read with
-c + r < c' + w, using the per-operand latencies from llvm-aie's AIE2PGenSchedule.td (aie2p_lat.json from
-tdparse.py) and this register aliasing model:
+c + r < c' + w, using the per-operand latencies from llvm-aie's AIE2PGenSchedule.td (common/tools/aie2p_isa_timing.json from
+common/tools/gen_isa_timing.py) and this register aliasing model:
   x_n (512) = wl_n + wh_n; ex_n = x_n + e_n; y_k = x_{2k} + x_{2k+1}
   dm_n (2048) = cml_n + cmh_n; cml_n = bmll_n + bmlh_n; cmh_n = bmhl_n + bmhh_n
-Usage: asmcheck.py file.s function [--loop LABEL] [--lat aie2p_lat.json] [-v]
+Usage: asmcheck.py file.s function [--loop LABEL] [--lat aie2p_isa_timing.json] [-v]
   --loop LABEL: also run the block starting at LABEL twice in a row (loop-carried hazards).
 """
 import json, re, sys
+from pathlib import Path
 
 REG = re.compile(r"\b(bm[lh][lh]\d+|cm[lh]\d+|dm\d+|ex\d+|wl\d+|wh\d+|x\d+|y\d+|e\d+|q\d+|r\d+|p\d+|m\d+|dj\d+|dc\d+|dn\d+|ds\d+|lf[lh]\d|lfe|lf\d|sf[lh]|sf|s\d|lc|ls|le|lr|sp|cr[a-z0-9]+|sr[a-z0-9]+)\b")
 
@@ -169,7 +170,7 @@ def check(path, func, table, loop=None, verbose=False, learn=False):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    lat = "aie2p_lat.json"
+    lat = str(Path(__file__).resolve().parents[3] / "common/tools/aie2p_isa_timing.json")
     loop = None
     if "--lat" in args:
         i = args.index("--lat"); lat = args[i + 1]; del args[i:i + 2]

@@ -20,7 +20,7 @@ A .dis input needs no toolchain (made with `llvm-objdump -d -z --no-show-raw-ins
 Model (SKILL 3 / 4): one bundle = one issue cycle (stalls freeze the whole pipeline, so relative timing holds); a write with
 .td latency w issued at c is seen by an operand read at stage r of an op issued at c2 iff c2 + r - 1 >= c + w (LLVM's
 w - r + 1, measured round 11), except that an mv-slot write reaches mv-slot readers one cycle early; until then readers see
-the older value (no interlocks). Ports: llvm-aie's itineraries (aie2p_lat.json), scalar `lda` given the DM_ADA itinerary
+the older value (no interlocks). Ports: llvm-aie's itineraries (aie2p_isa_timing.json), scalar `lda` given the DM_ADA itinerary
 that round 13 measured. Control flow: a stream per function in address order, reset after calls (jl + 5 delay slots) and at
 branch targets; every zero-overhead loop body is replayed 3x (prologue -> body -> body -> body -> after the loop) so
 loop-carried hazards and the prologue's ops (incl. the .p2align pad, which is in the binary) are seen.
@@ -140,7 +140,7 @@ def xnum(reg):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# The machine model: llvm-aie's .td (latencies / itineraries from aie2p_lat.json, operand types from the InstrInfo .td)
+# The machine model: llvm-aie's .td (latencies / itineraries from aie2p_isa_timing.json, operand types from the InstrInfo .td)
 
 
 def find_file(rel):
@@ -188,10 +188,10 @@ CLASS_RE = [
 
 class Model:
     def __init__(self, lat_path=None, td_path=None):
-        lat_path = lat_path or find_file("npu-tapnext/r11/aie2p_lat.json")
-        td_path = td_path or find_file("npu-moondream/p10/td/AIE2PGenInstrInfo.td")
+        lat_path = lat_path or find_file("common/tools/aie2p_isa_timing.json")
+        td_path = td_path or find_file("moondream/npu/p10/td/AIE2PGenInstrInfo.td")
         if not lat_path:
-            sys.exit("asmlint: aie2p_lat.json not found (npu-tapnext/r11/); pass --lat")
+            sys.exit("asmlint: aie2p_isa_timing.json not found (common/tools/); pass --lat")
         J = json.load(open(lat_path))
         self.defs, self.itin = J["defs"], J["itin"]
         self.optypes = {}  # def -> {operand: td type}

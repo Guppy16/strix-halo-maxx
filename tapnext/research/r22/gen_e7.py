@@ -204,7 +204,7 @@ def solve(cfg, time_limit=600.0, workers=12, emax=6, nb=4, margin=1, hard_banks=
     for n in REC + (("RQ2",) if cfg.ktl else ()):
         for t, b in X[n].items():
             lits["bank0"][t % R].append(b)
-    for n in ("ACQ", "REL") + (("ACQB", "RELB") if cfg.ktl else ()):  # LCKREQ at stages 0..3 (aie2p_lat.json): an acquire and a release >= 4 apart
+    for n in ("ACQ", "REL") + (("ACQB", "RELB") if cfg.ktl else ()):  # LCKREQ at stages 0..3 (aie2p_isa_timing.json): an acquire and a release >= 4 apart
         for t, b in X[n].items():
             for st in range(4):
                 lits["lckreq"][(t + st) % R].append(b)

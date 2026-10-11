@@ -57,7 +57,7 @@ BREG = [5, 7, 9, 11]
 QN = ["bmll", "bmlh", "bmhl", "bmhh"]
 # deployed placement (r17d input_with_addresses.mlir + llvm-nm; all 24 GEMM cores share it, MACHINE R13.4)
 PLACE = dict(c_obj=0x78900, acc_hi=0x718C0, slots=(0x77B80, 0x78000, 0x78480), rec=0x778C8, b=0x7D100)
-# .td latencies (aie2p_lat.json) under the visibility rule: a write of latency w is seen by a read at stage r of an op issued
+# .td latencies (aie2p_isa_timing.json) under the visibility rule: a write of latency w is seen by a read at stage r of an op issued
 # >= w - r + 1 later
 D_POP_MAC = 8 - 1 + 1  # pop dst 8 -> vmac operand (stage 1)
 D_LD_MAC = 7 - 4 + 1  # vlda bm dst 7 -> vmac accumulator (stage 4)
@@ -69,7 +69,7 @@ PTR_GAP = 3  # padds -> next load / store through that pointer (gen_ks margin)
 MACS = NRB * NCB * NK
 F_PTR, F_J0, F_J1, F_ACQ, F_REL = range(5)  # record fields per row block
 FIELD_NAMES = ["A pointer", "jump into (rb, pair 0)", "jump into (rb, pair 1)", "acquire flag", "release flag"]
-# instruction names for the itinerary ports (aie2p_lat.json); scalar lda gets the spill load's itinerary (round 13 rule)
+# instruction names for the itinerary ports (aie2p_isa_timing.json); scalar lda gets the spill load's itinerary (round 13 rule)
 INSTR = dict(P="VLDB_POP_576_normal_pop", M="VMAC_f_vmac_bfp_vmul_bfp_core_EX_EX", L="VLDA_dmx_lda_bm_pstm_nrm_imm",
              S="VST_dmx_sts_bm_pstm_nrm_imm", AF="VLDA_FILL_512", A="VLDA_POP_576_normal_pop", ACQ="ACQ_COND_mLockId_imm",
              REL="REL_COND_mLockId_imm", R="LDA_dmv_lda_q_spill")
