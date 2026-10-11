@@ -1,15 +1,15 @@
 ---
 name: xdna2-npu
-description: Build, run, verify and time hand-written kernels on testbox's XDNA2 NPU (Strix Halo, AIE2P) with IRON/mlir-aie + Peano, incl. the asm route, the bfp16 codec, safety rules and the moondream/TAPNext precedents.
+description: Hardware and toolchain rules for building, running, verifying and timing hand-written kernels on testbox's XDNA2 NPU (Strix Halo, AIE2P) with IRON/mlir-aie + Peano - the asm route, the bfp16 codec, dispatch and safety. Load before any NPU build or dispatch. For project knowledge (what was tried, why, results) load book-read instead.
 ---
 
 Canonical copy: the strix-halo-maxx repo, `.claude/skills/xdna2-npu/SKILL.md` (testbox: ~/git/app/strix-halo-maxx). Edit it there; other copies are synced from it.
 
 # XDNA2 NPU on testbox — how to work
 
-The NPU is the 32-core AIE2P array (8 columns x 4 rows, memtile per column) in testbox's Strix Halo. Everything
-below was learned over the moondream phases 1-12 and the TAPNext++ port (2026-10-07..09). Progress state lives in
-the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
+The NPU is the 32-core AIE2P array (8 columns x 4 rows, memtile per column) in testbox's Strix Halo. This skill is the
+rule list (learned over the moondream phases and the TAPNext++ rounds). The explanations, numbers and failed ideas are in
+the book: load the `book-read` skill and start at `common/book/README.md`. Progress state is in `tapnext/npu/HANDOFF.md`.
 
 ## 1. Environment
 - **Repo (2026-10-10):** the NPU work lives in the git repo `~/git/app/strix-halo-maxx/` on testbox; `.scratch/npu-{tapnext,research,moondream}`
@@ -903,8 +903,8 @@ the numerics: `moondream-opt/bfpemu.py`, `tapnext/npu/davis_npu.py` (`bfp_quanti
 
 In `~/git/app/.scratch/`, `npu-tapnext`, `npu-research` and `npu-moondream` are symlinks to the repo's `tapnext/npu`,
 `tapnext/research` and `moondream/npu`; Docker mounts .scratch at /work, so `/work/npu-tapnext/...` paths still work.
-Shared tools and the timing table are in `common/tools/`, the hardware model in `common/MACHINE.md`, the dead-ends
-catalogue in `common/book/negative-results.md`.
+Shared tools and the timing table are in `common/tools/`, the hardware model in `common/MACHINE.md`, the book in
+`common/book/` (with the negative-results index).
 
 - `moondream/npu/`: NOTES.md + RESULTS.md per phase (1-12), `p6/design6.py` (the GEMM frame program: memtile A
   ring, static BD chains; its constraints: `[K, nt]` = N tiles per CORE (4 cores split N, 8 columns split M),
