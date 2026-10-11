@@ -37,7 +37,6 @@ Why both: the regress is exact and cheap, so a refactor (every asm kernel, every
 | **round 9 on (`full12r9a`)** | **70.84 (92.57)** | **69.90 (91.02)** | SSM tables; every later build bit-identical |
 
 - The step is within ±0.4 AJ of the CPU model, which is noise on 10 videos (RESULTS 8: "the three differ only in reduction order"). Depth falls AJ by ~0.9 (10), ~2.8 (8), ~6.2 (6) on the CPU model; depth 10 + 8 support points per query reached 71.33 (+0.35 over depth 12, CPU model), which needs up to 225 query slots, and the step has 48.
-- Sources label the 70.54 differently: README and HANDOFF call it "CPU bf16 70.54"; RESULTS 3 calls it the GPU emulation and RESULTS 8 / 24 call 70.98 the CPU bf16 run on the same 10 videos.
 
 ## bfp16 and `encode_hw`
 

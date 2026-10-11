@@ -12,7 +12,7 @@ dispatch per frame. The output is bit-identical to the round-9 reference build `
 | 8 | 19.09 | not run |
 | 6 | 14.40 | not run |
 
-Reference: CPU bf16 AJ 70.54 on the same 10 videos. Conditions: Turbo, NPU clock 1.808 GHz, gpu_busy 0.
+Reference: CPU bf16 AJ 70.98 on the same 10 videos (70.54 is the GPU emulation of a bf16 trunk, RESULTS 3). Conditions: Turbo, NPU clock 1.808 GHz, gpu_busy 0.
 
 ## Rebuild and verify
 From `tapnext/npu` on testbox (the script `cd`s into `~/git/app/.scratch/npu-tapnext`, the symlink to this folder).

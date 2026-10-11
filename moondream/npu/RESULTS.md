@@ -191,6 +191,7 @@ offload/pipelining (GPU free for prefill while the NPU encodes), as in phase 1's
 
 ## Phase 2c (2026-10-08; Default power mode for every number; NPU core clock measured ~1.4 GHz)
 Code: p2c/ (design3.py + mm_f32acc.cc -DBLK12, mode.py, spin.py, host.cpp). Experiments: NOTES.md "Phase 2c".
+*Note (2026-10-11):* the "% of peak" figures in phases 2c and 3 assumed a ~1.4 GHz clock; the NPU runs at ~1.8 GHz (common/MACHINE.md section 1). Bundles per MAC are unaffected.
 
 **Timing mode.** The 2x-slow processes of phase 2b could not be reproduced in ~45 processes on the idle box
 (zero/random/real data, 3 BO sets per process, alternating xclbins, CPU burn before timing): BO placement, flags,
@@ -243,6 +244,7 @@ known-good bit-exact. No other NPU incidents. Containers removed, no temp files.
 
 ## Phase 3 (2026-10-08; NPU in **Turbo**, verified per container; uncontended = gpu_busy 0% and no SLOW-MODE flag)
 Code: p3/ (design3.py, mm_f32acc.cc -DBLK12 -DBLKU=2, run.py with slow-mode detection, mode2.py, spin.py).
+*Note (2026-10-11):* see the clock note under phase 2c: "% of peak" here assumed ~1.4 GHz, the NPU runs at ~1.8 GHz; bundles per MAC are unaffected.
 
 **Turbo vs Default.** Core clock 1.43 vs 1.39 GHz (+3%, spin probe); validate's 51 TOPS in both modes agrees.
 Turbo mostly trims DMA/latency: the d6 set went 33.2 -> 31.4 ms per frame; with the unroll-2 kernel (d7) 29.7 ms.
@@ -417,6 +419,7 @@ has to change first).
 **Pipelined frame rate: 1 / max(36.8, 34.6) = 27 fps** (phase 5 with four xclbins: 22 fps; GPU-only pooled: 15.6 fps),
 latency ~71 ms per frame; the two sides are now balanced within 6%. Still missing on the NPU side: attention, LN,
 GELU, residuals, patch embedding (the GPU currently does them with the vision tower).
+*Caveat (2026-10-11):* the two loops were measured separately; attention, LN, GELU and the projection (~10.5 ms) were in neither, so the realistic rate is ~22 fps (EXTRAPOLATED); see moondream/book/overview.md.
 
 Timeouts this phase: none (1 of 3 used in 2c). Device healthy; containers removed; GPU used only through gpu_safe.sh.
 
