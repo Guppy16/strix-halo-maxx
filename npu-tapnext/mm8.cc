@@ -280,6 +280,13 @@ static uint32_t g_at[7];  // last epilogue end, first qcopy, begin, first K chun
 // own B index (bias objects, attention) is where it was; acc_epilogue records which buffer the bias came from: the next k-step
 // starts at the other one.
 static const bfp16ebs8 *g_bnext = (const bfp16ebs8 *)KS_B0;
+#ifdef MSPLIT  // round 23 MSPLIT-P: the current C object's row blocks (18; a split op's row passes 6 = rb 0-5, 12 = rb 6-17) and the
+// count of the op's objects so far
+static int32_t g_trips = 18, g_ms = 0;
+#if !defined(E7) || !defined(CSUB) || !defined(ZLOAD)
+#error "MSPLIT: written for E7 (r23/mm_rot_e7r68t) + CSUB + ZLOAD"
+#endif
+#endif
 #ifdef TPROF  // round 19 timing build: per-tile stamps (r19/tprof.py): tile start, after the first k-step, k-steps end, epilogue
 static inline __attribute__((always_inline)) uint32_t tst() {
   __builtin_aie2p_sched_barrier();
@@ -293,6 +300,25 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
   (void)a0, (void)a1, (void)a2;
   const bfp16ebs8 *b = g_bnext;
   float *pc = piece(c_out, 0, 0);
+#ifdef MSPLIT  // round 23 MSPLIT-P: nks bits 8+ = the op's C object count (design8); its last two objects are the last tile's row passes
+  const int32_t *rec = rot_rec.r;
+  int32_t trips = 18;
+  if (nks > 255) {
+    const int32_t nobj = nks >> 8, t = g_ms + 1;
+    g_ms = t == nobj ? 0 : t;
+    nks &= 255;
+    if (t == nobj - 1) {
+      rec = rot_rec_a.r;
+      trips = 6;
+    }
+    if (t == nobj) {  // the kernel jumps by row block 6's first record from piece(5, 1) + 1 KB into piece(6, 0)
+      rec = rot_rec.r + 30;
+      trips = 12;
+      pc = piece(c_out, 5, 1) + 256;
+    }
+  }
+  g_trips = trips;
+#endif
 #ifdef TPROF
   g_t0 = tst();
 #ifndef CPST
@@ -333,7 +359,11 @@ extern "C" void mm_ktile(bfp16ebs8 *a0, bfp16ebs8 *a1, bfp16ebs8 *a2, bfloat16 *
     __builtin_aie2p_sched_barrier();
 #endif
 #if defined(E7)  // round 21: X buffer i holds the tail of the object in B buffer i
+#ifdef MSPLIT
+    mm_rot(rec, b, pc, (const bfp16ebs8 *)((uintptr_t)b == (uintptr_t)KS_B0 ? KS_X0 : KS_X1), k == 0 ? 781 : 780, trips);
+#else
     mm_rot(rot_rec.r, b, pc, (const bfp16ebs8 *)((uintptr_t)b == (uintptr_t)KS_B0 ? KS_X0 : KS_X1), k == 0 ? 781 : 780);
+#endif
 #elif defined(ZLOAD)  // round 21: the first k-step's MACs ignore the loaded accumulators (no zeroing anywhere)
     mm_rot(rot_rec.r, b, pc, k == 0 ? 781 : 780);
 #else
@@ -565,7 +595,11 @@ static inline void bias_rows(bfloat16 *c_out, const bfloat16 *bias) {
 }
 // -> the drained layout: row block rb at C byte 1024 rb, half h at + 512 h
 #ifdef CSUB
+#ifdef MSPLIT  // round 23: from group g0 on
+static void csub_rows(bfloat16 *c_out, const bfloat16 *bias, int gelu, int g0 = 0);
+#else
 static void csub_rows(bfloat16 *c_out, const bfloat16 *bias, int gelu);  // round 21 (after the bgelu declaration)
+#endif
 #endif
 static inline void bias_to_c(bfloat16 *c_out, const bfloat16 *bias) {
 #if defined(CSUB)
@@ -689,9 +723,14 @@ static __attribute__((noinline)) void bgelu3(bfloat16 *c_out, const bfloat16 *bi
 // release each. Flags 0 / 1 (plain / yx GELU) into the drained layout in groups of row blocks 0-3, 4-7, 8-11 (both halves; 4 / 8 /
 // 12 KB cover the sub-part ends, each released when written), then 12-17 (part 2). In place as bias_to_c's one-call order: pair 1 of
 // rb lands on pair 0's consumed fp32 blocks 2-3 in C slot rb.
+#ifdef MSPLIT  // round 23: from group g0 on
+static __attribute__((noinline)) void csub_rows(bfloat16 *c_out, const bfloat16 *bias, int gelu, int g0) {
+#else
 static __attribute__((noinline)) void csub_rows(bfloat16 *c_out, const bfloat16 *bias, int gelu) {
+  const int g0 = 0;
+#endif
 #pragma clang loop unroll(disable)
-  for (int g = 0; g < 4; g++) {
+  for (int g = g0; g < 4; g++) {
     const float *s0 = g < 3 ? (const float *)c_out + 1024 * g : acc_hi, *s1 = acc_hi + 256 * (6 + 4 * g);
     bfloat16 *d = c_out + 2048 * g;
     const int npc = g < 3 ? 4 : 6;
@@ -738,6 +777,18 @@ static void acc_epi(bfloat16 *c_out, bfloat16 *bias) {
   const int flag = ((const int *)bias)[256];
   const ExpC kc;
   if (flag <= 1) {  // plain / gelu, in place: block i's 64 fp32 at byte 256 i -> 64 bf16 at byte 128 i
+#ifdef MSPLIT
+    if (g_trips != 18) {  // round 23 MSPLIT-P: a row pass (pair 0 of a row block before its pair 1, in place, as csub_rows). Pass 1: rb
+      // 0-5, the object drains whole (rows 6-17 junk: the second pass's object rewrites them). Pass 2: rb 6-11, then 12-17 as csub_rows'
+      // last group (rb 0-5 still hold pass 1's values). Three C cons releases per object once [0, 12,288) holds its final bytes.
+      const int32_t r0 = g_trips - 6;
+      bias_pcs((const float *)c_out + 256 * r0, c_out + 512 * r0, bias, 6, 512);
+      bias_pcs(acc_hi + 256 * (6 + r0), c_out + 512 * r0 + 256, bias + 256, 6, 512);
+      release(c_out, 48 + CS_CONS, 3);
+      if (r0) csub_rows(c_out, bias, 0, 3);
+      return;
+    }
+#endif
 #if defined(MM_PIECES) && defined(BGELU)
 #elif defined(MM_PIECES)
     bias_to_c(c_out, bias);

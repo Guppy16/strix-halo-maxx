@@ -135,7 +135,7 @@ def asm_object(flags):
 
         v = os.environ.get("ROT_V", "g2f")  # round 18: g2a = re-solved with 6 bundles from acq.cond to the A fill (r18/gen_rot.py)
         rs = f"mm_rot_{v}_rel.s" if "-DMM_ROT_REL" in flags else f"mm_rot_{v}.s"
-        rd = next(HERE / d for d in ("r22", "r21", "r19", "r18") if (HERE / d / rs).exists())  # round 19: g1a / g0a (r19/build_rot.sh); round 21: g0z (r21/mkzload.py)
+        rd = next(HERE / d for d in ("r23", "r22", "r21", "r19", "r18") if (HERE / d / rs).exists())  # round 19: g1a / g0a (r19/build_rot.sh); round 21: g0z (r21/mkzload.py)
         for src, dst in ((rd / rs, "mm_rot.s"), (rd / f"mm_rot_{v}.h", "mm_rot.h"), (HERE / "r18" / "mm8_rot.inc", "mm_rot.inc")):
             shutil.copy(src, bd / dst)
         extra += [[f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "mm_rot.s"), "-o", str(bd / "mm_rot.o")]]
@@ -555,8 +555,9 @@ def step8(
         tops = core_body
     else:
         tops = gemm_ops
-    tbl_k = np.array([(o["K"] // k if o["kind"] == "gemm" else 0) for o in tops] or [0], np.int32)
-    tbl_n = np.array([((o["nt"] // 2 if o["epi"] == "gated" else o["nt"]) if o["kind"] == "gemm" else 0) for o in tops] or [0], np.int32)
+    # round 23 MSPLIT-P: a split op's last tile is two C objects (rows 0-5, rows 6-17); mm_ktile gets the op's object count in bits 8+
+    tbl_k = np.array([((o["K"] // k) | ((o["nt"] + 1) << 8 if o.get("msplit") else 0) if o["kind"] == "gemm" else 0) for o in tops] or [0], np.int32)
+    tbl_n = np.array([((o["nt"] // 2 if o["epi"] == "gated" else o["nt"] + bool(o.get("msplit"))) if o["kind"] == "gemm" else 0) for o in tops] or [0], np.int32)
     tbl_t = np.array([((2 if o["epi"] == "gated" else 1) if o["kind"] == "gemm" else 0) for o in tops] or [0], np.int32)
     tbl_a = np.array([(1 if o["kind"] == "attn" else 0) for o in tops] or [0], np.int32)
     tbl_c = np.array([3, 4, 24, 2], np.int32)  # Q-copy loops (3 x 3), head groups 4, key chunks 24, passes 2
@@ -798,13 +799,24 @@ def step8(
                 F = [lk["F"], lk.get("Fhi", lk["F"])] + ([lk["F3"]] if a3 else [])
                 t = dict(ld=[me_in.task(chunk(h, E[h], F[h]), runs=12) for h in range(len(E))],
                          t0=[me_out.task(chunk(h, F[h], lk["F2"]), runs=12) for h in range(len(E))],
-                         last=[me_out.task(chunk(h, lk["F2"], E[h]), runs=12) for h in range(len(E))],
+                         last=[None if h == 2 and any(o.get("msplit") for o in ops) else me_out.task(chunk(h, lk["F2"], E[h]), runs=12)
+                               for h in range(len(E))],
                          mid={K_: me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 1, 1, (K_ // k) * CH], [0, 0, 0, 1])))
                               for K_ in (768, 1536)})
                 if a3:  # round 22 3A: a K=1536 op's middle tiles read k-steps 0-11 from half 0 and 12-23 from region 3
                     assert (12 * CH) % 972 == 0
                     t["mid"]["r3"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 0, [1, 2, 12 * CH // 972, 972],
                                                                                    [0, 24 * CH, 972, 1])))
+                if any(o.get("msplit") for o in ops):  # round 23 MSPLIT-P: rows 0-5 of every chunk of both regions (lock-free: the
+                    # chunks are loaded, tile 0 took them), then rows 6-17 chunk by chunk, releasing each chunk as the last tile does
+                    assert a3 and CH % 3 == 0
+                    t["pa"] = me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 0, [1, 2, 12, CH // 3], [0, 24 * CH, CH, 1])))
+                    # (region 3's last-tile task is the second pass's: only the split ops use region 3)
+                    assert all(o.get("msplit") for o in ops if o.get("r3"))
+                    t["lastb"] = [None if h == 1 else me_out.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 12 * CH * h + CH // 3, [1, 1, 1, 2 * CH // 3],
+                                                                                                    [0, 0, 0, 1]),
+                                                                     acquires=[Acquire(lk["F2"])], releases=[Release(E[h])],
+                                                                     iteration=BdIteration(size=12, stride=CH)), runs=12) for h in range(3)]
                 if p_flow:  # round 20 NRES: the norm's units arrive rb-major (rb, q); a 3D TAP puts unit (rb, q) at chunk q, row block rb
                     # (the usual chunk-major half 0: the op's sends and the last tile's chunk-wise release stay as they are; an rb-major
                     # half let the next op's chunk-0 load overwrite every chunk's first row blocks while the last tile still read them)
@@ -850,9 +862,17 @@ def step8(
                         t["t0"][h].start()
                 if nmid:
                     t["mid"]["r3" if op.get("r3") else K].start(repeat_count=nmid - 1)
-                if not reused_next:
+                if op.get("msplit"):  # round 23 MSPLIT-P: the last tile's rows 0-5, then rows 6-17 with the chunk releases
+                    assert not reused_next and hs == [0, 2]
+                    t["pa"].start()
+                    t["lastb"][0].start()
+                elif not reused_next:
                     for h in hs:
                         t["last"][h].start()
+            # (a column's sixth task only after every column has its first five: a push into a full queue waits for that column's
+            # tile 0, whose B multicast needs every column's A sends issued; pushed column by column it hung, r23d)
+            for c in range(COLS) if op.get("msplit") else ():
+                rt_tasks[c]["lastb"][2].start()
 
         pending = []  # [(name, TaskGroup)]
         aqpre = os.environ.get("AQPRE") == "1"
@@ -878,6 +898,9 @@ def step8(
 
         p43 = os.environ.get("P43") == "1"
         seqpre = os.environ.get("SEQPRE", "0") != "0"
+        ms_names = {o["name"] for o in ops if o.get("msplit")}
+        MS_RB = 6  # (plan8.MS_RB: mm8.cc's first row pass)
+        assert not ms_names or seqpre and os.environ.get("NSEQ") == "1"
         sp_mode = int(os.environ.get("SEQPRE", "0"))  # round 19: bit 1 = slot loads before the wait, bit 2 = drains before it  # round 11 (research P43): a GEMM's B (weights) leaves before its dependency wait
 
         for op in ops:
@@ -893,6 +916,11 @@ def step8(
                         tp = TensorAccessPattern((w_words,), op["w"] // 4 + r * nt * lw, [nt, K // k + 1, wb // wb0, wb0], [lw, wb, wb0, 1])
                         account(f"shim{r}", tg)
                         B_prods[r].fill(w, tap=tp, group=tg, wait=qkv)
+                        if op.get("msplit"):  # round 23 MSPLIT-P: the last tile's B again for its second row pass
+                            tp = TensorAccessPattern((w_words,), op["w"] // 4 + r * nt * lw + (nt - 1) * lw, [1, K // k + 1, wb // wb0, wb0],
+                                                     [lw, wb, wb0, 1])
+                            account(f"shim{r}", tg)
+                            B_prods[r].fill(w, tap=tp, group=tg, wait=False)
 
                 if p43:  # B has no data dependency; its group is finished after its drains as before
                     fill_b()
@@ -945,6 +973,17 @@ def step8(
                                 drain(C_conses[c], t_, group=g_, wait=True)
                         push(op["name"] + "#0", tg0)
                         push(op["name"], tg)
+                        continue
+                    if op.get("msplit"):  # round 23 MSPLIT-P: the norm after it waits only for "#0" before its rows 0-5
+                        assert p43 and not sp_mode & 2 and not qkv
+                        tgm = G()
+                        for c in range(COLS):
+                            t_ = op["c"][c]
+                            assert t_["sizes"][0] == nt
+                            drain(C_conses[c], t_, group=tgm, wait=True)
+                            drain(C_conses[c], dict(t_, sizes=[1] + t_["sizes"][1:], off=t_["off"] + (nt - 1) * t_["strides"][0]), group=tg, wait=True)
+                        push(op["name"] + "#0", tgm)
+                        pending.append((op["name"], tg))  # (past the lookahead: the norm finishes "#0" alone first)
                         continue
                     if not qkv and not sp_mode & 2:
                         for c in range(COLS):
@@ -1042,10 +1081,25 @@ def step8(
                             fill(e_in[c], op["fills"][c][0], group=tg, wait=False)
                             drain(e_out[c], op["c"][c], group=tg, wait=True)
                         ntwin = [x for x in os.environ.get("NTWIN", "").split(",") if x]  # round 22 timing twin (research NTWIN, outputs wrong):
-                        if op["name"].split("_", 1)[-1] not in ntwin:  # these norms do not wait for their producer's drains
+                        ms = [(n_, g_) for n_, g_ in pending if n_ in ms_names]
+                        if ms:  # round 23 MSPLIT-P: row blocks 0-5 while the producer computes rows 6-17
+                            for n_, g_ in list(pending):
+                                if (n_, g_) not in ms:
+                                    g_.finish()
+                                    pending.remove((n_, g_))
+                            for c in range(COLS):
+                                f_ = op["fills"][c][1]
+                                fill(e_in[c], dict(f_, sizes=[MS_RB] + f_["sizes"][1:]), group=tg, wait=False)
                             finish_all()
-                        for c in range(COLS):
-                            fill(e_in[c], op["fills"][c][1], group=tg, wait=False)
+                            for c in range(COLS):
+                                f_ = op["fills"][c][1]
+                                fill(e_in[c], dict(f_, sizes=[f_["sizes"][0] - MS_RB] + f_["sizes"][1:], off=f_["off"] + MS_RB * f_["strides"][0]),
+                                     group=tg, wait=False)
+                        else:
+                            if op["name"].split("_", 1)[-1] not in ntwin:  # these norms do not wait for their producer's drains
+                                finish_all()
+                            for c in range(COLS):
+                                fill(e_in[c], op["fills"][c][1], group=tg, wait=False)
                     for c in range(COLS) if not nseq else ():
                         for f in op["fills"][c]:
                             fill(e_in[c], f, group=tg, wait=False)
@@ -1080,7 +1134,8 @@ def step8(
                 raise NotImplementedError(op["kind"])
         finish_all()
         for t in rt_tasks:
-            for task in (*t["ld"], *t["t0"], *t["last"], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz") if x in t]):
+            for task in (*t["ld"], *t["t0"], *[x for x in t["last"] if x is not None], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz", "pa") if x in t],
+                         *[x for x in t.get("lastb", []) if x is not None]):
                 task.free()
         print(f"[design8] shim BD peak {bd_peak[0]} at {bd_peak[1]} (limit 16)")
 
@@ -1172,7 +1227,8 @@ def main():
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
                                                      il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1", a3=os.environ.get("A3") == "1",
-                                                     nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1")))
+                                                     nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1",
+                                                     msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x])))
 
 
 if __name__ == "__main__":

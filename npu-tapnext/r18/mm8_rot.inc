@@ -11,8 +11,13 @@ static_assert(MM_E7K_YB == 4032);
 #define MM_ROT_NREC (MM_E7K_NHEAD + MM_E7K_NPER)
 #define mm_rot_order mm_e7k_order
 #elif defined(E7)  // round 21 E7'' (npu-research r22/gen_e7.py via r21/mke7.py): B in the Y buffer (bank 3) and the X buffer (bank 0)
+#ifdef MSPLIT  // round 23 MSPLIT-P (r23/mm_rot_e7r68t): the row-block count is the 6th argument
+extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pY, float *piece0, const bfp16ebs8 *pX, int32_t conf0, int32_t trips);
+#define MM_ROT_CONF0 , nullptr, 780, 18
+#else
 extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pY, float *piece0, const bfp16ebs8 *pX, int32_t conf0);
 #define MM_ROT_CONF0 , nullptr, 780
+#endif
 static_assert(MM_E7_YB == 4032);
 #elif defined(ZLOAD)  // round 21 (r21/mkzload.py): the kp-0 MACs take their config from the 4th argument (781 = zero_acc: a tile's first k-step)
 extern "C" void mm_rot(const int32_t *rec, const bfp16ebs8 *pB, float *piece0, int32_t conf0);
@@ -84,6 +89,41 @@ static constexpr RotRec rot_rec = [] {
                         (int32_t)KS_A1, (int32_t)KS_A2);
   return t;
 }();
+#ifdef MSPLIT  // round 23 MSPLIT-P: the first row pass (rb 0-5, then the dummy row block 6) has its own records; the second pass
+// (rb 6-17) reads rot_rec from row block 6's first record on (its dummy loads from piece(0, 0): reads only)
+constexpr int32_t rot_record_n(int rb, int f, int nrb, int32_t c, int32_t hi, int32_t a0, int32_t a1, int32_t a2) {
+  const bool real = rb < nrb;
+  const int32_t slot[3] = {a0, a1, a2};
+  switch (f) {
+    case 0:
+      return real ? slot[(rb / 2) % 3] + 576 * (rb % 2) : a1;
+    case 1:
+      return rb == 0 ? 0
+             : real  ? rot_piece(c, hi, rb, 0) - rot_piece(c, hi, rb - 1, 1) - 1024
+             : rb == nrb ? rot_piece(c, hi, 0, 0) - rot_piece(c, hi, nrb - 1, 1) - 1024
+                         : 0;
+    case 2:
+      return real ? rot_piece(c, hi, rb, 1) - rot_piece(c, hi, rb, 0) - 1024 : 0;
+    case 3:
+      return real && rb % 2 == 0;
+    default:
+      return real && rb % 2 == 1;
+  }
+}
+constexpr int MS_NREC = 5 * 6 + 4;
+static_assert(MM_ROT_NREC == 5 * 18 + 4 && mm_rot_order[30][0] == 6 && mm_rot_order[30][1] == 3 && mm_rot_order[33][0] == 6 &&
+              mm_rot_order[33][1] == 2 && mm_rot_order[34][1] == 4);
+struct RotRecA {
+  int32_t r[MS_NREC];
+};
+static constexpr RotRecA rot_rec_a = [] {
+  RotRecA t{};
+  for (int i = 0; i < MS_NREC; i++)
+    t.r[i] = rot_record_n(mm_rot_order[i][0], mm_rot_order[i][1], 6, (int32_t)KS_C, (int32_t)KS_ACC_HI, (int32_t)KS_A0, (int32_t)KS_A1,
+                          (int32_t)KS_A2);
+  return t;
+}();
+#endif
 #ifdef MM_E7K_NPER  // (mm_kstep is not bound under P35; KTL runs only from mm_ktile)
 static inline void rot_kstep(bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *, bfp16ebs8 *, bfloat16 *) {}
 #else
