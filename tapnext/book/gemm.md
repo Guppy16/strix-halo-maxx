@@ -133,6 +133,7 @@ Measured against the C path or the k-step (details in [common/gemm](../../common
 - [A12](../../common/book/negative-results.md#a12) <!-- nr: A12 --> B prefetch out of the popped bank; [A15](../../common/book/negative-results.md#a15) <!-- nr: A15 --> A slots in the least busy bank: no idle bank, and bank 0 has no room.
 - [A27](../../common/book/negative-results.md#a27) <!-- nr: A27 --> and [L1](../../common/book/negative-results.md#l1) <!-- nr: L1 --> E7'' at R 64 (neutral in situ) and KTL at R 68-69 bank-clean (no schedule in the CP budgets). Both are `unfinished`: more CP workers in a quiet window, or a placement where A slots and pieces never share a bank.
 - [B7](../../common/book/negative-results.md#b7) <!-- nr: B7 --> hoisting the B fills for B-starved first tiles: −0.35 against −0.8 predicted, because the dependent boundary is the A slot load from DDR (B is 14 % of the bytes).
+- [J5](../../common/book/negative-results.md#j5) <!-- nr: J5 --> GELU on the idle EW cores instead of in the epilogue: ~11 MB per block on top of ~42 GB/s, over the DDR cap.
 - [B9](../../common/book/negative-results.md#b9) <!-- nr: B9 --> LATE-C / LATEC: the build hung. [J1](../../common/book/negative-results.md#j1) <!-- nr: J1 --> residual add in the epilogue: no third core input port.
 
 ## Lessons

@@ -60,7 +60,7 @@ All in `plan8.py` / `pack8.py`; the reason for each is that **one op's C drain w
   every drained object lands in padding.
 - **QKV**: `[head][column][…]` Q, K and V^T objects of 4,608 B (K and V use 3,456 B of it; the tail is scratch while the core holds the object,
   NOTES 19.3). V^T panels share exponents over keys, so the host reference must encode the transposed matrix (NOTES 8.3).
-- **SSM area** per block: `[YX (2 S)][conv history R0..R3][h lo, h hi][z]`. The conv history rotates mod 4 with the frame (X1, round 17, `d3c671d`), so
+- **SSM area** per block: seven input streams S apart, `[y][conv history R0..R3][h lo][h hi][z]`, read by the SSM as one TAP. The conv history rotates mod 4 with the frame (X1, round 17, `d3c671d`): the yx drain writes x(t) into R[t mod 4], so
   the state never moves. Four runtime sequences per depth select the phase ([ssm.md](ssm.md)).
 - **A slot** in the memtile: 24 chunks × 10,368 B = 248,832 B (K = 1536 ops hold all 24, K = 768 ops half). Driven by runtime tasks (A_RT,
   −2.0 ms, round 10). 3A (round 22, `d14c8cf`) grows it to 36 chunks = 373,248 B for down_b / mlp3_b.
@@ -149,14 +149,14 @@ All kept changes from round 9 on are bit-identical. Timings from rounds 3-11 pre
   round-5 kernels and ~44 ms with 2x faster vector kernels (EXTRAPOLATED, 4-5 weeks of effort), and **never built**. The incremental route reached 28.4 ms
   inside design8 by speeding the kernels and moving only the boundaries that mattered on chip. Row-chunk pipelining was priced again with the sim9
   list-schedule and came out slower: [C1](../../common/book/negative-results.md#c1) <!-- nr: C1 --> 76.3 → 76.9-77.2 ms (MODEL, never built): every chunk repeats the
-  tile and dependent-load costs. The chunked FFN needs the hidden ring in the memtile: see [B11](../../common/book/negative-results.md#b11)
-  ([boundaries.md](boundaries.md#what-didnt-work)).
+  tile and dependent-load costs. The chunked FFN needs the hidden ring in the memtile: see [B11](../../common/book/negative-results.md#b11) <!-- nr: B11 -->
+  (a GEMM-to-GEMM park needed 124 KB against 112 KB free; [boundaries.md](boundaries.md#what-didnt-work)).
 - [E17](../../common/book/negative-results.md#e17) <!-- nr: E17 --> a sliding SSM area with a wrap frame: −0.33 ms per rotating frame, but +232 MB of ACT at N 8
   phases. The mod-4 rotation gave the same gain with no wrap frame. Do not rebuild the sliding form.
 - [F1](../../common/book/negative-results.md#f1) <!-- nr: F1 --> the heads on one thread: the next frame's conv slows (OpenMP pool re-spin). Number not recorded.
 - [F2](../../common/book/negative-results.md#f2) <!-- nr: F2 --> numpy heads with OpenBLAS's default threads beside torch's pool: 11.7 ms vs 0.72 ms with one thread. Fixed.
 - [F3](../../common/book/negative-results.md#f3) <!-- nr: F3 --> host/device overlap levers (H1, H2): not attempted. The product runs in latency mode, where H1 cannot help.
-- Not a failure but a trap: a 1 KB-padded EW fill hung the step ([E12](../../common/book/negative-results.md#e12), [data-movement](../../common/book/data-movement.md#dma-bookkeeping)).
+- A trap, not a dead idea: a 1 KB-padded EW fill hung the step ([E12](../../common/book/negative-results.md#e12) <!-- nr: E12 -->; details in [ssm.md](ssm.md#what-didnt-work), rules in [data-movement](../../common/book/data-movement.md#dma-bookkeeping)).
 
 ## Lessons
 
