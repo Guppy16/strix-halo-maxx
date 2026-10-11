@@ -731,7 +731,7 @@ def step8(
                 for c in range(COLS):
                     for r in range(ROWS_G):
                         npu_write32(address=int(os.environ["CPST_ADDR"], 0) - 0x70000, value=2 if (c or r) else 0, column=c, row=2 + r)
-        if {"-DPROF", "-DNPROF", "-DNIO2"} & set(os.environ.get("EW_DEFS", "").split()):  # round 8: the EW cores' phase stamps (ew8.cc PROF)
+        if {"-DPROF", "-DNPROF", "-DNIO2", "-DSSMIN"} & set(os.environ.get("EW_DEFS", "").split()):  # round 8: the EW cores' phase stamps (ew8.cc PROF)
             from aie.dialects.aiex import npu_maskwrite32
 
             for c in range(COLS):

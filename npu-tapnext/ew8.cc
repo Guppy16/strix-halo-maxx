@@ -163,6 +163,15 @@ static __attribute__((noinline)) void ph(int i) {
 #else
 #define PH(i) ((void)0)
 #endif
+#elif defined(SSMIN)  // round 24 (research SSMIN): the SSM's input waits per chunk
+static inline __attribute__((always_inline)) uint32_t stamp() {
+  __builtin_aie2p_sched_barrier();
+  const uint32_t v = read_tm(0x340F8);
+  __builtin_aie2p_sched_barrier();
+  return v;
+}
+static uint32_t g_sw[4], g_nchunk;  // chunk in_need, params in_need, whole chunk, output-slot acquire (cycles, cumulative)
+#define PH(i) ((void)0)
 #else
 #define PH(i) ((void)0)
 #endif
@@ -1323,7 +1332,13 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
   g_tlast = stamp();
 #endif
   for (int q = 0; q < QS; q++) {
+#ifdef SSMIN
+    const uint32_t sp0 = stamp();
+#endif
     in_need(in_ring, SSM_PARAM_B);
+#ifdef SSMIN
+    g_sw[1] += stamp() - sp0;
+#endif
     PH(10);
     const int first = *(const int32_t *)in_at(in_ring, 0);
 #ifdef XROT  // round 17 (X1 full rotation, plan8 XROT=4): header word 2 = 1 + r (r = frame mod 4): parts 1-4 are the history regions
@@ -1351,7 +1366,13 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
     ssm_tables();
     PH(11);
     for (int rb = 0; rb < RBN; rb++) {
+#ifdef SSMIN
+      const uint32_t sc0 = stamp();
+#endif
       in_need(in_ring, 7 * KB);
+#ifdef SSMIN
+      g_sw[0] += stamp() - sc0;
+#endif
       PH(0);
       // round 8: contiguous views of the chunk's 7 input parts (a part the ring wrap splits is copied to g_ptmp once);
       // the loops below use plain pointers instead of a wrap check per vector (in_at)
@@ -1580,6 +1601,15 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
       out_copy(out_ring, 5 * KB, (const bfloat16 *)g_panels, KB / 64);  // panels 576 B + g_panels' zero tail as the pad
 #endif
       PH(12);
+#ifdef SSMIN  // round 24: the record in the chunk's z pad (stale under SRES): magic 'SSMI', chunks, the four totals
+      {
+        uint32_t *rec = (uint32_t *)out_at(out_ring, o_z + PANB);
+        rec[0] = 0x494D5353u;
+        rec[1] = ++g_nchunk;
+        g_sw[2] += stamp() - sc0;
+        for (int i = 0; i < 4; i++) rec[2 + i] = g_sw[i];
+      }
+#endif
 #if defined(PROF) || defined(NPROF)  // record in the pad (unused bytes of the output): magic, chunks so far, phase totals (r8/ewprof.py)
       {
         uint32_t *rec = (uint32_t *)out_at(out_ring, o_z + PANB);
