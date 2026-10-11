@@ -85,6 +85,7 @@ class Step8:
         plan8.YXH = bool(bj.get("yxh", False))  # round 24 YXH: yx's steps head-major
         plan8.ZDROP = bool(bj.get("zdrop", False))  # round 24 ZDROP: SRES SSMs drain h only
         plan8.RRTWIN = bool(bj.get("rrtwin", False))  # round 25 timing twin: norms without their residual input
+        plan8.RRES, plan8.RRB = tuple(bj.get("rres", [])), int(bj.get("rrb", 10))  # round 25 RRES: residual rows on chip
         plan8.MSPLIT = tuple(bj.get("msplit", []))  # round 23 MSPLIT-P: the last tile in two row passes
         plan8.NRES = tuple(bj.get("nres", []))
         plan8.SRES = bool(bj.get("sres", False))  # round 20: norms whose panels go on chip to the next GEMM's A slot
@@ -199,10 +200,10 @@ class Step8:
                 pre = f"blocks.{int(b[1:])}."
                 if name in ("norm0", "norm1"):
                     key = pre + "ssm_block." + ("temporal_pre_norm" if name == "norm0" else "channel_pre_norm") + ".scale"
-                    put_w(op["params_w"], P.norm_params("rms", sd[key], n_in=op["n_in"], nres=op.get("nres", False)))
+                    put_w(op["params_w"], P.norm_params("rms", sd[key], n_in=op["n_in"], nres=op.get("nres", False), rres=op.get("rres", 0)))
                 else:
                     ln = pre + "vit_block." + ("ln_1" if name == "norm2" else "ln_2")
-                    put_w(op["params_w"], P.norm_params("ln", sd[ln + ".weight"], sd[ln + ".bias"], n_in=op["n_in"], nres=op.get("nres", False)))
+                    put_w(op["params_w"], P.norm_params("ln", sd[ln + ".weight"], sd[ln + ".bias"], n_in=op["n_in"], nres=op.get("nres", False), rres=op.get("rres", 0)))
             elif op.get("fn") == "ssm":  # (round 17: XROT also packs the four phases' copies, header word 2 = 1 + phase)
                 pre = f"blocks.{int(op['name'].split('_')[0][1:])}.ssm_block.recurrent_block."
                 cw, cb = sd[pre + "conv_1d.w"], sd[pre + "conv_1d.b"]

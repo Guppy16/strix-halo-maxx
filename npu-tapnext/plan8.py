@@ -60,6 +60,8 @@ YX_PERM = [0, 4, 1, 5, 2, 6, 3, 7]
 YXH = os.environ.get("YXH") == "1"
 ZDROP = os.environ.get("ZDROP") == "1"  # round 24: SRES SSMs drain h only (ew8 -DZDROP)
 RRTWIN = os.environ.get("RRTWIN") == "1"  # round 25 timing twin (outputs wrong): norms skip their residual input (a norm's output)
+RRES = tuple(x for x in os.environ.get("RRES", "").split(",") if x)  # round 25: 3-input norms whose residual rows rb < RRB come on chip
+RRB = int(os.environ.get("RRB", "10"))  # (120 units of 1 KB fit memtile half 1: 124,416 B)
 MS_RB = 6  # row blocks of the first pass (3 A stripes: the A ring's slot order repeats every k-step)
 # round 20 (research rev 16 NRES): the named norms (e.g. "norm1,norm3") send their panels from the EW core's MM2S 1 straight into
 # memtile c's A slot half 0 (rb-major: unit (rb, q) at rb 6,912 + q 576); only X' goes to DDR; the GEMM after the norm loads no A
@@ -344,6 +346,14 @@ class Plan:
         drains = [self.tap("act", dst["base"] + c * dst["col"], [RB, 12, 1, XB if nres else UNIT], [UNIT, KSTEP16, 0, 1]) for c in range(COLS)]
         self.ops.append(dict(kind="ew", fn="norm", name=name, mode=mode, n_in=n_in, params_w=params_w, params_bytes=params_bytes,
                              fills=fills, c=drains, dst=dst, srcs=srcs))
+        if name.split("_", 1)[-1] in RRES and n_in == 3:  # round 25 RRES: stream 2 (the residual, an earlier norm's X') of rb < RRB
+            assert srcs[2]["base"] in self.norm_dsts and nres, name  # from memtile half 1 (parked during the producer GEMM)
+            base0 = lambda c: srcs[0]["base"] + c * srcs[0]["col"]
+            self.ops[-1]["rres"] = RRB
+            self.ops[-1]["rfills"] = [[self.tap("act", base0(c), [RRB, 12, 2, XB], [UNIT, KSTEP16, d, 1]),
+                                       self.tap("act", base0(c) + RRB * UNIT, [RB - RRB, 12, 3, XB], [UNIT, KSTEP16, d, 1])] for c in range(COLS)]
+            self.ops[-1]["rpre"] = [self.tap("act", srcs[2]["base"] + c * srcs[2]["col"], [RRB, 12, 1, XB], [UNIT, KSTEP16, 0, 1])
+                                    for c in range(COLS)]
         if nres:  # round 20 NRES: X' only to DDR (1,024 B per unit); the panels go to the memtile A slot
             self.ops[-1]["nres"] = True
         return dst
@@ -382,7 +392,7 @@ class Plan:
 
     # ---- serialisation for the design (compile-time) -------------------------------------------------------------
     def sched_json(self):
-        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres", "sres", "r3", "msplit", "perm", "tmap", "yxh")
+        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres", "sres", "r3", "msplit", "perm", "tmap", "yxh", "rres", "rfills", "rpre")
         return json.dumps([{k: op[k] for k in keep if k in op} for op in self.ops])
 
 

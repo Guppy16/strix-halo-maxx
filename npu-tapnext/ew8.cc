@@ -548,10 +548,20 @@ alignas(64) static float g_nacc[128];  // s0 | s1 | q0 | q1 (fp32, 32 lanes each
 #else  // round 20 (research rev 16 NRES): pring != null: the panels go to the 2-slot ring drained by MM2S 1 (-> the memtile A slot)
 #define NRES_ARG , uint8_t *pring
 #endif
+#ifdef RRES  // round 25: stream 2 (the residual) of row blocks < g_rrb from the 2 x 1 KB ring on S2MM 1 (params header word 2)
+#define RRES_ARG , uint32_t *rring
+static uint32_t *g_rring;
+static int g_rrb;
+#else
+#define RRES_ARG
+#endif
 static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *out_ring, int n_in, int to_x, B32 eps, int ln NRES_ARG) {
 #ifdef NRES
   const int ub = pring ? KB : UNIT_B;  // output ring bytes per unit: X' only under NRES
   int pslot = 0;                       // (216 units per op: the 2-slot ring is back at slot 0 after every op)
+#endif
+#ifdef RRES
+  int rslot = 0;  // (12 x RRB units per op, an even count: slot 0 again at the next op)
 #else
   constexpr int ub = UNIT_B;
 #endif
@@ -638,7 +648,7 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
           bfloat16 *xd = xw ? (bfloat16 *)(g_arena + 15872) : (bfloat16 *)((char *)out_ring + xp);
           bfp16ebs8 *pd = pw ? (bfp16ebs8 *)g_panels : (bfp16ebs8 *)((char *)out_ring + pp);
 #endif
-#ifdef NIO2
+#if defined(NIO2) && !defined(NIO2_NONRM)  // (round 25: off to fit the text with every other stamp)
           const uint32_t tr0 = stamp();
 #endif
 #ifdef TXT18
@@ -649,7 +659,7 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
           else
             nrm_rms(sq, g_p0 + q * 64, pd, (const bfloat16 *)rr, xd);
 #endif
-#ifdef NIO2
+#if defined(NIO2) && !defined(NIO2_NONRM)  // (round 25: off to fit the text with every other stamp)
           g_nio[ln][0] += stamp() - tr0;
 #endif
 #ifdef NRES
@@ -689,6 +699,12 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
 #else
       if (ln) n1k_ln_begin(g_nacc, w1b, w2b); else n1k_rms_begin(g_nacc, w1b, w2b);
 #endif
+#ifdef RRES
+      const int rr_on = rb + 1 < g_rrb;  // (pass 1 here is row block rb + 1's)
+      const int unit_q = rr_on ? unit - KB : unit;
+#else
+      const int unit_q = unit;
+#endif
       for (int q = q0; q < q0 + NPIPE_G; q++) {
 #ifdef NIO2
         const uint32_t tp0 = stamp();
@@ -698,7 +714,7 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
 #endif
 #ifdef NIOC
         {
-          const int d = unit - iav;
+          const int d = unit_q - iav;
           if (d > 0) {
             const int n = div768(d + SLOT_B - 1);
             iav += n * SLOT_B;
@@ -722,6 +738,13 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
           const int n1 = (IN_B - qq) >> 7;  // 128 B pieces before the ring end
           dc[s] = n1 >= 8 ? 0 : 8 - n1;
         }
+#ifdef RRES
+        if (rr_on) {
+          lacq(g_rring, L_R_FILL, 1);
+          p[2] = (const bfloat16 *)((const char *)g_rring + rslot * KB);
+          dc[2] = 0;
+        }
+#endif
 #if defined(PROF) || defined(NPROF)
         const uint32_t ts0 = stamp();
 #endif
@@ -740,11 +763,17 @@ static __attribute__((noinline)) void norm_rows_k(uint32_t *in_ring, uint32_t *o
         g_nst += stamp() - ts0;
         g_ncnt++;
 #endif
+#ifdef RRES
+        if (rr_on) {
+          lrel(g_rring, L_R_FREE, 1);
+          rslot ^= 1;
+        }
+#endif
 #ifdef NIOC
-        iav -= unit;
-        ib += unit;
+        iav -= unit_q;
+        ib += unit_q;
         if (ib >= IN_B) ib -= IN_B;
-        icn += unit;
+        icn += unit_q;
         {
           const int n = div768(icn);
           icn -= n * SLOT_B;
@@ -1070,6 +1099,9 @@ void ew_norm(uint32_t *in_ring, uint32_t *out_ring, int32_t mode NRES_ARG) {
 #endif
   in_need(in_ring, pbytes);
   const int n_in = *(const int32_t *)in_at(in_ring, 0);
+#ifdef RRES
+  g_rrb = *(const int32_t *)in_at(in_ring, 8);
+#endif
   const B32 eps = aie::broadcast<int16_t, 32>(*(const int16_t *)in_at(in_ring, 4)).template cast_to<bfloat16>();
   in_copy(in_ring, g_p0, SLOT_B, D * 2);
   if (mode >= 2) in_copy(in_ring, g_p1, 3 * SLOT_B, D * 2);
@@ -1655,7 +1687,10 @@ void ew_ssm(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
 
 // The EW core's only entry. Every op's first params slot names it (header word 3: 1 rms, 2 ln, 3 ln_out, 4 ssm), so
 // the core's control code is one call in IRON's worker loop, independent of the op list and of the depth.
-void ew_op(uint32_t *in_ring, uint32_t *out_ring NRES_ARG) {
+void ew_op(uint32_t *in_ring, uint32_t *out_ring NRES_ARG RRES_ARG) {
+#ifdef RRES
+  g_rring = rring;
+#endif
   in_need(in_ring, 16);
   const int kind = *(const int32_t *)in_at(in_ring, 12);
 #ifdef EW_NO_NORM  // profiling builds of SSM-only tests (t3): the norm code out of program memory

@@ -105,7 +105,7 @@ def interleave_gated(wt_gate, wt_up, b_gate, b_up):
 EW_KIND = dict(rms=1, ln=2, ln_out=3, ssm=4)  # header word 3 of an EW op's first params slot (ew8.cc ew_op)
 
 
-def norm_params(mode, scale, beta=None, n_in=1, eps=1e-6, nres=False):
+def norm_params(mode, scale, beta=None, n_in=1, eps=1e-6, nres=False, rres=0):
     """[header slot: word 0 = n_in, word 1 = eps (bf16 bits)][scale + 1 (rms) | gamma][beta (ln)] as 768 bf16
     vectors, one slot each pair."""
     nslots = 3 if mode in ("rms", "none") else 5
@@ -113,6 +113,7 @@ def norm_params(mode, scale, beta=None, n_in=1, eps=1e-6, nres=False):
     hdr = out.view(np.uint32)
     hdr[0] = n_in
     out[2] = bf(eps)
+    hdr[2] = rres  # round 25 RRES: row blocks whose stream 2 comes from the EW S2MM 1 ring
     hdr[3] = EW_KIND[mode] | (8 if nres else 0)  # ew_op dispatches on it (round 20: + 8 = NRES, panels to the EW MM2S 1 ring)
     v = bf(np.asarray(scale, np.float32) + 1.0) if mode == "rms" else bf(np.ones(768) if mode == "none" else scale)
     out[SLOT // 2: SLOT // 2 + 768] = v

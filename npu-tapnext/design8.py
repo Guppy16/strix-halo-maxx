@@ -394,6 +394,8 @@ def step8(
             if a3:  # round 22 3A: region 3's free / loaded chunks
                 lk["E3"] = Lock(tile=mems[c], init=12, name=f"AE3_{c}")
                 lk["F3"] = Lock(tile=mems[c], init=0, name=f"AF3_{c}")
+            if os.environ.get("RRES"):  # round 25 RRES: half 1 holds a norm's parked residual rows
+                lk["RF"] = Lock(tile=mems[c], init=0, name=f"ARF{c}")
             rt_locks.append(lk)
             rt_slots.append(slot)
             continue
@@ -470,8 +472,13 @@ def step8(
     nres = "-DNRES" in ew_flags  # round 20 NRES: a third ring (the panels, 4 x 576 B) drained by the EW core's MM2S 1
     assert nres == bool(os.environ.get("NRES")), "NRES (plan) and -DNRES (EW_DEFS) go together"
     RingP = np.ndarray[(2 * 576 // 4,), np.dtype[np.uint32]]  # 2 slots (L1: the EW stack gives up 1 KB for it, bank 0)
+    rres_on = bool(os.environ.get("RRES"))  # round 25 RRES: a 2 x 1 KB ring on the EW core's S2MM 1 (the residual from memtile half 1)
+    assert rres_on == ("-DRRES" in ew_flags), "RRES (plan) and -DRRES (EW_DEFS) go together"
+    assert not rres_on or nres
+    ew_flags += ["-DL_R_FREE=6", "-DL_R_FILL=7"] if rres_on else []
+    RingR = np.ndarray[(2 * 1024 // 4,), np.dtype[np.uint32]]
     if "-DSIGK" in ew_flags:  # round 12: with generated asm (the SSM sigmoid) the object is prebuilt
-        ew_op = Kernel("ew_op", ew_object(ew_flags), [RingIn, RingOut] + ([RingP] if nres else []))
+        ew_op = Kernel("ew_op", ew_object(ew_flags), [RingIn, RingOut] + ([RingP] if nres else []) + ([RingR] if rres_on else []))
     else:
         ew_op = ExternalFunction("ew_op", object_file_name="ew8.o", source_file=str(HERE / "ew8.cc"),
                                  arg_types=[RingIn, RingOut], compile_flags=ew_flags)
@@ -488,6 +495,7 @@ def step8(
     else:
         e_out = [Flow(ew_tiles[c], shims[c]) for c in range(COLS)]
         p_flow = []
+    r_flow = [Flow(mems[c], ew_tiles[c], name=f"Rr{c}") for c in range(COLS)] if rres_on else []
     ew_workers = []
     any_ew = bool(ew_pre or ew_body or ew_post)
     if any_ew:
@@ -507,7 +515,15 @@ def step8(
                 p_chan = [DmaChannel(DMAChannelDir.MM2S, 1, [Bd(
                     rp, tap=TensorAccessPattern((2 * 144,), 0, [1, 1, 1, 144], [0, 0, 0, 1]),
                     acquires=[Acquire(p_fill)], releases=[Release(p_free)], iteration=BdIteration(size=2, stride=144), packet=(0, 5))])]
-            core_dmas.append(TileDma(t, p_chan + [
+            r_chan, rr = [], None
+            if rres_on:  # round 25 RRES: the residual units (1 KB) from the memtile, 2 slots, locks 6 / 7
+                rr = Buffer(tile=t, type=RingR, name=f"ewr{c}")
+                r_free = Lock(tile=t, init=2, name=f"erf{c}", lock_id=6)
+                r_fill = Lock(tile=t, init=0, name=f"eru{c}", lock_id=7)
+                r_chan = [DmaChannel(DMAChannelDir.S2MM, r_flow[c].endpoint(t), [Bd(
+                    rr, tap=TensorAccessPattern((512,), 0, [1, 1, 1, 256], [0, 0, 0, 1]),
+                    acquires=[Acquire(r_free)], releases=[Release(r_fill)], iteration=BdIteration(size=2, stride=256))])]
+            core_dmas.append(TileDma(t, p_chan + r_chan + [
                 DmaChannel(DMAChannelDir.S2MM, e_in[c].endpoint(t), [Bd(
                     rin, tap=TensorAccessPattern((EW_IN_SLOTS * SLOT_W,), 0, [1, 1, 1, SLOT_W], [0, 0, 0, 1]),
                     acquires=[Acquire(in_free)], releases=[Release(in_fill)],
@@ -526,7 +542,13 @@ def step8(
             def ew_fn_p(rin, rout, rp, ew_op):
                 ew_op(rin, rout, rp)
 
-            if nres:
+            def ew_fn_pr(rin, rout, rp, rr, ew_op):
+                ew_op(rin, rout, rp, rr)
+
+            if rres_on:  # (data_size: .data + .bss = 26,176 B; the 2 KB R ring takes the freed tail, the bank-2 region keeps 4,480 >= 4,160)
+                ew_workers.append(Worker(ew_fn_pr, [rin, rout, rp, rr, ew_op], tile=t, stack_size=0x1300,
+                                         data_size=int(os.environ.get("RRES_DATA", "26240"))))
+            elif nres:
                 ew_workers.append(Worker(ew_fn_p, [rin, rout, rp, ew_op], tile=t, stack_size=0x1300, data_size=27648))  # (deepest ~3.2 KB; bank 0 = stack + ewo + ewp + 1 KB tables)
             else:
                 ew_workers.append(Worker(ew_fn, [rin, rout, ew_op], tile=t, stack_size=0x1800, data_size=27648))  # round 8: +1.5 KB (ew8 g_ptmp, g_panels' pad)
@@ -817,6 +839,9 @@ def step8(
                 fill(a_inb[c], t, **kw)
 
         CH = words_a(m, k)  # words per k-step chunk of the slot (144 rows x 64 bfp16 = 2592)
+        rres_ops = [o for o in ops if o.get("rres")]  # round 25 RRES
+        RRB_ = rres_ops[0]["rres"] if rres_ops else 0
+        assert all(o["rres"] == RRB_ for o in rres_ops) and bool(rres_ops) == bool(r_flow), "RRES: plan and design disagree"
         rt_tasks = []
         if a_rt:
             for c in range(COLS):
@@ -870,6 +895,13 @@ def step8(
                     # (SRES: the SSM's z panels arrive head-major = chunk-major already)
                     t["ldn"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 18, 12, 144], [0, 144, CH, 1]),
                                                                     acquires=[Acquire(lk["Elo"], value=12)], releases=[Release(lk["F"], value=12)]))
+                if r_flow:  # round 25 RRES: park (DDR -> half 1, all 12 chunks free) and feed (half 1 -> EW S2MM 1, then free)
+                    rw = 12 * 256 * RRB_
+                    assert rw <= 12 * CH
+                    t["rpre"] = me_in.task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 12 * CH, [1, 1, 1, rw], [0, 0, 0, 1]),
+                                              acquires=[Acquire(E[1], value=12)], releases=[Release(lk["RF"])]))
+                    t["rfeed"] = r_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra_buf,), 12 * CH, [1, 1, 1, rw], [0, 0, 0, 1]),
+                                                                     acquires=[Acquire(lk["RF"])], releases=[Release(E[1], value=12)]))
                 rt_tasks.append(t)
         slot_ops = [o for o in ops if o["kind"] in ("gemm", "attn")]
 
@@ -985,6 +1017,11 @@ def step8(
                 if a_["kind"] == "ew" and a_.get("sres") and b_["kind"] == "gemm" and b_.get("nres") and not b_.get("deps"):
                     seq_ops[i], seq_ops[i + 1] = b_, a_
                     outpre.add(b_["name"])
+        rres_before = {}  # round 25 RRES: the GEMM issued right before each RRES norm parks its residual rows
+        for i, o in enumerate(seq_ops):
+            if o.get("rres"):
+                assert i > 0 and seq_ops[i - 1]["kind"] == "gemm" and seq_ops[i - 1].get("msplit") and seq_ops[i - 1].get("r3"), o["name"]
+                rres_before[seq_ops[i - 1]["name"]] = o
         for op in seq_ops:
             cur_op[0] = op["name"]
             if op["kind"] == "gemm":
@@ -1069,6 +1106,11 @@ def step8(
                         fill_b()
                     if not (op2 and os.environ.get("OPPRE2_SENDS", "1") == "1"):
                         a_sends(op)
+                    nr_ = rres_before.get(op["name"])
+                    if nr_ is not None:  # round 25 RRES: park the next norm's residual rows rb < RRB in half 1 (lock-governed: E[1] = 12
+                        for c in range(COLS):  # after the K = 1536 op before this one released half 1)
+                            rt_tasks[c]["rpre"].start()
+                            fill(a_in[c], nr_["rpre"][c], group=tg, wait=False)  # (tg is finished after this op's drains: done by then)
                     if split:
                         assert p43 and not sp_mode & 2 and not qkv
                         for part, g_ in ((0, tg0), (1, tg)):
@@ -1235,6 +1277,9 @@ def step8(
                     if op.get("nres"):  # round 20 NRES: the memtile takes the panels (S2MM 5) before the norm can push any
                         for c in range(COLS):
                             rt_tasks[c]["ldn"].start()
+                    if op.get("rres"):  # round 25 RRES: the parked residual rows to the EW S2MM 1 ring (waits for the park: RF)
+                        for c in range(COLS):
+                            rt_tasks[c]["rfeed"].start()
                     if nseq:  # round 20 (research rev 16 NSEQ): params (from W) and drains before the producer wait; after it only
                         # the input fills, so the CP issues column 7's input ~4 instructions after column 0's (it was ~12)
                         assert len(op["fills"][0]) == 2 and op["fills"][0][0]["buf"] == "w"
@@ -1247,11 +1292,17 @@ def step8(
                             parts = []
                             for c in range(COLS):
                                 f_ = op["fills"][c][1]
+                                if op.get("rres"):  # round 25 RRES: rb 0-5 | 6..RRB-1 with 2 streams, RRB..17 with 3
+                                    f2, f3 = op["rfills"][c]
+                                    assert f2["sizes"][0] > MS_RB and cppre
+                                    parts.append((dict(f2, sizes=[MS_RB] + f2["sizes"][1:]),
+                                                  dict(f2, sizes=[f2["sizes"][0] - MS_RB] + f2["sizes"][1:], off=f2["off"] + MS_RB * f2["strides"][0]), f3))
+                                    continue
                                 parts.append((dict(f_, sizes=[MS_RB] + f_["sizes"][1:]),
                                               dict(f_, sizes=[f_["sizes"][0] - MS_RB] + f_["sizes"][1:], off=f_["off"] + MS_RB * f_["strides"][0])))
                             if cppre:  # round 24 CPPRE: both parts configured before the waits, pushed after them
                                 st1 = [prefill(e_in[c], parts[c][0], tg, False) for c in range(COLS)]
-                                st2 = [prefill(e_in[c], parts[c][1], tg, False) for c in range(COLS)]
+                                st2 = [[prefill(e_in[c], p_, tg, False) for p_ in parts[c][1:]] for c in range(COLS)]
                             for n_, g_ in list(pending):
                                 if (n_, g_) not in ms:
                                     g_.finish()
@@ -1260,7 +1311,11 @@ def step8(
                                 st1[c]() if cppre else fill(e_in[c], parts[c][0], group=tg, wait=False)
                             finish_all()
                             for c in range(COLS):
-                                st2[c]() if cppre else fill(e_in[c], parts[c][1], group=tg, wait=False)
+                                if cppre:
+                                    for st_ in st2[c]:
+                                        st_()
+                                else:
+                                    fill(e_in[c], parts[c][1], group=tg, wait=False)
                         else:
                             if cppre:  # round 24 CPPRE
                                 st1 = [prefill(e_in[c], op["fills"][c][1], tg, False) for c in range(COLS)]
@@ -1327,13 +1382,13 @@ def step8(
         assert not deferred, "MSDEFER: pass sends never pushed"
         finish_all()
         for t in rt_tasks:
-            for task in (*t["ld"], *t["t0"], *[x for x in t["last"] if x is not None], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz", "pa", "pa1") if x in t],
+            for task in (*t["ld"], *t["t0"], *[x for x in t["last"] if x is not None], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz", "pa", "pa1", "rpre", "rfeed") if x in t],
                          *[x for x in t.get("lastb", []) if x is not None]):
                 task.free()
         print(f"[design8] shim BD peak {bd_peak[0]} at {bd_peak[1]} (limit 16)")
 
     rt = Runtime(sequence, [W_ty, ACT_ty, b_prods, c_conses])
-    for f in (*a_in, *a_out, *(e_in + e_out if any_ew else []), *p_flow):
+    for f in (*a_in, *a_out, *(e_in + e_out if any_ew else []), *p_flow, *r_flow):
         rt.add_flow(f)
     for d in (*mem_dmas, *core_dmas):
         rt.add_tile_dma(d)
@@ -1422,7 +1477,8 @@ def main():
                                                      il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1", a3=os.environ.get("A3") == "1",
                                                      nres=[x for x in os.environ.get("NRES", "").split(",") if x], sres=os.environ.get("SRES") == "1",
                                                      msplit=[x for x in os.environ.get("MSPLIT", "").split(",") if x], yxr=os.environ.get("YXR") == "1", yxh=os.environ.get("YXH") == "1", zdrop=os.environ.get("ZDROP") == "1",
-                                                     rrtwin=os.environ.get("RRTWIN") == "1")))
+                                                     rrtwin=os.environ.get("RRTWIN") == "1",
+                                                     rres=[x for x in os.environ.get("RRES", "").split(",") if x], rrb=int(os.environ.get("RRB", "10")))))
 
 
 if __name__ == "__main__":
