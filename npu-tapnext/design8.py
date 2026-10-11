@@ -772,6 +772,31 @@ def step8(
             account(ep_shim(ep), kw["group"])
             ep.drain(bufs[t["buf"]], tap=tap_of(t, totals), **kw)
 
+        cppre = os.environ.get("CPPRE") == "1"  # round 24
+
+        def prefill(ep, t, group, wait):
+            """round 24 CPPRE: configure a PacketFlow fill's BD now (blockwrite + patch), push it later: returns the start callable.
+            Mirrors PacketFlow.fill -> Flow._transfer -> emit_shim_transfer, with a DMATask whose resolve() omits dma_start_task;
+            the group still awaits / frees it."""
+            from aie.dialects._aiex_ops_gen import dma_start_task
+            from aie.dialects.aiex import shim_dma_single_bd_task
+            from aie.iron.runtime._context import active_sequence
+            from aie.iron.runtime.dmatask import DMATask
+
+            class _Cfg(DMATask):
+                def resolve(self, loc=None, ip=None):
+                    self._task = shim_dma_single_bd_task(self._alloc, self._rt_data.op, tap=self._tap, transfer_len=None,
+                                                         issue_token=self._wait, offset_parameter=None, length_parameter=None,
+                                                         length_unit=None, packet=self._packet)
+
+            account(ep_shim(ep), group)
+            assert isinstance(ep, PacketFlow) and ep in active_sequence()._runtime.flows
+            ep._shim_used = True
+            task = _Cfg(ep._end_symbol(ep._shim_end()), bufs[t["buf"]], tap=tap_of(t, totals), task_group=group, wait=wait,
+                        packet=(0, ep.pkt_id))
+            active_sequence().emit_transfer(task, group)
+            return lambda: dma_start_task(task.task)
+
         def ep_shim(ep):
             for c in range(COLS):
                 if ep is a_in[c] or ep is e_in[c] or ep is e_out[c] or ep is C_conses[c]:
@@ -1008,16 +1033,22 @@ def step8(
                         an = next(d_ for d_ in op["deps"] if any(n_ == d_ + "#h0" for n_, _ in pending))
                         if os.environ.get("OPPRE2_SENDS", "1") == "1":  # (v2: the sends before the waits)
                             a_sends(op)
+                        def part_(c, g):
+                            (t_,) = op["a"][c]
+                            assert t_["sizes"][0] == 12, t_
+                            return dict(t_, sizes=[3] + t_["sizes"][1:], off=t_["off"] + 3 * g * t_["strides"][0])
+
+                        pst = {}  # round 24 CPPRE: part g + 1 configured right after part g is pushed (all four at once: BD peak 20 > 16)
                         for g in range(-1, 4):
+                            if cppre and os.environ.get("CPPRE_OP") == "1" and g + 1 < 4:  # (off: static BD peak 20 > 16 at out_proj)
+                                pst[g + 1] = [prefill(a_inb[c], part_(c, g + 1), tg, False) for c in range(COLS)]
                             want = an + ("#p0" if g < 0 else f"#h{g}")
                             for n_, g_ in list(pending):
                                 if n_ == want:
                                     g_.finish()
                                     pending.remove((n_, g_))
                             for c in range(COLS) if g >= 0 else ():
-                                (t_,) = op["a"][c]
-                                assert t_["sizes"][0] == 12, t_
-                                fill(a_inb[c], dict(t_, sizes=[3] + t_["sizes"][1:], off=t_["off"] + 3 * g * t_["strides"][0]), group=tg, wait=False)
+                                pst[g][c]() if g in pst else fill(a_inb[c], part_(c, g), group=tg, wait=False)
                     finish_deps(op)
                     if op["name"] == os.environ.get("CPST_OP"):  # round 20 probe: the CP passed this op's dependency wait
                         from aie.dialects.aiex import npu_write32
@@ -1205,23 +1236,30 @@ def step8(
                         ntwin = [x for x in os.environ.get("NTWIN", "").split(",") if x]  # round 22 timing twin (research NTWIN, outputs wrong):
                         ms = [(n_, g_) for n_, g_ in pending if n_ in ms_names]
                         if ms:  # round 23 MSPLIT-P: row blocks 0-5 while the producer computes rows 6-17
+                            parts = []
+                            for c in range(COLS):
+                                f_ = op["fills"][c][1]
+                                parts.append((dict(f_, sizes=[MS_RB] + f_["sizes"][1:]),
+                                              dict(f_, sizes=[f_["sizes"][0] - MS_RB] + f_["sizes"][1:], off=f_["off"] + MS_RB * f_["strides"][0])))
+                            if cppre:  # round 24 CPPRE: both parts configured before the waits, pushed after them
+                                st1 = [prefill(e_in[c], parts[c][0], tg, False) for c in range(COLS)]
+                                st2 = [prefill(e_in[c], parts[c][1], tg, False) for c in range(COLS)]
                             for n_, g_ in list(pending):
                                 if (n_, g_) not in ms:
                                     g_.finish()
                                     pending.remove((n_, g_))
                             for c in range(COLS):
-                                f_ = op["fills"][c][1]
-                                fill(e_in[c], dict(f_, sizes=[MS_RB] + f_["sizes"][1:]), group=tg, wait=False)
+                                st1[c]() if cppre else fill(e_in[c], parts[c][0], group=tg, wait=False)
                             finish_all()
                             for c in range(COLS):
-                                f_ = op["fills"][c][1]
-                                fill(e_in[c], dict(f_, sizes=[f_["sizes"][0] - MS_RB] + f_["sizes"][1:], off=f_["off"] + MS_RB * f_["strides"][0]),
-                                     group=tg, wait=False)
+                                st2[c]() if cppre else fill(e_in[c], parts[c][1], group=tg, wait=False)
                         else:
+                            if cppre:  # round 24 CPPRE
+                                st1 = [prefill(e_in[c], op["fills"][c][1], tg, False) for c in range(COLS)]
                             if op["name"].split("_", 1)[-1] not in ntwin:  # these norms do not wait for their producer's drains
                                 finish_all()
                             for c in range(COLS):
-                                fill(e_in[c], op["fills"][c][1], group=tg, wait=False)
+                                st1[c]() if cppre else fill(e_in[c], op["fills"][c][1], group=tg, wait=False)
                     for c in range(COLS) if not nseq else ():
                         for f in op["fills"][c]:
                             fill(e_in[c], f, group=tg, wait=False)
@@ -1244,6 +1282,8 @@ def step8(
                         for c in range(COLS):
                             assert len(op["fills"][c][0]) == 2 and op["fills"][c][0][0]["buf"] == "w", op["fills"][c][0]
                             fill(e_in[c], op["fills"][c][0][0], group=tg_p0, wait=True)
+                        if cppre:  # round 24 CPPRE: head 0's chunk fills configured now, pushed after the yx wait
+                            starts0 = [prefill(e_in[c], op["fills"][c][0][1], tg_p0, True) for c in range(COLS)]
                     for q in range(len(op["fills"][0])):
                         yxh_ = yxg and ops_by_name[yxg[0][0].split("#")[0]].get("yxh")
                         if yxg and (q in (0, 1, 3, 6) if yxh_ else q % 3 == 0):  # (yx's group: YXR "#0" .. "#2" at q 0 / 3 / 6, the op's own
@@ -1256,9 +1296,13 @@ def step8(
                             if gi == 3:  # round 24 MSDEFER: yx is drained, its memtile tasks are done
                                 push_deferred()
                         tg = tg_p0 if ssmpre and q == 0 else G()
-                        for c in range(COLS):
-                            for f in op["fills"][c][q][1 if ssmpre and q == 0 else 0:]:
-                                fill(e_in[c], f, group=tg, wait=True)  # finished two heads later: must be awaited, not just freed
+                        if ssmpre and cppre and q == 0:
+                            for st_ in starts0:
+                                st_()
+                        else:
+                            for c in range(COLS):
+                                for f in op["fills"][c][q][1 if ssmpre and q == 0 else 0:]:
+                                    fill(e_in[c], f, group=tg, wait=True)  # finished two heads later: must be awaited, not just freed
                         groups.append(tg)
                         if len(groups) > 2:
                             groups.pop(0).finish()
