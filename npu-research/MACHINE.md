@@ -550,3 +550,29 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   in it); k-step static cuts land at ~0.75 (g0a, g1a).
 - **R15.10 [MODEL + DOC]** ROT's R = 72 + g is the single B FIFO (ldb slot and bank 3 at once); B in two banks is infeasible under
   ROT (capacity); A-slot placement ≤ 15 cycles. [UNVERIFIED] vlda.pop.576 on lf1 (needed by E7'').
+
+
+## Revision 16 additions (2026-10-11, from research pass 16)
+- **R16.1 [MEAS main r20 CPST + TPROF]** Dependent boundary mlp0 -> mlp3_a: the CP passes the first token wait 12.2 us after the
+  producer's last epilogue; the 8-tct run ~1 us; column 0's first k-step ends 4.15 us after the CP passes; each further column
+  +0.85 us (K = 1536: 5 send pushes); the 24 GEMM cores' timers agree within ~1k cycles.
+- **R16.2 [INF from R16.1 + CPRATE]** BD write (blockwrite) + address patch ~0.10 us of CP time; a queue push (maskpoll + write32)
+  0.17 us. The post-sync CP path is ~2.5 us to column 0's sends, not 92-144 x 0.17.
+- **R16.3 [MEAS main r20 tpgap + MODEL]** A first tile whose A loads after the producer wait is paced at the DDR read cap:
+  2,626-2,977 cycles per k-step (model: 8 x 10,368 B per chunk / 57 GB/s = 2,634 for A alone; + B when B is not prefetched,
+  up to ~3,070). Pace 6.5-8.5 us (K = 768), 13.3 (K = 1536); 0.87 ms per step.
+- **R16.4 [MEAS timelines, r21/tlhist21.py]** step8 timeline polls come every 16.5-17.5 us; per-op medians are quantised to
+  multiples of ~16.5 us. Means over blocks 1-11: norm gaps 8.6-11.0 us; GEMM-after-GEMM spans grow ~15 us when the next op's
+  2 MB A preload overlaps the final drain (down_a vs down_b 90.4 / 75.3, mlp3_a vs mlp3_b 89.5 / 73.9, up_b vs up_a +12).
+- **R16.5 [DOC plan8 TAPs + MEAS shares, r21/ddrbudget.py]** DDR per step at r19z: 914 MB read, 676 MB written; per block
+  norms 17.9 MB + SSM 13.6 MB read (EW read floor 6.6 ms per step at 57 GB/s); weights ~230 MB per step; APAN objects drain
+  18,432 B per 10,368 B of data (74 MB of junk writes per step). In-span read rates: 3-input norms ~55 GB/s, SSM 48.5.
+- **R16.6 [DOC design8 A_RT]** K = 768 ops and attention use only half 0 of the memtile A slot (ld[h] for h < K / 768); half 1
+  is free during them. The chunk loads release ONE lock F for both halves and the t0 sends acquire F per chunk: loads must
+  arrive in k order unless F is split per half.
+- **R16.7 [DOC lowered MLIR full12r19z]** Free endpoints: EW core (c, 5) MM2S 1 and S2MM 1; memtile S2MM 5 (0-2: S2MM 1 B,
+  2-4 C join; 3-7: S2MM 1-3 C join; runtime S2MM 0 A loads); shim BDs 14-15 never used on any shim (13 also free on 3-7).
+- **R16.8 [DOC aie-rt BD layout via txn_trace]** Lock acquire (id, value, enable) and release (id, value) are independent BD
+  fields; release value 0 = no release, so an acquire-only BD is legal in hardware. [UNVERIFIED] that the MLIR lowering emits one.
+- **R16.9 [INF, UNVERIFIED]** The 12 us tail is either the shim S2MM write path (~4 B/cycle per channel would make the last 55 KB
+  per column ~7.6 us) or ~6 us of token / CP latency. DDRW (main, r20/ddrw.py) and DDRW-2ch decide.
