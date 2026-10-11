@@ -1409,7 +1409,11 @@ static WRAP_FOLD void chunk_k_fused(int t, const bfp16ebs8 *q, const bfp16ebs8 *
     aie::store_v(sl + 64 * rb, aie::broadcast<bfloat16, 64>(-__builtin_inff()));
   }
 #endif
+#ifdef K0B  // round 21: chunk 0 too takes the batched fast pass (one call for its 6 row blocks; every row block then flags: exact path)
+  if (nkb == CB) {
+#else
   if (nkb == CB && g_chunk != 0) {  // chunk 0 (every row block flags) and the last chunk go row block by row block
+#endif
     int32_t f = 1;
     if (!ATTK_SKIP(1)) f = attkb(q, kt, erb(t), mr, g_srb, sl, RB * CB, HI_FAST);
     if ((!f && !ATTK_SKIP(8) && !ATTK_SKIP(32)) || ATTK_SKIP(128)) return;  // the common case: nothing flagged

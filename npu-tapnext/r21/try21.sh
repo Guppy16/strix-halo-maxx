@@ -10,6 +10,7 @@ R21=()
 CSA="--core-rel 1"
 if [ "${ZLOAD:-1}" = 1 ]; then R21+=(--env ROT_V=g0z --k-add -DZLOAD); fi
 if [ "${E7:-1}" = 1 ]; then R21+=(--env E7=1 --env ROT_V=${E7_V:-e7r68b} --k-add -DE7 --k-add -DKS_X0=0x70A00 --k-add -DKS_X1=0x70C40 --k-add -DKS_B1=0x7E180); export KS_ACC_HI=${KS_ACC_HI:-0x71940}; fi
+[ "${K0B:-1}" = 1 ] && R21+=(--k-add -DK0B)  # chunk 0 of the attention through the batched fast pass
 if [ "${CSUB:-1}" = 1 ]; then R21+=(--k-add -DCSUB); CSA="$CSA --sub ${CSUB_AT:-1728,3456}"; fi
 NOREG=1 NOTIME=1 NOCS=1 r20/try20.sh "$name" --k-add -DCSPLIT --k-add -DCS_Z=6 --k-add -DEPLR --k-add -DCS_CONS=3 --k-add -DKPREP "${R21[@]}" "$@" || exit 1
 E7PATCH=${E7:-1} NRESFIX=1 CSARGS="$CSA" r20/csplit20.sh "$name" | tail -3 || exit 1
