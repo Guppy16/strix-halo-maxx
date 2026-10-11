@@ -782,7 +782,9 @@ def step8(
             while len(pending) > lookahead - 1:
                 pending.pop(0)[1].finish()
 
-        p43 = os.environ.get("P43") == "1"  # round 11 (research P43): a GEMM's B (weights) leaves before its dependency wait
+        p43 = os.environ.get("P43") == "1"
+        seqpre = os.environ.get("SEQPRE", "0") != "0"
+        sp_mode = int(os.environ.get("SEQPRE", "0"))  # round 19: bit 1 = slot loads before the wait, bit 2 = drains before it  # round 11 (research P43): a GEMM's B (weights) leaves before its dependency wait
 
         for op in ops:
             cur_op[0] = op["name"]
@@ -800,15 +802,52 @@ def step8(
 
                 if p43:  # B has no data dependency; its group is finished after its drains as before
                     fill_b()
-                finish_deps(op)
+                if os.environ.get("CPRATE") and op["name"].endswith("_mlp3_a"):  # (before the wait: timing probe only)  # round 19 probe (research rev 15 CPRATE): N dummy
+                    from aie.dialects.aiex import npu_write32  # CP writes on mlp3_a's start path (Performance_Control0 of a GEMM core = 0)
+
+                    if os.environ.get("CPRATE_POLL") == "1":  # the same count of maskpolls (mask 0: always satisfied)
+                        from aie.dialects.aiex import npu_maskpoll
+                        from aie.ir import IntegerType
+
+                        i32c = lambda v: arith.ConstantOp(IntegerType.get_signless(32), v).result
+                        for i in range(int(os.environ["CPRATE"])):
+                            npu_maskpoll(i32c(0x31500), i32c(0), i32c(0), column=i % 8, row=2)
+                    else:
+                        for i in range(int(os.environ["CPRATE"])):
+                            npu_write32(address=0x31500, value=0, column=i % 8, row=2)
                 # finish() frees a group's unwaited fills WITHOUT awaiting them: a fill may only sit in a group that is
                 # finished after the fill completed (its drains), else it must be waited (wait=True)
-                for c in range(COLS):
-                    fill_a(op, c, group=tg, wait=qkv)
-                a_loads(op)
-                if not p43:
-                    fill_b()
-                a_sends(op)  # before any wait of this op: a blocked push may only wait on work issued already
+                if seqpre:  # round 19 (research rev 15 SEQPRE): the op's memtile tasks (lock-governed) and its drains before the
+                    # producer wait, so only the shim A fills sit on the post-sync path
+                    # v2: the memtile SENDS stay after the A fills (a K=1536 op pushes 5 tasks on the 4-deep MM2S queue: a push that
+                    # blocks before the fills waits on work not yet issued; v1 with the sends first: +1.1 ms)
+                    if sp_mode & 1:
+                        a_loads(op)
+                    if not qkv and sp_mode & 2:
+                        for c in range(COLS):
+                            drain(C_conses[c], op["c"][c], group=tg, wait=True)
+                    finish_deps(op)
+                    for c in range(COLS):
+                        fill_a(op, c, group=tg, wait=qkv)
+                    if not sp_mode & 1:
+                        a_loads(op)
+                    if not p43:
+                        fill_b()
+                    a_sends(op)
+                    if not qkv and not sp_mode & 2:
+                        for c in range(COLS):
+                            drain(C_conses[c], op["c"][c], group=tg, wait=True)
+                    if not qkv:
+                        push(op["name"], tg)
+                        continue
+                else:
+                    finish_deps(op)
+                    for c in range(COLS):
+                        fill_a(op, c, group=tg, wait=qkv)
+                    a_loads(op)
+                    if not p43:
+                        fill_b()
+                    a_sends(op)  # before any wait of this op: a blocked push may only wait on work issued already
                 if qkv:  # 12 drains per column, issued 4 tiles at a time, 2 groups in flight; the fills ride in the last group
                     finish_all()
                     groups = []
@@ -826,6 +865,22 @@ def step8(
                     for c in range(COLS):
                         drain(C_conses[c], op["c"][c], group=tg, wait=True)
                     push(op["name"], tg)
+            elif op["kind"] == "attn" and seqpre:  # round 19 SEQPRE: memtile tasks and drains before the wait
+                tg = G()
+                a_loads(op)
+                for pi in range(len(op["passes"])):
+                    for c in range(COLS):
+                        drain(C_conses[c], op["c"][pi][c], group=tg, wait=True)
+                finish_deps(op)
+                for c in range(COLS):
+                    fill_a(op, c, group=tg, wait=False)
+                for pi in range(len(op["passes"])):
+                    for r in range(ROWS_G):
+                        for t in op["b"][r]:
+                            fill(B_prods[r], t, group=tg, wait=False)
+                    if pi == 0:
+                        a_sends(op)
+                push(op["name"], tg)
             elif op["kind"] == "attn":
                 finish_deps(op)
                 tg = G()
