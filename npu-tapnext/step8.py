@@ -697,13 +697,18 @@ def timeline(o):
     ops = s.p.ops
     marks = [op_marks(op) for op in ops]
     p1m = {i: pass1_mark(op) for i, op in enumerate(ops) if op.get("msplit")}
-    addrs = sorted({a // 4 for m in marks for a in m} | {a // 4 for a in p1m.values()})
+    only = [x for x in os.environ.get("TL_ONLY", "").split(",") if x]  # round 24: only these op kinds (all blocks)
+    sel = [i for i, op in enumerate(ops) if not only or op["name"].split("_", 1)[-1] in only]
+    p1m = {i: v for i, v in p1m.items() if i in sel}
+    addrs = sorted({a // 4 for i in sel for a in marks[i]} | {a // 4 for a in p1m.values()})
     idx = np.array(addrs)
     # every address is written once per block by the same op kind (shared regions) or once (per-block areas):
     # assign the k-th change of an address to the k-th op (in plan order) that has it as a mark
     users = {a: [] for a in addrs}
     split_last = {}  # round 24: last-word address of split ops -> their instances (assigned by time windows below)
     for i, (f, l) in enumerate(marks):
+        if i not in sel:
+            continue
         users[f // 4].append((i, 0))
         if i in p1m:  # a split op drains its last tile twice (pass 1 with junk rows 6-17, then pass 2): its last word changes once
             users[p1m[i] // 4].append((i, 2))  # or twice per block (the junk can equal the old value), so it is not counted

@@ -940,6 +940,8 @@ def step8(
         seq_ops, outpre = list(ops), set()
         ops_by_name = {o["name"]: o for o in ops}
         msdefer = os.environ.get("MSDEFER") == "1"  # round 24
+        oppre2 = os.environ.get("OPPRE2") == "1"  # round 24: out_proj's A per attention head group (pass 1)
+        assert not oppre2 or (seqpre and os.environ.get("SEQPRE") == "1" and a_half), "OPPRE2: SEQPRE=1 (a_loads before the waits), A_HALF"
         deferred = []  # (rt_tasks entries whose pass sends wait for the SSM)
 
         def push_deferred():
@@ -1001,6 +1003,21 @@ def step8(
                     if not qkv and sp_mode & 2:
                         for c in range(COLS):
                             drain(C_conses[c], op["c"][c], group=tg, wait=True)
+                    op2 = oppre2 and any(n_ == d_ + "#h0" for n_, _ in pending for d_ in op.get("deps", []))
+                    if op2:  # round 24 OPPRE2: out_proj's A part g after the attention's pass 0 and pass-1 head group g
+                        an = next(d_ for d_ in op["deps"] if any(n_ == d_ + "#h0" for n_, _ in pending))
+                        if os.environ.get("OPPRE2_SENDS", "1") == "1":  # (v2: the sends before the waits)
+                            a_sends(op)
+                        for g in range(-1, 4):
+                            want = an + ("#p0" if g < 0 else f"#h{g}")
+                            for n_, g_ in list(pending):
+                                if n_ == want:
+                                    g_.finish()
+                                    pending.remove((n_, g_))
+                            for c in range(COLS) if g >= 0 else ():
+                                (t_,) = op["a"][c]
+                                assert t_["sizes"][0] == 12, t_
+                                fill(a_inb[c], dict(t_, sizes=[3] + t_["sizes"][1:], off=t_["off"] + 3 * g * t_["strides"][0]), group=tg, wait=False)
                     finish_deps(op)
                     if op["name"] == os.environ.get("CPST_OP"):  # round 20 probe: the CP passed this op's dependency wait
                         from aie.dialects.aiex import npu_write32
@@ -1008,13 +1025,14 @@ def step8(
                         npu_write32(address=int(os.environ["CPST_ADDR"], 0) - 0x70000, value=1, column=0, row=2)
                     split = op.get("split", 0)
                     tg0 = G() if split else tg  # round 20 IL: the A fills + steps [0, split) drain in "<name>#0", B + the rest in tg
-                    for c in range(COLS):
+                    for c in range(COLS) if not op2 else ():
                         fill_a(op, c, group=tg0, wait=qkv)
                     if not sp_mode & 1:
                         a_loads(op)
                     if not p43:
                         fill_b()
-                    a_sends(op)
+                    if not (op2 and os.environ.get("OPPRE2_SENDS", "1") == "1"):
+                        a_sends(op)
                     if split:
                         assert p43 and not sp_mode & 2 and not qkv
                         for part, g_ in ((0, tg0), (1, tg)):
@@ -1109,9 +1127,11 @@ def step8(
             elif op["kind"] == "attn" and seqpre:  # round 19 SEQPRE: memtile tasks and drains before the wait
                 tg = G()
                 a_loads(op)
-                for pi in range(len(op["passes"])):
+                op2 = oppre2 and len(op["passes"]) == 2  # round 24 OPPRE2: pass 0's drain alone now, pass 1's per head group later
+                p0g = G() if op2 else tg
+                for pi in range(1 if op2 else len(op["passes"])):
                     for c in range(COLS):
-                        drain(C_conses[c], op["c"][pi][c], group=tg, wait=True)
+                        drain(C_conses[c], op["c"][pi][c], group=p0g, wait=True)
                 if aqpre:  # round 20: qkv's Q drains (steps 0-3, its first drain group) were finished inside qkv's sequence when its
                     # third group was issued; the Q fill (into half 1) goes before the wait on the K / V groups
                     assert ops[ops.index(op) - 1].get("rr") and ops[ops.index(op) - 1]["epi"] == "qkv"
@@ -1136,6 +1156,15 @@ def step8(
                                 fill(B_prods[r], t, group=tg, wait=False)
                     if pi == 0 and not aqpre:
                         a_sends(op)
+                if op2:  # round 24 OPPRE2: pass 1's O in four head-group drains ([4 groups][3 rows][object]), groups past the lookahead
+                    hg = [G() for _ in range(4)]
+                    for g in range(4):
+                        for c in range(COLS):
+                            t_ = op["c"][1][c]
+                            assert t_["sizes"] == [4, 3, 1, t_["sizes"][3]], t_
+                            drain(C_conses[c], dict(t_, sizes=[1] + t_["sizes"][1:], off=t_["off"] + g * t_["strides"][0]), group=hg[g], wait=True)
+                    pending.extend([(op["name"] + "#p0", p0g)] + [(op["name"] + f"#h{g}", hg[g]) for g in range(4)] + [(op["name"], tg)])
+                    continue
                 push(op["name"], tg)
             elif op["kind"] == "attn":
                 finish_deps(op)
