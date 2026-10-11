@@ -114,7 +114,7 @@ holds every column to the last one. [fusion.md](fusion.md) covers the consequenc
 ## Timers and counters
 
 Each module has a 64-bit timer. The core reads it with `read_tm(0x340F8)` **only after** the runtime sequence enables
-its processor bus (`npu_maskwrite32` 0x32038 bit 0). Without the enable the core hangs ([G17](negative-results.md#g17)).
+its processor bus (`npu_maskwrite32` 0x32038 bit 0). Without the enable the core hangs ([G17](negative-results.md#g17) <!-- nr: G17 -->).
 There are four performance counters per core (0x31500 / 0x31504 control, 0x31520 + 4n counters; MEMORY_STALL 23,
 LOCK_STALL 26). The CP can write a core's data memory, which gives CP-progress stamps (CPST). How to use these is in
 [measurement.md](measurement.md#in-kernel-stamps-and-counters).

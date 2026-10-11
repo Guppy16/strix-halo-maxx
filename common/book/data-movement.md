@@ -98,17 +98,17 @@ A core tile's 4 south ports were full in TAPNext (C × 3 + EW output), so a fift
 
 ## What didn't work
 
-- [B10](negative-results.md#b10) C drains over two shim S2MM per column: the write cap is aggregate.
-- [C12](negative-results.md#c12) "≥ 84 GB/s": the read cap is ~55-59 GB/s.
-- [C13](negative-results.md#c13) a second norm input channel: the 3-input norms already sit at the aggregate cap.
-- [C14](negative-results.md#c14) a per-channel write limit as the tail: one stream writes 6.7 B/cycle.
-- [C15](negative-results.md#c15) token / CP latency as the tail: the tail is bytes at the write cap.
-- [C16](negative-results.md#c16) a two-drain probe: moot once the 1/2/4/8-column series showed an aggregate cap.
-- [C5](negative-results.md#c5) memtile sends before the wait: the 5-deep queue blocked the CP (+1.1 ms).
-- [C7](negative-results.md#c7) GEMM drains before the wait: +0.15 ms, cause unexplained.
-- [G11](negative-results.md#g11) a BD step above 20 bits: correct, but columns serialised.
-- [E12](negative-results.md#e12) a 1 KB fill pad: not a slot multiple, hang.
-- [L6](negative-results.md#l6) finer drain groups: the shim channel's task queue blocked.
+- [B10](negative-results.md#b10) <!-- nr: B10 --> C drains over two shim S2MM per column: the write cap is aggregate.
+- [C12](negative-results.md#c12) <!-- nr: C12 --> "≥ 84 GB/s": the read cap is ~55-59 GB/s.
+- [C13](negative-results.md#c13) <!-- nr: C13 --> a second norm input channel: the 3-input norms already sit at the aggregate cap.
+- [C14](negative-results.md#c14) <!-- nr: C14 --> a per-channel write limit as the tail: one stream writes 6.7 B/cycle.
+- [C15](negative-results.md#c15) <!-- nr: C15 --> token / CP latency as the tail: the tail is bytes at the write cap.
+- [C16](negative-results.md#c16) <!-- nr: C16 --> a two-drain probe: moot once the 1/2/4/8-column series showed an aggregate cap.
+- [C5](negative-results.md#c5) <!-- nr: C5 --> memtile sends before the wait: the 5-deep queue blocked the CP (+1.1 ms).
+- [C7](negative-results.md#c7) <!-- nr: C7 --> GEMM drains before the wait: +0.15 ms, cause unexplained.
+- [G11](negative-results.md#g11) <!-- nr: G11 --> a BD step above 20 bits: correct, but columns serialised.
+- [E12](negative-results.md#e12) <!-- nr: E12 --> a 1 KB fill pad: not a slot multiple, hang.
+- [L6](negative-results.md#l6) <!-- nr: L6 --> finer drain groups: the shim channel's task queue blocked.
 
 ## Lessons
 

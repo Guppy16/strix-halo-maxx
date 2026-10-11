@@ -67,14 +67,14 @@ How it is built (TAPNext rounds 13-22; `tapnext/npu/r13/gen_attk.py`, `r14/gen_a
 
 ## What didn't work
 
-- [D3](negative-results.md#d3) eager rescale: cost as much as the exp.
-- [D4](negative-results.md#d4) bf16 s − m: 2-3 % error.
-- [D6](negative-results.md#d6) exp lines carried across trips: spills.
-- [D7](negative-results.md#d7) P popped in the PV loop: 67 vs 42 bundles.
-- [D8](negative-results.md#d8) separate QK and exp loops: no exp schedule in 6 x registers.
-- [D9](negative-results.md#d9) Q held in ex0-7: aliases x0-7.
-- [D10](negative-results.md#d10) a biased-base LUT load: no such instruction form.
-- [H19](negative-results.md#h19) rare costs priced by their mean under lockstep.
+- [D3](negative-results.md#d3) <!-- nr: D3 --> eager rescale: cost as much as the exp.
+- [D4](negative-results.md#d4) <!-- nr: D4 --> bf16 s − m: 2-3 % error.
+- [D6](negative-results.md#d6) <!-- nr: D6 --> exp lines carried across trips: spills.
+- [D7](negative-results.md#d7) <!-- nr: D7 --> P popped in the PV loop: 67 vs 42 bundles.
+- [D8](negative-results.md#d8) <!-- nr: D8 --> separate QK and exp loops: no exp schedule in 6 x registers.
+- [D9](negative-results.md#d9) <!-- nr: D9 --> Q held in ex0-7: aliases x0-7.
+- [D10](negative-results.md#d10) <!-- nr: D10 --> a biased-base LUT load: no such instruction form.
+- [H19](negative-results.md#h19) <!-- nr: H19 --> rare costs priced by their mean under lockstep.
 
 The TAPNext-specific attempts (re-streaming K/V, deals, slots, chunk-0 tricks, numerics changes) are in
 [TAPNext attention](../../tapnext/book/attention.md#what-didnt-work). The moondream stream and exp variants are in

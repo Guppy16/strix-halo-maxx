@@ -97,15 +97,15 @@ Each of these hung a dispatch at least once (rounds 10, 21, 23):
 
 ## What didn't work
 
-- [C1](negative-results.md#c1) overlapping EW and GEMM by row chunks: every chunk repeats fixed costs (model: +0.6-0.9 ms).
-- [C2](negative-results.md#c2) the CP-bound boundary model: the free constant absorbed the producer tail.
-- [C3](negative-results.md#c3) the CP rate as the cause: the rate is real but small.
-- [C4](negative-results.md#c4) pre-issuing post-sync work: −0.04 against −1.4 predicted; the boundary is bytes.
-- [C5](negative-results.md#c5) memtile sends before the wait: blocked the CP (+1.1).
+- [C1](negative-results.md#c1) <!-- nr: C1 --> overlapping EW and GEMM by row chunks: every chunk repeats fixed costs (model: +0.6-0.9 ms).
+- [C2](negative-results.md#c2) <!-- nr: C2 --> the CP-bound boundary model: the free constant absorbed the producer tail.
+- [C3](negative-results.md#c3) <!-- nr: C3 --> the CP rate as the cause: the rate is real but small.
+- [C4](negative-results.md#c4) <!-- nr: C4 --> pre-issuing post-sync work: −0.04 against −1.4 predicted; the boundary is bytes.
+- [C5](negative-results.md#c5) <!-- nr: C5 --> memtile sends before the wait: blocked the CP (+1.1).
 - [C6](negative-results.md#c6) <!-- nr: C6 --> sends after fills, loads and drains before: +0.13.
-- [C8](negative-results.md#c8) hoisting BD writes: dropped at 0.10 µs, **revived** at the measured 0.55 µs (CPPRE −0.09).
+- [C8](negative-results.md#c8) <!-- nr: C8 --> hoisting BD writes: dropped at 0.10 µs, **revived** at the measured 0.55 µs (CPPRE −0.09).
 - [C18](negative-results.md#c18) <!-- nr: C18 --> an on-chip bypass without reordering the sequence: the per-column issue stayed.
-- [H15](negative-results.md#h15) "5 ms of boundaries": the gaps counted first-tile compute.
+- [H15](negative-results.md#h15) <!-- nr: H15 --> "5 ms of boundaries": the gaps counted first-tile compute.
 
 The TAPNext levers (SENDPRE, OPPRE, MSPLIT on out, YXH, NRES variants) are in [TAPNext boundaries](../../tapnext/book/boundaries.md#what-didnt-work).
 

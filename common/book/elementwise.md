@@ -101,18 +101,18 @@ by its I/O, not its math:
 
 ## What didn't work
 
-- [B4](negative-results.md#b4) GELU floor of 8 cycles: counted slots only, and the shared ports give 10-11.
-- [B5](negative-results.md#b5) GELU at II 10: no schedule found within the register budget; not proven infeasible.
-- [B6](negative-results.md#b6) reciprocal-free or polynomial GELU: too inaccurate in bf16.
-- [B12](negative-results.md#b12) staged GELU chains for Peano: no gain; allocation-bound.
-- [D4](negative-results.md#d4) the exp argument rounded to bf16: 2-3 % error.
-- [D5](negative-results.md#d5) other exp table ranges: worse on real scores.
-- [E1](negative-results.md#e1) a per-64 B output helper: per-call overhead 3x.
-- [E13](negative-results.md#e13) a symmetric sigmoid table: lost small-value relative accuracy.
-- [F7](negative-results.md#f7) the hardware tanh, exp2 and inv: inaccurate or scalar.
-- [F8](negative-results.md#f8) the 8-lane bf16 max: wrong values.
-- [F9](negative-results.md#f9) one Newton step in the reciprocal: visible error downstream.
-- [G3](negative-results.md#g3) `aie::linear_approx`: 2.7x slower.
+- [B4](negative-results.md#b4) <!-- nr: B4 --> GELU floor of 8 cycles: counted slots only, and the shared ports give 10-11.
+- [B5](negative-results.md#b5) <!-- nr: B5 --> GELU at II 10: no schedule found within the register budget; not proven infeasible.
+- [B6](negative-results.md#b6) <!-- nr: B6 --> reciprocal-free or polynomial GELU: too inaccurate in bf16.
+- [B12](negative-results.md#b12) <!-- nr: B12 --> staged GELU chains for Peano: no gain; allocation-bound.
+- [D4](negative-results.md#d4) <!-- nr: D4 --> the exp argument rounded to bf16: 2-3 % error.
+- [D5](negative-results.md#d5) <!-- nr: D5 --> other exp table ranges: worse on real scores.
+- [E1](negative-results.md#e1) <!-- nr: E1 --> a per-64 B output helper: per-call overhead 3x.
+- [E13](negative-results.md#e13) <!-- nr: E13 --> a symmetric sigmoid table: lost small-value relative accuracy.
+- [F7](negative-results.md#f7) <!-- nr: F7 --> the hardware tanh, exp2 and inv: inaccurate or scalar.
+- [F8](negative-results.md#f8) <!-- nr: F8 --> the 8-lane bf16 max: wrong values.
+- [F9](negative-results.md#f9) <!-- nr: F9 --> one Newton step in the reciprocal: visible error downstream.
+- [G3](negative-results.md#g3) <!-- nr: G3 --> `aie::linear_approx`: 2.7x slower.
 
 ## Lessons
 

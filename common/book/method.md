@@ -72,7 +72,7 @@ the CP-bound boundary model, DDRCAP for "84 GB/s", and SSMCUT for "the SSM is re
 
 The method entries: [H1](negative-results.md#h1)-[H29](negative-results.md#h29), [L3](negative-results.md#l3), [M1](negative-results.md#m1).
 The measurement-specific ones (H4, H9-H12, H16, H17, H20, H22, H26, H28) are explained in [measurement.md](measurement.md). Also:
-- [H15](negative-results.md#h15) "5 ms of boundaries" counted first-tile compute as boundary.
+- [H15](negative-results.md#h15) <!-- nr: H15 --> "5 ms of boundaries" counted first-tile compute as boundary.
 - [H18](negative-results.md#h18) <!-- nr: H18 --> the CPU lazy-max map overstated in-situ flags; "lockstep × 6" came from compensating fits.
 
 ## Lessons
