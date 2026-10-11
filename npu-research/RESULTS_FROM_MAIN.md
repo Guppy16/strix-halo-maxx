@@ -682,3 +682,174 @@ npu-tapnext NOTES 23, RESULTS 27. Timeouts: 1 (V2T: `add r1, r1, #64` assembled 
 - ROT g0f / g1f with the acquire gap (and the PWRAP / PADDA probes); a bench mode with a DMA-fed A ring that can see lock timing.
 - The B / A bank layout after ROT (168 MEMORY_STALL cycles per k-step left): which hand-built B ring placement, and its price.
 - N-IO in asm vs the measured NIO2 numbers after NIOC; a timeline of r18m to re-rank everything after ROT.
+
+# Round 19 (main), in progress (2026-10-11)
+## Timeline of full12r18m (MEASURED: testbox Turbo, gpu_busy 0, foreign CPU worker running; step8 timeline, 3 runs, median; the
+## JSONs are npu-tapnext/build/tl_r18m_run{1,2,3}.json; summary by npu-tapnext/r19/tlsum.py; dispatch 34.8-35.1 ms)
+span = first..last output word, gap = first word - previous op's last word, share = last - previous last (sums to the dispatch).
+model = nt x K/64 k-steps per core x 1,613 cycles (KS-P38 timer per k-step in mm_rot, r18r6K) at 1.81 GHz, no gaps / epilogues.
+| kind | ops | span | gap | share | k-steps per core (12 ops) | k-step model | share - model |
+|---|---|---|---|---|---|---|---|
+| attn | 12 | 5.47 | 1.19 | 6.66 | | | |
+| norm | 49 | 4.17 | 0.84 | 5.01 | | | |
+| ssm | 12 | 3.37 | 0.13 | 3.50 | | | |
+| gemm:mlp0 | 12 | 2.76 | 0.51 | 3.26 | 2,304 | 2.05 | 1.20 |
+| gemm:up_a | 12 | 2.34 | 0.58 | 2.93 | 2,304 | 2.05 | 0.87 |
+| gemm:up_b | 12 | 2.46 | 0.24 | 2.72 | 2,304 | 2.05 | 0.66 |
+| gemm:qkv | 12 | 1.91 | 0.44 | 2.35 | 1,728 | 1.54 | 0.81 |
+| gemm:mlp3_a | 12 | 1.08 | 0.65 | 1.73 | 1,152 | 1.03 | 0.71 |
+| gemm:yx | 12 | 1.71 | -0.04 | 1.67 | 1,152 | 1.03 | 0.64 |
+| gemm:down_a | 12 | 1.11 | 0.18 | 1.29 | 1,152 | 1.03 | 0.27 |
+| gemm:out | 12 | 0.56 | 0.48 | 1.04 | 576 | 0.51 | 0.53 |
+| gemm:mlp3_b | 12 | 0.95 | 0.09 | 1.03 | 1,152 | 1.03 | 0.00 |
+| gemm:down_b | 12 | 0.95 | 0.05 | 1.00 | 1,152 | 1.03 | -0.02 |
+| gemm:out_proj | 12 | 0.57 | 0.36 | 0.92 | 576 | 0.51 | 0.41 |
+Read: GEMM share 19.94 ms of which the k-step model is 13.37: **6.6 ms is per-op overhead** (gaps 3.3 ms = the op-boundary
+bubble: dependent A slot load from DDR + first-tile wait + previous op's drain tail, ~30-55 us per op; span excess 3.3 ms =
+epilogues (mlp0 GELU +0.71, up_b +0.41, qkv V^T +0.37, up_a +0.29) and yx +0.68). mlp3_b / down_b (A reused, no epilogue) sit
+exactly on the model: the k-step rate is right. vs r17d: attn 6.78 -> 6.66, norms 4.99 -> 5.01, ssm 3.99 -> 3.50, GEMMs 23.6 -> 19.9.
+**Request (rev 15): re-rank with this.** The op-boundary bubbles (~3.3 ms GEMM + 1.19 attn + 0.84 norms) are now as big as any
+compute lever: what overlaps the next op's A slot load with the current op's tail (deps allow it only where A is not the
+previous op's output), and what the yx span excess is.
+## ROT variants (rev 14 rank 3) - DONE: g0a kept (full12r19b)
+- Probes (npu-tapnext r19/wrapgen.py + wrapb.py, one core, 128 pops over two passes of a 4,608 B object, the wrap at ROT density):
+  PWRAP with m2 = -4544 (pre-registered) WRONG (pass 2 all 64 pops wrong); m2 = -4608 RIGHT: the 2D post-modify (dn2 0) is ADDED to
+  the 64 B line step. PADDA (padda [p1], m2 one bundle before the fill) RIGHT; padda in the fill's own bundle WRONG (negative control).
+  gen_rot's emit and replay fixed (step = 64 + m2): the replay now flags your g0f.
+- r18/gen_rot.py ROT_ACQ_GAP=6 ROT_REL_GAP=8 --free, 4 acc_hi placements: g1a OPTIMAL R 73 (20 s), 1,368 static; g0a OPTIMAL R 72
+  (86 s), 1,357 static; 0 bank stalls; asmlint 0. Both regress BIT-IDENTICAL.
+- A/B vs r18m (20 x 20): g1a -0.104 / -0.111 / -0.079 (p10 / median / mean; pre-reg -0.13 = 15 cycles x 8.59 us); g0a -0.174 /
+  -0.183 / -0.152 (pre-reg -0.23 = 26 cycles; rev 14 said g0f -0.28 vs g2f). ~0.75 of the static price lands.
+## TPROF: per-tile GEMM stamps of r18m + g0a (MEASURED, npu-tapnext mm8.cc -DTPROF, r19/tprof.py; 6,240 tile records, cycles)
+| kind | K | nt | first k-step | k-step | epilogue | hand (prev epilogue end -> mm_ktile entry) |
+|---|---|---|---|---|---|---|
+| plain (down_a/b, mlp3_a/b, out, out_proj), yx | 768/1536 | 4-8 | 1,487 | 1,576 | 1,310 | **3,010** (p90 3,010) |
+| mlp0 (gelu_pan) | 768 | 16 | 1,485 | 1,578 | 4,918 | 3,010 |
+| qkv | 768 | 12 | 1,486 | 1,579 | 1,941 (p90 2,794) | 3,010 |
+| up_a / up_b (gated, 2 tiles per C object) | 768 | 16 | 1,558 / 1,583 | 1,573 | 3,263 | **682** |
+Read: hand = in_b.release (bias) + out_c.release + loop + **out_c.acquire (waits for the previous C object's drain)** + acc_zero.
+The second tile of a gated object (no C acquire) shows zero + loop = 682; so the C drain wait is ~2,330 cycles per object: the
+core DMA always drains the WHOLE 18,432 B C object (lowered dma_bd len 9216 bf16) at 7.9 B/cycle, and the next tile cannot start
+because 12,288 B of its accumulators (rb < 12, pair 0) live in the C object. ~76 C objects per block per core: **~1.2 ms per step
+of GEMM cores idle on C drains**, + acc_zero ~600 cycles per tile (~0.29 ms). The steady k-step 1,576 matches the timeline model.
+Main's plan: (1) zero acc_hi's 24,576 B right after out_c.release (overlaps the drain; acc_zero then zeroes only the C part
+unless acc_hi is dirty: second tile of an object / after attention): static ~-400 per tpo=1 tile = **-0.16 ms**; (2) release the
+C object in parts (a hand-built core-side C BD chain with 2-4 locks, epilogue releasing each part as written; the memtile join
+receives the same 18,432 B stream): drain overlaps the epilogue, ~-650 per object with 2 parts = **~-0.33 ms** (more with 4).
+**Request (rev 15): price / design (2)**, and any layout that moves the 12,288 B of accumulators out of the C object (L1 is
+~0.5 KB short of everything; acc_hi is 24,576 B), which would hide the whole drain (~-1.2 ms).
+## CSPLIT (new, main) - DONE in full12r19d: -0.25 / -0.48 / -0.26 ms (p10 / median / mean vs r19c; pre-reg -0.33)
+- The C object drains in two parts: bytes 0..12,287 (the accumulators' C part; that BD releases the C prod lock) then 12,288..18,431
+  (that BD releases a new lock 6, init 1, which acc_epilogue / attn_begin take once per object before writing part 2). IRON cannot
+  express two BDs for a joined fifo's producer: npu-tapnext r19/csplit.py patches the lowered input_with_addresses.mlir and
+  r19/csplit.sh re-runs aiecc on it (unpatched, aiecc on input_with_addresses.mlir reproduces elfs, CDO and .bin byte for byte).
+- ZHI (acc_hi zeroed right after the C release) -0.16 / -0.15 / -0.16 (pre-reg -0.15..-0.20).
+- What is left of the C wait: part 1 (12,288 B at 7.9 B/cycle = ~1,555 cycles) after each epilogue (~0.8 ms per step).
+## Timeline r19d (3 runs; k-step model at TPROF's 1,576): attn 6.69 (span 5.50, gap 1.17), norms 4.88, ssm 3.49, GEMMs ~19.2
+- Norm ops per column (span, us): norm0 (RMS, 3 inputs) 95.6, norm1 (RMS, 2) 67.7, norm2 (LN, 3) 98.0, norm3 (LN, 2) 82.7; every norm
+  op's gap 16.4-16.7 us (0.79 ms per step). Per unit (216 per op): 3-input ops ~801 / 821 cycles = **3.8 B/cycle of input: input-
+  bound** (n1k reads three streams in both cases, so compute is the same); 2-input RMS ~567 (compute + glue). This contradicts the
+  rev-13 fit's R_in 5.75: please re-check the fit against these op walls. If R_in ~3.8 holds, the lever for 3-input norms is input
+  bandwidth (a second S2MM stream into the EW core), and N-IO / NS only help the 24 two-input norms.
+- GEMM epilogues (TPROF, per core): plain 1,310 x 32 tiles, gelu_pan (mlp0) 4,918 x 16, gated (up) 3,263 x 32, qkv 1,941 x 12 per
+  block = ~1.65 ms per step.
+## KPREP (= K1's prep loop in C++, main) - DONE in full12r19g: -0.13 / -0.09 / -0.15 vs r19f (pre-reg -0.12..-0.18)
+- chunk_k_fused's -m rows / -inf slots: the six maxima loaded first, 24 stores straight-line (~40 bundles vs a serial ZOL ~140).
+## CPRATE (rev 15 rank 0) - MEASURED on r19g (20 x 20, A/B in one process; 4,800 extra instructions per step on mlp3_a's path)
+- npu_write32 x 400 per block: +0.268 / +0.296 / +0.274 ms (p10 / median / mean) -> **t_op(write32) ~0.06 us** (0.056-0.062).
+- npu_maskpoll (mask 0, always satisfied) x 400: +0.520 / +0.553 / +0.522 -> **t_op(maskpoll) ~0.11 us**.
+- Below the pre-registered 0.13-0.22 (miss on the rate), far above the 0.03 kill line: the CP is on the boundary path. SEQPRE's
+  price at these rates (10,515 instructions; mix?) is ~-0.6..-1.0 raw: please re-price with per-type rates (blockwrite / BD writes /
+  task pushes not measured).
+## SEQPRE (rev 15 rank 1) - MEASURED, mostly a miss (design8 env SEQPRE=bits; every variant regress BIT-IDENTICAL, no hang)
+| variant (vs r19g, 30 x 20) | p10 / median / mean ms |
+|---|---|
+| v1: slot loads + memtile sends + drains before finish_deps (GEMM, attention) | **+1.10 / +1.02 / +1.09** |
+| v2: sends back after the A fills (loads + drains before) | +0.11 / +0.13 / +0.15 |
+| mode 2: only the drains before | +0.15 / +0.16 / +0.15 |
+| mode 1: only the slot loads before (attention: loads + drains) | -0.04 / -0.04 / -0.04 |
+- v1's timeline: down_a / down_b / mlp3_b gaps +0.35 / +0.48 / +0.42 ms: a K=1536 op pushes 5 memtile MM2S tasks on the 4-deep
+  queue; pushed before the A fills, the blocking push waits on work that cannot progress until after the wait (the round-10 rule).
+- Pre-issuing drains costs (+0.15) instead of saving: unexplained (shim S2MM queue / sync semantics?). The CP rate is real
+  (CPRATE) but the post-sync instruction count does not set the boundaries. Please re-think the boundary model; the next check you
+  named (TPROF `first` on the dependent ops' first tiles) needs ~400 B of GEMM text (16 free... 400 free now).
+## DDRCAP (rev 15 rank 0') - MEASURED: the aggregate DDR read cap is ~55-59 GB/s; NIN2 cannot pay
+npu-tapnext r19/ddrcap.py: per column NIN shim -> core (row 2) streams (shim MM2S 0 / 1 -> core S2MM 0 / 1, 2 KB objects, the core
+only acquires / releases), 4 MB per stream; fills awaited; host time per dispatch (median of 20; ~0.08 ms dispatch overhead inside).
+| streams (columns x per column) | MiB read | ms | GB/s raw | GB/s minus 0.08 ms |
+|---|---|---|---|---|
+| 4 x 1 | 16 | 0.413 | 40.6 | 50 (12.6 per stream = 7 B/cycle: not capped) |
+| 2 x 2 | 16 | 0.413 | 40.6 | 50 (same: per-column channel count irrelevant) |
+| 8 x 1 | 32 | 0.650 | 51.6 | 59 |
+| 4 x 2 | 32 | 0.652 | 51.5 | 59 |
+| 8 x 2 | 64 | 1.314 | 51.1 | 54 |
+| with an 8 x 256 KB drain: 8 x 1 / 8 x 2 | 32 / 64 | 0.680 / 1.332 | 49 / 50 read, 74 / 63 r+w | |
+- One stream alone does ~7 B/cycle; 8+ streams hit an aggregate read ceiling of ~55-59 GB/s (= 3.8-4.1 B/cycle per column over 8
+  columns). The 3-input norms read 3,072 B x 8 per 801 cycles = 55.5 GB/s: **they sit at the DDR read cap**, not at one channel's
+  rate. MACHINE's old 55-63 GB/s stands for reads; your 84 GB/s (in + out) is not reproduced (r+w with drains 63-74 here).
+- So NIN2 is void; N-IO-ASM / NS help only where compute exceeds the DDR floor: LN 2-input (norm3, 693 vs ~540 per unit:
+  <= -0.2 ms). The norm floor is bytes: only fewer DDR bytes (on-chip residency, or bit-exact transport savings) move it.
+# Round 19 (main), final verdicts keyed by proposal id (2026-10-11)
+Best **full12r19z: 33.88 ms** at depth 12 (sweep median, min 33.86; r18m re-swept in the same session 34.79; A/B in one process
+-0.880 / -0.888 / -0.874 vs r18m), d10 28.37, d8 22.74, d6 17.09; regress BIT-IDENTICAL vs full12r9a, asmlint 0; DAVIS d12 70.84
+(OA 92.57), d10 69.90 (91.02), unchanged. r19z = r18m + ROT g0a + ZHI + CSPLIT + EPLR + KPREP + SEQPRE=1 (slot loads before the
+wait). Testbox, Turbo, gpu_busy 0, the foreign CPU worker throughout. Details: npu-tapnext NOTES 24, RESULTS 28. Timeouts: 0.
+| id | predicted | measured (p10 / median / mean ms) | verdict |
+|---|---|---|---|
+| PWRAP / PADDA probes | pass 2 = pass 1 at m2 -4544 / padda 1 bundle early | -4544 WRONG, -4608 right (step ADDS); padda right, same-bundle wrong | half hit |
+| ROT g1a (rev 14 g1f) | -0.14 (main -0.13) | -0.104 / -0.111 / -0.079 | hit |
+| ROT g0a (rev 14 g0f) | -0.28 (main -0.23) | -0.174 / -0.183 / -0.152 | miss (~0.75 lands) |
+| GEMM bank layout (rev 14 ranks 4-5) | | not built: your rev 15 capacity proof (B two banks infeasible, A slots <= 15) | dropped |
+| ZHI (main) | -0.15..-0.20 | -0.156 / -0.149 / -0.160 | hit |
+| CSPLIT (main) | -0.33 | -0.250 / -0.476 / -0.261 | hit |
+| EPLR (main; your CSPLIT4's plain share) | -0.06 | -0.100 / -0.119 / -0.096 | better |
+| K1 as KPREP (C++ prep only) | -0.12..-0.18 | -0.130 / -0.093 / -0.147 | hit |
+| CPRATE | t_op 0.13-0.22 us | write32 0.06, maskpoll 0.11 us | CP real, rate half |
+| SEQPRE | -1.4 +- 0.5 | v1 +1.10, v2 +0.13, drains-first +0.15, loads-first -0.04 (kept) | miss |
+| DDRCAP | >= 84 GB/s, ceiling ~110-120? | aggregate read cap ~55-59 GB/s; one stream ~7 B/cycle | refutes NIN2 |
+| NIN2 + N-IO-ASM | -0.7..-1.5 | not built (DDRCAP: 3-input norms already at the read cap) | void |
+| CSPLIT4, LATE-C, DAPRE, S3 / K2, ssq2 / FSX | | not built | next round |
+### Requests to research (rev 16)
+- The op boundaries (~5 ms) are NOT the post-sync CP instruction count (SEQPRE). What else sits between a producer's last drain and
+  the dependent op's first output: DMA completion latency, the A slot's first chunk pacing at the DDR cap (all 8 columns load at
+  once: 8 x 124-248 KB at 55 GB/s = 18-36 us!), the C drain tail? DDRCAP makes the A-slot load itself a candidate: price it.
+- CSPLIT4 with one static sub-part boundary that gated (gup + stash copy rows) and gelu_pan (bgelu3 + pan) can both release early,
+  and whether an acquire-only BD (no release) is legal in the lowering.
+- Re-rank with the DDR read cap: which ops are DDR-bound now (norms, SSM inputs 7 KB per chunk, the A slot loads)?
+
+# Round 20 (main), early data: the op boundary decomposed (2026-10-11; testbox Turbo, gpu_busy 0, foreign CPU worker running)
+All MEASURED on r19z-based timing builds (npu-tapnext r20/): TPROF records moved into C part 2 (EPLR drains part 1 early) + a core
+tile counter (r20t2, text 16,352); the 24 GEMM cores' timers agree within ~1k cycles, so records compare across cores.
+**CPST probe** (mm8 -DCPST, design8 CPST_OP / CPST_ADDR, r20c4): core 0_2 spins on an L1 flag word (0x77B40) at b11_mlp3_a's first
+tile; the CP writes it right after mlp3_a's dependency wait (npu_write32 to the core's data memory works); every other core's flag is
+preset. `r20/binpatch.py` re-orders the lowered .bin (TXN ops) to move that write after the k-th tct of the wait.
+### mlp0 -> mlp3_a, block 11 (us after mlp0's last k-step end, max over 24 cores)
+| event | us |
+|---|---|
+| mlp0's last epilogue (gelu_pan 4,910 cyc) ends | 2.7 |
+| CP passes tct 1 of 8 (column 0's drain done) | 14.9 |
+| CP passes tct 4 / tct 8 | 15.4 / 15.8 (0.13 us per tct) |
+| core 0_2 (column 0) first k-step ends | 20.0 |
+| first k-step end, columns 0..7 | 20.0 20.8 21.5 22.3 23.1 23.9 24.6 25.5 (0.78 us per column) |
+| first tile's k-steps | 2,790 cyc each (steady 1,576): A arrives at the DDR read cap, 13.3 us excess over 24 k-steps |
+- **The drain tail is ~12 us**: the last C objects (8 columns x 3 x 18,432 B = 442 KB through the memtile joins, store-and-forward)
+  written at the DDR WRITE cap. New probe **DDRW** (r20/ddrw.py, drains only): one column 12.1 GB/s (~7 B/cycle), 2 columns 24.4,
+  4 columns 45.3, 8 columns ~50-60 GB/s (slope; 0.06 ms dispatch overhead): **the write cap equals the read cap (~55 GB/s)**.
+- **Post-sync CP**: 8 A fills x 4 instructions (blockwrite, patch, maskpoll, write32), then 40 memtile send pushes (maskpoll +
+  write32); K=768 ops' first k-steps stagger by 0.47 us per column, K=1536 by 0.78 (their 5 sends per column are pushed after all
+  fills). k0 end of column 0 is 4.15 us after the CP pass (fill issue + DDR -> memtile chunk 0 -> core + one paced k-step).
+### First-tile A pacing, every GEMM of block 11 (ks per k-step in the op's first tile; steady 1,576)
+| op | out | up_a | up_b | down_a | down_b | qkv | out_proj | mlp0 | mlp3_a | mlp3_b | yx |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ks1/k | 2,835 | 2,977 | 1,576 | 2,473 | 2,021 | 2,655 | 2,650 | 2,787 | 2,626 | 2,003 | (not dependent in b11 data) |
+| excess us | 7.7 | 8.5 | 0 | 11.4 | 5.7 | 6.6 | 6.5 | 7.4 | 13.3 | 5.4 | |
+Sum 72 us per block = **0.87 ms per step**: every op whose A slot load starts at its own start runs its first tile at the DDR
+read cap (8 x 10,368 B per 2,650-2,980 cycles = 50-57 GB/s), including the non-dependent down_a / down_b / mlp3_b.
+### Reading
+The boundary is bytes, not instructions: (1) the producer's last outputs written at the DDR cap (~12 us for a GEMM producer),
+(2) ~1 us of tcts + ~3-5 us of CP fill / send issue staggered by column, (3) the consumer's A at the read cap through its first tile.
+SEQPRE could only touch (2). Main's next steps: IL = mlp0 dealt round-robin (P23 rr: step j of row r = chunk 3j + r), so mlp3_a's
+chunks 0-23 are drained after mlp0's step 7; a split mlp0 drain (steps 0-7 / 8-15) lets mlp3_a's fills start mid-mlp0, half 1
+(chunks 12-23) loading into the free half while mlp0 runs, half 0 as soon as mlp0's last sends free it (per-half full locks).
+Request (rev 16): price the norm -> GEMM bypass (EW core output panels straight into memtile c's A slot; norm c's rows = GEMM
+column c's A) and any other way to keep the dependent A off DDR; and the drain tail (442 KB at the write cap per GEMM -> X boundary).
