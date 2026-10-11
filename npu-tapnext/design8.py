@@ -111,7 +111,7 @@ def asm_object(flags):
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "attkq.s"), "-o", str(bd / "attkq.o")]]
     av = "-DATTV" in flags  # round 14: the V phase in asm (r14/gen_attv.py, schedule r14/attv.json)
     if av:
-        extra += [["python3", str(HERE / "r14" / "gen_attv.py"), str(bd / "attv.s"), "--times", str(HERE / "r14" / "attv.json")] + fit
+        extra += [["python3", str(HERE / "r14" / "gen_attv.py"), str(bd / "attv.s"), "--times", str(HERE / os.environ.get("ATTV_JSON", "r14/attv.json"))] + fit
                   + (["--two"] if "-DV2T" in flags else []),  # round 18: both tiles per call
                   [f"{b}/clang", "--target=aie2p-none-unknown-elf", "-c", str(bd / "attv.s"), "-o", str(bd / "attv.o")],
                   ["python3", str(HERE / "r14" / "gen_attv.py"), str(bd / "attvs.s"), "--sums", "--times", str(HERE / "r14" / "attvs.json")] + fit,

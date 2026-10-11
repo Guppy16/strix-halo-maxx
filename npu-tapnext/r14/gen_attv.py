@@ -260,18 +260,22 @@ def main():
     ap.add_argument("--nobanks", action="store_true")
     ap.add_argument("--sums", action="store_true", help="attvs: the row sums (P x ones), one row block per iteration")
     ap.add_argument("--two", action="store_true", help="round 18 V2T: both tiles in one call (O jump by d2 / d3, r1 = jump)")
+    ap.add_argument("--stages", type=int, default=None, help="round 22: schedule length bound in IIs (default 2: text)")
+    ap.add_argument("--life", type=int, default=None, help="round 22: register life bound in IIs")
+    ap.add_argument("--workers", type=int, default=8)
     o = ap.parse_args()
-    global TWO
+    global TWO, STAGES, LIFE
     TWO = o.two and not o.sums
     global USE_BANKS, SUMS, DIMS, MODS
     USE_BANKS = not o.nobanks
     if o.sums:
-        global STAGES, LIFE
         SUMS, DIMS, MODS, STAGES, LIFE = True, (0,), {"PW": (0, 0, 448, 448)}, 2, 1
         if o.func == "attv":
             o.func = "attvs"
+    STAGES = o.stages or STAGES
+    LIFE = o.life or LIFE
     times = json.loads(Path(o.times).read_text()) if o.times else None
-    lp = build(o.ii, times, cp=dict(time_limit=o.time), max_ii=o.max_ii)
+    lp = build(o.ii, times, cp=dict(time_limit=o.time, workers=o.workers), max_ii=o.max_ii)
     report(lp)
     for n in ((6, 1) if SUMS else ((48, 24, 4) if TWO else (24, 4))):
         cyc, land = check(lp, n)
