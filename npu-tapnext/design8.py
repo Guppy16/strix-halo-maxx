@@ -890,6 +890,9 @@ def step8(
                     t["mid"]["h1" if z1 else "r3" if op.get("r3") else K].start(repeat_count=nmid - 1)
                 if op.get("msplit") and hs == [1]:  # round 23: a K = 768 split op from half 1 (four tasks: no deferral)
                     assert not reused_next
+                    if msdefer and op["name"] in outpre:  # round 24 MSDEFER: pushed by the SSM after yx's last drain group
+                        deferred.append(t)
+                        continue
                     t["pa1"].start()
                     t["lastb"][1].start()
                 elif op.get("msplit"):  # round 23 MSPLIT-P: the last tile's rows 0-5, then rows 6-17 with the chunk releases
@@ -935,6 +938,16 @@ def step8(
         sp_mode = int(os.environ.get("SEQPRE", "0"))  # round 19: bit 1 = slot loads before the wait, bit 2 = drains before it  # round 11 (research P43): a GEMM's B (weights) leaves before its dependency wait
 
         seq_ops, outpre = list(ops), set()
+        msdefer = os.environ.get("MSDEFER") == "1"  # round 24
+        deferred = []  # (rt_tasks entries whose pass sends wait for the SSM)
+
+        def push_deferred():
+            for t in deferred:
+                t["pa1"].start()
+                t["lastb"][1].start()
+            if seqlog and deferred:
+                print(f"[seq] {cur_op[0]}: deferred pass sends pushed ({len(deferred)} columns)")
+            deferred.clear()
         if os.environ.get("OUTPRE") == "1":  # round 23: out before the SSM in the CP stream (locks / ZCH chunks pace its first tile)
             assert yxssm and os.environ.get("ZCH") == "1"
             for i in range(len(seq_ops) - 1):
@@ -1192,6 +1205,8 @@ def step8(
                                 if n_ == want:
                                     g_.finish()
                                     pending.remove((n_, g_))
+                            if q == 9:  # round 24 MSDEFER: yx is drained, its memtile tasks are done
+                                push_deferred()
                         tg = G()
                         for c in range(COLS):
                             for f in op["fills"][c][q]:
@@ -1209,6 +1224,7 @@ def step8(
                         tgd.finish()
             else:
                 raise NotImplementedError(op["kind"])
+        assert not deferred, "MSDEFER: pass sends never pushed"
         finish_all()
         for t in rt_tasks:
             for task in (*t["ld"], *t["t0"], *[x for x in t["last"] if x is not None], *t["mid"].values(), *[t[x] for x in ("ldn", "ldz", "pa", "pa1") if x in t],

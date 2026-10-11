@@ -673,6 +673,14 @@ def op_marks(op):
     return tap_ends(c0)
 
 
+def pass1_mark(op):
+    """round 24: a split op's (MSPLIT) last tile, GEMM row 2, row block 5's last word: pass 1 writes it with its real value and pass 2
+    rewrites the same value, so it changes once per block, at the end of pass 1's drain."""
+    t = op["c"][0]
+    assert t["sizes"][1:] == [3, 18, 1024], t
+    return t["off"] + (t["sizes"][0] - 1) * t["strides"][0] + 2 * t["strides"][1] + 5 * t["strides"][2] + t["sizes"][3] - 4
+
+
 def timeline(o):
     """Per-op timeline of one dispatch, measured from the host: a thread-free loop polls the first and last word of
     every op's column-0 output in the mapped ACT buffer while the NPU runs and records when each changes."""
@@ -687,14 +695,20 @@ def timeline(o):
     mv = np.frombuffer(s.bo_a.map(), np.uint32)
     ops = s.p.ops
     marks = [op_marks(op) for op in ops]
-    addrs = sorted({a // 4 for m in marks for a in m})
+    p1m = {i: pass1_mark(op) for i, op in enumerate(ops) if op.get("msplit")}
+    addrs = sorted({a // 4 for m in marks for a in m} | {a // 4 for a in p1m.values()})
     idx = np.array(addrs)
     # every address is written once per block by the same op kind (shared regions) or once (per-block areas):
     # assign the k-th change of an address to the k-th op (in plan order) that has it as a mark
     users = {a: [] for a in addrs}
+    split_last = {}  # round 24: last-word address of split ops -> their instances (assigned by time windows below)
     for i, (f, l) in enumerate(marks):
         users[f // 4].append((i, 0))
-        users[l // 4].append((i, 1))
+        if i in p1m:  # a split op drains its last tile twice (pass 1 with junk rows 6-17, then pass 2): its last word changes once
+            users[p1m[i] // 4].append((i, 2))  # or twice per block (the junk can equal the old value), so it is not counted
+            split_last.setdefault(l // 4, []).append(i)
+        else:
+            users[l // 4].append((i, 1))
     detail = os.environ.get("DETAIL")  # e.g. DETAIL=b5_mlp0: also watch the start of every C object of that op (col 0)
     extra = []
     if detail:
@@ -716,6 +730,8 @@ def timeline(o):
         users.update({a // 4: users.get(a // 4, []) for a in extra})
     rel = torch.cat([q[..., :1] - 2, q[..., 1:]], -1)
     s.put_x0(video[2], rel)
+    for a in addrs:  # (round 24: invalidate before taking the reference values, not only in the poll loop)
+        s.bo_a.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, 64, (a * 4) // 64 * 64)
     prev = mv[idx].copy()
     changes = {a: [] for a in addrs}
     t0 = time.perf_counter()
@@ -741,31 +757,43 @@ def timeline(o):
         for a in extra:
             print(f"  +{a - extra[0]:9d} B: " + " ".join(f"{tm:.2f}" for tm in changes[a // 4]))
     print(f"dispatch {t_end:.1f} ms, {polls} polls ({t_end / polls * 1e3:.0f} us each), {len(addrs)} addresses")
-    ev = {}  # (op, 0/1) -> time
+    ev = {}  # (op, 0/1/2) -> time
     for a in addrs:
+        if users[a] and len(changes[a]) != len(users[a]):  # (a write that left the word unchanged shifts every later op on it)
+            print(f"WARNING address +{a * 4} B: {len(changes[a])} changes for {len(users[a])} expected writes "
+                  f"({ops[users[a][0][0]]['name']} ..): its marks are unreliable")
         for (key, tm) in zip(users[a], changes[a]):
             ev[key] = tm
+    for a, inst in split_last.items():  # instance k ends at its last change between its own pass-1 end and the next instance's
+        p1s = [ev.get((i, 2)) for i in inst]
+        for k, i in enumerate(inst):
+            if p1s[k] is None:
+                continue
+            hi = next((x for x in p1s[k + 1:] if x is not None), float("inf"))
+            ts = [tm for tm in changes[a] if p1s[k] - 1e-6 <= tm < hi - 1e-6]
+            if ts:
+                ev[(i, 1)] = max(ts)
     rows, last_end = [], 0.0
     for i, op in enumerate(ops):
         f, l = ev.get((i, 0)), ev.get((i, 1))
         kind = op["kind"] if op["kind"] != "ew" else op["fn"]
-        rows.append((op["name"], kind, f, l))
+        rows.append((op["name"], kind, f, l, ev.get((i, 2))))
     print(f"{'op':18s} {'kind':6s} {'first':>8s} {'last':>8s} {'gap':>7s} {'span':>7s}  (ms; gap = first - previous op's last)")
-    for name, kind, f, l in rows:
+    for name, kind, f, l, p1 in rows:
         fs = f"{f:8.2f}" if f is not None else "       -"
         ls = f"{l:8.2f}" if l is not None else "       -"
         gap = f"{f - last_end:7.2f}" if f is not None else "      -"
         span = f"{l - f:7.2f}" if (f is not None and l is not None) else "      -"
-        print(f"{name:18s} {kind:6s} {fs} {ls} {gap} {span}")
+        print(f"{name:18s} {kind:6s} {fs} {ls} {gap} {span}" + (f"  (pass 1 end {p1:.2f})" if p1 is not None else ""))
         if l is not None:
             last_end = l
     out = Path("/work/npu-tapnext/build") / f"tl_{o.build}_d{o.depth}{'_' + detail if detail else ''}.json"
     out.write_text(json.dumps(dict(build=o.build, depth=o.depth, dispatch_ms=t_end, polls=polls,
-                                   ops=[dict(name=nm, kind=k, first=f, last=l) for nm, k, f, l in rows])))
+                                   ops=[dict(name=nm, kind=k, first=f, last=l, pass1=p1) for nm, k, f, l, p1 in rows])))
     print(f"timeline json -> {out.name}")
     # per kind: sum of (last - previous last) = the op's share of the wall time
     share, prev_l = {}, 0.0
-    for name, kind, f, l in rows:
+    for name, kind, f, l, _ in rows:
         if l is None:
             continue
         k = kind if kind != "gemm" else "gemm:" + name.split("_", 1)[-1]
