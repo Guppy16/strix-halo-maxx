@@ -250,7 +250,9 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   out pointers, constant trip counts, constants as LOCALS (a `const ExpC &` parameter made it reload every constant in
   the loop: aliasing), all loads of an iteration before its stores in source order, two independent pieces per trip.
 - **Locks in asm / intrinsics**: `acq #id, rV` with rV < 0 is acquire_greater_equal(-rV); rV >= 0 is acquire_EQUAL (a
-  "no-op" acq with 0 waits for the lock to be 0: hang). Conditional: `acq.cond #id, rV, r26` runs when r26 != 0.
+  "no-op" acq with 0 waits for the lock to be 0: hang). Conditional: `acq.cond #id, rV, r26` runs when **bit 0** of r26 is set
+  (research pass 19 RELC, MEASURED: rel.cond with r26 = 2 did NOT release, 3 did; the condition register is r26 only).
+  Keep every lock condition 0 / 1 (`nez` + `and`, never flag x counter: that was the KTL hang).
   Locks of this tile are 48 + id; pin ids with `Lock(..., lock_id=)`; locks only a worker uses need `rt.add_lock()`.
 - **Zero-overhead loops in hand asm (round 9, r9/gen_ks.py)**: `movxm ls, #start; movxm le, #last_bundle; add.nc lc, rN, #0`
   well before (lc = trips); the start 16-B aligned (`.p2align 4` pads with executable nops), first and last bundle written in
@@ -480,7 +482,7 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
 - The .p2align pad before a modulo body broke ROT's replay at pad 1 (a prologue pop landed a cycle early and clobbered a B register):
   gen_rot `fit` expands prologue bundles to the full form until the prologue ends 16 B aligned and asserts on the disassembly that
   no pad bundle precedes the body (the round-12 rule, now automated).
-- `rel.cond #id, rV, r26` (REL_COND, alu slot) releases only when r26 != 0: deployed in mm_rot since round 18 (bit-identical).
+- `rel.cond #id, rV, r26` (REL_COND, alu slot) releases only when bit 0 of r26 is set (RELC, pass 19): deployed in mm_rot since round 18 (bit-identical).
   **`vldb.pop.576.2d .., [p1, lf1, r25, dN]` with dnN = 0 ADDS mN to the 64 B line step** (round 19 probe npu-tapnext
   r19/wrapb.py, MEASURED: m2 = -4608 wraps a 4,608 B object; the pre-registered -4544 gave a wrong pass 2). `padda [p1], mN` works
   ONE bundle before the next fill, not in the fill's own bundle (MEASURED). Deployed as ROT g0a (round 19).
@@ -676,6 +678,35 @@ the workspaces' NOTES.md / RESULTS.md / HANDOFF.md, not here.
   chunk's lazy-max flags (-0.79 and +0.5 ms for the same lever). Twins only where the downstream work is data-independent (NTWIN is).
 - **The GEMM -> norm boundary is real waiting (round 22 NTWIN)**: norms not waiting for their producer's drains ran 30-50 us earlier with
   unchanged walls: -0.92 ms for norm0 + norm2 (upper bound of any row-split of the producer's last tile).
+- **KTL hang, root cause (research pass 19, MEASURED)**: KTL's lock conditions were flag x row-block counter (values up to 18 nks):
+  acq.cond tests bit 0, so every A acquire at an even counter was skipped (all of them for an even trip count) while every release
+  ran; the lock counts drifted until the DMA / core stalled. The lock-free bench (npu-research r24/ktlpb.py: every lock op an add
+  that sums its condition) showed it in one dispatch; boolean masks (r24/mm_e7k_r70b) give exactly 9 / 9 A and nks - 1 / nks B
+  lock ops per tile and bit-identical pieces against E7 over 1-3 k-steps.
+- **MULLAT (pass 19, MEASURED, r24/mullat*)**: a scalar `mul` result is seen by a `st` 2 bundles later and an alu `add` result 1
+  bundle later, inside a ZOL body as in straight code: the .td latencies hold for these (the r14 "2 cycles on" was alu -> alu).
+- **A lock-free twin of a modulo kernel cannot hang**: replace each lock op in place by `add rK, rK, r26` (same slot, same bundle)
+  and log the sums after the loop (r24/mkvar.py); static A / B data keep the products comparable. A generated kernel and its
+  record header must come from the same schedule (a stale header sent the record stream out of order: wild C pointers, a timeout).
+- **Memtile MM2S task queue (round 23, MEASURED by two hangs' fixes)**: a channel takes 5 tasks without blocking (1 running + 4
+  queued); a 6th `start()` blocks the CP until that column's oldest task completes. A column's tile 0 needs the B multicast, i.e. every
+  column's A sends issued: push every column's first five tasks before any column's sixth (r23d hung pushing column by column), and
+  remember that a task push can also wait behind the PREVIOUS op's queued tasks (it delayed the SSM by ~0.4 ms in r23o3).
+- **CP-order deadlocks (round 23)**: when you reorder the runtime sequence (issue an op early, bypass the lookahead), check that no
+  group wait needs work issued after it: `push()` finishes the oldest pending groups, and a consumer that finishes a group whose
+  completion needs its own later fills hangs (r23o2). design8 `SEQLOG=1` prints every group wait with the op being issued.
+- **Overlap an EW op with its producer (round 23 YXSSM + YXR, -0.79 ms)**: if the consumer's per-unit inputs are finer than the op
+  (the SSM's head q needs yx tiles q and 12 + q), split the producer's drain into groups in the consumer's fill order, wait per group
+  in the consumer's fill loop, and order the producer's tiles so the first groups complete early. On-chip panel targets (NRES /
+  SRES tasks acquire all 12 chunk locks of a slot half) must be a half the running GEMM does not hold.
+- **Row passes of a GEMM tile (round 23 MSPLIT-P)**: a tile can run as two C objects over row blocks 0-5 / 6-17 (3 / 6 A stripes keep
+  the 3-slot A ring aligned per k-step); the first object drains junk rows that the second rewrites; KTL takes the record period
+  (lda.2d dn / m) as an argument. The GEMM L1 is full (data 124 B free, bank 3 full): patch the existing record table in place and
+  check the patched table against the intended one with a static_assert.
+- `--l2-depth` 3..8 (B forward objects per memtile) is neutral within 0.02 ms: a free source of memtile BDs (24 per channel half).
+- **CLKLOAD (round 23, MEASURED, npu-tapnext r23/clkload12.out)**: 12 spin threads (~99 W package) and 6 numpy threads keep 1.81 GHz;
+  12 numpy threads at the same ~99 W and Tctl 59-71 C drop the NPU to 1.408 GHz: not thermal, not package power alone (vector load:
+  INFERRED). Keep CPU vector work below ~6 threads while timing.
 - Every new/changed kernel: one dispatch with a short timeout first (`run.wait(3_000_000)` us), then a
   known-good design; after any timeout check `journalctl -k | grep -i xdna` and run the known-good test; max 3
   timeouts per phase; stop if the device does not recover. Never loop retries on a failing design.
@@ -895,6 +926,10 @@ the numerics: `moondream-opt/bfpemu.py`, `npu-tapnext/davis_npu.py` (`bfp_quanti
   loop, off by default), attks33.json / attks34.json, attv20.json, mkktl.py (research's KTL kernel into the ROT slot; hangs, see NOTES
   27), lda2d.s + lda2db.* (scalar lda.2d probe), gen_e7m.py (gen_e7 with the bank-3 weight E7_W3), solve_*.sh. Env: design8 A3, NTWIN
   (twin), ATTKS_JSON, ATTV_JSON, ATTKB_DM; mm8 -DK2, -DK0TWIN (twin), -DKTL1 (bisect); gen_attkb --life, gen_attv --stages / --life.
+- `npu-tapnext/r23/` (round 23): try23.sh (current best: try22 + KTL k70p + MSPLIT down_b / mlp3_b / out_proj + YXSSM + YXR + OUTPRE
+  / ZCH + OPH1, l2-depth 3), mm_rot_k70b / k70p (research's KTL; k70p takes the record period), mm_rot_e7r68t (E7 with trips in r1),
+  tlcmp.py (per-op wall / gap means of timeline JSONs), clkload12.sh / .out, solve_k_r68.log. Env: plan8 MSPLIT YXR, design8 YXSSM
+  ZCH OUTPRE OPH1 SEQLOG; mm8 -DMSPLIT.
 - `npu-tapnext/r12/` (round 12): cpsched.py (CP-SAT scheduler), asmfit.py, lutflat.py (flat-edge GELU tables), generators
   gen_gup / gen_pan / gen_copy / gen_bgelu / gen_sig (+ saved schedules *.json) with one-core benches gupb / panb / cpyb / bgb /
   sigb (r11/apb.py `--cc`), gen_pushprobe + pushcheck. Flags: mm8 GUP, CPY32, PAN, GELU_FLAT, BGELU (+ timing GUP_NO*, PAN_NOPUSH);

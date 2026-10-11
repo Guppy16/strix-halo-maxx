@@ -1,3 +1,42 @@
+# ROUND 23 DONE (2026-10-11) - read this block first; the round-22 block below is the base it builds on
+## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
+## State: **full12r23z**, A/B in one process vs r22z **-1.89 ms** (60 x 20: -1.894 / -1.885 / -1.875), BIT-IDENTICAL vs full12r9a
+| depth | r23z sweep median (min) | whole step | r22z same session | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 28.89 (28.85) | 30.97 | 30.81 (30.76) | 70.84 (92.57) (bit-identical: not re-run) |
+| 10 | 24.22 (24.18) | 26.01 | 25.79 (25.76) | 69.90 (91.02) (bit-identical) |
+| 8 | 19.40 (19.36) | 21.30 | 20.66 (20.61) | not run |
+| 6 | 14.62 (14.57) | 16.67 | 15.54 (15.50) | not run |
+Quiet box for the sweep (load 2.9-4.0, only the background job; r7/clk.py 1.801 GHz just before; gpu_busy 0).
+Build: `r23/try23.sh NAME [--sweep]` = r22/try22.sh + KTL (r23/mm_rot_k70p, E7_V=k70p) + MSPLIT=down_b,mlp3_b,out_proj (-DMSPLIT,
+acc_hi 0x71A00) + YXSSM + YXR + ZCH + OUTPRE + OPH1 + --l2-depth 3 (env switches: MSPLIT=, YXSSM=0, YXR=0, OUTPRE=0, OPH1=0, L2=).
+Never dispatch *.unpatched.xclbin. Text: GEMM 16,256 / 16,384 (128 free), EW 15,824 (560 free). Timeouts this round: 2 (both CP-order
+deadlocks of my own sequences, recovered; 1 left would have been the phase limit).
+## What changed (NOTES 28, RESULTS 32): KTL (research r24/mm_e7k_r70b) -0.82; MSPLIT-P (last tile as row passes rb 0-5 / 6-17 for
+down_b, mlp3_b, out_proj) -0.17 + -0.10; **YXSSM** (the SSM starts while yx runs: per-head waits on yx drain groups, z panels into half
+1) -0.41 and **YXR** (yx steps y / x interleaved: the SSM starts after step 2 of 8) -0.38; OUTPRE small (-0.02).
+## Where the time goes: attention ~430 us per block (compute), SSM ~290 (now overlapping yx, DDR-contended: yx wall 94 -> 164 us),
+GEMM k-steps (KTL R 70), the remaining GEMM -> EW and EW -> GEMM boundaries (norm1 after out, the consumers' first tiles).
+## Next concrete actions (round 24)
+1. out -> norm1 split: dead in this form (r23o3 +0.43 / r23w +0.14: out's 4th memtile push waits behind yx's tasks and delays the
+   SSM's head fills); retry with out's pass sends pushed after the SSM's fills (a second issue point), or norm1 after a half split.
+2. KTL at R 68: CP-feasible but 35 modelled bank conflicts per k-step (r23/solve_k_r68.log) = no gain; research: a bank-clean R 68-69.
+3. SSM glue: gate fails (tcall ~1,930 > 1,880 without FSX); FSX needs a 12-x-register ssq schedule (DEAD_ENDS E16) - research.
+4. MSPLIT-C only fits yx (the other consumers' epilogues are gated / qkv / gelu_pan); norm3 LN glue; OPPRE-W.
+5. step8 timeline: MSPLIT ops write their last tile's rows twice, so per-op marks after down_b / mlp3_b are misassigned: fix op_marks.
+## Rules that bit us this round (also in the skill)
+- A memtile MM2S channel holds 5 tasks (1 running + 4 queued): a column's 6th push blocks on that column's own tile, whose B multicast
+  needs every column's A sends issued - push every column's first five before any sixth (r23d hung).
+- Reordering the CP stream: a group pushed through the lookahead can be finished early, and a CP wait on work that needs later-issued
+  instructions is a deadlock (r23o2 hung); design8 SEQLOG=1 prints every group wait with the op being issued - read it before dispatch.
+- An EW op can overlap its producer when its per-unit inputs are finer than the op: split the producer's drain into groups in the
+  consumer's fill order (YXSSM + YXR -0.79). An on-chip panel target (NRES / SRES) must be a slot half the running GEMM does not hold.
+- The GEMM cores' L1 is full (data 124 B free, bank 3 full): new constant tables do not fit; patch the existing table in place and
+  check the result with a static_assert against the intended table (MSPLIT on KTL).
+- --l2-depth 3..8 is neutral (3 / 5 / 6 / 8 within 0.02 ms): the B forward depth is a free memtile BD budget.
+- CLKLOAD (r23/clkload12.out): the package sits at ~99 W with 12 spin or 6 vector threads at 1.81 GHz; 12 vector threads at the same
+  ~99 W drop the NPU to 1.408 GHz with Tctl 59-71 C: not thermal, not package power alone (a current / vector-load rule: INFERRED).
+
 # ROUND 22 DONE (2026-10-11) - read this block first; the round-21 block below is the base it builds on
 ## Working rules (unchanged): all compute on testbox (nice -n 10, <= 12 CP workers), edit on testbox, laptop only ssh + round-end rsync.
 ## State: **full12r22z**, A/B in one process vs r21k1 **-0.41..-0.49 ms** (30 x 20: -0.408 / -0.488 / -0.422), BIT-IDENTICAL vs full12r9a

@@ -1,0 +1,18 @@
+== spin 0 threads: power_uW 27018000 tctl_mC 76750
+mode 1 (3 bundles/trip) fit on median: clock 1.8097 GHz, intercept 112.8 us, max |residual| 6.9 us
+   after: power_uW 34026000 tctl_mC 76875
+== spin 6 threads: power_uW 82017000 tctl_mC 83250
+mode 1 (3 bundles/trip) fit on median: clock 1.8102 GHz, intercept 47.5 us, max |residual| 1.7 us
+   after: power_uW 86070000 tctl_mC 82250
+== spin 12 threads: power_uW 99098000 tctl_mC 71375
+mode 1 (3 bundles/trip) fit on median: clock 1.8103 GHz, intercept 96.4 us, max |residual| 22.2 us
+   after: power_uW 99082000 tctl_mC 83625
+== vec 0 threads: power_uW 27013000 tctl_mC 77875
+mode 1 (3 bundles/trip) fit on median: clock 1.8081 GHz, intercept 76.7 us, max |residual| 31.2 us
+   after: power_uW 34021000 tctl_mC 77500
+== vec 6 threads: power_uW 96068000 tctl_mC 77625
+mode 1 (3 bundles/trip) fit on median: clock 1.8093 GHz, intercept 53.7 us, max |residual| 9.9 us
+   after: power_uW 100093000 tctl_mC 77250
+== vec 12 threads: power_uW 99098000 tctl_mC 59000
+mode 1 (3 bundles/trip) fit on median: clock 1.4077 GHz, intercept 95.4 us, max |residual| 12.7 us
+   after: power_uW 99069000 tctl_mC 70875

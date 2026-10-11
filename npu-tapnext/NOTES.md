@@ -958,3 +958,54 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - attv / n1k / ggk / vt / ssq gaps to their resource bounds (scan this round): attv taken; ssq (30 vs 21) is register-bound (DEAD_ENDS E16);
   n1k 11 vs 8 at 8 iterations per call and vt 13 vs 6 are worth < 0.02.
 - Not built: OPPRE-W / OPPRE-lag, S3, SSM glue (text now there), MSPLIT-P (L), CLKLOAD.
+
+## 28. Round 23 (2026-10-11): -1.89 ms vs r22z (A/B), 28.89 ms at depth 12 (quiet sweep; r22z 30.81 same session): KTL, MSPLIT-P, YXSSM
+### 28.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 32; build `r23/try23.sh NAME`, everything below on by default)
+1. **KTL** (research pass 19, r24/mm_e7k_r70b: one modulo loop per GEMM tile; the round-22 hang was acq.cond / rel.cond testing bit 0
+   of r26 with flag x counter masks). Taken through r22/mkktl.py; -0.82 ms vs r22z (research -0.50..-0.70).
+2. **MSPLIT-P** (plan8 MSPLIT=down_b,mlp3_b,out_proj, mm8 -DMSPLIT): the op's last N tile runs as two row passes, rb 0-5 then rb 6-17,
+   each its own C object (the first drains with junk rows 6-17, the second rewrites them; rows 0-5 of the reused L1 object still hold
+   pass 1's values). The first nt objects drain in group "<op>#0"; the norm after it fills rows 0-5 after "#0" and rows 6-17 after the
+   rest. Pieces:
+   - design8 core table: nks | (nt + 1) << 8; mm_ktile counts the op's objects (g_ms) and picks the pass; the epilogue (flag 0) for a
+     pass is two 6-piece bias_pcs runs + three C cons releases (+ csub_rows' last group for pass 2).
+   - KTL takes the row-block period as an argument (r23/mm_rot_k70p: lda.2d dn2 / m2 from r4 / r5). The passes' own record tables
+     (464 B) do not fit the GEMM L1, so the passes run on rot_rec with five entries patched in place when the pass kind changes;
+     a static_assert compares the patched table with ktl_rec's pass tables (it caught pass 1's head jump on the first try).
+   - memtile tasks: pa / pa1 (rows 0-5 of every chunk, lock-free) and lastb (rows 6-17 per chunk with the release); region 3's last
+     task becomes lastb[2]. A third push loop gives each column its sixth task only after all columns have five (see 28.3).
+   - B: the last tile's weights + bias object are filled twice (second TAP per row). --l2-depth 3 frees the memtile BDs.
+   - out_proj's A goes to the slot's half 1 (OPH1) so norm3's NRES panels (half 0) do not wait for its pass 2.
+   E7 per-k-step form first (r23/mm_rot_e7r68t: trips in r1): -0.16..-0.21; on KTL -0.14..-0.19; out_proj -0.08..-0.12.
+3. **YXSSM** (design8 env YXSSM=1): the SSM's head q needs only yx tiles q (y) and 12 + q (x), but waited for all of yx. yx drains in
+   four groups and the SSM finishes the group holding x(q) before head q's fill. Its z panels (SRES) go to the A slot's half 1, since
+   half 0 holds yx's A until yx's last tile, and out reads half 1 (memtile task mid h1). -0.41 ms.
+4. **YXR** (plan8 / pack8 env YXR=1): yx's rr steps take the natural tile groups 0, 4, 1, 5, 2, 6, 3, 7 (y then x of each head group);
+   the drain TAP is [group][y | x][54 units][unit]; the SSM starts after step 2 of 8. -0.38 ms.
+5. **OUTPRE + ZCH**: out (SRES consumer) issued before the SSM's head fills, its A landing chunk by chunk. -0.02..-0.03 (small, kept).
+### 28.2 What the numbers say
+- The producer -> EW overlap is the big lever of the round (-0.79 for yx / SSM): the SSM (~290 us per block) and yx (now 164 us wall,
+  from 94: DDR-contended) overlap ~130 us per block (timeline r23z1: the SSM's first word 134 us before yx's last).
+- MSPLIT-P landed near its static price (-0.17 / -0.10 for 2 / 1 boundaries) but well under NTWIN's -0.92 bound: the passes' own
+  per-call costs, the duplicated last-tile drain and the norms' DDR share remain.
+- KTL beat its price by ~0.15 ms (-0.82 vs -0.50..-0.70).
+### 28.3 Facts / rules (also in the skill)
+- Memtile MM2S queue: 5 tasks per channel without blocking (1 running + 4); the 6th push of a column waits for that column's tile 0,
+  which (B multicast) needs every column's A sends: pushed column by column it deadlocks (r23d, timeout 1).
+- CP-order deadlocks: a group finished through the lookahead (push) while a later-issued op is needed, or a consumer waiting on a group
+  whose completion needs its own later fills (r23o2: out's "#0" before the SSM's fills; timeout 2). design8 SEQLOG=1 prints every
+  group wait; read it before dispatching a reordered sequence.
+- NRES / SRES panel tasks acquire all 12 chunk locks of a slot half: they wait for the GEMM holding that half to release it. Pick the
+  half the running GEMM does not hold (YXSSM z -> half 1, OPH1).
+- GEMM core L1: data region 124 B free, bank 3 full (a +384 B data_size overflowed bank 3; the stack cannot shrink below the X buffers).
+- --l2-depth 3 / 5 / 6 / 8 within 0.02 ms (round 22: 4 / 6). acc_hi moves with .data (KSC check names it: 0x71A00 now).
+- CLKLOAD (r23/clkload12.sh, capped at 12 threads): 12 spin threads (~99 W package) keep 1.81 GHz; 6 vector threads (~96-100 W) 1.81;
+  12 vector threads (~99 W, Tctl 59-71 C) 1.408 GHz. Not thermal; not package power alone; vector load at 12 threads (INFERRED).
+### 28.4 Dead ends / not done
+- **MSPLIT on out** (norm1): with OUTPRE +0.43 (r23o3: out's 4th memtile push waits behind yx's tasks, so the SSM's fills issue late);
+  without OUTPRE +0.14 (r23w, cause not measured). First form hung (r23o2, CP deadlock above).
+- **ZCH alone** (z panels per chunk): +0.01..+0.02 (out is issued after the SSM's fills: nothing to overlap).
+- **KTL at R 68** (gen_e7.py --ktl, hint r70b, 1,800 s, 12 workers): feasible with 35 modelled bank conflicts per k-step: not built.
+- **SSM glue gate** (tcall on the deployed EW core: 1,828-1,845 per unit with sigk at 1 trip, ~2,115 real): ssq2 + reck2 + ggk2
+  (-188) -> ~1,930 > 1,880. Passes only with FSX (blocked: DEAD_ENDS E16). Not built.
+- Not built: MSPLIT-C (only yx's first tile fits the pass epilogue), norm3 LN glue, OPPRE-W.

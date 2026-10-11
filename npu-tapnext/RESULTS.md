@@ -1050,3 +1050,43 @@ Text at r22z: GEMM 15,856 / 16,384 (528 free), EW 15,824 (560 free).
 | 8 | 20.71 (20.61) | 23.39 | 20.95 (20.90) | not run |
 | 6 | 15.58 (15.54) | 18.01 | 15.79 (15.72) | not run |
 (the sweep inside r22z's own build, minutes earlier: d12 31.26 / whole 34.49, d10 25.81, d8 20.67, d6 15.56: d12 in a slow-mode window)
+## 32. Round 23 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks (2 skipped); box
+load 1.1-7.2 (the background job; my CP-SAT 12 workers only between A/Bs); r7/clk.py 1.801 GHz before the final sweep)
+### 32.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 2)
+| build | change | A/B vs | p10 / median / mean ms | predicted | verdict |
+|---|---|---|---|---|---|
+| full12r23d | r22z + MSPLIT-P (E7, l2 6), sends column by column | - | TIMED OUT (6th memtile push) | - | fixed -> r23f |
+| full12r23l6 | r22z + --l2-depth 6 | r22z | -0.015 / -0.019 / -0.037 (30 x 20) | 0 +- 0.02 | neutral |
+| full12r23f | r22z + MSPLIT-P down_b / mlp3_b (E7 e7r68t, l2 6) | r23l6 | -0.160 / -0.169 / -0.211 (60 x 20) | -0.18..-0.30 | low end, kept |
+| full12r23k | r22z + KTL (r24/mm_e7k_r70b) | r22z | -0.822 / -0.821 / -0.805 (60 x 20) | -0.45..-0.65 | above, kept |
+| full12r23t | r23k + MSPLIT-P on KTL (k70p, l2 6) | r23k | -0.144 / -0.155 / -0.186 | -0.12..-0.22 | hit, kept |
+| full12r23y | r23t + YXSSM (l2 5) | r23t | -0.415 / -0.414 / -0.398 | -0.15..-0.35 | above, kept |
+| full12r23z1 | r23y + YXR | r23y | -0.379 / -0.377 / -0.364 | -0.15..-0.35 | above, kept |
+| full12r23z2 | r23z1 + ZCH | r23z1 | +0.010 / +0.016 / +0.024 | -0.03..-0.12 | miss, OFF |
+| full12r23z3 | r23z1 + ZCH + OUTPRE | r23z1 | -0.033 / -0.038 / -0.075; -0.023 / -0.024 / -0.031 (120 x 20) | -0.05..-0.15 | low, kept |
+| full12r23l3 | r23z3 at --l2-depth 3 | r23z3 | +0.008 / +0.007 / +0.006 | 0 +- 0.03 | neutral |
+| full12r23o1 | r23z3 + OPH1 | r23z3 | -0.001 / -0.017 / -0.034 | 0 +- 0.02 | neutral |
+| full12r23o2 | + MSPLIT out / out_proj (first form) | - | TIMED OUT (CP deadlock) | - | fixed -> r23o3 |
+| full12r23o4 | r23o1 + MSPLIT out_proj (l2 3) | r23z3 | -0.082 / -0.100 / -0.124 | -0.03..-0.08 vs l3 | above, kept |
+| full12r23o3 | r23o4 + MSPLIT out | r23z3 | +0.444 / +0.425 / +0.407 | -0.05..-0.12 | dead |
+| full12r23w | MSPLIT out, OUTPRE / ZCH off | r23z | +0.141 / +0.139 / +0.135 | -0.02..+0.05 | dead |
+| **full12r23z** | **= r23o4 rebuilt with depth builds (the round's best)** | r22z | **-1.894 / -1.885 / -1.875** (60 x 20) | sum of parts ~-1.9 | |
+Text at r23z: GEMM 16,256 / 16,384 (128 free), EW 15,824 (560 free).
+### 32.2 Probes and solves
+- Timeline (r23/tlcmp.py, tl_full12r23z1_d12 vs tl_full12r22t_d12, blocks 1-11): yx wall 93.6 -> 164.2 us, SSM 276.4 -> 291.8 us
+  starting 133.7 us before yx's last word; out gap 31.0 -> 24.9 us; other ops within ~5 us. (down_b / mlp3_b / norm2 / norm0 rows
+  are misassigned: MSPLIT writes the last tile's rows twice.)
+- KTL R 68 CP (gen_e7.py solve --ktl --R 68 --nx 8 --n1b 16 --delta {"N": -1}, hint r24/e7k_r70b_n16, 12 workers, 1,800 s): FEASIBLE,
+  F 45, 35 modelled bank conflicts (r70b: 0). r23/solve_k_r68.log, r23/e7k_r68_n16.json.
+- SSM tcall (deployed EW core of r23z1, `tools/tcall.py --func ew_ssm`): unit 1,828-1,845 (glue 740-757) with sigk at 1 trip;
+  convk 228, ggk 282, sigk 85, ssq 674, reck 268, zk 74, in_need 22-35, in_done 33-34.
+- CLKLOAD (r23/clkload12.out, r7/clk.py median fit): idle 27 W 1.810 GHz; spin 6: 82-86 W 1.810; spin 12: 99 W 1.810; vec 6:
+  96-100 W 1.809; vec 12: 99 W, Tctl 59-71 C, **1.408 GHz**.
+### 32.3 Depth sweep (full12r23z, one xclbin, 4 phase sequences; r22z re-swept the same session; quiet box, load 2.9-4.0, 1.801 GHz)
+| depth | r23z dispatch median (min) | whole step | r22z same session median (min) | DAVIS AJ (OA) |
+|---|---|---|---|---|
+| 12 | 28.89 (28.85) | 30.97 | 30.81 (30.76) | 70.84 (92.57), bit-identical |
+| 10 | 24.22 (24.18) | 26.01 | 25.79 (25.76) | 69.90 (91.02), bit-identical |
+| 8 | 19.40 (19.36) | 21.30 | 20.66 (20.61) | not run |
+| 6 | 14.62 (14.57) | 16.67 | 15.54 (15.50) | not run |
+(the sweep inside r23z's own build, under ~4-7 load minutes earlier: d12 28.92, d10 24.29, d8 19.43, d6 14.61)
