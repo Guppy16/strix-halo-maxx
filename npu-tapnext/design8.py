@@ -916,7 +916,15 @@ def step8(
         assert not ms_names or seqpre and os.environ.get("NSEQ") == "1"
         sp_mode = int(os.environ.get("SEQPRE", "0"))  # round 19: bit 1 = slot loads before the wait, bit 2 = drains before it  # round 11 (research P43): a GEMM's B (weights) leaves before its dependency wait
 
-        for op in ops:
+        seq_ops, outpre = list(ops), set()
+        if os.environ.get("OUTPRE") == "1":  # round 23: out before the SSM in the CP stream (locks / ZCH chunks pace its first tile)
+            assert yxssm and os.environ.get("ZCH") == "1"
+            for i in range(len(seq_ops) - 1):
+                a_, b_ = seq_ops[i], seq_ops[i + 1]
+                if a_["kind"] == "ew" and a_.get("sres") and b_["kind"] == "gemm" and b_.get("nres") and not b_.get("deps"):
+                    seq_ops[i], seq_ops[i + 1] = b_, a_
+                    outpre.add(b_["name"])
+        for op in seq_ops:
             cur_op[0] = op["name"]
             if op["kind"] == "gemm":
                 qkv = isinstance(op["c"][0], list)
@@ -1020,7 +1028,10 @@ def step8(
                         for c in range(COLS):
                             drain(C_conses[c], op["c"][c], group=tg, wait=True)
                     if not qkv:
-                        push(op["name"], tg)
+                        if op["name"] in outpre:  # (no lookahead finish here: the yx groups the SSM waits for one by one)
+                            pending.append((op["name"], tg))
+                        else:
+                            push(op["name"], tg)
                         continue
                 else:
                     finish_deps(op)
@@ -1101,7 +1112,7 @@ def step8(
                 yxg = [(n_, g_) for n_, g_ in pending if yxssm and op["fn"] == "ssm" and n_.split("#")[0].endswith("_yx")]
                 if yxg:  # round 23 YXSSM: everything but yx's groups now; yx's group g before head 3 g's fill
                     for n_, g_ in list(pending):
-                        if (n_, g_) not in yxg:
+                        if (n_, g_) not in yxg and n_ not in outpre:  # (OUTPRE: out completes only after this SSM)
                             g_.finish()
                             pending.remove((n_, g_))
                 elif not nseq:
