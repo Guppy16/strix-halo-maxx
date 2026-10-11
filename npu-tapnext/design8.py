@@ -451,16 +451,28 @@ def step8(
     RingIn = np.ndarray[(EW_IN_SLOTS * SLOT_W,), np.dtype[np.uint32]]
     RingOut = np.ndarray[(EW_OUT_SLOTS * SLOT_W,), np.dtype[np.uint32]]
     ew_flags = [f"-I{INC}", f"-DEW_IN_SLOTS={EW_IN_SLOTS}", f"-DEW_OUT_SLOTS={EW_OUT_SLOTS}", "-DL_IN_FREE=0", "-DL_IN_FILL=1",
-                "-DL_OUT_FREE=2", "-DL_OUT_FILL=3", f"-DPATCH_PARAM_B={PATCH_PARAM_B}", f"-DSSM_PARAM_B={SSM_PARAM_B}", os.environ.get("EW_OPT", "-Oz")] + os.environ.get("EW_DEFS", "").split()
+                "-DL_OUT_FREE=2", "-DL_OUT_FILL=3", "-DL_P_FREE=4", "-DL_P_FILL=5", f"-DPATCH_PARAM_B={PATCH_PARAM_B}", f"-DSSM_PARAM_B={SSM_PARAM_B}", os.environ.get("EW_OPT", "-Oz")] + os.environ.get("EW_DEFS", "").split()
+    nres = "-DNRES" in ew_flags  # round 20 NRES: a third ring (the panels, 4 x 576 B) drained by the EW core's MM2S 1
+    assert nres == bool(os.environ.get("NRES")), "NRES (plan) and -DNRES (EW_DEFS) go together"
+    RingP = np.ndarray[(2 * 576 // 4,), np.dtype[np.uint32]]  # 2 slots (L1: the EW stack gives up 1 KB for it, bank 0)
     if "-DSIGK" in ew_flags:  # round 12: with generated asm (the SSM sigmoid) the object is prebuilt
-        ew_op = Kernel("ew_op", ew_object(ew_flags), [RingIn, RingOut])
+        ew_op = Kernel("ew_op", ew_object(ew_flags), [RingIn, RingOut] + ([RingP] if nres else []))
     else:
         ew_op = ExternalFunction("ew_op", object_file_name="ew8.o", source_file=str(HERE / "ew8.cc"),
                                  arg_types=[RingIn, RingOut], compile_flags=ew_flags)
     assert not any(o["fn"] == "patch" for o in ew_pre + ew_body + ew_post), "ew_op has no patch kind (the patch embedding is on the host)"
     ew_tiles = [Tile(c, EW_ROW) for c in range(COLS)]
     e_in = [PacketFlow(2, shims[c], ew_tiles[c], src_channel=0, dst_channel=0, name=f"Ein{c}") for c in range(COLS)]
-    e_out = [Flow(ew_tiles[c], shims[c]) for c in range(COLS)]
+    eout_pkt = nres or os.environ.get("EOUTPKT") == "1"  # (EOUTPKT: the X' packet flow alone, a debug twin)
+    if eout_pkt:  # round 20 NRES: the core tile's 4 south ports carry C x 3 + the EW output already: X' (packet 3) and the panels
+        # (packet 5) share one of them as two packet flows (EW MM2S 0 -> shim S2MM 1, EW MM2S 1 -> memtile S2MM 5). IRON 1.4.4's
+        # pathfinder finds no route for two packet sources on one tile, so Pn is DECLARED from MM2S 0 and r20/nresfix.py moves its
+        # rule to the DMA 1 slave in the lowered MLIR (the unpatched xclbin must never run: MM2S 1's packets have no rule)
+        e_out = [PacketFlow(3, ew_tiles[c], shims[c], src_channel=0, dst_channel=1, name=f"Eout{c}") for c in range(COLS)]
+        p_flow = [PacketFlow(5, ew_tiles[c], mems[c], src_channel=0, dst_channel=5, name=f"Pn{c}") for c in range(COLS)] if nres else []
+    else:
+        e_out = [Flow(ew_tiles[c], shims[c]) for c in range(COLS)]
+        p_flow = []
     ew_workers = []
     any_ew = bool(ew_pre or ew_body or ew_post)
     if any_ew:
@@ -472,7 +484,15 @@ def step8(
             in_fill = Lock(tile=t, init=0, name=f"eiu{c}", lock_id=1)
             out_free = Lock(tile=t, init=EW_OUT_SLOTS, name=f"eof{c}", lock_id=2)
             out_fill = Lock(tile=t, init=0, name=f"eou{c}", lock_id=3)
-            core_dmas.append(TileDma(t, [
+            p_chan = []
+            if nres:
+                rp = Buffer(tile=t, type=RingP, name=f"ewp{c}", mem_bank=0)
+                p_free = Lock(tile=t, init=2, name=f"epf{c}", lock_id=4)
+                p_fill = Lock(tile=t, init=0, name=f"epu{c}", lock_id=5)
+                p_chan = [DmaChannel(DMAChannelDir.MM2S, 1, [Bd(
+                    rp, tap=TensorAccessPattern((2 * 144,), 0, [1, 1, 1, 144], [0, 0, 0, 1]),
+                    acquires=[Acquire(p_fill)], releases=[Release(p_free)], iteration=BdIteration(size=2, stride=144), packet=(0, 5))])]
+            core_dmas.append(TileDma(t, p_chan + [
                 DmaChannel(DMAChannelDir.S2MM, e_in[c].endpoint(t), [Bd(
                     rin, tap=TensorAccessPattern((EW_IN_SLOTS * SLOT_W,), 0, [1, 1, 1, SLOT_W], [0, 0, 0, 1]),
                     acquires=[Acquire(in_free)], releases=[Release(in_fill)],
@@ -480,7 +500,7 @@ def step8(
                 DmaChannel(DMAChannelDir.MM2S, e_out[c].endpoint(t), [Bd(
                     rout, tap=TensorAccessPattern((EW_OUT_SLOTS * SLOT_W,), 0, [1, 1, 1, SLOT_W], [0, 0, 0, 1]),
                     acquires=[Acquire(out_fill)], releases=[Release(out_free)],
-                    iteration=BdIteration(size=EW_OUT_SLOTS, stride=SLOT_W))]),
+                    iteration=BdIteration(size=EW_OUT_SLOTS, stride=SLOT_W), **(dict(packet=(0, 3)) if eout_pkt else {}))]),
             ]))
 
             def ew_fn(rin, rout, ew_op):
@@ -488,7 +508,13 @@ def step8(
                 # does not depend on the op list (unrolling the block loop here once cost 2 KB of program memory)
                 ew_op(rin, rout)
 
-            ew_workers.append(Worker(ew_fn, [rin, rout, ew_op], tile=t, stack_size=0x1800, data_size=27648))  # round 8: +1.5 KB (ew8 g_ptmp, g_panels' pad)
+            def ew_fn_p(rin, rout, rp, ew_op):
+                ew_op(rin, rout, rp)
+
+            if nres:
+                ew_workers.append(Worker(ew_fn_p, [rin, rout, rp, ew_op], tile=t, stack_size=0x1300, data_size=27648))  # (deepest ~3.2 KB; bank 0 = stack + ewo + ewp + 1 KB tables)
+            else:
+                ew_workers.append(Worker(ew_fn, [rin, rout, ew_op], tile=t, stack_size=0x1800, data_size=27648))  # round 8: +1.5 KB (ew8 g_ptmp, g_panels' pad)
 
     # the GEMM cores' control code must stay small (16 KB of program memory incl. the kernels): the ops are a
     # table [k-steps, C objects, tiles per object] walked by one generic loop; the attention op has its own loop
@@ -744,11 +770,16 @@ def step8(
                          last=[me_out.task(chunk(h, lk["F2"], E[h]), runs=12) for h in range(2)],
                          mid={K_: me_out.task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 1, 1, (K_ // k) * CH], [0, 0, 0, 1])))
                               for K_ in (768, 1536)})
+                if p_flow:  # round 20 NRES: the norm's units arrive rb-major (rb, q); a 3D TAP puts unit (rb, q) at chunk q, row block rb
+                    # (the usual chunk-major half 0: the op's sends and the last tile's chunk-wise release stay as they are; an rb-major
+                    # half let the next op's chunk-0 load overwrite every chunk's first row blocks while the last tile still read them)
+                    t["ldn"] = p_flow[c].endpoint(mems[c]).task(Bd(slot, tap=TensorAccessPattern((ra,), 0, [1, 18, 12, 144], [0, 144, CH, 1]),
+                                                                    acquires=[Acquire(lk["Elo"], value=12)], releases=[Release(lk["F"], value=12)]))
                 rt_tasks.append(t)
         slot_ops = [o for o in ops if o["kind"] in ("gemm", "attn")]
 
         def a_loads(op):  # A_RT: start column c's chunked loads (after the op's fills)
-            if a_rt and not op.get("reuse_a"):
+            if a_rt and not op.get("reuse_a") and not op.get("nres"):  # (NRES: the norm's op pushed the S2MM 5 task)
                 hs = list(range(op.get("K", 768) // 768))
                 if op.get("h1first"):  # round 20 IL: the fill sends chunks 12-23 first
                     assert os.environ.get("IL") == "1"  # (the per-half full locks)
@@ -928,14 +959,31 @@ def step8(
                         drain(C_conses[c], op["c"][pi][c], group=tg, wait=True)
                 push(op["name"], tg)
             elif op["kind"] == "ew":
-                finish_all()
+                nseq = op["fn"] == "norm" and os.environ.get("NSEQ") == "1"
+                if not nseq:
+                    finish_all()
                 if op["fn"] == "norm":
                     tg = G()
-                    for c in range(COLS):
+                    if op.get("nres"):  # round 20 NRES: the memtile takes the panels (S2MM 5) before the norm can push any
+                        for c in range(COLS):
+                            rt_tasks[c]["ldn"].start()
+                    if nseq:  # round 20 (research rev 16 NSEQ): params (from W) and drains before the producer wait; after it only
+                        # the input fills, so the CP issues column 7's input ~4 instructions after column 0's (it was ~12)
+                        assert len(op["fills"][0]) == 2 and op["fills"][0][0]["buf"] == "w"
+                        for c in range(COLS):
+                            fill(e_in[c], op["fills"][c][0], group=tg, wait=False)
+                            drain(e_out[c], op["c"][c], group=tg, wait=True)
+                        finish_all()
+                        for c in range(COLS):
+                            fill(e_in[c], op["fills"][c][1], group=tg, wait=False)
+                    for c in range(COLS) if not nseq else ():
                         for f in op["fills"][c]:
                             fill(e_in[c], f, group=tg, wait=False)
                         drain(e_out[c], op["c"][c], group=tg, wait=True)
-                    tg.finish()
+                    if op.get("nres"):  # the next GEMM issues its B, sends and drains before this norm is awaited
+                        push(op["name"], tg)
+                    else:
+                        tg.finish()
                 else:  # patch / ssm: one drain per column, per-head fill pairs with a lookahead of 2
                     tgd = G()
                     for c in range(COLS):
@@ -956,12 +1004,12 @@ def step8(
                 raise NotImplementedError(op["kind"])
         finish_all()
         for t in rt_tasks:
-            for task in (*t["ld"], *t["t0"], *t["last"], *t["mid"].values()):
+            for task in (*t["ld"], *t["t0"], *t["last"], *t["mid"].values(), *[t[x] for x in ("ldn",) if x in t]):
                 task.free()
         print(f"[design8] shim BD peak {bd_peak[0]} at {bd_peak[1]} (limit 16)")
 
     rt = Runtime(sequence, [W_ty, ACT_ty, b_prods, c_conses])
-    for f in (*a_in, *a_out, *(e_in + e_out if any_ew else [])):
+    for f in (*a_in, *a_out, *(e_in + e_out if any_ew else []), *p_flow):
         rt.add_flow(f)
     for d in (*mem_dmas, *core_dmas):
         rt.add_tile_dma(d)
@@ -1047,7 +1095,8 @@ def main():
     Path(o.out + ".json").write_text(json.dumps(dict(kw, m=M, k=KT, n=NT, rho=RHO, rows_g=ROWS_G, k_slot=K_SLOT, rot_v=os.environ.get("ROT_V", "g2f"),
                                                      a_half=os.environ.get("A_HALF") == "1", a_rt=os.environ.get("A_RT") == "1", p23=os.environ.get("P23") == "1", p60g=os.environ.get("P60G") == "1",
                                                      p43=os.environ.get("P43") == "1", xrot=int(os.environ.get("XROT", "0") or 0), al1=os.environ.get("AL1") == "1",
-                                                     il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1")))
+                                                     il=os.environ.get("IL") == "1", dapre=os.environ.get("DAPRE") == "1",
+                                                     nres=[x for x in os.environ.get("NRES", "").split(",") if x])))
 
 
 if __name__ == "__main__":

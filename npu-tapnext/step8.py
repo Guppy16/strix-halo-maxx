@@ -80,6 +80,7 @@ class Step8:
         plan8.XROT, plan8.XPH = int(bj.get("xrot", 0)), 0
         plan8.IL = bool(bj.get("il", False))  # round 20: mlp0 rr + split drain, mlp3_a half 1 first
         plan8.DAPRE = bool(bj.get("dapre", False))  # round 20: down_a half 1 first
+        plan8.NRES = tuple(bj.get("nres", []))  # round 20: norms whose panels go on chip to the next GEMM's A slot
         plan8.AL1 = bool(bj.get("al1", False))  # round 17: params fills padded to 1 KB (the per-head SSM stride: op["pstride"])
         self.nph, self.phase = max(plan8.XROT, 1), 0
         self.p_all, self.info_all = full_step(MAX_DEPTH)  # every block: the weights are packed once for all depths
@@ -191,10 +192,10 @@ class Step8:
                 pre = f"blocks.{int(b[1:])}."
                 if name in ("norm0", "norm1"):
                     key = pre + "ssm_block." + ("temporal_pre_norm" if name == "norm0" else "channel_pre_norm") + ".scale"
-                    put_w(op["params_w"], P.norm_params("rms", sd[key], n_in=op["n_in"]))
+                    put_w(op["params_w"], P.norm_params("rms", sd[key], n_in=op["n_in"], nres=op.get("nres", False)))
                 else:
                     ln = pre + "vit_block." + ("ln_1" if name == "norm2" else "ln_2")
-                    put_w(op["params_w"], P.norm_params("ln", sd[ln + ".weight"], sd[ln + ".bias"], n_in=op["n_in"]))
+                    put_w(op["params_w"], P.norm_params("ln", sd[ln + ".weight"], sd[ln + ".bias"], n_in=op["n_in"], nres=op.get("nres", False)))
             elif op.get("fn") == "ssm":  # (round 17: XROT also packs the four phases' copies, header word 2 = 1 + phase)
                 pre = f"blocks.{int(op['name'].split('_')[0][1:])}.ssm_block.recurrent_block."
                 cw, cb = sd[pre + "conv_1d.w"], sd[pre + "conv_1d.b"]

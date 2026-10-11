@@ -45,7 +45,10 @@ P23 = os.environ.get("P23") == "1"
 # step 8 (group "<name>#0" = steps 0-7 = mlp3_a's whole A), and mlp3_a's A loaded half 1 first (chunks 12-23 into the half mlp0
 # leaves free, while mlp0 still runs), then half 0 as mlp0's last sends free it (design8: per-half full locks).
 IL = os.environ.get("IL") == "1"
-DAPRE = os.environ.get("DAPRE") == "1"  # round 20 (research rev 15 R4 / DAPRE): down_a's A half 1 first too (it loads during up_b)
+DAPRE = os.environ.get("DAPRE") == "1"
+# round 20 (research rev 16 NRES): the named norms (e.g. "norm1,norm3") send their panels from the EW core's MM2S 1 straight into
+# memtile c's A slot half 0 (rb-major: unit (rb, q) at rb 6,912 + q 576); only X' goes to DDR; the GEMM after the norm loads no A
+NRES = tuple(x for x in os.environ.get("NRES", "").split(",") if x)  # round 20 (research rev 15 R4 / DAPRE): down_a's A half 1 first too (it loads during up_b)
 # round 15 (research rev 10 P60g): P60G=1 deals the attention's query half tiles (3 row blocks, 1,728 B per head) across the
 # columns in the two GATHERS only (the attention Q fill and out_proj's A fill; drains, K / V, cores, host unchanged), so the
 # lazy-max slow rows (clustered in the lower image) spread over the columns that the K / V multicast keeps in lockstep.
@@ -167,7 +170,7 @@ class Plan:
 
     # ---- ops -----------------------------------------------------------------------------------------------------
     def gemm(self, name, src, K, nt, epi="plain", dst=None, flags=None, bias_in=True, reuse_a=False, rr=False, deal=False, split=0,
-             h1first=False):
+             h1first=False, nres=False):
         """A GEMM over the frame: A from `src`, N = 3 * nt * 64 (row r takes N-tiles [r nt, (r+1) nt)), epilogue `epi`.
         `flags`: per-tile epilogue codes (default: all `epi`). The weights go to W at op["w"] (pack8.pack_gemm).
         `reuse_a` (A_HALF only): the A slot still holds this op's A (the previous slot op read the same K=768 region): no load."""
@@ -230,6 +233,12 @@ class Plan:
             prev = next(o for o in reversed(self.ops) if o["kind"] in ("gemm", "attn"))
             assert prev["kind"] == "gemm" and prev["src"] is src and prev["K"] == K == 768, (name, "reuse_a needs the previous slot op's A")
             op["reuse_a"] = True
+            if prev.get("nres"):
+                op["nres"] = True  # (the slot holds the NRES layout: this op's sends read it too)
+        if nres:  # round 20 NRES: the A arrives from the norm on chip (no fill, no load); the previous op must be that norm
+            assert K == 768 and A_HALF and self.ops[-1]["kind"] == "ew" and self.ops[-1].get("nres") and self.ops[-1]["dst"] is src, name
+            op["a"] = [[] for _ in range(COLS)]
+            op["nres"] = True
         self.ops.append(op)
         for k in self._keys(dst, K=None, nq=nobj if epi in ("gated", "gelu_pan") else None):
             self.writer[k] = name + "#0" if split and k[1] == 0 else name
@@ -272,7 +281,7 @@ class Plan:
         self.writer[(dst["base"], 0)] = name
         return dst
 
-    def norm(self, name, mode, srcs, params_w, dst=None, params_bytes=None):
+    def norm(self, name, mode, srcs, params_w, dst=None, params_bytes=None, nres=False):
         """Elementwise norm op on the row-3 cores: X' = sum(srcs) (bf16); panels = norm(X') or (none) X'; mode ln_out
         writes the LN result into the X' part. `srcs`: 1-3 Q16 regions at equal distances (their X' parts)."""
         srcs = sorted(srcs, key=lambda s: s["base"])  # the sum is commutative: stream order = address order
@@ -289,9 +298,11 @@ class Plan:
             params_bytes = kb_pad(3 * SLOT if mode in ("rms", "none") else 5 * SLOT)  # header slot + vectors (AL1: padded)
         fills = [[self.tap("w", params_w, [1, 1, 1, params_bytes], [0, 0, 0, 1]),
                   self.tap("act", srcs[0]["base"] + c * srcs[0]["col"], [RB, 12, max(n_in, 1), XB], [UNIT, KSTEP16, d, 1])] for c in range(COLS)]
-        drains = [self.tap("act", dst["base"] + c * dst["col"], [RB, 12, 1, UNIT], [UNIT, KSTEP16, 0, 1]) for c in range(COLS)]
+        drains = [self.tap("act", dst["base"] + c * dst["col"], [RB, 12, 1, XB if nres else UNIT], [UNIT, KSTEP16, 0, 1]) for c in range(COLS)]
         self.ops.append(dict(kind="ew", fn="norm", name=name, mode=mode, n_in=n_in, params_w=params_w, params_bytes=params_bytes,
                              fills=fills, c=drains, dst=dst, srcs=srcs))
+        if nres:  # round 20 NRES: X' only to DDR (1,024 B per unit); the panels go to the memtile A slot
+            self.ops[-1]["nres"] = True
         return dst
 
     def ssm(self, name, area, params_w, params_rot=None):
@@ -322,7 +333,7 @@ class Plan:
 
     # ---- serialisation for the design (compile-time) -------------------------------------------------------------
     def sched_json(self):
-        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first")
+        keep = ("kind", "fn", "name", "K", "nt", "N", "epi", "flags", "nsend", "w", "a", "b", "c", "fills", "passes", "mode", "n_in", "deps", "reuse_a", "rr", "split", "h1first", "nres")
         return json.dumps([{k: op[k] for k in keep if k in op} for op in self.ops])
 
 
@@ -372,8 +383,8 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
     for b in range(alloc_depth):
         wb = w[b] = {}
         wb["norm0"] = p.alloc_w(kb_pad(3 * SLOT))
-        p.norm(f"b{b}_norm0", "rms", prev, wb["norm0"], dst=r["R0"])
-        p.gemm(f"b{b}_yx", r["R0"], 768, 8, epi="gelu", flags=["gelu"] * 12 + ["plain"] * 12, dst=areas[b]["yx"], rr=True)
+        p.norm(f"b{b}_norm0", "rms", prev, wb["norm0"], dst=r["R0"], nres="norm0" in NRES)
+        p.gemm(f"b{b}_yx", r["R0"], 768, 8, epi="gelu", flags=["gelu"] * 12 + ["plain"] * 12, dst=areas[b]["yx"], rr=True, nres="norm0" in NRES)
         wb["ssm"] = p.alloc_w(12 * kb_pad(SSM_PARAM_BYTES))
         if XROT:  # round 17: the four phases' params (header word 2 = 1 + phase)
             wb["ssm_rot"] = p.alloc_w(4 * 12 * kb_pad(SSM_PARAM_BYTES))
@@ -381,20 +392,20 @@ def full_step(depth=12, skip=(), alloc_depth=MAX_DEPTH, phase=None):
             p.ssm(f"b{b}_ssm", areas[b], wb["ssm"], wb.get("ssm_rot"))
         p.gemm(f"b{b}_out", areas[b]["z"], 768, 4, dst=r["R1"])
         wb["norm1"] = p.alloc_w(kb_pad(3 * SLOT))
-        p.norm(f"b{b}_norm1", "rms", [r["R1"], r["R0"]], wb["norm1"], dst=r["R2"])
-        p.gemm(f"b{b}_up_a", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=0))
+        p.norm(f"b{b}_norm1", "rms", [r["R1"], r["R0"]], wb["norm1"], dst=r["R2"], nres="norm1" in NRES)
+        p.gemm(f"b{b}_up_a", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=0), nres="norm1" in NRES)
         p.gemm(f"b{b}_up_b", r["R2"], 768, 16, epi="gated", dst=dict(r["G"], q0=24), reuse_a=True)
         p.gemm(f"b{b}_down_a", dict(r["G"], q0=0), 1536, 4, dst=r["D1"], h1first=DAPRE)
         p.gemm(f"b{b}_down_b", dict(r["G"], q0=24), 1536, 4, dst=r["D2"], bias_in=False)
         wb["norm2"] = p.alloc_w(kb_pad(5 * SLOT))
-        p.norm(f"b{b}_norm2", "ln", [r["D1"], r["D2"], r["R2"]], wb["norm2"], dst=r["R3"])
-        p.gemm(f"b{b}_qkv", r["R3"], 768, 12, epi="qkv", dst=r["QKV"], rr=True)
+        p.norm(f"b{b}_norm2", "ln", [r["D1"], r["D2"], r["R2"]], wb["norm2"], dst=r["R3"], nres="norm2" in NRES)
+        p.gemm(f"b{b}_qkv", r["R3"], 768, 12, epi="qkv", dst=r["QKV"], rr=True, nres="norm2" in NRES)
         if "attn" not in skip:
             p.attn(f"b{b}_attn", r["QKV"], dst=r["O"])
         p.gemm(f"b{b}_out_proj", r["O"], 768, 4, dst=r["R4"], deal=P60G)
         wb["norm3"] = p.alloc_w(kb_pad(5 * SLOT))
-        p.norm(f"b{b}_norm3", "ln", [r["R4"], r["R3"]], wb["norm3"], dst=r["R5"])
-        p.gemm(f"b{b}_mlp0", r["R5"], 768, 16, epi="gelu_pan", dst=dict(r["M"], q0=0), rr=IL, split=8 if IL else 0)
+        p.norm(f"b{b}_norm3", "ln", [r["R4"], r["R3"]], wb["norm3"], dst=r["R5"], nres="norm3" in NRES)
+        p.gemm(f"b{b}_mlp0", r["R5"], 768, 16, epi="gelu_pan", dst=dict(r["M"], q0=0), rr=IL, split=8 if IL else 0, nres="norm3" in NRES)
         p.gemm(f"b{b}_mlp3_a", dict(r["M"], q0=0), 1536, 4, dst=r["D3"], h1first=IL)
         p.gemm(f"b{b}_mlp3_b", dict(r["M"], q0=24), 1536, 4, dst=r["D4"], bias_in=False)
         prev = [r["D3"], r["D4"], r["R5"]]
