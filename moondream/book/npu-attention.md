@@ -14,7 +14,7 @@ built it (`p8/attn.cc`) and measured 3.78 ms: **102 ms per frame**, 3.8x over th
 vector work: 9.9 KB of spills, 288 register transposes and 576 block loads per chunk. The path to that number was itself a list of toolchain traps
 (MD NOTES phase 8): the first dispatch timed out because IRON's `acquire(n)` holds n objects in total (two `acquire(1)` against one
 `release(2)` drifted the locks); a vectorised reduction was wrong because of a shuffle lane mapping (rms 2.9e-2, found by dumping the row maxima); there is no
-fp32 64-lane `aie::transpose`; the 8-lane bf16 `aie::max` returns wrong values; Peano crashes on vectors assigned under runtime conditions.
+fp32 64-lane `aie::transpose`; the 8-lane bf16 `aie::max` returns wrong values; Peano aborts (assertion) on vectors assigned under runtime conditions.
 
 ## Phase 9: the build trail
 
@@ -86,7 +86,7 @@ pool 16 (99.6 % against 99.4 % for the GPU path); the flips are tv frames the GP
 - [F7](../../common/book/negative-results.md#f7) <!-- nr: F7 --> the elementary-function unit: exp2 ~4 bits, `inv` ~1 ulp (fine for 1/sum, not for P).
 - [F8](../../common/book/negative-results.md#f8) <!-- nr: F8 --> the 8-lane bf16 max returned wrong values; use 16 or 32 lanes.
 - [G5](../../common/book/negative-results.md#g5) <!-- nr: G5 --> re-seeking a block-vector stream (v12): the fill pointer is not where you think.
-- [G7](../../common/book/negative-results.md#g7) <!-- nr: G7 --> vectors assigned under a runtime condition crash Peano ("Bad PHI"); apply masks unconditionally.
+- [G7](../../common/book/negative-results.md#g7) <!-- nr: G7 --> vectors assigned under a runtime condition make Peano abort ("Bad PHI" assertion); apply masks unconditionally.
 - [D2](../../common/book/negative-results.md#d2) <!-- nr: D2 --> v8's K/V broadcast: fewer bytes, no gain.
 - [N12](../../common/book/negative-results.md#n12) <!-- nr: N12 --> the hand-scheduled score block matched Peano (162 vs ~160 cycles) and changed nothing; the exp block is the target. [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 --> is the GEMM's first hand schedule.
 - [N8](../../common/book/negative-results.md#n8) <!-- nr: N8 --> Floor rounding as the default for v2 to v7: every number before v7r is in the wrong mode.

@@ -1,27 +1,26 @@
 ---
 name: xdna2-npu
-description: Hardware and toolchain rules for building, running, verifying and timing hand-written kernels on testbox's XDNA2 NPU (Strix Halo, AIE2P) with IRON/mlir-aie + Peano - the asm route, the bfp16 codec, dispatch and safety. Load before any NPU build or dispatch. For project knowledge (what was tried, why, results) load book-read instead.
+description: Hardware and toolchain rules for building, running, verifying and timing hand-written kernels on the XDNA2 NPU (Strix Halo, AIE2P) with IRON/mlir-aie + Peano - the asm route, the bfp16 codec, dispatch and safety. Load before any NPU build or dispatch. For project knowledge (what was tried, why, results) load book-read instead.
 ---
 
-Canonical copy: the strix-halo-maxx repo, `.claude/skills/xdna2-npu/SKILL.md` (testbox: ~/git/app/strix-halo-maxx). Edit it there; other copies are synced from it.
+Canonical copy: the strix-halo-maxx repo, `.claude/skills/xdna2-npu/SKILL.md`. Edit it there.
 
-# XDNA2 NPU on testbox — how to work
+# XDNA2 NPU — how to work
 
-The NPU is the 32-core AIE2P array (8 columns x 4 rows, memtile per column) in testbox's Strix Halo. This skill is the
+The NPU is the 32-core AIE2P array (8 columns x 4 rows, memtile per column) in Strix Halo. This skill is the
 rule list (learned over the moondream phases and the TAPNext++ rounds). The explanations, numbers and failed ideas are in
 the book: load the `book-read` skill and start at `common/book/README.md`. Progress state is in `tapnext/npu/HANDOFF.md`.
 
 ## 1. Environment
-- **Repo (2026-10-10):** the NPU work lives in the git repo `~/git/app/strix-halo-maxx/` on testbox; `.scratch/npu-{tapnext,research,moondream}`
-  are absolute symlinks into it. Every `docker run` that mounts `-v $HOME/git/app/.scratch:/work` must ALSO mount
-  `-v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx`, or `/work/npu-*` is a dangling link inside the container.
+- **Repo:** the NPU work lives in this git repo; `$SHM_SCRATCH/npu-{tapnext,research,moondream}`
+  (`SHM_SCRATCH` defaults to `<repo root>/../.scratch`) are absolute symlinks into it. Every `docker run` that mounts `-v $SHM_SCRATCH:/work` must ALSO mount
+  `-v <repo root>:<repo root>`, or `/work/npu-*` is a dangling link inside the container.
   Commit locally (one commit per kept change or failed experiment, measured ms + predicted vs measured); never push.
-- **All compute on testbox (user, round 17)**: generators, CP-SAT (`nice -n 10`, <= 12 workers), sims and tools run there; edit on
-  testbox (source of truth); the laptop only for ssh / reading and the end-of-round mirror rsync.
+- **All compute on the test machine**: generators, CP-SAT (`nice -n 10`, <= 12 workers), sims and tools run there; edit there
+  (source of truth).
 
-- `ssh testbox`. Repo `~/git/app`; scratch work under `~/git/app/.scratch/<project>/` (never in /tmp, never in the
-  app package). The laptop is only where code is written: edit locally, `scp` to testbox, run there.
-- **Docker only for NPU work.** Images on testbox:
+- Scratch work goes under `$SHM_SCRATCH/<project>/` (never in /tmp).
+- **Docker only for NPU work.** Images on the test machine:
   - `npu-iron`: Ubuntu 25.10, XRT 2.21 (pyxrt at `/opt/xilinx/xrt/python`), mlir-aie 1.4.4 IRON in
     `/opt/ironenv` (python 3.13: `/opt/ironenv/bin/python`), Peano/llvm-aie at
     `/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin`, numpy, ml_dtypes, `aie.utils.bfp`.
@@ -32,12 +31,12 @@ the book: load the `book-read` skill and start at `common/book/README.md`. Progr
   Builds (CPU only) drop `--device`. Mount the parent of your workspace as `/work` so the design's include path
   `/work/npu-moondream/mlir-aie/aie_kernels` (the `aie_kernels` headers checkout lives in the moondream workspace)
   resolves; adjust `INC` in the design if you mount differently.
-- Python inside the container is 3.13: a module written for 3.14's lazy annotations (app's `model.py`) needs
+- Python inside the container is 3.13: a module written for 3.14's lazy annotations (the TAPNext `model.py`) needs
   `-> "Cls"` quoting or `exec` with a text patch.
 - Host driver amdxdna 2.21 (Jan 2026) works with mlir-aie 1.4.4. **Core clock 1.81 GHz in Turbo** (measured round 7,
   tapnext/npu/r7/clk.py: pure-register loops, host-timed slope and the core timer agree; the driver's top DPM level is
   1.8 GHz; the old "1.43" was a stalled spin loop). `xrt-smi examine -r all` (with --ulimit memlock) shows the mode;
-  the user sets it with sudo - say which mode every number was taken in.
+  the mode is set manually with sudo - say which mode every number was taken in.
 
 ## 2. Building a program (IRON route)
 
@@ -82,8 +81,8 @@ the book: load the `book-read` skill and start at `common/book/README.md`. Progr
   stride)` + `runs=size`: one chunk per run with its own lock acquire / release). A BD takes one acquire AND one release, or
   neither (a lone acquire is refused). Push an op's tasks before any wait of that op: a blocked push may only wait on
   work already issued. Locks used only by tasks need `rt.add_lock`.
-- **Packet router bug (IRON 1.4.4 pathfinder)**: a multicast packet flow to two DMA channels of one tile is routed
-  correctly alone, but when unicast flows also target those channels it silently drops a destination (no rule; the
+- **Packet router behaviour (IRON 1.4.4 pathfinder)**: a multicast packet flow to two DMA channels of one tile is routed
+  correctly alone, but when unicast flows also target those channels a destination was missing from the generated rules (no rule; the
   dispatch hangs). Check `masterset`/`rule` lines in input_with_addresses.mlir for every multicast (npu-tapnext
   r10/pf1.mlir reproduces it with `aie-opt --aie-create-pathfinder-flows`). Tile / memtile BDs refuse stride 0.
 - Runtime tasks (IRON 1.4.4, design8): `TaskGroup.finish()` awaits the group's `wait=True` transfers and then FREES
@@ -141,7 +140,7 @@ the book: load the `book-read` skill and start at `common/book/README.md`. Progr
   not use it for softmax/GELU. Exact exp: z = x log2e via bf16 hi/lo MACs, n = round(z) by adding 1.5*2^23 in
   the MAC unit (fp32 ulp 1; low 16 bits of the result = n), f = z - n, 2^f cubic on f, f^2, f^3, 2^n assembled
   as int16 `(n << 7) + 0x3F80` (phase-9 v9/v15 `exp32`). 8-lane bf16 `aie::max` returns wrong values: use 16/32
-  lanes. Peano crashes on vectors assigned under runtime conditions and on `aie::select` ("Bad PHI"): mask
+  lanes. Peano aborts on vectors assigned under runtime conditions and on `aie::select` ("Bad PHI" assertion): mask
   arithmetically. `aie::add(acc, acc)` and `aie::filter_even` are native.
 - Peano schedules long elementwise chains at ~1 op/bundle (register-allocation-bound; more chains = spills) and
   its mmul loops are near the chain bound already: measure the slot/latency bound against a hardware trace
@@ -280,7 +279,7 @@ the book: load the `book-read` skill and start at `common/book/README.md`. Progr
   not the slots, decides the II; msched's IMS + sink pass lands 2-3 above ResMII or fails to allocate. A CP-SAT model (one-hot
   issue cycles; slots, itinerary ports, banks modulo II; the exact steady-state MaxLive per register class; `maxdist` to keep
   a stream's ops of one iteration in order inside one II; `last_stage`; `max_life` to bound the unroll U) found II 6 / 12 / 16
-  where msched did not. OR-tools is not on testbox: solve on the laptop (`uv run --no-project --with ortools python ...`), save
+  where msched did not. OR-tools may not be installed: run it with `uv run --no-project --with ortools python ...`, save
   the schedule as JSON, replay it in the build (`msched.Loop.place`). `vmsc s, sh, 1.0` instead of `vmac s, sh, -1.0` frees a
   constant register (exact, bit-identical).
 - **Side-effect ops only in the LAST stage** (round 12): the drain runs the early stages of garbage iterations past the end,
@@ -550,8 +549,8 @@ the book: load the `book-read` skill and start at `common/book/README.md`. Progr
   regions in one TAP when they arrive in a linear order ([2, half, RB, XB], first stride = the gap).
 - Dispatch-time noise under a foreign CPU load is bimodal (~0.17 ms clusters): compare p10 / median / mean over 200 iterations
   interleaved with the baseline (step8 SPREAD), never one 60-iteration median.
-- Compute placement (user rule, round 17): every CP-SAT / generator / python run on testbox (`nice -n 10`, <= 12 solver workers;
-  ortools via `~/.local/bin/uv run --no-project --with ortools --with numpy`), never on the laptop.
+- Compute placement: every CP-SAT / generator / python run on the test machine (`nice -n 10`, <= 12 solver workers;
+  ortools via `uv run --no-project --with ortools --with numpy`).
 - **`add rX, rY, #imm` takes a 7-bit signed immediate (round 18)**: `#64` assembled SILENTLY as `#-64` (a hang). Pass such
   constants from C++ and read the disassembly of every new preamble. asmlint IMM-SRC (rev 15) checks every immediate of a .s
   against its .td operand type on the SOURCE text (the disassembly of a wrapped value looks legal).
@@ -889,19 +888,19 @@ the numerics: `moondream-opt/bfpemu.py`, `tapnext/npu/davis_npu.py` (`bfp_quanti
 
 - NPU work only inside Docker; no host installs, no sudo, no driver/firmware/power-mode changes, no systemd, no
   listening ports. Remove only containers you created (`--rm` or `docker rm -f <yours>`), leave none running.
-- No GPU use unless the coordinator explicitly allows it; then only via
-  `~/git/app/.scratch/moondream-opt/gpu_safe.sh <log> <cmd>` (venv `venv-rocm714`), one GPU process at a time,
-  short jobs (a GPU emulation job overlapped another agent's load when the GPU hung on 2026-10-09 00:01).
-- Never touch the live app server (tmux `app`), voice model (:PORT), LLM server, gpu_guard, the user's phone, or
-  other tenants' containers/processes. `pkill`/`pgrep` only with the bracket trick (`pgrep -f '[n]ame'`).
-- Never read or print `.env`. Clean `/tmp` and your scratchpad when done; keep work under `.scratch/`.
+- GPU use only when it is free and allowed on the machine; then only via
+  `moondream/gpu/gpu_safe.sh <log> <cmd>`, one GPU process at a time, short jobs (a GPU emulation job that overlapped
+  another GPU load once hung the GPU). Never `kill -9` a GPU process.
+- Never touch other users' services, containers or processes. `pkill`/`pgrep` only with the bracket trick
+  (`pgrep -f '[n]ame'`). Ask before using any shared resource (ports, services, installs).
+- Never read or print `.env` files. Clean `/tmp` and temporary files when done; keep work under `$SHM_SCRATCH`.
 - Long steps run in the background waiting on process exit with timeouts (not on log markers); one dispatch +
   short timeout for every new design; separate measured from extrapolated in every report and label the power
   mode and GPU contention.
 
-## 10. Where things are (testbox, the repo `~/git/app/strix-halo-maxx/`)
+## 10. Where things are
 
-In `~/git/app/.scratch/`, `npu-tapnext`, `npu-research` and `npu-moondream` are symlinks to the repo's `tapnext/npu`,
+In `$SHM_SCRATCH`, `npu-tapnext`, `npu-research` and `npu-moondream` are symlinks to the repo's `tapnext/npu`,
 `tapnext/research` and `moondream/npu`; Docker mounts .scratch at /work, so `/work/npu-tapnext/...` paths still work.
 Shared tools and the timing table are in `common/tools/`, the hardware model in `common/MACHINE.md`, the book in
 `common/book/` (with the negative-results index).
@@ -957,7 +956,7 @@ Shared tools and the timing table are in `common/tools/`, the hardware model in 
   current best's flags), commit.sh (commit with a message file). Flags: EW_DEFS SQK INPART_INLINE XONE GGK SSQ (replaces SSX)
   SIG10 N1K, NPROF (norm-step stamps; PROF no longer fits), twins NORM_TWIN=2 / 4.
 - `tapnext/npu/r17/` (round 17): try17.sh (r16z base), xtry.sh (XROT=4 phase builds + regress / time / sweep), xrotsim.py (state
-  flow of the rotation), cp_attks.sh (CP on testbox), attks.json (S2 schedule). Flags: mm8 ATTKS2MAX (gen_attkb --s2); EW_DEFS XROT
+  flow of the rotation), cp_attks.sh (CP run), attks.json (S2 schedule). Flags: mm8 ATTKS2MAX (gen_attkb --s2); EW_DEFS XROT
   (+ plan XROT=4), AL1 (+ plan AL1=1), NPIPE / NPIPE_G, CPROF (conv split stamps); NPROF stamps out_begin too (record word 19).
 - `tapnext/npu/r18/` (round 18): try18.sh (current best's flags), ab.py (one-process A/B), dmab.py/.cc/.s (DMA-vs-core bank bench),
   ksp38.py (+ mm8 -DKSP38), gen_rot.py (research's ROT generator + ROT_ACQ_GAP / ROT_REL_GAP), mm_rot_g2a.s/.h (deployed ROT),
@@ -1036,4 +1035,4 @@ Shared tools and the timing table are in `common/tools/`, the hardware model in 
   `davis_cpu.py`, `design6.py` (+ `RA_K` env), `attn_tn.*` (attention for 12 heads x 1072 x 64), `npu_step.py`
   (the old prototype), `davis_npu.py`, `build/` (s7_*.xclbin, op_nt*.xclbin, attn_tn.xclbin, tn_gemm_A).
 - `tapnet/`: the TAPNext++ exploration (tnpp.py, davis.py + TAP-Vid DAVIS data, bench/prof scripts, RESULTS.md).
-- Memory notes: `npu-kernel-learnings`, `npu-moondream`, `tapnext-tracker`, `strix-box-facts`.
+

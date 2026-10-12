@@ -1,8 +1,8 @@
 # moondream2 latency optimisation on Strix Halo (gfx1151) -- results log
 
-Box: testbox, Radeon 8060S (gfx1151), torch 2.14.0+rocm7.2, transformers 4.57.6, moondream2 rev 2025-06-21, bf16.
-Test set: 493 phone frames (720x1280) from ~/git/app/data/sessions/*/judged.jsonl, tasks mug (91 frames, 7 found) and tv (402 frames, 46 found).
-Question: "Is there a <obj> in this image? Answer yes or no."  Label yes := Qwen judge status "found".
+Box: Radeon 8060S (gfx1151), torch 2.14.0+rocm7.2, transformers 4.57.6, moondream2 rev 2025-06-21, bf16.
+Test set: 493 camera frames (720x1280) from a private set of camera frames (not included; `$MD_FRAMES/*/judged.jsonl`), tasks mug (91 frames, 7 found) and tv (402 frames, 46 found).
+Question: "Is there a <obj> in this image? Answer yes or no."  Label yes := VLM-judge status "found".
 Latency: median over the whole test set (a different frame every run), torch.cuda.synchronize() around encode and query.
 
 ## Baseline (stock HF bf16, 378x378 squash, model.encode_image + model.query temp=0)
@@ -236,15 +236,14 @@ bf16 fused GELU: the Triton path applies F.gelu to the bf16-rounded fc1 output; 
   HLin(x, gelu=True) == F.gelu(TLin(x)) bit-exactly on all 6 vision shapes (test_hgemm.py). (First 493-frame run before this change: 97.6%, 2 tv flips.)
 
 ## FINAL round 3 (bench.py default = HLin/HI8Lin, full 493-frame test set; run_docker_vs_host.sh, logs_dvh_host.txt / logs_dvh_docker.txt)
-NOTE on the environment: during this run another user's LLM server llama-server (Qwen3.6-35B-A3B on the ROCm backend, started a few minutes earlier,
-driven by app-server at ~1 call/s) kept gpu_busy_percent at 93-100%; the earlier 150-frame runs were at 0-5%. Host and container were measured
+NOTE on the environment: during this run another GPU process (an LLM server) kept gpu_busy_percent at 93-100%; the earlier 150-frame runs were at 0-5%. Host and container were measured
 back-to-back under the same load, so the comparison holds; absolute numbers may be a few % pessimistic (150-frame run at idle GPU: 82.5 / 9.0 / 91.5).
 | where | code | accuracy | agreement w/ stock | encode | query | total | throughput nq=1 | throughput nq=2 |
 |---|---|---|---|---|---|---|---|---|
 | host venv-rocm714 (torch 2.14.1+rocm7.14, HIP 7.14.60850) | HLin/HI8Lin | 98.0% (tv fp=10, mug 100%) | 99.4% | 79.6 ms | 9.0 ms | 88.7 ms | 10.80-10.94 frames/s | 10.59-10.68 frames/s = 21.2-21.4 answers/s |
 | docker rocm/dev-ubuntu-24.04:7.14.1-full, venv-c714 (same torch wheel, python 3.12) | same | 98.0% (identical) | 99.4% | 79.4 ms | 9.0 ms | 88.4 ms | 10.51-10.88 frames/s | 10.55-10.61 frames/s = 21.1-21.2 answers/s |
 Docker vs host gap: < 1% on every metric (same HIP build, same kernels; the container adds nothing on the GPU path -- seccomp=unconfined, /dev/kfd + /dev/dri passthrough).
-Sanity gate passes in both. CPU prep (JPEG decode + LANCZOS) 8.1-8.5 ms/frame outside the loop (slower than the 3 ms measured earlier: CPU shared with the 35B llama-server).
+Sanity gate passes in both. CPU prep (JPEG decode + LANCZOS) 8.1-8.5 ms/frame outside the loop (slower than the 3 ms measured earlier: CPU shared with another process).
 Previous best (Triton GEMMs, same session, idle GPU, 150 frames): 88.3 / 9.2 / 97.6 ms; stored FINAL of round 2: 95.1 / 9.3 / 104.4 ms (493 frames).
 => HIP WMMA GEMMs: encode -9%, total -6..-9%, numerics unchanged (bit-identical GEMM outputs to the Triton path, same 98.0% / 99.4% agreement).
 
@@ -275,5 +274,5 @@ What did not: hipBLASLt int8 (6-8 kernels, 33-41 TOPS, no fused scaling); the in
 tiles other than 128x128 (tail balance vs per-WG efficiency), prefetch distance 2, s_setprio, 16-wave WGs, A-direct variant; the WMMA flash attention
 (correct, 7-9% faster per call than SDPA, but only -0.5 ms in situ; 32-rows-per-wave variant spills) -> optional.
 Repro: see README.md "Commands" (bench.py / test_hgemm.py / verify.py HLin HI8Lin / test_throughput.py / run_docker_vs_host.sh) and "Building the kernels".
-Shared-GPU caveat: from ~00:00 on 2026-10-02 another user's llama-server (Qwen3.6-35B-A3B, ROCm backend) kept gpu_busy_percent at 93-100%;
+Shared-GPU caveat: on 2026-10-02 another GPU process (an LLM server) kept gpu_busy_percent at 93-100%;
 all final numbers were taken under that load (host and container back-to-back); idle-GPU 150-frame runs earlier gave 82.5 / 9.0 / 91.5 ms.

@@ -1,6 +1,6 @@
 # moondream on Strix Halo
 
-moondream2 for the app yes/no and grounding queries, on the gfx1151 GPU and on the XDNA2 NPU. The work predates the
+moondream2 for object-presence (yes/no) and grounding queries on camera frames, on the gfx1151 GPU and on the XDNA2 NPU. The work predates the
 TAPNext port and is not active now.
 
 | folder | what | headline |

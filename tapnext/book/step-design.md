@@ -155,7 +155,7 @@ All kept changes from round 9 on are bit-identical. Timings from rounds 3-11 pre
   phases. The mod-4 rotation gave the same gain with no wrap frame. Do not rebuild the sliding form.
 - [F1](../../common/book/negative-results.md#f1) <!-- nr: F1 --> the heads on one thread: the next frame's conv slows (OpenMP pool re-spin). Number not recorded.
 - [F2](../../common/book/negative-results.md#f2) <!-- nr: F2 --> numpy heads with OpenBLAS's default threads beside torch's pool: 11.7 ms vs 0.72 ms with one thread. Fixed.
-- [F3](../../common/book/negative-results.md#f3) <!-- nr: F3 --> host/device overlap levers (H1, H2): not attempted. The product runs in latency mode, where H1 cannot help.
+- [F3](../../common/book/negative-results.md#f3) <!-- nr: F3 --> host/device overlap levers (H1, H2): not attempted. In the latency-bound (single-frame) regime H1 cannot help.
 - A trap, not a dead idea: a 1 KB-padded EW fill hung the step ([E12](../../common/book/negative-results.md#e12) <!-- nr: E12 -->; details in [ssm.md](ssm.md#what-didnt-work), rules in [data-movement](../../common/book/data-movement.md#dma-bookkeeping)).
 
 ## Lessons

@@ -23,7 +23,7 @@ out.append(f"Raw greedy answers: {hist}. Recall is 100% on both tasks (every jud
 out.append("Sanity gate: judged_0060 mug -> yes (ok), judged_0000 black frame mug -> yes (FAIL). Agreement with the optimised moondream2 predictions: 38.9%.")
 out.append("Per-frame CPU latency: median encode 640 ms (vision 27 blocks + 730-token text prefill via W8A8 DynamicQuantizeMatMul), yes/no logits 41 ms, greedy 4-token query 111 ms.")
 out.append("\n## Step 2c: is the yes-bias a prompt/preprocessing artefact? (probe05.py)")
-out.append("* Captions are sensible (judged_0060 -> 'A [caption removed], filled with white tea, sits on a [removed]'; black frame -> 'A dark blue gradient ...'),")
+out.append("* Captions are sensible (the sanity frame is described as a mug on a table; the black frame as a dark gradient),")
 out.append("  so the model, tokenizer and preprocessing are working; the failure is acquiescence on closed questions.")
 out.append("* Four wordings on 18 frames (2 sanity + 8 found + 8 not found): 'Is there a X in this image? Answer yes or no.' 11/18 correct, 'Is there a X in this image?' 9/18,")
 out.append("  'Does this image contain a X? Answer yes or no.' 9/18, 'Can you see a X? Answer yes or no.' 9/18 -> every wording says yes on the black frame; the harness prompt is the least biased.")

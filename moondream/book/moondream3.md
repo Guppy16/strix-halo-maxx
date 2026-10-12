@@ -1,7 +1,7 @@
 # moondream3-preview and moondream 0.5B: two other models, both rejected
 
-App also needs grounding (a box or point for "the object"), which moondream2 does in ~460 ms per query. On 2026-10-09 moondream3-preview was benchmarked against
-moondream2 on the same 50 queries. The verdict: **not better at grounding on this set** (the same 44 correct by eye, one more wrong, the tiny-organiser case lost),
+Grounding queries (a box or point for a named object) are the second use of moondream2, which it answers in ~460 ms per query. On 2026-10-09 moondream3-preview was benchmarked against
+moondream2 on the same 50 queries. The verdict: **not better at grounding on this set** (the same 44 correct by eye, one more wrong, the tiny-object case lost),
 **~2.7x slower** (detect 1,290 ms against 464 ms) and **~4.5x the GPU memory** (19 GB against 4.4 GB) (MEASURED, [`moondream3-eval/NOTES.md`](../moondream3-eval/NOTES.md)). Earlier, the 0.5B
 model was tried as a smaller yes/no gate and failed outright: **38.5 % accuracy against 98.0 %**. Neither changes the plan in [overview](overview.md): moondream2 stays, on the
 [GPU fast path](gpu.md). moondream3 ran on the GPU through `gpu_safe.sh` and the 0.5B on the CPU; no NPU was involved.
@@ -13,8 +13,8 @@ model was tried as a smaller yes/no gate and failed outright: **38.5 % accuracy 
   `HF_HUB_OFFLINE=1`); a LoRA-adapter path calls the vendor's API and `torch.load`s a download, reachable only if a caller passes an `adapter` setting (we never do); no subprocess, `eval` or sockets otherwise.
   Licence: BSL 1.1, Apache-2.0 after two years; internal use is fine.
 - **Segmentation is not in the open weights**: no `segment` method, template or mask head. It is cloud-only, so it was not tried.
-- **Same grading as the production replay**: first box with IoU > 0.5 against a labelled answer; points inside the smallest labelled box. On md2's old results the scorer gives 44 correct / 4 wrong / 1 unlabelled,
-  matching the earlier 44/48 baseline. Queries are the 50 in `grounding-2026-10-09.json` on full 720x1280 frames.
+- **Same grading as the earlier replay script**: first box with IoU > 0.5 against a labelled answer; points inside the smallest labelled box. On md2's old results the scorer gives 44 correct / 4 wrong / 1 unlabelled,
+  matching the earlier 44/48 baseline. Queries are 50 grounding queries on everyday objects (a private set, not included) on full 720x1280 frames.
 - Same venv as the fast path (torch 2.14.1 + ROCm 7.14, transformers 4.57.6), GPU otherwise idle, medians over 50 queries.
 
 ## Results
@@ -29,13 +29,13 @@ model was tried as a smaller yes/no gate and failed outright: **38.5 % accuracy 
 | detect on a pre-encoded image | 92 ms | 450 ms | 365 ms |
 | detect: correct / wrong / unlabelled (49 graded) | 44 / 4 / 1 | 42 / 3 / 4 | same boxes as eager on 43 of 50 |
 | point: correct / wrong / partial / unlabelled | 41 / 7 / 0 / 1 | 43 / 4 / 1 / 1 | same |
-| object present (12), detect | 12 | 11 | |
+| small-object query, object present (12), detect | 12 | 11 | |
 | absent (10): nothing returned, detect / point | 8 / 4 | 8 / 6 | |
 
-After judging the four unlabelled md3 boxes by eye (LED boxes correct, tighter than the labels; a blurred strip and an extension block wrong), md3 detect is 44 correct / 5 wrong against 44 / 4.
-Disagreements: md3 gains the water bottle (picks the left one) and the black frame (returns nothing); it loses the tiny far object (boxes a bottom-edge strip) and boxes a object for the absent organiser.
+After judging the four unlabelled md3 boxes by eye (tiny-light boxes correct, tighter than the labels; a blurred strip and a neighbouring object wrong), md3 detect is 44 correct / 5 wrong against 44 / 4.
+Disagreements: md3 gains one two-instance query (picks the left one) and the black frame (returns nothing); it loses a tiny far object (boxes a bottom-edge strip) and boxes an unrelated part of the scene for an absent object.
 Caption and query latency (5 frames, default sampling): md3 eager 2.95 s short caption, 2.91 s query, 7.6 s with reasoning, against 1.39 s and 1.08 s for md2; compiled 2.27 and 1.91 s.
-md3 is better as a presence test through `point` (6 of 10 absent frames correct against 4), which is not how App uses it. All of this is MEASURED.
+md3 is better as a presence test through `point` (6 of 10 absent frames correct against 4), which is not the grounding use case. All of this is MEASURED.
 
 ## moondream 0.5B as a yes/no gate
 
@@ -51,25 +51,25 @@ md3 is better as a presence test through `point` (6 of 10 absent frames correct 
 ## What worked
 
 - Reading all third-party code before running it, pinning revisions and running offline: the only network paths were found and closed.
-- Re-using the production grader on the old results first (44 correct / 4 wrong) to validate the harness before judging the new model.
-- Looking at the unlabelled boxes by eye rather than counting them as wrong: two of the four unlabelled md3 detections (the tiny LEDs) were correct.
+- Re-using the earlier grader on the old results first (44 correct / 4 wrong) to validate the harness before judging the new model.
+- Looking at the unlabelled boxes by eye rather than counting them as wrong: two of the four unlabelled md3 detections (the tiny lights) were correct.
 - A prompt/caption probe and a control object before concluding the 0.5B failure was real.
 
 ## What didn't work
 
-- [N34](../../common/book/negative-results.md#n34) <!-- nr: N34 --> **moondream3-preview for grounding**: no accuracy gain, 2.7x latency, 4.5x memory. The one clear win (`point` as a presence test) is not how the product asks.
+- [N34](../../common/book/negative-results.md#n34) <!-- nr: N34 --> **moondream3-preview for grounding**: no accuracy gain, 2.7x latency, 4.5x memory. The one clear win (`point` as a presence test) is not the grounding use case.
 - [N36](../../common/book/negative-results.md#n36) <!-- nr: N36 --> **`model.compile()`**: the first attempt was the no-op `nn.Module.compile` and detect took ~2.2 s for unexplained reasons (ignored); the real `model.model.compile()` gained ~7 % (1,204 against 1,290 ms) after a 39 s compile.
 - [N35](../../common/book/negative-results.md#n35) <!-- nr: N35 --> **moondream 0.5B**: 38.5 %; no checkpoint to port to the GPU; the threshold rescue works for one object of two.
 - **Segmentation**: only in the vendor cloud.
 
 ## Lessons
 
-- Compare models on the production metric and the production queries, with the labelled grader reproduced first. Two models can look alike on aggregate and differ on the one hard case that motivated the work.
+- Compare models on the target metric and the target queries, with the labelled grader reproduced first. Two models can look alike on aggregate and differ on the one hard case that motivated the work.
 - A smaller model that answers yes to everything plausible has full recall and no value as a gate; check the black frame and a control object.
 - A pre-release model's latency (1.3 s) and memory (19 GB) matter more than a point or two of accuracy on a shared box.
 
 ## Going deeper
 
 - `moondream/moondream3-eval/NOTES.md` (all numbers, code review), `bench.py`, `score.py`, `compare.py`, `overlay.py`; `moondream/gpu/RESULTS-0.5b.md`, `probe05.py`, `eval05.py`; snapshot commit `cddae92`.
-  The outputs and the user's frames are not in the repo.
+  The outputs and the private test frames are not in the repo.
 - The fast path both models were compared with: [gpu](gpu.md). The overall plan: [overview](overview.md).

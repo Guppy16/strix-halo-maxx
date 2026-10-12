@@ -1,7 +1,7 @@
 """moondream3-preview vs moondream2: detect + point on the 50 labelled grounding queries,
 then caption/query latency on 5 frames. One model per process.
 
-  gpu_safe.sh <log> timeout 1800 venv-rocm714/bin/python ~/git/app/.scratch/moondream3/bench.py md3 [--compile]
+  gpu_safe.sh <log> timeout 1800 venv-rocm714/bin/python bench.py md3 [--compile]
 
 -> results/<tag>_detect.jsonl, <tag>_point.jsonl, <tag>_vqa.jsonl, <tag>_summary.json
 """
@@ -14,7 +14,9 @@ import re
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.expanduser("~/git/app/data")
+# Private grounding set (not in the repo): MD_FRAMES is the sessions folder; its parent holds the frames
+# and grounding_queries.json.
+DATA = os.path.dirname(os.path.abspath(os.environ.get("MD_FRAMES", "frames/sessions")))
 MD3_REV = "5112966d1a723413b1c9a1e8bea272b72e647b35"
 STARMIE_REV = "35192e10a54e36eabe0a7cc57a2c1aab371cafc5"
 MD2_REV = "2025-06-21"
@@ -73,7 +75,7 @@ def load(which: str):
 
 def main(which: str, compile_: bool) -> None:
     tag = which + ("_compiled" if compile_ else "")
-    queue = json.load(open(f"{DATA}/box_queue/grounding-2026-10-09.json"))["items"]
+    queue = json.load(open(f"{DATA}/grounding_queries.json"))["items"]
     summary = dict(tag=tag, torch=torch.__version__)
     import transformers
 

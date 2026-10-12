@@ -5,8 +5,8 @@ agreement with the stock model; [`moondream/gpu/README.md`](../gpu/README.md)). 
 shapes, hand-written GEMMs instead of rocBLAS, int8 for the text model only, and a weight layout that avoids DRAM channel aliasing.
 A fifth, pooling the image tokens, changes the model input and reaches **~65 ms** at 98.4 %. This path is the baseline the NPU is
 measured against (vision GEMMs 20.7 ms in situ) and the other half of the pipelined design ([overview](overview.md)).
-Conditions: gfx1151, torch 2.14 + ROCm 7.14, HIP graphs, median over the test set, and for the final numbers another user's
-llama-server kept `gpu_busy` at 93-100 % (idle runs were a few percent faster; `RESULTS.md`, "FINAL round 3").
+Conditions: gfx1151, torch 2.14 + ROCm 7.14, HIP graphs, median over the test set, and for the final numbers another
+GPU process kept `gpu_busy` at 93-100 % (idle runs were a few percent faster; `RESULTS.md`, "FINAL round 3").
 
 ## The ladder
 

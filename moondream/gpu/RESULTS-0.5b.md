@@ -1,9 +1,9 @@
 # moondream 0.5B as a yes/no gate -- evaluation log (vs moondream2 1.9B)
 
-Box: testbox (Strix Halo, Ryzen AI MAX+ 395 / Radeon 8060S gfx1151). Test set and metric identical to RESULTS.md:
-493 frames from ~/git/app/data/sessions/*/judged.jsonl (mug: 91 frames / 7 found, tv: 402 frames / 46 found), question
-"Is there a <obj> in this image? Answer yes or no.", label yes := Qwen3-VL judge "found". Baselines on this set: stock moondream2 bf16
-97.8% / 345 ms; optimised moondream2 98.0% / 105 ms (bench.py). Sanity gate: sessA/judged_0060 mug -> yes, judged_0000 (black) -> no.
+Box: Strix Halo ( Ryzen AI MAX+ 395 / Radeon 8060S gfx1151). Test set and metric identical to RESULTS.md:
+493 frames from a private set of camera frames (not included) (mug: 91 frames / 7 found, tv: 402 frames / 46 found), question
+"Is there a <obj> in this image? Answer yes or no.", label yes := VLM judge "found". Baselines on this set: stock moondream2 bf16
+97.8% / 345 ms; optimised moondream2 98.0% / 105 ms (bench.py). Sanity gate: session A judged_0060 mug -> yes, judged_0000 (black) -> no.
 
 ## Step 1: which "moondream 0.5B" exists (checked on the Hub 2026-10-01)
 * `vikhyatk/moondream-0.5b` does NOT exist (HF API returns 401/not-found); no repo under vikhyatk/* or moondream/* has a 0.5B transformers checkpoint.
@@ -47,7 +47,7 @@ Sanity gate: judged_0060 mug -> yes (ok), judged_0000 black frame mug -> yes (FA
 Per-frame CPU latency: median encode 640 ms (vision 27 blocks + 730-token text prefill via W8A8 DynamicQuantizeMatMul), yes/no logits 41 ms, greedy 4-token query 111 ms.
 
 ## Step 2c: is the yes-bias a prompt/preprocessing artefact? (probe05.py)
-* Captions are sensible (judged_0060 -> 'A [caption removed], filled with white tea, sits on a [removed]'; black frame -> 'A dark blue gradient ...'),
+* Captions are sensible (the sanity frame is described as a mug on a table; the black frame as a dark gradient),
   so the model, tokenizer and preprocessing are working; the failure is acquiescence on closed questions.
 * Four wordings on 18 frames (2 sanity + 8 found + 8 not found): 'Is there a X in this image? Answer yes or no.' 11/18 correct, 'Is there a X in this image?' 9/18,
   'Does this image contain a X? Answer yes or no.' 9/18, 'Can you see a X? Answer yes or no.' 9/18 -> every wording says yes on the black frame; the harness prompt is the least biased.
@@ -78,4 +78,4 @@ moondream2 (105 ms exact / 67 ms pooled); if a smaller gate is wanted, candidate
 (e.g. a 0.5-1B Qwen-VL-class model with bf16 weights that can run on the GPU), not moondream 0.5B.
 
 Files: eval05.py (evaluation, venv05), probe05.py (prompt/caption probe), models/moondream-0_5b-int8.mf (official weights), ref/md05b-int8-onnx-cpu-lanczos378.json
-(per-frame predictions, margins, raw answers), logs_05b_full.txt. venv05 = ~/.local/bin/uv venv --python 3.12 venv05 && uv pip install moondream==0.0.6 (onnxruntime 1.30).
+(per-frame predictions, margins, raw answers), logs_05b_full.txt. venv05 = uv venv --python 3.12 venv05 && uv pip install moondream==0.0.6 (onnxruntime 1.30).

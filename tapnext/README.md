@@ -15,7 +15,7 @@ dispatch per frame. The output is bit-identical to the round-9 reference build `
 Reference: CPU bf16 AJ 70.98 on the same 10 videos (70.54 is the GPU emulation of a bf16 trunk, RESULTS 3). Conditions: Turbo, NPU clock 1.808 GHz, gpu_busy 0.
 
 ## Rebuild and verify
-From `tapnext/npu` on testbox (the script `cd`s into `~/git/app/.scratch/npu-tapnext`, the symlink to this folder).
+From `tapnext/npu` (the script `cd`s into the working copy of this folder under `$SHM_SCRATCH`, a symlink to it).
 It takes ~10 min of CPU and builds in Docker only.
 
     r24/try24.sh NAME [--sweep]

@@ -1,9 +1,9 @@
 # TAPNext: the time ledger, the floor and the queue
 
-At the pause the step takes **28.42 ms at depth 12** (MEASURED, quiet sweep, 1.808 GHz, gpu_busy 0; full12r24z, rebuilt byte-identically as r25z). The research agent's ledger splits it into twelve segments of one block,
+At the pause the step takes **28.42 ms at depth 12** (MEASURED, quiet sweep, 1.808 GHz, gpu_busy 0; full12r24z, rebuilt byte-identically as r25z). The ledger splits it into twelve segments of one block,
 2.37 ms each, and adds up their per-segment floors to **~25.2 ± 0.9 ms (EXTRAPOLATED)**. The 3.2 ms between them is mostly the k-step's DMA collisions (~1.2 ms per step, blocked by GEMM L1), EW → GEMM first tiles (~0.6), the SSM glue (~0.3)
 and `out`'s tail (0.3). The queue left at the pause is worth about **−0.7 ms** (28.43 → ~27.7, EXTRAPOLATED), with the SSM glue and its L1 first. The floor is a sum of bounds read off the current kernels, not a built step.
-Read the conditions: Turbo, NPU clock 1.808 GHz, GPU idle, no CPU load beyond the background job. An LLM on the GPU or 12 FP-compute threads on the CPU will make every number slower (below).
+Read the conditions: Turbo, NPU clock 1.808 GHz, GPU idle, no CPU load beyond a light background worker. An LLM on the GPU or 12 FP-compute threads on the CPU will make every number slower (below).
 
 ## Where the 28.4 ms go
 
@@ -64,7 +64,7 @@ PROPOSALS rev 21 (research pass 21), base 28.43 ms. Prices are EXTRAPOLATED unle
 
 **Ceiling of the queue:** 28.43 → glue 28.23 → MSPLIT-C 28.05 → SSPM-B + FSX 27.95 → KTL R 68 ~27.7 (EXTRAPOLATED). **Floor:** ~25.2 ± 0.9.
 
-The implementer's own open queue at the pause (HANDOFF round 25) overlaps and adds items; prices MODEL / EXTRAPOLATED, all need a build and a one-process A/B:
+The open queue of the optimisation rounds at the pause (HANDOFF round 25) overlaps and adds items; prices MODEL / EXTRAPOLATED, all need a build and a one-process A/B:
 
 | id | what | price ms | note |
 |---|---|---|---|
@@ -87,7 +87,7 @@ Risks that apply to any number here (HANDOFF round 25; MACHINE R21.2):
 - Rev 20 ranked SSPM-B first and priced the SSM glue at ~0 because the SSM span read at 54 GB/s, ~95 % of the cap. Main's SSMIN and research's SSMCUT showed it compute-bound by ~255 cycles per chunk: rev 21 ranks the glue first (M1).
 - Round 24 kept STATS64, OPPRE2, SSMPRE and CPPRE (−0.48 vs r23z); the CP-time lever was a measurement (a post-wait fill is ~0.55 µs, not ~0.10) that revived C8.
 - Round 25 kept nothing: MSPLIT-C up_a priced ~0 (norm1 at the read cap), `out`'s bias wait off the critical path, P0FREE + CPPRE_OP neutral. Three probes moved the model instead of the build: RRTWIN (the norm bounds per input count), CLKLOAD2 (the clock rule), SSMCUT.
-- The research agent's CP-SAT runs (KTL R 68-69) stopped at the pause: no bank-clean schedule in 1,200-1,800 s at 2-12 workers.
+- The analysis passes' CP-SAT runs (KTL R 68-69) stopped at the pause: no bank-clean schedule in 1,200-1,800 s at 2-12 workers.
 
 ## What worked
 
@@ -114,7 +114,7 @@ The mispricings that shaped this ledger (method entries; the lessons are in [met
 - Rank levers by the ledger's floor per segment, and check which resource (cycles, bytes, L1, text, BDs) binds before the price.
 - A queue ceiling (−0.7 ms of 28.4) is a small fraction of the 3.2 ms gap to the floor; the biggest piece (the k-step collisions) needs L1 the GEMM core does not have, so the next step-change is a redesign of the core's L1 or the tile, not another lever.
 - Label every number with its conditions and its status. This ledger's floor is EXTRAPOLATED, its segments MEASURED, its prices MODEL.
-- Before an LLM, a WebRTC encoder or any BLAS shares the box, re-measure: the clock and the DDR are shared.
+- Before another GPU or CPU workload shares the box, re-measure: the clock and the DDR are shared.
 
 ## Going deeper
 

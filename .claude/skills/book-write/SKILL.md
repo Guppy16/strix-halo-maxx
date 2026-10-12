@@ -48,5 +48,6 @@ what didn't and the lesson; `## What didn't work`; `## Lessons`; `## Going deepe
 - [ ] Superseded text is rewritten or deleted, not appended to.
 - [ ] Anchors and file names you link to exist; no renamed headings without fixing their links.
 - [ ] READMEs still one line per item. Source docs (NOTES, RESULTS, HANDOFF, ANALYSIS, MACHINE, PROPOSALS) unchanged unless fixing an error.
+- [ ] Public-repo hygiene: no personal names; no absolute home paths (repo-relative paths or `$SHM_SCRATCH`); no descriptions of private data (frames, recordings, labels); no product or other-tenant/service references; no clock times (dates are fine); neutral lab-notebook voice (no messages between agents, no "the user said").
 - [ ] `python3 common/tools/bookcheck.py` from the repo root passes (links, anchors, `nr` markers, index classes and counts).
 - [ ] One commit per chapter: `docs: <chapter> - <what changed>`.

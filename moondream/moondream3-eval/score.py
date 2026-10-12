@@ -1,6 +1,5 @@
-"""Grade detect/point results with the user's verdicts (data/box_labels.jsonl), the same way
-.scratch/grounding/replay_hybrid.py does: the first box takes the verdict of the labelled
-answer it overlaps (IoU > 0.5, best wins); absent -> correct iff nothing returned.
+"""Grade detect/point results with hand-made verdicts (grounding_labels.jsonl), the same way as the earlier replay script:
+the first box takes the verdict of the labelled answer it overlaps (IoU > 0.5, best wins); absent -> correct iff nothing returned.
 Points: the verdict of the smallest labelled box that contains the point.
 
   python score.py results/md2_detect.jsonl results/md3_detect.jsonl ...
@@ -12,7 +11,7 @@ import os
 import statistics
 import sys
 
-DATA = os.path.expanduser("~/git/app/data")
+DATA = os.path.dirname(os.path.abspath(os.environ.get("MD_FRAMES", "frames/sessions")))
 
 
 def iou(a, b) -> float:
@@ -24,9 +23,9 @@ def iou(a, b) -> float:
 
 
 def load_truth():
-    queue = {q["id"]: q for q in json.load(open(f"{DATA}/box_queue/grounding-2026-10-09.json"))["items"]}
+    queue = {q["id"]: q for q in json.load(open(f"{DATA}/grounding_queries.json"))["items"]}
     labels = {}
-    for line in open(f"{DATA}/box_labels.jsonl"):
+    for line in open(f"{DATA}/grounding_labels.jsonl"):
         r = json.loads(line)
         labels[r["key"].split("/")[-1]] = r
     return queue, labels

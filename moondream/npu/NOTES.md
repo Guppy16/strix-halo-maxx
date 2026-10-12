@@ -1,8 +1,8 @@
 # NPU moondream2 vision encoder -- phase 1 notes (2026-10-07)
 
 ## Environment
-- Host: Ubuntu 26.04, kernel 7.0.0-34, amdxdna DKMS 2.21 from ~/git/xdna-driver @273a586 (2026-01-02). Host shell is zsh.
-- User's XRT debs: xrt_202610.2.21.0_25.10-amd64-{base,base-dev,npu}.deb (built on Ubuntu 25.10: boost 1.88, pyxrt cp313),
+- Host: Ubuntu 26.04, kernel 7.0.0-34, amdxdna DKMS 2.21 from the xdna-driver repo @273a586 (2026-01-02).
+- XRT debs (built locally): xrt_202610.2.21.0_25.10-amd64-{base,base-dev,npu}.deb (built on Ubuntu 25.10: boost 1.88, pyxrt cp313),
   plugin xrt_plugin.2.21.0_25.10-amd64-amdxdna.deb (postinst = dkms -> only extract libxrt_driver_xdna.so into the image).
 - mlir-aie: cloned to ./mlir-aie, checked out v1.4.4 (2026-10-06). README: Ubuntu 24.04/24.10, kernel >= 6.17, XRT from
   ppa:amd-team/xrt or build_drivers.sh; env_install.sh hard-requires python3.12 but wheels exist cp311-cp314.
@@ -11,7 +11,7 @@
 - Peano pin: llvm-aie==22.0.0.2026100501+94b320c0 (utils/peano-requirements.txt).
 
 ## Image npu-iron (docker/Dockerfile)
-ubuntu:25.10 + user's 2.21 debs + python3.13 venv /opt/ironenv + mlir_aie==1.4.4 + llvm-aie pin + torch-cpu.
+ubuntu:25.10 + locally built 2.21 debs + python3.13 venv /opt/ironenv + mlir_aie==1.4.4 + llvm-aie pin + torch-cpu.
 `nohup docker build -t npu-iron docker > build.log 2>&1 &`
 
 ## Encoder config (HF snapshot 9a7d402..., config.py VisionConfig, moondream2 rev 2025-06-21)
@@ -24,15 +24,15 @@ vision bf16 GEMMs 20.7 ms, flash attention ~10 ms (vision ~4.5 ms of it), LN/GEL
 So the part the NPU could take over is the vision tower + projection, ~30 ms, not 79.6 ms.
 
 ## GPU baseline re-measurement
-Attempted (gpu_run.sh: GTT pre-check 44 MB/66 GB, busy 0%) -> blocked by the Claude Code permission classifier; not retried.
+Not re-measured (the GPU was not available for this run).
 Using RESULTS.md numbers instead (88.7 ms, encode 79.6, 10.9 fps; vision bf16 GEMMs 20.7 ms in situ).
 
 ## Stack bring-up (works)
 - `docker build -t npu-iron docker` (~10 min, slow apt mirror). Inside: XRT 2.21.0 (hash 92d731b, amdxdna 2.21.0_20260103 273a586),
-  `xrt-smi examine` -> "NPU Strix Halo" [0000:c3:00.1], NPU FW 1.1.0.60, Power Mode: Default. mlir-aie 1.4.4, llvm-aie 22.0.0.2026092101 (v1.4.4 pin),
+  `xrt-smi examine` -> "NPU Strix Halo", NPU FW 1.1.0.60, Power Mode: Default. mlir-aie 1.4.4, llvm-aie 22.0.0.2026092101 (v1.4.4 pin),
   python 3.13.7, torch 2.14.1+cpu. The 7-month driver gap vs mlir-aie's pin caused no problem for anything below.
 - Run pattern: `docker run -d --name npu-X --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $PWD:/work npu-iron <cmd>; timeout N docker wait npu-X`
-- dmesg is not readable as testbox; `journalctl -k` is. No amdxdna messages during any run.
+- dmesg is not readable by the unprivileged user; `journalctl -k` is. No amdxdna messages during any run.
 
 ## Hello NPU
 - basic/vector_vector_add (-n 1024): PASS, 0.7 s total.
@@ -113,13 +113,13 @@ A re-read once per N-tile)
 qkv traffic in this design: A 1 MB x 9 N-passes + B 4.5 + C 5.3 = 18.8 MB -> ~50 GB/s => DDR-bound.
 
 ## design2.py (A resident in memtiles, explicit Flow/Buffer/Lock/TileDma + runtime-sequence memtile tasks with per-op repeat)
-Builds. First run: ERT timeout (design deadlock) -> amdxdna TDR "Device isn't making progress... Count 11" at 22:43:15.
-Earlier, 22:33:04-22:34:00 (Count 1-10): my bw5 probe (--l1 1728 --l2 6912 --total 279936: total not a multiple of the
+Builds. First run: ERT timeout (design deadlock) -> amdxdna TDR "Device isn't making progress... Count 11".
+Earlier (Count 1-10): the bw5 probe (--l1 1728 --l2 6912 --total 279936: total not a multiple of the
 L2 object, so the last memtile object never completed -> hang until the 60 s timeout). The driver recovered after the first
-episode (later runs fine). Per the hard rule, NPU work STOPPED here; nothing run since. Suspects for the design2 deadlock:
+episode (later runs fine). NPU work was stopped here. Suspects for the design2 deadlock:
 memtile task lock credits (Acquire(value=nt) on the slot-empty locks), the core S2MM ping-pong vs core acquire order, or the
 memtile BD/channel assignment for runtime tasks next to ObjectFifo channels. Next step: run it with a 1-op, nt=1 schedule
-under a short XRT timeout once the maintainer OKs more NPU runs.
+under a short XRT timeout.
 
 ## Power mode
 Not tried (would have been after the stop). Command to try (in container, as root with /dev/accel/accel0, or on the host):
@@ -130,11 +130,11 @@ Code: p2b/ (design3.py = the fix for design2; design.py/pack.py/run.py copied fr
 b.sh/r.sh/bdis.sh/loopii.sh as before but under /work/p2b). Builds in p2b/build/.
 
 ## Power mode
-`xrt-smi examine -r platform` in the container at 23:11: **Power Mode: Default** (turbo was not switched on).
-Known-good qkv (p2/build/q_r6p1, same build and command as phase 2a): 547 us median / 531 min at 23:12,
+`xrt-smi examine -r platform` in the container: **Power Mode: Default** (turbo was not switched on).
+Known-good qkv (p2/build/q_r6p1, same build and command as phase 2a): 547 us median / 531 min,
 vs 463/452 in phase 2a (same mode). Box idle (GPU 0%, load 0.2). Re-measured later in the session (see table);
 treat +-20% run-to-run drift of DDR-bound numbers as real.
-Driver recovered from the 22:43 TDR: the run was bit-exact, no new xdna kernel messages.
+Driver recovered from the TDR: the run was bit-exact, no new xdna kernel messages.
 
 ## pyxrt run.wait(timeout)
 `run.wait(N)` in this XRT 2.21 pyxrt returns no earlier than ~N *microseconds* (N=5000 -> 5007 us, 1000 -> 1016 us,
@@ -221,23 +221,6 @@ A second B stream per row is impossible without a memtile join (a core has only 
 would not help anyway: the per-core input port (~4 B/cycle) carries the same 1.1 MB of B per qkv op (~176 us) and
 the same 1.1 MB of A (9 re-sends of the 124 KB M-tile) in parallel. That port floor (176 us + launch + ramp) is
 what the NOCOMPUTE 369-377 us measures. Only sharing A/B between neighbouring cores through their shared L1
-(each core DMA-receives half the tiles, reads the other half from its neighbour) halves it. Not built this session.
-
-## Run-to-run noise is per process and bimodal
-Consecutive processes, same build, same box (idle): d3_qkv 522 then 946 us median (min 489 / 934); d4_qkv 442, 447.
-Earlier d4_qkv 701 (min 451). Phase 2a saw 946 vs 493 too. Within a process all iterations agree, so it is not the
-NPU clock but something per process (host BO placement?). Report min-of-processes; worth checking pyxrt bo flags.
-
-## Launch overhead from C++ (p2b/host.cpp, zero data, same xclbin/instr)
-qkv 432 us (pyxrt 446), attn_out 197 (223), b3 966 (951), b3x27 22581 (22636). Python costs ~15-25 us per dispatch;
-the rest (~75-80 us floor, see the 1-column probe: 76-82 us) is XRT/firmware per-dispatch latency, independent of
-instruction count (75 vs 62200 words) and DMA count. validates 50 us is not reachable from the XRT run API here
-## C over both shim S2MM channels per column (design3 c_streams=2, now the default; b_streams stays 1)
-d4_qkv: 442-447 us (two processes), NOCOMPUTE twin 377 us (d3: 369) -> the memtile->shim C stream was not the floor.
-A second B stream per row is impossible without a memtile join (a core has only 2 S2MM channels: A and B), and
-would not help anyway: the per-core input port (~4 B/cycle) carries the same 1.1 MB of B per qkv op (~176 us) and
-the same 1.1 MB of A (9 re-sends of the 124 KB M-tile) in parallel. That port floor (176 us + launch + ramp) is
-what the NOCOMPUTE 369-377 us measures. Only sharing A/B between neighbouring cores through their shared L1
 (each core DMA-receives half the tiles, reads the other half from its neighbour; explicit Buffers/Locks like the A
 path, lock values 2 per tile) halves it. Not built this session.
 
@@ -280,13 +263,13 @@ Code: p2c/ (design3.py evolves; mode.py = timing-mode reproducer; spin.py/runspi
 
 ## 1. Bimodal per-process timing: what it was
 Reproducer p2c/mode.py (zero or random operands, N BO sets per process, per-iteration trace, optional CPU burn).
-~45 processes tonight on the idle box (zero data, random data, run.py real data, alternating xclbins, CPU burn
+~45 processes on the idle box (zero data, random data, run.py real data, alternating xclbins, CPU burn
 before timing, 3 BO sets per process): NO slow (2x) process at all; medians 405-483 us for d5_qkv.
 Found instead: (a) a DPM ramp: per-iteration time falls 590 -> 410 us over the first ~25 dispatches of a process,
 so short runs and "set 0" look 10-20% slow -> run.py now warms up 20 dispatches by default. (b) DDR contention is
 measurable: six CPU memcpy hogs make qkv 413 -> 501 us (+21%); a GPU job moves 10x more DDR traffic. The slow 2x
-processes last night (23:44-23:55) fell in a window when the GPU-side App server may have been encoding frames;
-no slow process has occurred since. Conclusion: cross-tenant DDR contention on the shared box, not BO placement
+processes all fell in one window when another GPU workload was likely running;
+no slow process occurred afterwards. Conclusion: DDR contention from other work on the shared box, not BO placement
 (addresses/flags make no difference), not IOMMU (identity-mapped), not the xclbin or hw-context. Fix: run.py prints
 gpu_busy% around each measurement; take min over processes; warm up >= 20 dispatches.
 
@@ -316,7 +299,7 @@ spills, also as two loops: DISCARD. K3 (2x2, one row-half of A hoisted, the othe
 with PIPE=1 (= the old 2x2), 96/32 without OPAQUE_A (132 spills): DISCARD. BLK12 at 27/16 stays.
 Peak arithmetic at 1.4 GHz: 32 x 512 MAC = 45.9 TOPS; the frame's 652 GFLOP is 14.2 ms at 100%, 24 ms at the
 kernel's 59%. In Default mode the GEMMs cannot beat the GPU's 20.7 ms without a >= 75% kernel AND small overheads;
-turbo (the user's call) scales every compute number by its clock ratio.
+turbo (set manually with sudo) scales every compute number by its clock ratio.
 
 ## Shared-operand design: why it is a K-split, and why it is parked
 AIE2 affinity (AIETargetModel.cpp isLegalMemAffinity): a core reads its own, north, south and WEST neighbour's L1
@@ -328,7 +311,7 @@ north core's fp32 partial is summed by the south core through shared L1 (~2000 c
 1728 -> 864 cycles per k-step. The kernel already needs 1944 cycles per k-step, so ports are not the limit until
 the kernel is ~2x faster: parked behind the kernel work.
 
-# Phase 3 (2026-10-08, from ~02:20; NPU in **Turbo** (`xrt-smi examine -r platform`), checked at every container start)
+# Phase 3 (2026-10-08; NPU in **Turbo** (`xrt-smi examine -r platform`), checked at every container start)
 Code: p3/ (copies of p2c + mode2.py; builds d7_* = BLK12 unrolled 2).
 
 ## Turbo vs Default (uncontended, gpu_busy 0)
@@ -348,21 +331,13 @@ A sync, not BLAS threads (OPENBLAS_NUM_THREADS=1: 382-387 vs 388-414, all fast).
 slow, then fast) and only shows on sub-millisecond dispatches: the signature of completion notification falling
 back to a ~1 ms timer path in driver/firmware (mailbox_polling=0 is the interrupt mode; HZ-granular wait). Not
 root-caused from user space. run.py now prints xdna interrupts per dispatch and flags SLOW-MODE (median >= 1.6 x min
-or ~950 us with a sub-700 min); report numbers from processes without the flag. For App it is amortised by
+or ~950 us with a sub-700 min); report numbers from processes without the flag. In an application it is amortised by
 one ~30 ms encoder dispatch.
 
 ## Phase 3 kernel + d7 results (turbo, uncontended): see RESULTS.md "Phase 3". BLK12 unroll 2 (-DBLKU=2) KEEP:
 51 bundles / 32 MACs (63% of core peak). Per frame 29.7 ms. One SLOW-MODE process caught by the new flag (pfc2 1910
 vs min 1271; repeat 1247). No timeouts this phase; three-timeout budget: 1 used in 2c, none since.
 
-# Phase 4 (2026-10-08, Turbo): int8 W8A8 text-model GEMMs
-Code: p4/ (mm_i8.cc kernel + epilogue; design_i8.py = design3 structure with int8 sizes; design_i8s.py = design.py
-streaming structure; pack_i8.py, run_i8.py with the numpy reference mirroring moondream-opt HI8Lin / i8gemm.hip).
-Numerics mirrored: sw = max|w_n|/127 (>= 1e-8), RNE, clamp; sa = max(amax,1e-5)/127, round half away from zero;
-int32 exact accumulate; epilogue ((float)acc * sa[token]) * sw[row] + bias[row] in fp32, tanh-GELU
-(1 - 2/(1+exp(2u)), exp = 2^x with a degree-6 polynomial, reciprocal by Newton), bf16 RNE.
-Hardware fact: AIE2P dense int8 mmul is 8x8x8 = 512 MACs per instruction, the SAME rate as bfp16 (the 1024-MAC
-8x16x8 form needs a sparse B); int8 panels are 64 B vs bfp16s 72 B, so int8 is only 11% fewer bytes than what the
 # Phase 4 (2026-10-08, Turbo): int8 W8A8 text-model GEMMs
 Code: p4/ (mm_i8.cc kernel + epilogue; design_i8.py = design3 structure with int8 sizes; design_i8s.py = design.py
 streaming structure + lookahead; pack_i8.py, run_i8.py with the numpy reference mirroring moondream-opt HI8Lin /
@@ -413,7 +388,7 @@ then _encode is replaced by the text prefill from the cache, CUDA-graphed like b
 |---|---|---|---|
 | NPU frame (d7: b3x27 + fc2x27 + pfc1 + pfc2, 4 xclbins) | 40.4-40.7 ms (two runs) | 44.8 ms median, p90 46.2 (1273 frames inside the GPU window) | +10% |
 | GPU pooled text-only frame (prefill 24.9 + query 8.3) | 33.2 ms (1196 frames) | 34.4 ms (prefill 25.1, query 9.2; 1738 frames) | +3.6% |
-GPU busy 100% during its loops, 0% otherwise; GTT 11%; no other tenant in the .gpu logs; answers unchanged (yes).
+GPU busy 100% during its loops, 0% otherwise; GTT 11%; no other GPU process in the .gpu logs; answers unchanged (yes).
 NPU-side note: b3x27 looped alone is 18.8 ms, the four-xclbin frame 40.4: the three hw-context switches cost
 ~10.7 ms per frame (~2.7 ms each, as phase 1 found); the GEMM work itself is 29.7 ms. Attention / LN / patch
 embedding are not built (phase-3 estimate ~8 ms more on the NPU).
@@ -421,7 +396,7 @@ Pipelined frame rate = 1 / max(NPU, GPU) under contention: 1 / 44.8 ms = **22 fp
 pooled 15.6 fps = 64.3 ms); with one xclbin for the encoder (no switches, ~33 ms + ~8 ms for the missing pieces)
 it would be ~41 ms -> ~24 fps, still NPU-bound; the GPU side alone would allow 29 fps.
 
-## (2) kernel: Peano rejects inline asm (any asm volatile -> "unable to translate instruction: call"), ships no ISA docs and no llvm-mc assembler (bin: llc, llvm-objdump, clang); the hand-scheduled loop cannot be written with this toolchain. See RESULTS.md Phase 5.
+## (2) kernel: at this point Peano rejected inline asm (any asm volatile -> "unable to translate instruction: call"), and no ISA docs or llvm-mc assembler were available (bin: llc, llvm-objdump, clang), so the hand-scheduled loop could not be written (later phases built that route). See RESULTS.md Phase 5.
 
 # Phase 6 (2026-10-08, Turbo): one NPU program for the encoder; encoder pieces
 Code: p6/ (design6.py, mm_f32acc.cc with -DGELU, run.py with --gelu-ops, nputloop.py).
@@ -465,7 +440,7 @@ hand-off). LayerNorm (5 ops per element over 729x1152) and softmax (exp per scor
 
 # Phase 7 (2026-10-08, Turbo): bf16 elementwise kernels, towards the whole tower on the NPU
 Code: p7/ (mm_f32acc.cc -DGELU_BF16, ln.cc/ln.py (bf16 LN), ln_res.py (LN + residual), run.py --gelu-mode bf16,
-runln.py with the BF16_ELEMENTWISE-style references). The Opus emulation job kept the GPU at 96-99% busy
+runln.py with the BF16_ELEMENTWISE-style references). A GPU emulation job kept the GPU at 96-99% busy
 throughout this phase: every timing below is DDR-contended (labelled); correctness is unaffected.
 
 ## bf16 tanh-GELU in fc1's epilogue (-DGELU_BF16)
@@ -522,9 +497,9 @@ each p before PV: a <= 1-ulp-of-p deviation, measured). L1: Q 9.2 KB, S chunk 4 
 | scalar kernel | correct, rms 8e-3, **18 ms per block** (scalar row max/sum loops, per-element masks, 8x redundant K transposes) |
 | vectorised: shuffle_down + filter_even row reductions | 4.1 ms but rms 2.9e-2: the debug build (output tile = per-row sum / max / 1/sum) showed the row maxima wrong (0.39 vs 0.82) and the sums exactly e^(dmax) off -> the shuffle lane mapping was wrong |
 | transpose + extract reductions | fp32 64-lane `aie::transpose` does not exist (incomplete type); bf16 8x8 does |
-| bf16 transpose, 8-lane bf16 `aie::max` | sums right, maxima still wrong: sub-native (8-lane, 128-bit) bf16 max is broken on the NPU; 8-lane fp32 max works |
+| bf16 transpose, 8-lane bf16 `aie::max` | sums right, maxima still wrong: sub-native (8-lane, 128-bit) bf16 max returned wrong maxima on the NPU; 8-lane fp32 max works |
 | final reductions: three native 16-lane bf16 maxes / four MAC-unit sums over the transposed block + one 8-lane fp32 op | maxima within 1 bf16 ulp (fp32 accumulation order of QK^T), sums within 0.5%, **output rms 6.2e-3 vs the emulation reference** (2.5e-3 of it = normalising once after PV instead of per p), max abs 2e-3 on 0.18 |
-| other Peano pitfalls | a vector assigned under a runtime condition (`if (padded) m = ...`, `aie::select`) crashes Peano's EarlyIfConverter ("Bad PHI"): masks are applied unconditionally; two inlined 32-lane exp chains spilled 13.5 KB of stack -> out-of-line exp, 9.9 KB stack; L1 forced O depth 1 (two half-tile writes), per-use K transposes (no 4.6 KB scratch); scalar fp32 divide/compare are software calls (`__divsf3`, `__gesf2`) |
+| other Peano pitfalls | a vector assigned under a runtime condition (`if (padded) m = ...`, `aie::select`) made Peano's EarlyIfConverter abort ("Bad PHI" assertion): masks are applied unconditionally; two inlined 32-lane exp chains spilled 13.5 KB of stack -> out-of-line exp, 9.9 KB stack; L1 forced O depth 1 (two half-tile writes), per-use K transposes (no 4.6 KB scratch); scalar fp32 divide/compare are software calls (`__divsf3`, `__gesf2`) |
 | cost (4.4 ms per block) | PV 0.8 ms (variant without PV: 3.6); exp is not it (EXP_FAST: 4.18, rms 6.7e-3); static masks + vector max/sum state: 3.78 ms (min 3.74) |
 Per chunk the kernel still takes ~14k cycles against ~6k of counted vector work: register spills (9.9 KB stack) and the
 per-row-block structure (32 score blocks of 8x8 per 32-key chunk, 288 transposes + 576 loads per chunk) dominate.

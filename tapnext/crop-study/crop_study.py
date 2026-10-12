@@ -1,8 +1,8 @@
 """Crop study: can TAPNext++ track a compact group of points from a small, moving crop of the frame?
 
 CPU only (bf16 reference, depth 12). Runs in npu-iron-torch with
-    -v ~/git/app/.scratch:/work -v ~/git/app/strix-halo-maxx:same -v ~/git/app:/repo:ro
-Model / data loading follow npu-tapnext (step8.load_model, davis_cpu.preprocess / load_dv); they are restated here
+    -v $SHM_SCRATCH:/work -v <repo>:<repo>   (see run.sh)
+Model / data loading follow tapnext/npu (step8.load_model, davis_cpu.preprocess / load_dv); they are restated here
 because those modules import pyxrt (step8) or exec the model from a /work path that differs in this mount (davis_cpu).
 
     python3 crop_study.py stats   [--videos 10]                  groups, spreads, run-time inputs
@@ -16,6 +16,7 @@ c256 = the crop path with W=256 (must equal base); a<W>s / a<W>n = moving crop o
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 import time
@@ -25,8 +26,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-REPO = "/repo"
 TAPNET = "/work/tapnet"
+TAPNEXT_SRC = os.environ.get("TAPNEXT_SRC", "/work/tapnext_model.py")  # the TAPNext torch model file
+WEIGHTS = os.environ.get("TAPNEXT_WEIGHTS", f"{TAPNET}/tapnextpp_256.safetensors")
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / "out"
 PATCH, GRID, IMAGE = 8, 32, 256
@@ -36,12 +38,12 @@ SIZES = (128, 160, 192, 256)
 ATTN_W = (128, 160, 192)
 
 tn = types.ModuleType("tn")  # the vendored model targets Python 3.14 (lazy annotations); the container is 3.13
-exec(open(f"{REPO}/agent/app/jobs/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
+exec(open(TAPNEXT_SRC).read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
 
 
 def load_model(depth=12):
     model = tn.TAPNext()
-    tn.load_state(model, f"{REPO}/data/models/tapnextpp_256.safetensors")
+    tn.load_state(model, WEIGHTS)
     model.to_half(torch.bfloat16).eval()
     model.blocks = model.blocks[:depth]
     return model

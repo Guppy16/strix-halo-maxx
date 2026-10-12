@@ -1,6 +1,6 @@
 # strix-halo-maxx
 
-Hand-optimised model inference on AMD Strix Halo (Ryzen AI Max+ 395, the box `testbox`): the XDNA2 NPU and the gfx1151 GPU.
+Hand-optimised model inference on AMD Strix Halo (Ryzen AI Max+ 395): the XDNA2 NPU and the gfx1151 GPU.
 
 ## The hardware
 
@@ -35,7 +35,7 @@ load lowered the NPU clock (1.81 -> 1.41 GHz), and the NPU's DDR reads and write
 GPU idle. See [common/book/measurement.md](common/book/measurement.md).
 
 Only hand-written code, generators, docs and small result tables are tracked: builds, weights, venvs and logs stay out.
-On testbox, `~/git/app/.scratch/npu-{tapnext,research,moondream}` are symlinks to `tapnext/npu`, `tapnext/research` and
+On the test machine, `$SHM_SCRATCH/npu-{tapnext,research,moondream}` are symlinks to `tapnext/npu`, `tapnext/research` and
 `moondream/npu`. Containers that mount .scratch at /work also mount this repo at its own path, so the links resolve.
 
 ## Reading the book

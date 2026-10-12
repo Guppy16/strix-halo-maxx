@@ -6,11 +6,12 @@
 import contextlib
 import io
 import json
+import os
 import runpy
 import statistics
 from pathlib import Path
 
-P = json.loads((Path.home() / "git/app/data/calibration/frame_preds.json").read_text())
+P = json.loads((Path(os.environ.get("MD_FRAMES", "frames/sessions")).resolve().parent / "calibration/frame_preds.json").read_text())
 with contextlib.redirect_stdout(io.StringIO()):
     truth = runpy.run_path("rescore.py")["truth"]  # key -> (obj, present), same frames as rescore
 

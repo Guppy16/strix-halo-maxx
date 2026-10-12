@@ -1,7 +1,7 @@
 """Per-frame answers of one fast-path config on the test set, for the frame labeller.
 
 Merges {name: {"<session>/<file>": {"yes": bool, "margin": float}}} into
-~/git/app/data/calibration/frame_preds.json (margin = logsumexp(yes) - logsumexp(no)).
+<MD_FRAMES parent>/calibration/frame_preds.json (margin = logsumexp(yes) - logsumexp(no)).
 
     venv-rocm714/bin/python frame_preds.py --name exact
     venv-rocm714/bin/python frame_preds.py --name pool16 --pool 16
@@ -20,10 +20,10 @@ import bfpemu
 import hgemm
 import md2fast
 import tgemm
-from common import SESS, load_model, load_testset, prep, question
+from common import DATA, SESS, load_model, load_testset, prep, question
 from md2fast import FastMD2
 
-OUT = os.path.expanduser("~/git/app/data/calibration/frame_preds.json")
+OUT = os.path.join(DATA, "calibration", "frame_preds.json")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--name", required=True)

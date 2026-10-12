@@ -2,7 +2,7 @@
 
 Question: can TAPNext++ track a compact group of points from a W x W crop of the 256 frame (fewer image tokens)
 without losing accuracy? CPU bf16 reference, depth 12, TAP-Vid DAVIS "first", the 10-video subset the NPU rounds use.
-Everything ran in `npu-iron-torch` on testbox, `nice -n 19`, 8 threads. No NPU, no GPU. Code: `crop_study.py`, `run.sh`.
+Everything ran in `npu-iron-torch` `nice -n 19`, 8 threads. No NPU, no GPU. Code: `crop_study.py`, `run.sh`.
 
 ## Setup
 
@@ -120,7 +120,7 @@ be rebuilt for a smaller M, and fixed per-op costs may not shrink in proportion.
 - 10 videos and 53 groups: per-group AJ is noisy, especially for 1-point groups. Differences under about 1 AJ are within noise.
   a192s and a160s sit 0.05 to 0.2 from base in both directions.
 - The grid grouping can split close points across a cell edge. Groups are spatially compact at query time, but DAVIS points
-  on one object drift up to 150 px apart. A real use case of a few points on one object should behave like these groups.
+  on one object drift up to 150 px apart. A few points on one object should behave like these groups.
 - Entering tokens start from a zero RG-LRU state, so they get the normalised update, not the first-frame "state = input"
   path. Using that path for new tokens is untried.
 - The crop is chosen from the previous frame's prediction, so a fast-moving group can be partly cut for one frame.

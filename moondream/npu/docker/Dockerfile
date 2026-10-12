@@ -1,4 +1,4 @@
-# npu-iron: XRT 2.21 userspace (the maintainer's own build, Ubuntu 25.10 debs, matches host amdxdna 2.21)
+# npu-iron: XRT 2.21 userspace (locally built, Ubuntu 25.10 debs, matches host amdxdna 2.21)
 # + IRON/mlir-aie v1.4.4 wheels + Peano (llvm-aie). Python 3.13 (pyxrt in the debs is cp313).
 FROM ubuntu:25.10
 ENV DEBIAN_FRONTEND=noninteractive

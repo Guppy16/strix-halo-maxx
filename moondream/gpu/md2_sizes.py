@@ -1,4 +1,4 @@
-import time, statistics, torch
+import os, time, statistics, torch
 from PIL import Image
 from transformers import AutoModelForCausalLM
 model = AutoModelForCausalLM.from_pretrained("vikhyatk/moondream2", revision="2025-06-21", trust_remote_code=True, torch_dtype=torch.float16, device_map={"": "cuda"}).eval()
@@ -19,7 +19,7 @@ for w in (378, 320, 256):
     bench(base.resize((w, int(base.height*w/base.width))), f"{w}w")
 sq = base.copy(); sq.thumbnail((378,378)); bench(sq, "fit378")
 sq2 = base.resize((378,378)); bench(sq2, "squash378x378")
-bench(Image.open("~/git/app/data/sessions/sessA/judged_0060.jpg").convert("RGB"), "orig720")
+bench(Image.open(os.path.join(os.environ.get("MD_FRAMES", "frames"), "sessA/judged_0060.jpg")).convert("RGB"), "orig720")
 try:
     model.half(); print("param dtypes after half():", {p.dtype for p in model.parameters()}, flush=True); bench(base, "448w-fp16"); bench(sq2, "squash378-fp16")
 except Exception as ex: print("fp16 failed:", repr(ex)[:300])

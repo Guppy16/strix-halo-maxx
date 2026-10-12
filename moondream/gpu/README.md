@@ -1,6 +1,6 @@
 # moondream2 yes/no latency optimisation on Strix Halo (gfx1151)
 
-Everything lives in `~/git/app/.scratch/moondream-opt` on testbox. `RESULTS.md` is the experiment log (every run, keep/discard, root causes).
+Everything lives in `$SHM_SCRATCH/moondream-opt` (models, venvs and runs are not in the repo). `RESULTS.md` is the experiment log (every run, keep/discard, root causes).
 Runtime: `venv-rocm714` (torch 2.14.1+rocm7.14, HIP 7.14.60850). Compiler for the HIP kernels: Docker image `rocm/dev-ubuntu-24.04:7.14.1-full`
 (same HIP build), see "Building the kernels".
 
@@ -35,12 +35,12 @@ avenues (hipBLASLt int8, fp16, TunableOp+graphs deadlock, all-int8 vision, torch
 
 ## Commands
 ```bash
-ssh testbox; cd ~/git/app/.scratch/moondream-opt
+cd $SHM_SCRATCH/moondream-opt
 venv-rocm714/bin/python bench.py                          # best exact config (HIP kernels), full test set -> accuracy + latency + sanity gate
 venv-rocm714/bin/python bench.py --vlin TLin --tlin I8Lin # previous best (Triton GEMMs)
 venv-rocm714/bin/python bench.py --stock                  # also the stock HF path in the same process
 venv-rocm714/bin/python bench.py --pool 16                # fast mode (pooled image tokens)
-venv-rocm714/bin/python bench.py --image ~/git/app/data/sessions/sessA/judged_0060.jpg --question "Is there a mug in this image? Answer yes or no."
+venv-rocm714/bin/python bench.py --image $MD_FRAMES/sessA/judged_0060.jpg --question "Is there a mug in this image? Answer yes or no."
 venv-rocm714/bin/python test_hgemm.py                     # regression 1: kernels vs Triton (bit-identical) and torch, timing, HIP graph capture
 venv-rocm714/bin/python verify.py HLin HI8Lin             # regression 1: fast path vs stock model (top-1 token, logits cosine, embedding cosine)
 venv-rocm714/bin/python test_throughput.py --nq 1         # regression 3: frames/s over 200 frames (--nq 2: two questions per frame)
@@ -50,13 +50,13 @@ bash run_docker_vs_host.sh                                # regression 4: bench 
 ## Building the kernels (only needed after editing hip/i8gemm.hip)
 ```bash
 docker run --rm -it --device /dev/kfd --device /dev/dri --group-add $(getent group render | cut -d: -f3) --security-opt seccomp=unconfined \
-  -v ~/git/app/.scratch:/work rocm/dev-ubuntu-24.04:7.14.1-full \
+  -v $SHM_SCRATCH:/work rocm/dev-ubuntu-24.04:7.14.1-full \
   bash -c "cd /work/moondream-opt/hip && hipcc -O3 --offload-arch=gfx1151 -fPIC -shared i8gemm.hip -o libmdgemm.so && hipcc -O3 --offload-arch=gfx1151 -fPIC -shared attn.hip -o libmdattn.so && hipcc -O3 --offload-arch=gfx1151 i8gemm.hip i8test.cpp -o i8test && chown 1000:1000 *"
 ```
 The library only depends on `libamdhip64.so.7`, which torch's ROCm wheel already loads, so the host venv can `ctypes.CDLL` it directly.
 The container venv used for the Docker comparison was made with `uv venv --python 3.12 venv-c714` and the same torch wheel
 (`--index-url https://download.pytorch.org/whl/rocm7.14 torch==2.14.1+rocm7.14 triton-rocm "transformers<5" einops accelerate pillow numpy`).
-The host venv: `~/.local/bin/uv venv --python 3.14 venv-rocm714` + the same packages.
+The host venv: `uv venv --python 3.14 venv-rocm714` + the same packages.
 
 ## Using it from an application
 ```python

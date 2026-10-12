@@ -1,6 +1,6 @@
 # moondream: the workload, the split and the budget
 
-moondream2 is App's yes/no gate ("Is there a mug in this image? Answer yes or no.") on phone frames. The GPU alone runs it in
+moondream2 is used as an object-presence (yes/no) query ("Is there a mug in this image? Answer yes or no.") on camera frames. The GPU alone runs it in
 **88.7 ms per frame** (MEASURED, 10.9 fps, 98.0 % on 493 frames; [GPU path](gpu.md)). The NPU project tried to take the vision tower off
 the GPU so that the two sides work on different frames at once. It built a 27-block GEMM program at **33.8 ms per frame**, a fused
 attention at **0.675 ms per block**, and bf16 GELU and LayerNorm kernels. Summed, the tower on the NPU costs **~75 ms** against
@@ -10,13 +10,13 @@ the NPU does the GEMMs, the GPU keeps the text model, and the tower's other piec
 
 ## The workload
 
-- **Yes/no presence gate.** One 720x1280 phone frame is squashed to 378x378 (one crop, 27x27 = 729 patches of 14 px), the question is
+- **Yes/no presence gate.** One 720x1280 camera frame is squashed to 378x378 (one crop, 27x27 = 729 patches of 14 px), the question is
   a fixed sentence, and the answer is the yes/no logit margin of the first decoded token. Test set: 493 frames, tv 402 (46 found) and
-  mug 91 (7 found); label yes means the Qwen judge said "found" (`moondream/gpu/RESULTS.md`, head).
+  mug 91 (7 found); label yes means a VLM judge said "found" (`moondream/gpu/RESULTS.md`, head).
 - **The model.** A SigLIP vision tower (27 blocks, dim 1152, MLP 4304, 16 heads x 72, pre-LN), a projection MLP (2304 -> 8192 -> 2048
   from `cat([x, x])`), and a 24-layer text model (dim 2048, int8) that prefills ~730 tokens and answers from one logit pair
   (MD RESULTS phase 1, phase 4).
-- **Grounding** (boxes and points for "find the object") uses the same model family but a longer decode. It was only
+- **Grounding** (boxes and points for a named object) uses the same model family but a longer decode. It was only
   evaluated, never optimised; [moondream3](moondream3.md) compares the newer model on it.
 - **Where the 79.6 ms of encode goes** (MEASURED in situ on the GPU, MD NOTES phase 1): text int8 GEMMs 48.4 ms, vision bf16 GEMMs
   20.7 ms, flash attention ~10 ms (vision ~4.5), LN/GELU/adds/quant ~6 ms. "Encode" includes the text prefill. The part an NPU can take over is

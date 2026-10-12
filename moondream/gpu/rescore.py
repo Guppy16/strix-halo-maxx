@@ -1,15 +1,17 @@
-"""Score the per-frame answers (data/calibration/frame_preds.json) against the user's frame labels
-(data/frame_labels.jsonl, last line per frame wins); frames without a user label keep the judge's
-label. "unsure" frames and monitors (a grey area: the user marked them "monitor, not a TV") are
+"""Score the per-frame answers (data/calibration/frame_preds.json) against hand-made frame labels
+(frame_labels.jsonl, last line per frame wins); frames without a hand label keep the judge's
+label. "unsure" frames and monitors (a grey area, labelled "monitor, not a TV") are
 left out, so the score is clear TV vs clear not-TV."""
 
 import glob
 import json
+import os
 import re
 from collections import Counter
 from pathlib import Path
 
-DATA = Path.home() / "git/app/data"
+# Private data: MD_FRAMES (sessions folder); labels and calibration/ output sit in its parent.
+DATA = Path(os.environ.get("MD_FRAMES", "frames/sessions")).resolve().parent
 preds = json.loads((DATA / "calibration/frame_preds.json").read_text())
 user = {}
 for line in (DATA / "frame_labels.jsonl").read_text().splitlines():

@@ -77,10 +77,10 @@ The conversions also depend on the core's rounding mode, which defaults to floor
 
 ## Reading the accuracy numbers
 
-- The deciding frames are few. Almost every flip is a tv frame of session `sessB` that the GPU path already scores within +-0.8 of zero, a band of ~15 monitor-like negatives; false-positive counts move up and down by noise
+- The deciding frames are few. Almost every flip is a tv frame of session B that the GPU path already scores within +-0.8 of zero, a band of ~15 borderline negatives; false-positive counts move up and down by noise
   (bf16_all has fewer than bf16_gelu alone). No configuration misses a positive.
 - Cross-process noise on the GPU is of the same size: Triton autotune choices changed the accumulation order and flipped frames (97.0 to 98.0 % for one config). Compare emulations within one run.
-- Two frame sets appear: 493 frames (the phase-1 table, 53 positives) and 462 frames with 24 positives (the bf16 study, "user-labelled"). Their absolute accuracies differ (98.0 vs 98.3 % for the exact path), so the tables above must not be mixed.
+- Two frame sets appear: 493 frames (the phase-1 table, 53 positives) and 462 frames with 24 positives (the bf16 study, hand-labelled). Their absolute accuracies differ (98.0 vs 98.3 % for the exact path), so the tables above must not be mixed.
 
 ## What worked
 

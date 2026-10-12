@@ -2,7 +2,7 @@
 
 Question: the NPU vector unit has no fp32 arithmetic. If LayerNorm, tanh-GELU, attention softmax and residual adds of
 moondream2's vision tower (27 blocks + post_ln + projection MLP; text model untouched) round every intermediate to bf16,
-with fp32 only for reductions, how much accuracy is lost on the user-labelled frames?
+with fp32 only for reductions, how much accuracy is lost on the hand-labelled frames?
 
 ## Method
 `bf16emu.py` replaces `FastMD2._vision` (`frame_preds.py --bf16 all|ln,gelu,softmax`). Every op computes in fp32 and rounds
@@ -17,7 +17,7 @@ to bf16 straight away; constants are bf16; exp is correctly rounded from its bf1
   (HLin fuses GELU into the GEMM epilogue in fp32).
 * `npu_full*` add `--vlin BfpAcc32Lin` (bfp16ebs8 operands, fp32 accumulation; bfpemu.py).
 
-Op check (`bf16emu_check.py`, frame sessA/0060, blocks 0/13/26, rel rms error vs fp32; runs-1008/check2.log):
+Op check (`bf16emu_check.py`, frame session A/0060, blocks 0/13/26, rel rms error vs fp32; runs-1008/check2.log):
 
 | op | GPU path | bf16 emu |
 |---|---|---|
@@ -48,7 +48,7 @@ softmax 5.8% / 0.93, all 18% / 0.49, all with gelusig 9.0% / 0.81.
 | npu_full_sig_pool16 | 99.6% | 2 | 0 | 1 | 0.19 / 0.75 |
 
 Flips/shifts are vs exact (729-token rows) or vs pool16 (pool rows). Nearly every flip is a tv frame of session
-sessB that the GPU path already scores within +-0.8 of zero (a band of ~15 borderline "monitor-like" negatives),
+B that the GPU path already scores within +-0.8 of zero (a band of ~15 borderline negatives),
 so the per-config fp counts move up and down by noise (bf16_all has fewer fp than bf16_gelu alone). No config misses a
 positive: the smallest true-positive margin stays +4.7..+5.1 (exact +4.8) and +3.5..+3.7 (pool16 +3.2).
 
@@ -80,8 +80,8 @@ Encoder output vs GPU path: attnbfp alone 7.7% / min token cosine 0.77; ln,gelus
 | pool16 (GPU path) | 99.4% | 3 | 0 | - | - |
 | **npu_full_sig_bfpattn_pool16** | 99.6% | 2 | 0 | 1 | 0.19 / 1.03 |
 
-At 729 tokens the flips are all tv negatives with GPU margins in -1.25..+0.2 (sessB 0114/0115/0124/0147,
-sessC 0047); the pooled flip is sessB/0181 (+0.1 -> -0.3, now correct). Smallest true-positive margin
+At 729 tokens the flips are all tv negatives with GPU margins in -1.25..+0.2 (session B 0114/0115/0124/0147,
+session C 0047); the pooled flip is session B/0181 (+0.1 -> -0.3, now correct). Smallest true-positive margin
 +4.8 (exact +4.8) and +3.3 (pool16 +3.2): no misses.
 Verdict: bfp16 attention operands are acceptable. The target pool16 config is unchanged (2 errors vs the GPU path's 3);
 at 729 tokens it is +3 fp vs exact, 1 more than with bf16 attention, all on the borderline band.

@@ -1,7 +1,6 @@
 # moondream3-preview vs moondream2: grounding benchmark (2026-10-09)
 
-Everything is in `~/git/app/.scratch/moondream3/` on testbox. Nothing in the app package or
-the live code changed.
+Scripts and outputs live in the working directory `$SHM_SCRATCH/moondream3/`.
 
 ## Download (pinned, safetensors only)
 - `moondream/moondream3-preview` @ `5112966d1a723413b1c9a1e8bea272b72e647b35`, into `hf/` (cache_dir).
@@ -46,9 +45,9 @@ mask/SVG head in the weight map. Segmentation is cloud-only (moondream.ai API). 
 ## Runs (all through `../moondream-opt/gpu_safe.sh`, venv `../moondream-opt/venv-rocm714`:
 ## torch 2.14.1+rocm7.14, transformers 4.57.6; no new packages, no new venv)
 `bench.py md2|md3 [--compile]` runs detect, point, then encode once + detect-on-encoded, for the
-50 queries in `data/box_queue/grounding-2026-10-09.json` (full 720x1280 frame, leading
-"the/a/an" stripped as in ground._noun), then caption/query on 5 frames.
-`score.py` grades results the way replay_hybrid.py does (first box, IoU>0.5 with a labelled answer;
+50 grounding queries on everyday objects (`grounding_queries.json`, a private set; full 720x1280 frame, leading
+"the/a/an" stripped from the object noun), then caption/query on 5 frames.
+`score.py` grades results the way the earlier replay script did (first box, IoU>0.5 with a labelled answer;
 points: inside the smallest labelled box). On the old md2 results it gives 44 correct / 4 wrong /
 1 unlabelled, which matches the 44/48 baseline. `compare.py` lists disagreements. `overlay.py`
 writes `out/<id>.jpg` (orange md2, cyan md3, green/red labelled boxes).
@@ -68,21 +67,21 @@ writes `out/<id>.jpg` (orange md2, cyan md3, green/red labelled boxes).
 | detect: correct / wrong / unlabelled (49 graded) | 44 / 4 / 1 | 42 / 3 / 4 | same boxes as eager on 43/50; same grades |
 | detect after my look at the unlabelled | 44 / 4 (+q36 ambiguous) | 44 / 5 | |
 | point: correct / wrong / partial / unlabelled | 41 / 7 / 0 / 1 | 43 / 4 / 1 / 1 | 43 / 4 / 1 / 1 |
-| object present (12), detect | 12 | 11 (missed q18) | |
+| small-object query, object present (12), detect | 12 | 11 (missed q18) | |
 | absent (10): nothing returned, detect / point | 8 / 4 | 8 / 6 | |
 
-Unlabelled md3 detect boxes, judged by eye (`out/`): q06 and q09 (green LED) are on the LED,
+Unlabelled md3 detect boxes, judged by eye (`out/`): q06 and q09 (a tiny light) are on the target,
 tighter than the labelled boxes, so correct (IoU < 0.5 only because the target is tiny). q18 boxes a
-blurred strip at the bottom edge; the organiser is on the desk, so wrong. q11 boxes the white
-extension block, not the object, so wrong (md3's *point* on q11 is right).
+blurred strip at the bottom edge while the object is elsewhere in the frame, so wrong. q11 boxes a neighbouring
+object, so wrong (md3's *point* on q11 is right).
 
 Detect disagreements, md2 -> md3:
-- q36 water bottle: unlabelled -> correct (md3 picks the left bottle like Qwen).
-- q47 monitor on the black frame: wrong (whole-frame box) -> correct (nothing).
-- q18 tiny far object: correct -> wrong (bottom-edge strip).
-- q49 object, absent: correct -> wrong (boxed the object's base).
-- q11 object: wrong -> wrong (a different object).
-- q06, q09 LED: correct -> correct by eye (unlabelled by IoU).
+- q36 (two candidate instances): unlabelled -> correct (md3 picks the left one).
+- q47 (black frame): wrong (whole-frame box) -> correct (nothing).
+- q18 (tiny, far object): correct -> wrong (bottom-edge strip).
+- q49 (object absent): correct -> wrong (boxed an unrelated part of the scene).
+- q11: wrong -> wrong (a different object).
+- q06, q09 (tiny light): correct -> correct by eye (unlabelled by IoU).
 
 VQA latency (5 frames q01 q08 q15 q36 q47, default sampling, medians; latency only):
 md2 caption short 1.39 s / normal 2.58 s / query 1.08 s.
@@ -91,7 +90,7 @@ reasoning 7.6 s. md3 compiled: 2.27 / 4.26 / 1.91 / 6.16 s.
 
 ## Verdict
 Not better at grounding on this set: the same 44 correct by eye, one more wrong, and it loses the
-tiny-organiser case that motivated moondream. It is ~2.6x slower (1.2-1.3 s against 0.46 s) and
+tiny-object case that motivated moondream. It is ~2.6x slower (1.2-1.3 s against 0.46 s) and
 needs ~4.5x the GPU memory (19 GB against 4.4 GB). It is somewhat better at `point` as a presence
-test (6/10 absent against 4/10), but that isn't how we use it. So no optimisation plan beyond the
+test (6/10 absent against 4/10), which is not the grounding use case. So no optimisation plan beyond the
 note in the report.

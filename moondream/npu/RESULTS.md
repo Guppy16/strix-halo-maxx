@@ -1,7 +1,7 @@
 # moondream2 vision encoder on the XDNA2 NPU -- phase 1 results (2026-10-07)
 
 ## Stack
-Image `npu-iron` (docker/Dockerfile): ubuntu:25.10 + the maintainer's own XRT 2.21.0 debs (base, base-dev, npu; plugin shim extracted only)
+Image `npu-iron` (docker/Dockerfile): ubuntu:25.10 + locally built XRT 2.21.0 debs (base, base-dev, npu; plugin shim extracted only)
 + mlir-aie 1.4.4 wheels + llvm-aie (Peano) 22.0.0.2026092101 + python 3.13 + torch-cpu.
 Container gets only `--device /dev/accel/accel0 --ulimit memlock=-1:-1` and the workspace. No host changes.
 xrt-smi: "NPU Strix Halo", NPU FW 1.1.0.60, power mode Default.
@@ -62,7 +62,7 @@ contains the text prefill of the 730 image tokens (int8 GEMMs 48.4 ms), which st
 Pipelining (NPU encodes frame N+1 while the GPU prefills + queries frame N): the GPU per-frame work becomes ~88.7 - 30 = ~59 ms,
 the NPU ~55-70 ms -> ~15-17 frames/s vs 10.9 today (+40-55%), with per-frame latency rising to ~115-130 ms.
 The ceiling is the GPU's prefill + query (~59 ms -> ~17 fps); making the NPU faster than that buys nothing unless prefill shrinks too.
-(These GPU-side figures come from RESULTS.md in moondream-opt; they were not re-measured because the GPU run was blocked.)
+(These GPU-side figures come from RESULTS.md in moondream-opt; they were not re-measured because the GPU was not available.)
 
 ## Recommendation
 Worth pursuing, but only after a cheap precision check, and the gain is capped at ~+50% throughput.
@@ -72,7 +72,7 @@ Worth pursuing, but only after a cheap precision check, and the gain is capped a
 2. Phase 2 build (~3-5 weeks): one xclbin for the whole encoder; dispatch-time-shaped ATB GEMM with weights pre-converted and pre-shuffled
    to bfp16 at load; fused epilogues (bias, tanh-GELU, residual) that emit bfp16 activations directly; LayerNorm kernel; non-causal
    flash attention for hd 72 (pad 80), heads spread over columns, with a more accurate exp than the AIE2P exp2 interpolant (up to 6% off);
-   patch embedding as a GEMM on host-im2col'd input; host side from the App server (pyxrt is cp313, the server is 3.14 -> small C++ shim
+   patch embedding as a GEMM on host-im2col'd input; host side from the application process (pyxrt is cp313, the application runs a newer Python -> small C++ shim
    or rebuilt bindings), 729x2048 hand-off to the GPU.
 Risks: precision; mlir-aie API churn (we track 1.4.4, driver pinned to Jan 2026); no NPU sharing/preemption story (2.8 ms context switches);
 turbo power mode needs sudo; driver hangs (none seen today).
@@ -197,8 +197,8 @@ Code: p2c/ (design3.py + mm_f32acc.cc -DBLK12, mode.py, spin.py, host.cpp). Expe
 (zero/random/real data, 3 BO sets per process, alternating xclbins, CPU burn before timing): BO placement, flags,
 IOMMU (identity-mapped), xclbin and hw-context are all innocent. Two real effects were found instead: a DPM ramp
 (590 -> 410 us over the first ~25 dispatches of a process; run.py now warms up 20) and DDR contention (six CPU
-memcpy hogs: +21%; a GPU job moves 10x more). The slow processes all fell in last night's window of GPU-side App
-activity on the shared box -> cross-tenant contention. run.py prints gpu_busy% with every number; report min over
+memcpy hogs: +21%; a GPU job moves 10x more). The slow processes all fell in one window of GPU activity from another workload
+on the shared box -> cross-tenant contention. run.py prints gpu_busy% with every number; report min over
 processes.
 
 **Clock and launch** (spin.py: one core, kernel on resident data): 0.261 us per 364-bundle call -> ~1.4 GHz;
@@ -272,7 +272,7 @@ Turbo; 20 ms dispatches are unaffected. Eliminated: BO placement/flags, IOMMU, x
 core clock (spin rate unchanged inside a slow process), wait(0) vs wait(), the per-iteration sync, BLAS threads,
 DDR contention (separately measurable: +21% with six CPU memcpy hogs). Signature = completion notification falling
 back to a ~1 ms timer path in driver/firmware. run.py flags it (SLOW-MODE) and it is amortised by one encoder-long
-dispatch in App's pipeline.
+dispatch in a full pipeline.
 
 **Not done this phase:** bfp16 epilogue / C depth 2 (needs n=64 tiles: the fp32 accumulator and a second C buffer
 do not fit L1 at 96x96; worth ~26 us per qkv-sized op, ~2 ms per frame) and the K-split pair (ports are not the
@@ -285,7 +285,7 @@ GPU: everything after the encoder):**
   ~26 fps (today 15.6), latency ~72 ms.
 Caveat: the two run concurrently and share DDR; the NPU's DMA-bound phases slowed 21% under CPU memcpy hogs and a
 GPU prefill moves far more, so the pooled estimate is more like 20-24 fps until measured together (not measured:
-the GPU was off limits).
+the GPU was not available).
 
 **What limits further gains:** the kernel schedule (63% of core peak; the frame's MACs alone are 22 ms at that
 efficiency, 14 ms at 100%), then the per-op bubbles (C-tile stall, A load between ops, ~85 us per op), then launch.
@@ -358,21 +358,21 @@ from cached projected image tokens, CUDA-graphed). Logs: p5/build/{npu_joint.log
 |---|---|---|---|
 | NPU: vision-encoder GEMMs, d7 (b3x27 + fc2x27 + pfc1 + pfc2, four xclbins) | 40.4 / 40.7 ms (2 runs) | 44.8 ms (p90 46.2, 1273 frames) | +10% |
 | GPU: pooled text prefill + query (text-only; prefill 24.9 + query 8.3) | 33.2 ms | 34.4 ms (prefill 25.1 + query 9.2) | +3.6% |
-GPU busy 100% during its loops; GTT 11%; no other tenant; answers unchanged. The NPU frame carries ~10.7 ms of
+GPU busy 100% during its loops; GTT 11%; no other GPU process; answers unchanged. The NPU frame carries ~10.7 ms of
 hw-context switches (b3x27 looped alone 18.8 ms; GEMM work 29.7 ms); attention / LN / patch embedding (~8 ms est.)
 are not on the NPU yet.
 **Pipelined frame rate today: 1 / max(44.8, 34.4) = 22 fps, NPU-bound** (GPU-only pooled: 15.6 fps). With the
 encoder in one xclbin (no switches) plus the missing pieces, ~41 ms -> ~24 fps, still NPU-bound; the GPU side
 alone would allow ~29 fps. Latency per frame in the pipeline ~45 + 34 = ~79 ms.
 
-### (2) Hand-scheduled inner loop: blocked at the toolchain
-Peano (llvm-aie 22.0, the only compiler here) rejects inline assembly ("unable to translate instruction: call"
-for any `asm volatile`), ships no AIE2P ISA document (register classes, slot/latency tables, stream fill/pop
-state), and ships no assembler at all (no `llvm-mc`; only `llc`/`llvm-objdump`), so a hand-written .s kernel cannot
-even be assembled here. The route is closed with this toolchain, not merely risky; it was not attempted. Phase 3's six structural variants stand: BLK12 unroll 2 = 51 bundles / 32 MACs =
+### (2) Hand-scheduled inner loop: not available at that point
+With Peano (llvm-aie 22.0, the only compiler here) inline assembly was rejected ("unable to translate instruction: call"
+for any `asm volatile`), no AIE2P ISA document (register classes, slot/latency tables, stream fill/pop
+state) was available, and no assembler was shipped (no `llvm-mc`; only `llc`/`llvm-objdump`), so a hand-written .s kernel could not
+be assembled at that time. The route was not attempted in this phase (later phases built it). Phase 3's six structural variants stand: BLK12 unroll 2 = 51 bundles / 32 MACs =
 1.59 per MAC = 63% of core peak; the per-frame GEMM number stays 29.7 ms (GPU 20.7). The bfp16 epilogue / C depth
 2 (needs n=64 tiles) was not built either.
-What would unblock the kernel: the AMD AIE-ML v2 (XDNA2) ISA reference or Peano's AIE2P scheduling model
+What would have enabled the kernel: an AIE-ML v2 (XDNA2) ISA reference or an AIE2P scheduling model for Peano
 (instruction latencies + slot assignment), or an `aie-opt`/Vitis `chess` toolchain that honours
 `chess_prepare_for_pipelining` / `chess_loop_range` with an initiation-interval hint.
 
@@ -424,7 +424,7 @@ GELU, residuals, patch embedding (the GPU currently does them with the vision to
 Timeouts this phase: none (1 of 3 used in 2c). Device healthy; containers removed; GPU used only through gpu_safe.sh.
 
 
-## Phase 7 (2026-10-08; NPU Turbo; the Opus bf16-emulation job kept the GPU at 96-99% busy throughout, so every
+## Phase 7 (2026-10-08; NPU Turbo; a bf16-emulation job kept the GPU at 96-99% busy throughout, so every
 ## timing here is DDR-contended (labelled); correctness results are unaffected. BF16_ELEMENTWISE.md had not landed.)
 Code: p7/ (mm_f32acc.cc -DGELU_BF16, ln.cc/ln.py (bf16 LayerNorm), ln_res.py (LayerNorm + residual add),
 run.py --gelu-mode bf16, runln.py with references in the BF16_ELEMENTWISE numerics). NOTES.md "Phase 7".
@@ -477,7 +477,7 @@ block (16 heads): scalar version 18 ms -> vectorised 4.4 -> static masks and vec
 cycles per 32-key chunk for ~6k cycles of counted vector work (9.9 KB of spills, 288 register transposes + 576
 block loads per chunk); the exp is not the bottleneck (a 3x cheaper exp changed 4.36 -> 4.18 ms), PV is 0.8 ms.
 One timeout this phase (IRON `acquire(n)` = "hold n in total": `acquire(1)` twice vs `release(2)` drifted the
-locks); the device recovered (known-good bit-exact). Toolchain/API pitfalls met and worked around: Peano crashes on
+locks); the device recovered (known-good bit-exact). Toolchain/API pitfalls met and worked around: Peano aborts on
 vectors assigned under runtime conditions (if-conversion "Bad PHI"); no fp32 64-lane transpose; sub-native 8-lane
 bf16 max returns wrong values; scalar fp32 divide/compare are software calls.
 
