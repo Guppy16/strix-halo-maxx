@@ -66,7 +66,7 @@ markdown_extensions:
 
 # MathJax for $...$ / $$...$$ (pymdownx.arithmatex, generic mode)
 extra_javascript:
-  - tools/site/mathjax.js
+  - tools/web/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
 
 validation:
@@ -79,7 +79,7 @@ exclude_docs: |
   .github/
   .claude/
   CLAUDE.md
-  site/
+  /site/
   build/
   **/build/
   **/bak/

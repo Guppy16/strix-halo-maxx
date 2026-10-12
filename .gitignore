@@ -7,5 +7,5 @@ stray/
 *.npz
 *.pt
 *.safetensors
-site/
+/site/
 /.scratch
