@@ -1,7 +1,7 @@
 """TAPNext++ one-frame step with the trunk GEMMs and the attention executed ON THE NPU (scratch prototype).
 
 Runs inside the npu-iron container (pyxrt + aie.utils.bfp + torch CPU). The vendored model
-(agent/app/jobs/tapnext/model.py) runs on the CPU in bf16; F.linear of every trunk Linear is routed to the
+(the vendored TAPNext++ model.py) runs on the CPU in bf16; F.linear of every trunk Linear is routed to the
 NPU for the 1024 image rows (bfp16ebs8 operands, fp32 accumulation; a K=3072 Linear runs as four K=768 chunks
 whose fp32 partials are summed on the host) and to the CPU (bf16) for the 48 query rows; F.scaled_dot_product_
 attention is routed to the NPU attention program for all 1072 tokens. One xclbin per GEMM shape (5) + the
@@ -35,7 +35,7 @@ RHO = 8
 M_IMG = COLS * M_CORE
 import types
 tn = types.ModuleType("tn")  # the vendored model targets Python 3.14 (lazy annotations); the container is 3.13
-exec(open("/work/agent/app/jobs/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
+exec(open("/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
 
 STATS = dict(npu_us=0.0, pack_ms=0.0, gemm_runs=0, attn_runs=0, cpu_rows_ms=0.0)
 
@@ -194,7 +194,7 @@ class NpuTapNext:
         self.gemms = {nt: GemmProgram(self.dev, nt) for nt in (3, 6, 9, 12, 24)}
         self.attn = AttnProgram(self.dev)
         self.model = tn.TAPNext()
-        tn.load_state(self.model, "/work/data/models/tapnextpp_256.safetensors")
+        tn.load_state(self.model, "/tapnext/tapnextpp_256.safetensors")
         self.model.to_half(torch.bfloat16).eval()
         # every trunk Linear: (nt per K chunk, [weight bo per chunk], bias)
         self.ops = {}

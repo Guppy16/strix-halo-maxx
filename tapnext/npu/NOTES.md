@@ -1,6 +1,6 @@
 
 ## 5. The end-to-end prototype (npu_step.py) and what the full port still needs
-Done tonight: the step runs on real frames with every trunk GEMM and every attention executed by the NPU kernels
+Done in this session: the step runs on real frames with every trunk GEMM and every attention executed by the NPU kernels
 (tracks within 0.03 px of the all-CPU bf16 step; DAVIS in RESULTS.md). It is a correctness vehicle: one dispatch
 per op across six xclbins (~2 ms each of context switch + DMA setup), activations packed to bfp16 on the host
 (3.5 s/step with the numpy codec) and the elementwise work on the CPU.
@@ -350,7 +350,7 @@ yardstick), `lutgen.py` (LUT tables in the aie::lut layout).
 - P21 as scheduling rules: R1 (no accumulator load + store in one bundle) 273 bundles static; A ops kept off B's
   cycles 255. A layout where consecutive groups' accumulators live in different banks keeps 225 conflict-free
   (designed, not built: 36 pieces of 1 KB, NOTES 13.4).
-- Peano: sched barriers (read_tm stamps) inline in ew8's pipelined chunk loop crash clang (AIE Region assertion):
+- Peano: sched barriers (read_tm stamps) inline in ew8's pipelined chunk loop make clang fail (AIE Region assertion):
   stamp through a noinline function.
 ### 13.4 Designed, not built: conflict-free accumulators for the asm call
 Groups run (rb0, pair0), (rb0, pair1), (rb1, pair0), (rb1, pair1); at each boundary the next group's loads overlap the
@@ -375,7 +375,7 @@ situ (-2.5..-3 ms); do it inside P20's generator rather than twice.
    reloaded them inside the loop). Needed 4 ring helpers -> minsize (program memory). -0.22 ms, bit-identical.
 4. **mm_kstep** (kdefs -DMM_KSTEP): one call per k-step; the A ring's locks pinned (design8: aF = lock 4, aU = 5) and taken in
    the kernel. -2.0 ms, bit-identical.
-5. **Accumulator pieces** (-DMM_PIECES; NOTES 13.4 / research rev 4): 36 x 1 KB pieces, affine layout (pair 0 of rb < 12 in
+5. **Accumulator pieces** (-DMM_PIECES; NOTES 13.4 / analysis rev 4): 36 x 1 KB pieces, affine layout (pair 0 of rb < 12 in
    C slot rb; pair 0 of rb >= 12 in acc_hi 0..5; pair 1 in acc_hi 6 + rb), epilogues rewritten as strided passes over
    pieces (bias_pcs, two pieces per trip; rb_bf2 halves). -0.9 ms (greedy table map, slow epilogue) / affine kept.
 6. **mm_ks** (-DMM_KS; r9/gen_ks.py): the whole k-step in asm, a zero-overhead loop over 9 stripes, modulo-scheduled at 192
@@ -428,11 +428,11 @@ situ (-2.5..-3 ms); do it inside P20's generator rather than twice.
 - Memtile -> core stream 7.95 B/cycle. With all 8 columns loading their slot from DDR the load runs ~4 B/cycle per column.
 - A BD needs both a lock acquire and a release, or neither. Tile / memtile BDs refuse stride 0. A full memtile queue
   (4 tasks) blocks the command processor: push an op's tasks before any of its waits.
-- IRON's pathfinder drops a multicast destination when unicast flows share the same DMA master ports (r10/pf1.mlir).
+- Observed with IRON's pathfinder: a multicast destination is missing from the routing when unicast flows share the same DMA master ports (r10/pf1.mlir).
 - The GELU-by-table loop is not stall-free when Peano is forced to pipeline it (17 static -> 54.7 measured cycles / 32
   lanes); the deployed 2-vector loop runs at its static count (34.2).
 ### 15.3 Dead ends (measured)
-- Unicast + multicast packet ids for the slot halves (router bug; hung one dispatch).
+- Unicast + multicast packet ids for the slot halves (router drops a destination; hung one dispatch).
 - GELU_II (forced initiation interval): slower in situ.
 
 ## 16. Round 11 (2026-10-10): 53.9 -> 52.1 ms, a validated modulo-schedule generator, the real register-timing rules
@@ -453,7 +453,7 @@ situ (-2.5..-3 ms); do it inside P20's generator rather than twice.
   structural hazards. The last bundle of a zero-overhead loop must be 16-B aligned.
 - Peano's pipeline_initiation_interval pragma silently gives the serial loop with restrict copies of one pointer (and
   in r10/gxb.cc with MIN_ITERATION_COUNT(8)): always read the emitted loop, and bench the binary you deploy.
-- Host part of the step: conv 0.48-1.1, packing 0.64 (now 0.14), heads 0.6-1.0 ms; variance = OpenMP wake-up + tenants.
+- Host part of the step: conv 0.48-1.1, packing 0.64 (now 0.14), heads 0.6-1.0 ms; variance = OpenMP wake-up + background load.
 - Stacks (aiecc's measured_stack_sizes agrees): GEMM 1,664 of 2,816 B, EW 4,288 of 6,144 B.
 ### 16.3 Dead ends (measured)
 - First GELU_MS attempts: c + r >= c' + w timing (one cycle optimistic) -> garbage; then the mv bypass -> lanes 16-23 wrong.
@@ -481,9 +481,9 @@ Best: **full12r12e** = r11d + `-DGUP,-DCPY32,-DPAN,-DGELU_FLAT,-DBGELU` + EW_DEF
 ### 17.2 Tools (r12/)
 - **cpsched.py**: CP-SAT (OR-tools) modulo scheduling: one-hot issue cycles, slots + itinerary ports + banks modulo II, the
   EXACT steady-state register pressure per class (live(v, c) booleans summed per residue), `maxdist` (a stream's ops in
-  order inside one II), `last_stage` (side-effect ops), `max_life` (bounds U), the schedule pinned to start at 0. Runs on
-  the laptop (`uv run --no-project --with ortools python ...`); generators save the schedule as JSON and replay it with
-  `--times` (msched `Loop.place`), so builds on testbox need no solver. It found II 6 (gup), 16 (pan), 12 (bgelu, sigk)
+  order inside one II), `last_stage` (side-effect ops), `max_life` (bounds U), the schedule pinned to start at 0. Runs under
+  `uv run --no-project --with ortools python ...`); generators save the schedule as JSON and replay it with
+  `--times` (msched `Loop.place`), so builds on the test machine need no solver. It found II 6 (gup), 16 (pan), 12 (bgelu, sigk)
   where msched's IMS + sink pass did not allocate.
 - msched (r11/msched.py) additions: `place()`, per-op stream offsets `f(i, k)`, `MIN_BODY` 3, `check()` replays every
   prologue -> body padding (PADS 0 / 1) INCLUDING itinerary ports along the real timeline, the one-cycle bypass window only
@@ -516,7 +516,6 @@ Best: **full12r12e** = r11d + `-DGUP,-DCPY32,-DPAN,-DGELU_FLAT,-DBGELU` + EW_DEF
 - GELU II 13 -> 10 as a standalone loop: with flat-edge tables ResMII is 10 but no 8-register schedule at II 10 (CP-SAT, 400 s,
   4 reload variants; not proven infeasible); the fused bgelu at II 12 replaced the standalone loop instead.
 - bgelu at II 11 (CP found one) is rejected by the padding check; a padding-aware CP model would recover it.
-- Mistyped rsync put copies of r11/* into the workspace root: moved to build/r12/stray_rsync/ (safe to delete).
 
 ## 18. Round 13 (2026-10-10): 50.05 -> 49.21 ms, the attention K phase as one lazy-fast loop, text recovered twice over
 ### 18.1 Changes (each measured; RESULTS 22). All behind flags; full12r12e reproduces without them.
@@ -542,7 +541,7 @@ Best: **full12r12e** = r11d + `-DGUP,-DCPY32,-DPAN,-DGELU_FLAT,-DBGELU` + EW_DEF
 Best: **full12r13f** = r12e flags + ASM_FIT=1 + `-DATTKF` + `--l2-depth 8`: 49.21 ms, BIT-IDENTICAL to full12r9a. GEMM text
 16,384 / 16,384 B (0 free), EW 16,224.
 ### 18.2 What the K-phase numbers say (in situ, timing twins `-DATTK_FORCE=bits`, RESULTS 22.3)
-- The fast loop alone (no test, no fallback): 47.14 ms = -2.9 ms, as research rev 8 priced P56. Production: 49.21.
+- The fast loop alone (no test, no fallback): 47.14 ms = -2.9 ms, as analysis rev 8 priced P56. Production: 49.21.
 - The flagged units cost it back: ~10 % of units (in-situ count, `-DATTK_COUNT`: 8.6-10.9 % per core = chunk 0 + chunk 22 +
   1-2 % moved maxima) take +400-900 cycles each (the fast pass wasted, then today's exp), and a multicast K / V stream makes
   every column wait for the slowest one per chunk: a 10 % event rate costs ~3x its own time on the op's wall.
@@ -568,10 +567,10 @@ cpsched: `min_t`, `hint`. apb.py: `GC`, `NW` / data_size / stack overrides (the 
   loads were ordered before it (maxdist).
 - vconv.bf16.fp32 from cmh encodes distinctly and works; `vlt.bf16` targets any rN; `or` is an alu-slot op.
 - The r12 kernels' asmfit: -208 B; the EW core had no dead entry points (ew_patch / gemm8 are already dropped by the linker:
-  research rev 7's 1.4 KB does not exist).
+  analysis rev 7's 1.4 KB does not exist).
 - Two design builds in parallel in one build dir race on the generated asm (asmfit temp files).
 - Attention is compute-bound, not DDR-bound (no K-phase compute at all: 43.4 ms).
-- numpy on testbox: OpenBLAS DYNAMIC_ARCH, 48 x 768 x 256 fp32 in 117 us single-threaded; with its default threads beside
+- numpy on the test machine: OpenBLAS DYNAMIC_ARCH, 48 x 768 x 256 fp32 in 117 us single-threaded; with its default threads beside
   torch's the heads took 11.7 ms.
 ### 18.5 Dead ends / not done
 - The split QK / exp loops (attqk II 11 -27 cycles per row block; aexp: no II <= 28 with 6 free x; the fused loop superseded both).
@@ -608,7 +607,7 @@ GEMM text 16,320 / 16,384.
   row blocks now cost first pass 393 + exact test 164 + rescale 578 + exact rerun 393 = ~1,530 cycles, and the K / V multicast
   lockstep multiplies that: the twin with the batched chunks' flags ignored (full12r14cF128, outputs wrong) runs 46.15 ms, i.e.
   the fallback costs ~2.1-2.6 ms of wall for ~0.35 ms of its own cycles (x ~6).
-- Single-TAP query dealing (research P60) is impossible: tile (c, i) -> (s0 + i d, p0 + i e) must be arithmetic in i for one
+- Single-TAP query dealing (analysis P60) is impossible: tile (c, i) -> (s0 + i d, p0 + i e) must be arithmetic in i for one
   TAP and a permutation per position; only column permutations satisfy both (r14/deal.py, deal2.py; sum of squares). P60 needs
   multi-TAP DMA (attention-specific memtile ld / send patterns, per-piece O drains or a memtile reorder).
 ### 19.3 Measured facts / rules (also in the skill)
@@ -632,7 +631,7 @@ GEMM text 16,320 / 16,384.
 
 ## 20. Round 15 (2026-10-10/11): 47.31 -> 41.52 ms, the SSM / norm passes in asm, the query deal (P60g), the slot-count loops
 ### 20.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 24)
-1. **SSX** (r15/gen_ssx.py, ssx.json, EW_DEFS -DSSX; research P29b): log_a + exp + 1 - a^2 as ONE modulo loop, op for op loga_p +
+1. **SSX** (r15/gen_ssx.py, ssx.json, EW_DEFS -DSSX; analysis P29b): log_a + exp + 1 - a^2 as ONE modulo loop, op for op loga_p +
    exp_pA..D (vmac x, -1 -> vmsc x, 1.0 and ones x -M0 -> vmsc ones, M0: exact). 13 bf16 constants > 12 x registers: only 1.0 lives
    in x11, the others are reloaded per use (ldb has room; II 20 = the vec bound) from ssx_tab (11 x 64 B rows, .aie.bank2, non-const),
    1.0 fp32 for the c0 accumulator by vlda.conv.fp32.bf16 from the 1.0 row. U 1, 7 stages. -2,080 B of passes for 990 B.
@@ -641,18 +640,18 @@ GEMM text 16,320 / 16,384.
 3. **CONVK** (r15/gen_conv.py, convk.json): the SSM conv1d, one column block (2 vectors) per iteration, II 20 = vec bound; the taps
    + bias re-laid out by ssm_tables as [cb][w0 w1 w2 w3 b] (g_tct, the same 2,560 B) so one pointer + immediates + one padda serve
    all five.
-4. **P60G** (plan8.py, research rev 10 P60g, recorded as p60g in build/<name>.json and applied by step8 / run8): the query half
+4. **P60G** (plan8.py, analysis rev 10 P60g, recorded as p60g in build/<name>.json and applied by step8 / run8): the query half
    tiles dealt across the columns in the attention Q gather and out_proj's A gather only (composition checked piece by piece
    before the build: every natural half tile returns to its column in natural order).
-5. **RESCK** (r15/gen_resc.py, kdefs -DRESCK; research S1): rescale_rb's O / row-sum update in asm (II 8, 4 stages, a 2D jump to
+5. **RESCK** (r15/gen_resc.py, kdefs -DRESCK; analysis S1): rescale_rb's O / row-sum update in asm (II 8, 4 stages, a 2D jump to
    the row sums computed in the preamble); exp32 inline (-16 B: it was the only caller), srow through the score ring's slot 0
    (only k_rb's order allows it: #error without ATTKB). GEMM text 16,320 -> 16,192.
-6. **RECK** (r15/gen_rec.py, reck4.json: U 4, II 11; research P29c): the RG-LRU recurrence; the h state is kept in VECTOR order
+6. **RECK** (r15/gen_rec.py, reck4.json: U 4, II 11; analysis P29c): the RG-LRU recurrence; the h state is kept in VECTOR order
    ([cb][half] 128 B per vector) on both sides (only the SSM reads it back: the DMA moves it opaquely); one base pointer + dj
    offsets for mult / xc / gx / a, h0 by a 2D jump between the input ring's parts.
 7. **div768** (ew8.cc, always on): in_need / in_done / out_begin / out_end counted ring slots with minsize subtraction loops
    (called per norm unit and per SSM chunk): -1.05 ms together. ((x >> 8) * 21846) >> 16 == x / 768 for 0 <= x < 65536.
-8. **NRMK** (r15/gen_nrm.py, nrm_rms.json / nrm_ln.json; research P7-E step 1): the norm pass-2 math (rep4 = vldb.128 + 4 vshift
+8. **NRMK** (r15/gen_nrm.py, nrm_rms.json / nrm_ln.json; analysis P7-E step 1): the norm pass-2 math (rep4 = vldb.128 + 4 vshift
    by 16 B as Peano does it; RMS z = bf(bf(x r) sc); LN t = nb + x r + x rl, split, be + th ga + tl ga) with X' stored and the
    panels pushed STRAIGHT into the output ring (scratch + copy only when the part would wrap the ring end); one norm_rows for
    both modes (pass 1 sums, the statistics as a second loop over the stage in the same order). EW text 15,776 -> 14,960.
@@ -693,20 +692,20 @@ Best: **full12r15m** = r14f + P60G=1, kdefs + -DRESCK, EW_DEFS + "-DSSX -DCPY64 
    2, two vmov out of the accumulator, + lane bases, 8 vldb.4x16, three shuffles) with the exponent bias folded into the table:
    t' = t - ((64 - p) << 7), r = t' + ((b & 0xFF00) >> 1) (band + ups + srs + add instead of three ups / srs pairs). r9/ssm_lut.h
    takes SQK_TAB under -DSQK (r9/ssmlut.py regenerates it identically). Bit-exact on all 32,768 non-negative bf16. 493 -> 321.
-2. **INPART_INLINE** (research P-IN): the 7 part pointers inline, one straddle test per chunk, the straddling part by in_copy /
+2. **INPART_INLINE** (analysis P-IN): the 7 part pointers inline, one straddle test per chunk, the straddling part by in_copy /
    cpy64. The first try used the flag PIN, which some header #undef-s: the build silently compiled the old path (same elf md5).
-3. **XONE** (research X1b): x / x-1 / x-2 by one 48-vector out_copy when consecutive in the ring. cp_x 432 -> 269.
+3. **XONE** (analysis X1b): x / x-1 / x-2 by one 48-vector out_copy when consecutive in the ring. cp_x 432 -> 269.
 4. **GGK** (r16/gen_ggk.py, ggk2.json, ggkb, ggkref): both gate GEMMs as one loop over the 8 (gate, np) pairs, II 24 (vec 20),
    A (xc's panels, now a bank-2 static g_xcpb) restarted per np, B (Wx | Wa) one pop stream WITH A FILL BEFORE EVERY 8TH POP
    (21.3), the epilogue as vlda.conv bias + vmac bf16(acc) 1 (the same rounded sum as mul + mac). gates 655 -> 365.
 5. **SSQ** (r16/gen_ssq.py, ssq.json, ssqb): ssx + sqk in one loop: no schedule up to II 26 (x pressure), II 30 / U 2 / 6
    stages; 15-row constant table (the lane-base row written by the preamble). 832 -> 715.
 6. **SIG10** (r12/gen_sig.py --umax, r16/sig10.json): sigk at II 10 / U 4 (round 12 had capped U at 2 -> II 12). 499 -> 431 (bench).
-7. **N1K** (r16/gen_n1k.py, n1k_ln.json / n1k_rms.json, n1kb; research N1): norm pass 1 + statistics per unit; the statistics
+7. **N1K** (r16/gen_n1k.py, n1k_ln.json / n1k_rms.json, n1kb; analysis N1): norm pass 1 + statistics per unit; the statistics
    are loop-carried 64-lane MACs on register pairs (y4 = x8:x9, y5 = 1.0 = x10:x11; a generator-level "y" class); _begin / _step
    / _end entries keep constants and accumulators in registers across a row block's 12 steps. LN II 11, RMS II 10.
-Tools: r16/nrun.sh, b16.sh, try16.sh (research tools/try.sh on the current best), commit.sh, popprobe.s + popb.py (FIFO probes),
-NPROF (norm-step stamps without the SSM phase stamps), timing twins NORM_TWIN=2 / 4. Research's build-lock patch applied.
+Tools: r16/nrun.sh, b16.sh, try16.sh (analysis tools/try.sh on the current best), commit.sh, popprobe.s + popb.py (FIFO probes),
+NPROF (norm-step stamps without the SSM phase stamps), timing twins NORM_TWIN=2 / 4. Analysis's build-lock patch applied.
 msched / cpsched: loop-carried uses (Op cuses, U 1, initial value from the preamble; opt-in, every deployed generator replays
 byte-identical); gen_sig --umax.
 ### 21.2 What the numbers say
@@ -744,7 +743,7 @@ byte-identical); gen_sig --umax.
    flags' OR (int32_t: trips / hi move to r1 / r2) and a flagged row block's own flag is recomputed from its slot (bf16(max s - m) >
    63.75 in some lane: monotone, exactly the loop's per-score test). k_rb takes the slot and skips the first-pass rerun. II 36
    (34: none in 240 s; 35: failed the pad replay twice); x pressure needed cpsched `reserve` 1 and the max on the ring-reloaded scores.
-2. **X1** (plan8 XROT=4, ew8 -DXROT; research rev 12 design): conv history R0..R3 at B + S .. B + 4 S, x(t) -> R[t mod 4] by splitting
+2. **X1** (plan8 XROT=4, ew8 -DXROT; analysis rev 12 design): conv history R0..R3 at B + S .. B + 4 S, x(t) -> R[t mod 4] by splitting
    the yx drain ([2, 12, RB, XB], strides [x_at - base, KSTEP16, UNIT, 1]: under P23 the C objects arrive in k-step order), the kernel
    maps tap x - k to R[(r - k) mod 4] (header word 2 = 1 + r, four params copies in W), output [h lo, h hi, z] (3 KB) at B + 5 S. 4
    runtime sequences per depth (build/full<d>NAME_p<k>), step8 rotates the instruction bo per dispatch (Step8.select / phase), reset()
@@ -755,7 +754,7 @@ byte-identical); gen_sig --umax.
 4. **NPIPE** (ew8 -DNPIPE, NPIPE_G=6): norm pass 2 of rb interleaved with pass 1 of rb + 1 in groups of G units; the n1k accumulators
    go through g_nacc around each group (_end / _begin).
 Tools: r17/try17.sh (r16z base), r17/xtry.sh (XROT phase builds + regress + time + sweep), r17/xrotsim.py (state flow check),
-r17/cp_attks.sh (CP on testbox), step8 SPREAD / PHASES lines, NPROF out_begin stamp (record word 19), CPROF (conv split), attkb.py
+r17/cp_attks.sh (CP on the test machine), step8 SPREAD / PHASES lines, NPROF out_begin stamp (record word 19), CPROF (conv split), attkb.py
 --hashes, cpsched `forbid` + gen_attkb re-solve on pad port collisions.
 ### 22.2 What the numbers say
 - S2 hit (-0.31). X1 hit (-0.33 per rotating frame; the mod-4 form has no wrap frame). AL1 and NPIPE missed: AL1 -0.05..-0.15
@@ -770,7 +769,7 @@ r17/cp_attks.sh (CP on testbox), step8 SPREAD / PHASES lines, NPROF out_begin st
   (load, last store) <= II - 4 (data land +4, pointer +3), stores in the last stage (drain garbage iterations must not write).
 - cpsched solutions can fail msched.check only with the .p2align pad: re-solve with the colliding op's time forbidden (gen_attkb does
   it for port collisions); allocation failing at maxlive = budget: `reserve` 1 register in the CP bound.
-- Under the foreign CPU worker dispatch times split into two clusters ~0.17 ms apart; one 60-iteration median can land in either.
+- Under the background CPU job dispatch times split into two clusters ~0.17 ms apart; one 60-iteration median can land in either.
   Compare p10 / median / mean of 200 interleaved iterations.
 - A GEMM drain can split its output into two regions with one TAP when the C objects arrive in a linear order: [2, half, RB, XB].
 ### 22.4 Dead ends / not done
@@ -789,8 +788,8 @@ r17/cp_attks.sh (CP on testbox), step8 SPREAD / PHASES lines, NPROF out_begin st
 6. **CGF**: convk pushes xc's bfp panels (x1 on p6, push on p2 = g_xcpb_k).
 7. **P35**: mm_ktile runs a tile's k-steps; B cons / prod locks by id, B buffers by address; acc_epilogue records the bias
    buffer so the next tile starts at the other one (each tile consumes an even count: IRON's own index stays right).
-8. **ROT** (research pass 14 E5): mm_rot (rotating accumulator, 1,383 static vs mm_ks 1,824); pack8 B_ROT panel order; g2a =
-   research's g2f re-solved with acq.cond 6 bundles before the A fill (r18/gen_rot.py ROT_ACQ_GAP=6 ROT_REL_GAP=8).
+8. **ROT** (analysis pass 14 E5): mm_rot (rotating accumulator, 1,383 static vs mm_ks 1,824); pack8 B_ROT panel order; g2a =
+   analysis's g2f re-solved with acq.cond 6 bundles before the A fill (r18/gen_rot.py ROT_ACQ_GAP=6 ROT_REL_GAP=8).
 Tools: r18/ab.py (one-process A/B), r18/try18.sh (current best's flags), r18/dmab.*, r18/ksp38.py (+ mm8 KSP38), ew8 NIO2 +
 r8/ewprof NIO2 lines, r18/fsize.sh, r18/rotbench.py / rotlocks.py.
 ### 23.2 What the numbers say
@@ -839,7 +838,7 @@ r19/cbytes.py, design8 env CPRATE / CPRATE_POLL / SEQPRE; r19/try19.sh = the cur
   express, re-run aiecc, and never dispatch the unpatched xclbin of a kernel that uses the new lock.
 - A memtile MM2S task push before its fills exists can block the CP on work it has not issued (SEQPRE v1 +1.1 ms).
 ### 24.4 Dead ends / not done
-- SEQPRE v1 / v2 / drains-first; NIN2 (DDR cap); GEMM L1 layout (research: B in two banks infeasible, A slots <= 15 cycles).
+- SEQPRE v1 / v2 / drains-first; NIN2 (DDR cap); GEMM L1 layout (analysis: B in two banks infeasible, A slots <= 15 cycles).
 - Not built: CSPLIT4 (needs pan / gup / the stash copy split at a static sub-part boundary + an acquire-only BD, unverified), LATE-C,
   DAPRE, attention S3 / K2, SSM ssq2 / FSX, N-IO / NS (LN 2-input only, <= 0.2).
 
@@ -896,19 +895,19 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 2. **ZLOAD**: a tile's first k-step zero-loads its accumulators: the kp-0 MACs (in ROT exactly those with A operand ex0) take their
    mmul config from r6 = a 4th argument (r21/mkzload.py), mm_ktile passes 781 (780 | zero_acc, bit 0) for k == 0. acc_zero /
    acc_zero_hi keep only their flags (no 36 KB of zero stores per tile).
-3. **E7''** (research pass 17, B on both FIFOs; kernel r21/mm_rot_e7r68b = npu-research r22 R 68, fitted): design8 E7=1 (L1 B
+3. **E7''** (analysis pass 17, B on both FIFOs; kernel r21/mm_rot_e7r68b = analysis r22 R 68, fitted): design8 E7=1 (L1 B
    objects = the Y part, 4,224 B; GEMM stack +1,152 B so core_data starts at 0x70E80 in the IRON build and the KSC addresses are final;
    tbn / tba in bank 1), mm8 -DE7 (aexp_ab in .aie.bank3; mm_ktile passes the X buffer paired with the B buffer), r21/e7patch.py
    via csplit20 E7PATCH=1 (X buffers 0x70A00 / 0x70C40, the stack back to 2,560, each B S2MM BD split Y -> X with a hand-off lock
-   e7h: an acquire by 0 is refused at CDO generation), r21/mke7.py (research's mm_e7 into the ROT slot).
+   e7h: an acquire by 0 is refused at CDO generation), r21/mke7.py (analysis's mm_e7 into the ROT slot).
 4. **IV32**: design8 range32() = scf.for with i32 bounds for the GEMM core's loops (IRON's range_ forces index = i64): GEMM text
    16,320 -> 15,760, time neutral.
 5. **K0B**: the attention's chunk 0 through the batched fast pass (then the per-row-block exact reruns as before): -0.01..-0.03.
 ### 26.2 What the numbers say
 - TPROF r21t2: hands (previous epilogue end -> mm_ktile entry) plain 1,355 -> 345, gated 676 -> 75, mlp0 1,807 -> 668, V^T 671, Q / K
   1,108 (before CSUB-QK); the epilogues grew with the overlapped drain and the extra calls (plain 1,356 -> 1,575, mlp0 4,934 -> 5,495).
-- **Under heavy CPU load the NPU clock drops to 1.405 GHz** (r7/clk.py; crop_study ~8 cores + a 12-worker CP-SAT + the serverless
-  worker): r20z 32.3 -> 41.0 ms. A/B pairs stay valid; absolute numbers from that window do not.
+- **Under heavy CPU load the NPU clock drops to 1.405 GHz** (r7/clk.py; a ~8-core study job + a 12-worker CP-SAT + a background
+  CPU job): r20z 32.3 -> 41.0 ms. A/B pairs stay valid; absolute numbers from that window do not.
 - E7'': the replay's bank stalls are real (R 64: 1,244 + 129 stalls = neutral vs R 68's 1,338 + 0). Unfitted kernels (the prologue
   not ending 16 B aligned) lose exactly the jobs the prologue starts (rows 0-7, three column blocks); a wrong-output twin (-0.44)
   overstated the exact kernel (-0.28 at 1.405 GHz).
@@ -930,7 +929,7 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
    down_b and mlp3_b (K = 1536, not dependent) take k 0-11 from half 0 and k 12-23 from region 3; their fill sends k 12-23 first (two
    shim fills), so region 3 loads during down_a / mlp3_a; the middle tiles' send is one 3D TAP [2][32][972] with a 24-chunk stride.
    IRON re-packed memtiles 0-2 itself (3,584 B left, C joins still 64 KB aligned). A/B -0.07..-0.08.
-2. **TXT18** (research pass 18, tapnext/research/r23/mk_txt18.py, -DTXT18 in ew8.cc): norm twins by function pointer, a 2-trip stats loop,
+2. **TXT18** (analysis pass 18, tapnext/research/r23/mk_txt18.py, -DTXT18 in ew8.cc): norm twins by function pointer, a 2-trip stats loop,
    one ring copy. EW text 16,272 -> 15,824; and -0.07 ms (pre-registered 0: cause not measured).
 3. **attkb at II 33** (was 36; r14/gen_attkb.py --s2 --maxsrc sr, CP 600-1,800 s per II): II 34 -0.13, II 33 (U 1 via --life 1, dm order
    ATTKB_DM=0,1,2,4,3) -0.035 more. design8 env ATTKS_JSON.
@@ -939,8 +938,8 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - The attention's K loop is on the critical path (II 36 -> 34 landed at the top of its static price), but chunk 0's fast pass is not
   (K2 removed ~850 cycles per (tile, chunk 0) for -0.02 of a predicted -0.05..-0.10).
 - **NTWIN** (norm0 / norm2 skip the producer wait; outputs wrong): -0.92 ms; the norms start 30-50 us earlier with unchanged walls
-  (0.08-0.10 ms): the GEMM -> norm boundary wait is ~38 us per boundary of real time. Research's MSPLIT-P gate passed.
-- KTL (research's one loop per tile): hangs even as one call per k-step, so the bug is inside a single k-step call.
+  (0.08-0.10 ms): the GEMM -> norm boundary wait is ~38 us per boundary of real time. Analysis's MSPLIT-P gate passed.
+- KTL (analysis's one loop per tile): hangs even as one call per k-step, so the bug is inside a single k-step call.
 ### 27.3 Facts / rules (also in the skill)
 - Scalar `lda.2d rX / pX / mX, [p], dN` post-modifies exactly as the 2D rule (LDA2D probe: dn 4, dj 4, m -16 wraps every 5 loads); p and
   m registers read back 20-bit.
@@ -952,17 +951,17 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - **K2** (QK-only chunk-0 pass, r22/gen_attkq.py II 14): bit-identical, -0.02 ms for 608 B of GEMM text: kept OFF (-DK2).
 - Twins K0TWIN 1 / 2 (chunk 0 skipped): data-dependent (later chunks' flags change): -0.79 / +0.23..+0.50, no price.
 - E7'' nx = 10 (n1 30, ny 24) and the bank-3 excess reweighted (E7_W3 1,800, r22/gen_e7m.py): R 64 / 65 stay at 4 / 2 excess residues +
-  55-91 modelled stalls (CP stays at its hints); R 66 / 67 stopped when research said R < 68 only after KTL.
-- **KTL** (research r22/mm_e7k_r70): TIMEOUT on the first dispatch (full12r22k2) and as one call per k-step (full12r22k3, -DKTL1).
-  Record table equals research's table(); call arguments as specified. Open (research KTLP).
+  55-91 modelled stalls (CP stays at its hints); R 66 / 67 stopped when analysis said R < 68 only after KTL.
+- **KTL** (analysis r22/mm_e7k_r70): TIMEOUT on the first dispatch (full12r22k2) and as one call per k-step (full12r22k3, -DKTL1).
+  Record table equals analysis's table(); call arguments as specified. Open (analysis KTLP).
 - attv / n1k / ggk / vt / ssq gaps to their resource bounds (scan this round): attv taken; ssq (30 vs 21) is register-bound (DEAD_ENDS E16);
   n1k 11 vs 8 at 8 iterations per call and vt 13 vs 6 are worth < 0.02.
 - Not built: OPPRE-W / OPPRE-lag, S3, SSM glue (text now there), MSPLIT-P (L), CLKLOAD.
 
 ## 28. Round 23 (2026-10-11): -1.89 ms vs r22z (A/B), 28.89 ms at depth 12 (quiet sweep; r22z 30.81 same session): KTL, MSPLIT-P, YXSSM
 ### 28.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 32; build `r23/try23.sh NAME`, everything below on by default)
-1. **KTL** (research pass 19, r24/mm_e7k_r70b: one modulo loop per GEMM tile; the round-22 hang was acq.cond / rel.cond testing bit 0
-   of r26 with flag x counter masks). Taken through r22/mkktl.py; -0.82 ms vs r22z (research -0.50..-0.70).
+1. **KTL** (analysis pass 19, r24/mm_e7k_r70b: one modulo loop per GEMM tile; the round-22 hang was acq.cond / rel.cond testing bit 0
+   of r26 with flag x counter masks). Taken through r22/mkktl.py; -0.82 ms vs r22z (analysis -0.50..-0.70).
 2. **MSPLIT-P** (plan8 MSPLIT=down_b,mlp3_b,out_proj, mm8 -DMSPLIT): the op's last N tile runs as two row passes, rb 0-5 then rb 6-17,
    each its own C object (the first drains with junk rows 6-17, the second rewrites them; rows 0-5 of the reused L1 object still hold
    pass 1's values). The first nt objects drain in group "<op>#0"; the norm after it fills rows 0-5 after "#0" and rows 6-17 after the
@@ -1061,7 +1060,7 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - **MSPLIT-C yx**: priced <= -0.035 (pass 1 B-bound at ~4.4 us; saves ~1/3 of a K = 768 first tile); needs an NRES ldn split: not built.
 - **nrm_ln 64-lane**: halves its 12 vector-slot MACs but its 11 st-slot conversions / stores keep II >= 11 (now 13): <= -0.04, not built.
 - **SSM glue by chunk pairs** (ssq2 / reck2 / ggk2): ~4.5-5 KB of doubled chunk buffers vs ~2.5 KB free L1 (+ maybe the stack): not built.
-- **SSPM-B** (research rev 20 rank 1, params read once): priced ~0 by SSMIN (the SSM is not input-starved), not built.
+- **SSPM-B** (analysis rev 20 rank 1, params read once): priced ~0 by SSMIN (the SSM is not input-starved), not built.
 - **CPPRE_OP** (OPPRE2 parts configured early): static BD peak 20 > 16, never dispatched.
 
 ## 30. Round 25 (2026-10-11, last round before the pause): nothing kept; best stays full12r24z (28.42 ms at d12, re-swept, 1.808 GHz)

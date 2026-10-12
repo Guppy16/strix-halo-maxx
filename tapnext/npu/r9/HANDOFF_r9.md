@@ -1,9 +1,9 @@
 # TAPNext++ on the XDNA2 NPU — hand-off (2026-10-10, end of round 9)
 
-Read `~/.claude/skills/xdna2-npu/SKILL.md` first (round 9 added LUT, lock, zero-overhead-loop and Peano pipelining rules),
-then `~/git/app/.scratch/npu-research/PROPOSALS.md` (revision 4) and the round-9 part of `RESULTS_FROM_MAIN.md`.
+Read `.claude/skills/xdna2-npu/SKILL.md` first (round 9 added LUT, lock, zero-overhead-loop and Peano pipelining rules),
+then the analysis proposals `PROPOSALS.md` (revision 4) and the round-9 part of `RESULTS_FROM_MAIN.md`.
 RESULTS.md §18 has every round-9 number, NOTES.md §14 the changes, facts and dead ends. Round 8's hand-off:
-r8/HANDOFF_r8.md. All timings: testbox, Turbo, GPU idle, pyxrt `run.wait`, 1.81 GHz. No deadline: research project.
+r8/HANDOFF_r8.md. All timings: test machine, Turbo, GPU idle, pyxrt `run.wait`, 1.81 GHz. No deadline: research project.
 
 ## 1. State: 58.1 ms at depth 12, any depth from one xclbin
 
@@ -35,14 +35,13 @@ Regress reference with the round-9 numerics: `regress_full12r9a` (r9a..r9s all B
 - attention ~0.93 ms per block; norms ~0.54; op-start waits as round 8.
 
 ## 4. Next concrete actions (in order)
-1. **A delivery** (now the GEMM bound): (a) split A across the core's two S2MM channels (B shares one: research P6
+1. **A delivery** (now the GEMM bound): (a) split A across the core's two S2MM channels (B shares one: analysis P6
    revisited; needs a 2-stream A ring in mm_ks); (b) P5a (load the K = 768 slot once) and understand why K = 768 / small-nt
    ops run at ~3.1 B/cycle; (c) longer-term: more N per A (n = 128 tiles) to halve A bytes per MAC.
-2. SSM: research P27 (log_a fold + `a` table indexed by log_a's bits, exact for a >= 0.95) needs ~1.7 KB per copy: free EW
+2. SSM: analysis P27 (log_a fold + `a` table indexed by log_a's bits, exact for a >= 0.95) needs ~1.7 KB per copy: free EW
    memory first (norm_rows' 2.9 KB stack frame). Then conv / recurrence / out-copy passes.
 3. Op-start waits (P5 chunked slot, P7 norm fold), acc_zero into the first k-step (mm_ks can MAC from zero), P23.
 4. P14 two frames in flight (the SSM / EW work hides behind GEMMs).
-5. Product: wrap Step8 for app (depth 10 default).
 
 ## 5. Rules that bit us this round (also in the skill)
 - acq with a positive value is acquire_EQUAL: a "no-op acquire" with 0 waits for an empty ring (hang). Use acq.cond.

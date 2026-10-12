@@ -1,7 +1,8 @@
 """Round 25 RRTWIN edits (plan8 / design8 / step8): a timing twin whose norms do not read their residual input from DDR."""
+import os
 from pathlib import Path
 
-D = Path.home() / "git/app/.scratch/npu-tapnext"
+D = Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[4] / ".scratch") / "npu-tapnext"
 
 
 def rep(f, pairs):

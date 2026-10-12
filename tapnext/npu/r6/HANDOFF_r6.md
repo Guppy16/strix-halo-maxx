@@ -1,11 +1,11 @@
 # TAPNext++ on the XDNA2 NPU — hand-off (2026-10-09, end of round 6)
 
-Read `~/.claude/skills/xdna2-npu/SKILL.md` first (round 6 added rules to sections 2, 3, 7, 8, 10). Then
-`~/git/app/.scratch/npu-research/PROPOSALS.md` (the research agent's ranked proposals) and
+Read `.claude/skills/xdna2-npu/SKILL.md` first (round 6 added rules to sections 2, 3, 7, 8, 10). Then
+the ranked analysis proposals (PROPOSALS.md, not in this repo) and
 `tapnext/research/RESULTS_FROM_MAIN.md` (what round 6 measured against them: P1, P2, P8, P9, P11 + the LUT work).
 RESULTS.md section 15 has every round-6 number, NOTES.md section 11 the changes, dead ends and tools. Round 5's
-hand-off is in r5/HANDOFF_r5.md. All timings: testbox, Turbo, GPU idle (gpu_busy 0), pyxrt `run.wait` kernel time.
-No deadline (the maintainer, 2026-10-09): research project, measured understanding over quick wins.
+hand-off is in r5/HANDOFF_r5.md. All timings: test machine, Turbo, GPU idle (gpu_busy 0), pyxrt `run.wait` kernel time.
+No deadline (2026-10-09): research project, measured understanding over quick wins.
 
 ## 1. State: 76.3 ms at depth 12, any depth from one xclbin
 
@@ -33,7 +33,7 @@ attention 1.19 (the largest op), out 1.44 (= the SSM, whose last write the poll 
 up_a + up_b ~1.0, mlp0 0.54, yx 0.30, qkv 0.36, down/mlp3 4 x ~0.2, norms 4 x 0.11-0.15, out_proj 0.13.
 `python3 r6/tlview.py build/tl_full12m_d12.json build/tl_full12r6e_d12.json --html build/tlview_r6.html` prints the per-op roofline + diff.
 
-## 2. What exists (`~/git/app/.scratch/npu-tapnext/`)
+## 2. What exists (`$SHM_SCRATCH/npu-tapnext`)
 - Sources: plan8.py, design8.py (GEMM workers: stack 0x1000, data_size 27,136), mm8.cc (pass-structured epilogue,
   LUT GELU, attention at -O2 with `expd_n`), nk8.h (`recipa_i`, `gelu_n`), gelu_lut.h (generated:
   `cd r6 && python3 lutgen.py -3 ../gelu_lut.h data,3`), ew8.cc (unchanged), pack8.py (`gelu_erf_ref`), run8.py
@@ -51,16 +51,15 @@ up_a + up_b ~1.0, mlp0 0.54, yx 0.30, qkv 0.36, down/mlp3 4 x ~0.2, norms 4 x 0.
    (~70 bundles per 16 mmuls, 4 accumulators, no overlap across the 3 cb-pairs of a row block). Ideas, cheapest first:
    (a) exp from a bf16 hi/lo split of d = s - m and a table of exp over d (needs ~3 KB per copy: check bank space);
    (b) longer QK^T / PV loops (all 6 key blocks per pass, fewer accumulator round trips);
-   (c) npu-research P12: K/V re-streamed per pass (the second pass has 1 query tile for all K/V traffic).
+   (c) analysis P12: K/V re-streamed per pass (the second pass has 1 query tile for all K/V traffic).
 2. **GEMM inner loop by hand (asm route).** P1 measured the GEMMs compute-bound (no-MAC twin -16.1 ms, 2x-MAC twin
    +24.7 ms of 84.0). The loop is 28 bundles per 16 mmuls = its ldb-slot count; a schedule holding A in registers
    and reusing B pop destinations before consumption needs ~17-18. Upper bound ~-6 to -8 ms, capped by the measured
    ~1.0 us per k-step of data movement. Use p11/gen_gemm.py + asmcheck.py (stage-3 rule).
-3. **npu-research P5 (k-chunk-streamed A slot)**: est. -3 ms, -144 MB DDR; medium hang risk (lock arithmetic).
+3. **analysis P5 (k-chunk-streamed A slot)**: est. -3 ms, -144 MB DDR; medium hang risk (lock arithmetic).
 4. **SSM (1.3 ms per block on the EW cores)**: the LUT sigmoid is fine for gate_x only (NOTES 11.2); exp_a2_n and
    sqrt_n are the other transcendentals; numh.py has the a-near-1 yardstick.
 5. **Settle the clock** (SKILL 7: >= 1.75 GHz implied, 1.43 assumed) with P10's port microbenchmarks.
-6. **Product**: wrap `Step8` for app (depth 10 default; `set_depth` exists).
 
 ## 4. Rules that bit us this round (also in the skill file)
 - `read_tm(0x340F8)` hangs the core; no cycle builtin exists.

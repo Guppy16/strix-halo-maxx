@@ -1,6 +1,6 @@
 """TAPNext++ step on the NPU as ONE dispatch of a design8 build, with the real weights.
 
-Runs in npu-iron-torch (pyxrt + torch CPU); mounts: /work = .scratch, /repo = the app checkout (read-only).
+Runs in npu-iron-torch (pyxrt + torch CPU); mounts: /work = .scratch, /tapnext = TAPNext model.py + weights (read-only).
 The host does: patch embedding + pos-emb (torch bf16 conv on the CPU) and query tokens -> X0, one dispatch, the heads.
 
     python3 step8.py smoke  --build full12a [--frames 4]    NPU vs CPU bf16 on a real clip: tokens, tracks
@@ -29,9 +29,8 @@ import pack8 as P  # noqa: E402
 from plan8 import COLS, M, MAX_DEPTH, OBJ, S, RB, SSM_PARAM_BYTES, UNIT, XB, KSTEP16, full_step  # noqa: E402
 
 HERE = "/work/npu-tapnext"
-REPO = "/repo"
 tn = types.ModuleType("tn")  # the vendored model targets Python 3.14 (lazy annotations); the container is 3.13
-exec(open(f"{REPO}/agent/app/jobs/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
+exec(open("/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
 N_IMG = 1024
 
 
@@ -41,7 +40,7 @@ def f32(t):
 
 def load_model(depth):
     model = tn.TAPNext()
-    tn.load_state(model, f"{REPO}/data/models/tapnextpp_256.safetensors")
+    tn.load_state(model, "/tapnext/tapnextpp_256.safetensors")
     model.to_half(torch.bfloat16).eval()
     model.blocks = model.blocks[:depth]
     return model

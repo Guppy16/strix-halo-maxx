@@ -2,7 +2,7 @@
 
 "step" excludes the duplicate conv + queries inside x0_rows ("rows"); "write" = packing + bo write + sync.
 Times each piece of step() separately over many steps, for several torch thread counts, and records the machine's
-load (other tenants' CPU use) next to the numbers.
+load (background CPU use) next to the numbers.
     python3 r11/hostprof.py --build full12r10r [--iters 40] [--threads 8,4,2,1]
 """
 

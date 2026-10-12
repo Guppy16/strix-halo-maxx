@@ -1,7 +1,8 @@
 """Round 25 RRES: ew8.cc side (EW -DRRES)."""
+import os
 from pathlib import Path
 
-p = Path.home() / "git/app/.scratch/npu-tapnext/ew8.cc"
+p = (Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[4] / ".scratch") / "npu-tapnext" / "ew8.cc")
 s = p.read_text()
 R = [
     ("""#ifndef NRES

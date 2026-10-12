@@ -1,9 +1,10 @@
 #!/bin/bash
+SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
 # round 17 (X1 full rotation): build NAME with XROT=N frame phases, i.e. try17.sh (phase 0, lint) + the phases 1 .. N-1 of every
 # depth (the same docker command with XPH=k and the name full<d>NAME_p<k>), then regress (4 frames: N <= 4 includes a wrap frame)
 # and time (per-phase medians). usage: r17/xtry.sh NAME N [try.sh options, e.g. --sweep --ew-add ..]
 name=$1; N=$2; shift 2
-cd ~/git/app/.scratch/npu-tapnext || exit 1
+cd "$SHM_SCRATCH/npu-tapnext" || exit 1
 SW=0; for a in "$@"; do [ "$a" = --sweep ] && SW=1; done
 args=(); for a in "$@"; do [ "$a" != --sweep ] && args+=("$a"); done
 if [ "${SKIP0:-0}" != 1 ]; then  # (try.sh exits 1 without a regress: judge the build by its log)

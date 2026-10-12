@@ -17,7 +17,7 @@ import torch
 
 ROOT = "/work/.scratch/npu-tapnext"
 tn = types.ModuleType("tn")
-exec(open("/work/agent/app/jobs/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
+exec(open("/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
 
 
 def preprocess(frames_u8, res=256):
@@ -50,7 +50,7 @@ def main():
     data = dv.load_davis(dv.ROOT / "data" / "tapvid_davis.zip")
     names = sorted(data.keys())[: o.videos]
     model = tn.TAPNext()
-    tn.load_state(model, "/work/data/models/tapnextpp_256.safetensors")
+    tn.load_state(model, "/tapnext/tapnextpp_256.safetensors")
     model.to_half(torch.bfloat16).eval()
     model.blocks = model.blocks[: o.depth]  # upstream-style layer dropping: run the first `depth` blocks, skip the rest
     per_video, ms = [], []

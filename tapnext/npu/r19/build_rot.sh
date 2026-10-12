@@ -1,16 +1,17 @@
 #!/bin/bash
+SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
 # round 19: research's r19/build_all.sh on main's r18/gen_rot.py (ROT_ACQ_GAP / ROT_REL_GAP, the probed g0 wrap): solve + fit + link +
 # lint + tcall + replay per variant; output r19/rot_<v>.json, r19/mm_rot_<v>.s / .h / .dis.
 #   r19/build_rot.sh [--solve] g1a g0a     (v = g<g><a = acq gap 6 + rel gap 8, --free>)
 set -e
-cd ~/git/app/.scratch/npu-tapnext
+cd "$SHM_SCRATCH/npu-tapnext"
 SOLVE=0
 [ "$1" = "--solve" ] && { SOLVE=1; shift; }
 P="c_obj=0x78900,slots=0x77b80:0x78000:0x78480,rec=0x71800,b=0x7d100"
 PL=("$P,acc_hi=0x71980" "$P,acc_hi=0x719c0" "$P,acc_hi=0x71a00" "$P,acc_hi=0x71940")
 PLACES=(); for p in "${PL[@]}"; do PLACES+=(--place "$p"); done
 UV="nice -n 10 $HOME/.local/bin/uv run --no-project --with ortools --with numpy python"
-DK="docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron"
+DK="docker run --rm --network none -v $SHM_SCRATCH:/work -v $SHM_REPO:$SHM_REPO npu-iron"
 B=/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin
 mkdir -p build/r19
 for v in "$@"; do

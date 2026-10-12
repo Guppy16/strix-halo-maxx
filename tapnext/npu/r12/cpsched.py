@@ -17,8 +17,8 @@ Objective (lexicographic by weights): the x / dm MaxLive margin, the schedule le
 per call), the summed lifetimes. The result is a {op name: t} map; msched then allocates (modulo variable expansion),
 emits and checks it as usual (`Loop.place(times)`).
 
-The solver runs on the laptop (`uv run --no-project --with ortools --with numpy python r12/...`); generators save the
-times as JSON next to themselves, so builds on testbox (npu-iron, no OR-tools) replay a fixed schedule.
+The solver runs under `uv run --no-project --with ortools --with numpy python r12/...`; generators save the
+times as JSON next to themselves, so builds on the test machine (npu-iron, no OR-tools) replay a fixed schedule.
 """
 
 from collections import defaultdict

@@ -1,6 +1,6 @@
 
-# Round 12 (main agent), keyed by proposal id (2026-10-10)
-All numbers: testbox, Turbo, gpu_busy 0, pyxrt kernel time, MEASURED unless marked, median of 60 dispatches; cycles at 1.81 GHz.
+# Round 12 (optimisation round), keyed by proposal id (2026-10-10)
+All numbers: test machine, Turbo, gpu_busy 0, pyxrt kernel time, MEASURED unless marked, median of 60 dispatches; cycles at 1.81 GHz.
 Baseline full12r11d re-timed 52.10 ms. Best build **full12r12e: 50.05 ms** (depth 10 42.02, 8 33.51, 6 25.20), regress
 BIT-IDENTICAL to full12r9a at every step. Details: npu-tapnext NOTES 17, RESULTS 21.
 

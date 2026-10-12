@@ -2,7 +2,7 @@
 
 Status of the current design (design8, round 5): 89.4 ms per step at depth 12, 74.6 ms at depth 10, 7.4 ms per
 block, all measured (Turbo, GPU idle). This document proposes the next architecture, estimates what it would buy
-and lists the risks, so that the maintainer can decide whether to fund it. Numbers marked MEASURED come from RESULTS.md 13-14;
+and lists the risks, so that the estimate can be weighed against the expected gain. Numbers marked MEASURED come from RESULTS.md 13-14;
 everything else is an estimate with its reasoning.
 
 ## 1. Where a block's 7.4 ms goes today (MEASURED, block 5 of full12k/full12m, host-polled timeline + differentials)

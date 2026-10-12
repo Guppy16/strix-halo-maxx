@@ -1,4 +1,4 @@
-"""Round 18: A/B timing of two builds in ONE process, interleaved in blocks (the foreign CPU load and the box's state drift hit both
+"""Round 18: A/B timing of two builds in ONE process, interleaved in blocks (the background CPU load and the box's state drift hit both
 alike). Each block discards its first dispatches (a hw-context switch between the two xclbins precedes it).
 
     python3 r18/ab.py --a full12r17d --b full12r18a [--depth 12] [--rounds 10] [--block 22] [--skip 2] [--warmup 20]

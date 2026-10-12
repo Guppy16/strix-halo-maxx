@@ -342,7 +342,7 @@ def main():
     ap.add_argument("--life", type=int, default=2, help="round 22: register life bound in IIs (1: U = 1)")
     ap.add_argument("--s2", action="store_true", help="round 17: the running max per row block (module doc)")
     ap.add_argument("--maxsrc", default="s", choices=["s", "sr"])
-    ap.add_argument("--workers", type=int, default=4, help="round 17: CP-SAT workers (the laptop stays usable)")
+    ap.add_argument("--workers", type=int, default=4, help="round 17: CP-SAT workers (the machine stays usable)")
     ap.add_argument("--reserve-x", type=int, default=0, help="round 17: x registers kept free in the CP pressure bound (allocation slack)")
     o = ap.parse_args()
     global USE_BANKS, DRAIN, STAGES, S2, MAXSRC, LIFE

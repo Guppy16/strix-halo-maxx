@@ -32,7 +32,7 @@ k-step). check(): replays the EMITTED asm bundle by bundle over the whole call (
 FIFO streams byte by byte (fills, pops, FIFO-POP9, restarts), registers with latencies and uncertain windows, locks, records,
 every MAC's operands, final memory = 8 MACs per accumulator in kp order, bank stalls on real addresses.
 
-usage (testbox; results of pass 14 in r19/: rot_<v>.json, mm_rot_<v>.s / .h / .dis for v = g2f g1f g0f g0u):
+usage (test machine; results of pass 14 in r19/: rot_<v>.json, mm_rot_<v>.s / .h / .dis for v = g2f g1f g0f g0u):
   uv run --no-project --with ortools --with numpy python r19/gen_rot.py solve --g 2 --free --json r19/rot_g2f.json
       (--free: each job of the row block its own cycles; without it the 8 jobs share one template, which is feasible for
       g = 0 only: with g > 0 the B pass's exact cover forces each job's 8 pops into consecutive cycles)

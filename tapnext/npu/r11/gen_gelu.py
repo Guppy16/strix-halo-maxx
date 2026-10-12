@@ -149,7 +149,7 @@ def tapped(o, tap):
 
 def build(II=None, banks=None, max_ii=16, tap=None, slack=0, flat=False, rel=None, seeds=1, times=None, cp=None):
     """times: a saved schedule {"II": n, "t": {op: cycle}} (replayed, no search); cp: dict of r12/cpsched.solve options
-    (needs OR-tools: the laptop) - the solved schedule is returned in lp.times for saving"""
+    (needs OR-tools) - the solved schedule is returned in lp.times for saving"""
     lo = II or 9
     last = None
     mk = lambda: Loop(tapped(ops(banks, flat, rel), tap), consts={"x": [C_HI, C_LO, C_BASE, C_M1]},  # noqa: E731

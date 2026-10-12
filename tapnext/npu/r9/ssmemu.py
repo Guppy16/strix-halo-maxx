@@ -228,7 +228,7 @@ def main():
     o = ap.parse_args()
     import torch
     from safetensors.numpy import load_file
-    sd = load_file("/repo/data/models/tapnextpp_256.safetensors")
+    sd = load_file("/tapnext/tapnextpp_256.safetensors")
     acts = np.load(o.acts)
     blocks = [int(b) for b in o.blocks.split(",")]
     data = []

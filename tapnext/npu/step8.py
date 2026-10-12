@@ -1,6 +1,6 @@
 """TAPNext++ step on the NPU as ONE dispatch of a design8 build, with the real weights.
 
-Runs in npu-iron-torch (pyxrt + torch CPU); mounts: /work = .scratch, /repo = the app checkout (read-only).
+Runs in npu-iron-torch (pyxrt + torch CPU); mounts: /work = .scratch, /tapnext = TAPNext model.py + weights (read-only).
 The host does: patch embedding + pos-emb (torch bf16 conv on the CPU) and query tokens -> X0, one dispatch, the heads.
 
     python3 step8.py smoke  --build full12a [--frames 4]    NPU vs CPU bf16 on a real clip: tokens, tracks
@@ -29,9 +29,8 @@ import pack8 as P  # noqa: E402
 from plan8 import COLS, M, MAX_DEPTH, OBJ, S, RB, SSM_PARAM_BYTES, UNIT, XB, KSTEP16, full_step  # noqa: E402
 
 HERE = "/work/npu-tapnext"
-REPO = "/repo"
 tn = types.ModuleType("tn")  # the vendored model targets Python 3.14 (lazy annotations); the container is 3.13
-exec(open(f"{REPO}/agent/app/jobs/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
+exec(open("/tapnext/model.py").read().replace("-> TAPNext:", '-> "TAPNext":'), tn.__dict__)
 N_IMG = 1024
 HOST_FAST = int(os.environ.get("HOST_FAST", "2"))  # round 11: 0 = round-10 host packing, 1 = torch packing, 2 = into the mapped bo
 HEAD_THREADS = int(os.environ.get("HEAD_THREADS", "0"))
@@ -44,7 +43,7 @@ def f32(t):
 
 def load_model(depth):
     model = tn.TAPNext()
-    tn.load_state(model, f"{REPO}/data/models/tapnextpp_256.safetensors")
+    tn.load_state(model, "/tapnext/tapnextpp_256.safetensors")
     model.to_half(torch.bfloat16).eval()
     model.blocks = model.blocks[:depth]
     return model
@@ -595,7 +594,7 @@ def timing(o):
     busy = open("/sys/class/drm/card1/device/gpu_busy_percent").read().strip() if os.path.exists("/sys/class/drm/card1/device/gpu_busy_percent") else "?"
     print(f"TIME {o.build}: dispatch median {np.median(tk):.2f} min {min(tk):.2f} ms; whole step (host incl.) median {np.median(th):.2f} ms; "
           f"iters {o.iters} gpu_busy% {busy}")
-    q = np.percentile(tk, [10, 25, 75, 90])  # round 17: the dispatch times are bimodal under the foreign CPU load: show the spread
+    q = np.percentile(tk, [10, 25, 75, 90])  # round 17: the dispatch times are bimodal under the background CPU load: show the spread
     print(f"SPREAD {o.build}: p10 {q[0]:.2f} p25 {q[1]:.2f} median {np.median(tk):.2f} p75 {q[2]:.2f} p90 {q[3]:.2f} mean {np.mean(tk):.2f} ms")
     if s.nph > 1:  # round 17: per frame phase (the last one is the wrap frame) and the mean over a cycle of phases
         med = {k: float(np.median(v)) for k, v in sorted(tp.items())}

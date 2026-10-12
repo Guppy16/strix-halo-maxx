@@ -1,9 +1,9 @@
 # TAPNext++ on the XDNA2 NPU — hand-off (2026-10-09, end of round 8)
 
-Read `~/.claude/skills/xdna2-npu/SKILL.md` first (round 8 added the L1 bank rule, the SSM / attention stamps and
-the one-loop control code). Then `~/git/app/.scratch/npu-research/PROPOSALS.md` (revision 3) and the round-8 part
+Read `.claude/skills/xdna2-npu/SKILL.md` first (round 8 added the L1 bank rule, the SSM / attention stamps and
+the one-loop control code). Then the analysis proposals `PROPOSALS.md` (revision 3) and the round-8 part
 of `RESULTS_FROM_MAIN.md`. RESULTS.md §17 has every round-8 number, NOTES.md §13 the changes, facts, dead ends and a
-designed-not-built accumulator layout. Round 7's hand-off: r7/HANDOFF_r7.md. All timings: testbox, Turbo, GPU idle,
+designed-not-built accumulator layout. Round 7's hand-off: r7/HANDOFF_r7.md. All timings: test machine, Turbo, GPU idle,
 pyxrt `run.wait`, 1.81 GHz. No deadline: research project, measured understanding over quick wins.
 
 ## 1. State: 67.9 ms at depth 12, any depth from one xclbin
@@ -58,10 +58,9 @@ GPU (compiled bf16): 22 ms at depth 12. Depth 10 stays the default pick.
 4. acc_zero folded into the first k-step (0.49 us per tile, ~0.5 ms); P23 row balance (~0.6 ms, host only: yx's
    drain needs two tasks per column for the balanced tile order).
 5. Attention K phase (P12) / P19 (attention on the EW cores too: EW program memory is the blocker).
-6. Product: wrap `Step8` for app (depth 10 default; `set_depth` exists).
 
 ## 5. Rules that bit us this round (also in the skill)
 - Two accesses to one 16 KB L1 bank in one bundle stall; hand-scheduled code with 3 memory ops per bundle hits it
   where Peano's code did not. Check placement (`input_with_addresses.mlir`, `llvm-nm -n`) for every asm kernel.
-- Sched barriers inlined into a pipelined Peano loop crash clang: stamp via a noinline function.
+- Sched barriers inlined into a pipelined Peano loop make clang fail: stamp via a noinline function.
 - A relative object path in IRON `Kernel(...)` resolves inside build/<name>.prj: use absolute paths.

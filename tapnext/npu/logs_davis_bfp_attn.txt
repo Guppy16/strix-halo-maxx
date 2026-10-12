@@ -1,5 +1,5 @@
 [1;91mE-001h rocSHMEM[0m Could not open libnuma. Returning	[90mNUMAWrapper@src/gda/numa_wrapper.cpp:48[0m
-MIOpen(HIP): Warning [ParseAndLoadDb] File is unreadable: "~/git/app/.scratch/tapnet/venv/lib/python3.14/site-packages/_rocm_sdk_libraries/share/miopen/db/gfx1151_20.HIP.fdb.txt"
+MIOpen(HIP): Warning [ParseAndLoadDb] File is unreadable: "$SHM_SCRATCH/tapnet/venv/lib/python3.14/site-packages/_rocm_sdk_libraries/share/miopen/db/gfx1151_20.HIP.fdb.txt"
 bike-packing             T= 69 Q= 25 AJ= 55.8 OA= 86.7 PTS= 74.1 323.5 ms/f
 blackswan                T= 50 Q=  5 AJ= 97.0 OA=100.0 PTS= 98.4 281.9 ms/f
 bmx-trees                T= 80 Q= 25 AJ= 49.8 OA= 74.8 PTS= 76.1 285.6 ms/f

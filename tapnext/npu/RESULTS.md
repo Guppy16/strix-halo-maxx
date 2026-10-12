@@ -1,10 +1,10 @@
-# TAPNext++ step on the XDNA2 NPU — results (2026-10-08/09 overnight)
+# TAPNext++ step on the XDNA2 NPU — results (2026-10-08/09)
 
-MEASURED unless marked EXTRAPOLATED. NPU turbo (1.43 GHz). The GPU was at 96-100% from another agent's job all
-night, so every NPU timing below is DDR-contended (the moondream phases saw +10% or worse under GPU load) and every
+MEASURED unless marked EXTRAPOLATED. NPU turbo (1.43 GHz). The GPU was at 96-100% from another GPU process during
+the runs, so every NPU timing below is DDR-contended (the moondream phases saw +10% or worse under GPU load) and every
 GPU ms/frame in the DAVIS logs is meaningless. Raw: build/*.log, logs_davis_*.txt, davis_npu.jsonl.
 
-## 1. What runs on the NPU tonight (random data, bit-level checks against fp32 references)
+## 1. What runs on the NPU so far (random data, bit-level checks against fp32 references)
 | piece | program | shape | ms per step (median / min) | check |
 |---|---|---|---|---|
 | all 96 trunk GEMMs of a step (the 8 GEMMs x 12 blocks), image rows only | tn_gemm_A (design6, m 128 x 8 columns = 1024 rows, n 64, k 64, RA_K 768, 14 ops x 12 reps, one dispatch) | 1024 x {768 -> 1536, 768, 6144(=4x768 K-chunks for the two K=3072 GEMMs, see below), 2304, 3072 ...} | **36.1 / 35.2** (contended; 873 MB/step at 24 GB/s: A 149, B weights 215, C 510) | all 14 ops bit-exact vs the fp64 reference rounded to bf16 (0.0000% mismatch) |
@@ -17,7 +17,7 @@ deviation from "fp32 over the whole K" that the DAVIS run in section 3 does NOT 
 rows: the CPU cannot take them (32 ms/step for 48 rows through the 96 GEMMs, bf16, 8 threads), so the NPU program
 must cover 1072 rows -> m 160 (1280 rows, 84% useful).
 
-## 2. The rest of the step (not run on the NPU tonight; EXTRAPOLATED from the moondream kernels)
+## 2. The rest of the step (not run on the NPU yet; EXTRAPOLATED from the moondream kernels)
 | piece | per step | basis |
 |---|---|---|
 | GELU (88.9 M elements) | ~15 ms (~5 after the list-scheduled asm) | phase-8 fc1 epilogue: 492 bundles / 64 elements |
@@ -25,7 +25,7 @@ must cover 1072 rows -> m 160 (1280 rows, 84% useful).
 | RG-LRU + conv1d + gates (12 x [1072, 768], fp32 state) | ~5-6 ms | DDR: ~200 MB of state read + written per step; the arithmetic is ~1 ms of bf16 vector work |
 | residual adds, K-chunk partial sums, bfp packing of activations between ops | ~3-5 ms | elementwise passes over 1072 x 768 (fused into the norm kernels ideally) |
 | heads (48 rows) | < 0.1 ms | CPU |
-| dispatch / context switches | 0.1 ms per program; 2.7 ms per xclbin switch | one program per step is the target; tonight's pieces are 2 xclbins |
+| dispatch / context switches | 0.1 ms per program; 2.7 ms per xclbin switch | one program per step is the target; the pieces so far are 2 xclbins |
 
 ## 3. Accuracy (TAP-Vid DAVIS 'first', 10 videos, vendored model, GPU emulation of the NPU numerics)
 | numerics | AJ | OA | <thr | note |
@@ -41,7 +41,7 @@ within 1 ulp of the bf16 emulation in the moondream phases).
 | | ms per step | basis |
 |---|---|---|
 | GPU today (compiled max-autotune, bf16, uncontended) | 22.6 (eager 31.2) | tapnet/RESULTS.md |
-| NPU, pieces measured tonight (GEMMs 1024 rows + attention) | 37.3 contended | section 1 |
+| NPU, pieces measured so far (GEMMs 1024 rows + attention) | 37.3 contended | section 1 |
 | NPU, whole step, EXTRAPOLATED | ~75-80 ms now (GEMMs ~40 for 1280 rows + attention 1.2 + GELU 15 + norms 10 + SSM 6 + glue 4), ~55-60 after the GELU/LN work queued in npu-moondream | sections 1-2 |
 
 ## 5. End-to-end step with the NPU doing the trunk GEMMs and the attention (scratch prototype, MEASURED)
@@ -57,7 +57,7 @@ embedding, norms, GELU, RG-LRU, conv1d, residuals, heads) stays on the CPU.
 | the 48 query rows on the CPU (bf16, 12 threads) | 50 ms | |
 | CPU elementwise / SSM / heads (bf16) | ~0.5 s | |
 | **total** | **4.4 s** | a correctness vehicle, not a latency one |
-Correctness on 3 real frames (test clip, 4 points): tracks within **0.03 px** of the all-CPU bf16 step, visibility
+Correctness on 3 real frames (short real clip, 4 points): tracks within **0.03 px** of the all-CPU bf16 step, visibility
 logits within 0.2. DAVIS with this path: section 3 (row "npu_real").
 
 # Session 2 (2026-10-09, daytime) — stage 0 baseline, transfer costs, depth frontier
@@ -66,7 +66,7 @@ logits within 0.2. DAVIS with this path: section 3 (row "npu_real").
 | build | gpu_busy | kernel ms median / min | DDR MB | GB/s | check |
 |---|---|---|---|---|---|
 | tn_gemm_A (m 128 x 8 cols, c_linear 1, 14 ops x 12 blocks, one dispatch) | **0%** | **28.3 / 26.8** | 873 | 30.8 | all 14 ops bit-exact (0.0000% mismatch vs fp64->bf16) |
-| same, overnight | 96-100% | 36.1 / 35.2 | 873 | 24 | same |
+| same, GPU under load | 96-100% | 36.1 / 35.2 | 873 | 24 | same |
 So the GPU costs the GEMM phase +28%. Neither DDR-bound (NPU reads 55-60 GB/s idle) nor MAC-bound (13.5 ms at the
 measured 63% MAC-slot rate): the A re-reads, the C writes (510 MB, the largest stream) and per-op fill/drain bubbles
 share the blame; the one-column trace (stage 0's second half) was not taken - design7 changes the op set anyway.
@@ -117,7 +117,7 @@ different checkpoint at 4x tokens - not a knob.
 Per block the NPU pieces measured so far: GEMMs 28.3/12 = 2.36 ms (idle) and attention 1.15/12 = 0.1 ms. The fused
 design7 step (NOTES.md) is estimated at **~40 ms for depth 12 idle** (GEMM ~29 with 24 cores, elementwise ~7 on the
 8 EW cores, attention ~2, ~2 of op-boundary bubbles) and scales linearly with depth: ~34 (10), ~27 (8), ~21 (6).
-Sustainable fps = 1 / step while the camera and WebRTC deliver (the phone is capped at 30 fps today), so the
+Sustainable fps = 1 / step while the input delivers 30 fps, so the
 **frontier points are depth 10 + 8 support points (best accuracy, ~34 ms / ~29 fps extrapolated) and depth 8
 (~27 ms / ~37 fps, -2.8 AJ)**; depth 12 is dominated by depth 10 + support; depth 6 loses 6 AJ for 6 ms.
 All step numbers are extrapolated until design7 runs; the GPU path's measured 22 ms (depth 12) / 18.8 (depth 10)
@@ -224,7 +224,7 @@ Support points need slots: 8 per query = up to 225 slots on DAVIS (CPU 71.33, ro
 ## 14.0 Correction: the host patch embedding is not "0.2 ms" on one core (MEASURED, r5/patch_time.py)
 Real-weights `lin_proj` (Conv2d 3->768, 8x8 stride 8, bf16 weights [768, 3, 8, 8]) on a 256x256x3 bf16 frame ->
 [1, 768, 32, 32] bf16 = 1024 x 768 x 192 MAC = 302 MFLOP. 200 runs after 10 warm-ups, npu-iron-torch (torch 2.14 CPU),
-testbox host load average ~6.6 from other tenants during the run.
+host load average ~6.6 from background load during the run.
 | torch threads | conv median (min) | effective | as put_x0 runs it (+ permute, bf16 convert, + pos-emb) |
 |---|---|---|---|
 | 1 | 0.93 (0.92) ms | 325 GFLOP/s | 1.57 ms |
@@ -303,7 +303,7 @@ Block 5 (timeline, share = last write to last write): r5 7.42 -> r6a 6.95 -> r6b
 | 8 | 51.02 / 51.01 | 53.61 | 18.7 |
 | 6 | 38.33 / 38.32 | 40.85 | 24.5 |
 | 12 again | 76.32 / 76.29 | 78.88 | |
-### 15.3 npu-research P1 twins (full step timelines, round-6 sources at r6a)
+### 15.3 analysis P1 twins (full step timelines, round-6 sources at r6a)
 | build | dispatch |
 |---|---|
 | full12r6a | 84.0 |
@@ -557,7 +557,7 @@ Host part of the step (whole - dispatch) was 2.5-3.8 ms this round vs 2.2-2.5 in
   except the first ops after the dispatch start.
 - Memtile -> core stream 7.95 B/cycle (r10/rtm.py; 64-bit). Runtime memtile tasks: hashes correct first time; op-start
   waits 0.04 us when the next op's A has no dependency on the current one.
-- IRON router bug: multicast + unicast packet flows to the same two memtile DMA channels drop the multicast's second
+- IRON router behaviour: multicast + unicast packet flows to the same two memtile DMA channels drop the multicast's second
   destination (r10/pf1.mlir vs pf2.mlir). It cost the round's only timeout (t2-r10h); known-good t2-r9k ran right after.
 - GELU: deployed loop 34.2 cycles / 32 lanes (n = 144), 44.1 at n = 8 (one-core bench r10/gxb.py); forced-II pipelined
   loop 17 bundles static but 54.7 cycles measured (in situ yx epilogue 3.39 -> 5.02 us): rejected.
@@ -614,7 +614,7 @@ Build: `P43=1 A_RT=1 P23=1 A_HALF=1 A_BANKS=1,2,2 EW_OPT=-O2 EW_DEFS="-DSSM_LUT 
 Timelines (ms per step): r11d -> r12c: up_a 4.02 -> 3.63, up_b 3.83 -> 3.35, mlp0 4.19 -> 3.99, qkv 3.00 -> 2.84; r12d -> r12e:
 SSM ("out") 10.37 -> 9.85, norms 6.57 -> 6.39. P43 check: mlp3_a 1.99 (r11b) -> 1.91 ms per step (166 -> 159 us per block).
 
-### 21.2 Depth sweep and DAVIS (one xclbin full12r12e, HOST_FAST=2, median of 60; load average ~2-3 from other tenants)
+### 21.2 Depth sweep and DAVIS (one xclbin full12r12e, HOST_FAST=2, median of 60; load average ~2-3 from background load)
 | depth | dispatch median | whole step | fps (whole step) | DAVIS AJ (OA), 10 videos | CPU bf16 AJ |
 |---|---|---|---|---|---|
 | 12 | 50.05 | 52.14 | 19.2 | 70.84 (92.57), 52.5 ms/frame in the DAVIS loop | 70.98 |
@@ -651,7 +651,7 @@ Build: `P43=1 A_RT=1 P23=1 A_HALF=1 A_BANKS=1,2,2 ASM_FIT=1 EW_OPT=-O2 EW_DEFS="
 (and full{10,8,6}r13f). Text: GEMM 16,384 / 16,384 B (0 free), EW 16,224 / 16,384. Timeouts this round: 2 (a trip count read
 from the wrong register: 0 -> endless loop; both recovered, the known-good bench passed after each).
 Timelines (ms per step): attention 10.95 (r12e) -> 10.48 (r13b) -> 10.13 (r13f); norms 6.39 -> 6.76 (+0.37, not understood:
-other tenants, or the K / V multicast's deeper buffer shifting DDR traffic); everything else within +-0.04.
+background load, or the K / V multicast's deeper buffer shifting DDR traffic); everything else within +-0.04.
 
 ### 22.2 The K phase in situ: timing twins of full12r13c (`-DATTK_FORCE=bits`, outputs wrong, median of 40)
 | variant | dispatch ms | reads as |
@@ -729,8 +729,8 @@ vtk 24 x 13 + 13 = 325 per call (6 calls per V^T tile).
 | 10 | 69.90 (91.02) | 42.9 (40.51) | 70.07 |
 Identical to rounds 9-13 (bit-identical numerics).
 
-## 24. Round 15 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), cycles at 1.81 GHz, step8 time median of 60; a foreign
-CPU job (another project's worker, 100 % of one core) ran throughout; baselines re-timed in the same sessions)
+## 24. Round 15 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), cycles at 1.81 GHz, step8 time median of 60; a
+background CPU job (a worker, 100 % of one core) ran throughout; baselines re-timed in the same sessions)
 ### 24.1 Step at depth 12 (every build BIT-IDENTICAL to full12r9a)
 | build | change | dispatch ms | predicted | verdict |
 |---|---|---|---|---|
@@ -776,20 +776,20 @@ DAVIS loop on full12r15m: 44.3 ms per frame (dispatch 41.96) at depth 12, 37.0 (
 full12r15i: 42.06 / 35.26 / 28.24 / 21.24; full12r15k3: 41.83 / 34.97 / 27.93 / 21.01 (AJ the same: bit-identical numerics).
 
 ## 25. Round 16 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), cycles at 1.81 GHz, step8 time median of 60 after 20
-warm-up; a foreign CPU job (another project's python worker, 100 % of one core) ran throughout; baselines re-timed in-session)
-### 25.1 Step at depth 12 (every build BIT-IDENTICAL to full12r9a; lint = research tools/asmlint.py, 0 errors each)
+warm-up; a background CPU job (a python worker, 100 % of one core) ran throughout; baselines re-timed in-session)
+### 25.1 Step at depth 12 (every build BIT-IDENTICAL to full12r9a; lint = analysis tools/asmlint.py, 0 errors each)
 | build | change | dispatch ms (min) | predicted | verdict |
 |---|---|---|---|---|
 | full12r15m (re-timed x3) | round 15 best | 41.52 / 41.50 (41.38-41.40) | | |
-| full12r16a | + SQK | 41.32 (41.13) | -0.33 +- 0.05 (research -0.31..-0.35) | miss: -0.18..-0.25 (priced the loop, not the ~30-bundle preamble + call) |
+| full12r16a | + SQK | 41.32 (41.13) | -0.33 +- 0.05 (analysis -0.31..-0.35) | miss: -0.18..-0.25 (priced the loop, not the ~30-bundle preamble + call) |
 | full12r16b | + PIN (flag #undef-ed by a header: no change) | 41.38 (41.18) | | dead build (same elf) |
-| full12r16b2 | + INPART_INLINE, straddle by in_part | 41.23 (40.97) | research P-IN -0.25 +- 0.06 | miss alone (-0.09..-0.16) |
+| full12r16b2 | + INPART_INLINE, straddle by in_part | 41.23 (40.97) | analysis P-IN -0.25 +- 0.06 | miss alone (-0.09..-0.16) |
 | full12r16b3 | + straddle by cpy64 | 41.03 (40.94) | | P-IN hit (-0.29) |
-| full12r16c | + XONE | 40.75 (40.64); re-timed 40.85 / 41.18 | research X1b -0.18 +- 0.03 | miss high (-0.28: the phase was 432, not 289) |
-| full12r16d | + GGK | 40.84 noisy; re-timed 40.61 / 40.37 (40.28 / 40.27) | main -0.32 +- 0.05; research G1 -0.50 +- 0.07 | ~-0.41 by cycles: main miss (better), research slight miss |
+| full12r16c | + XONE | 40.75 (40.64); re-timed 40.85 / 41.18 | analysis X1b -0.18 +- 0.03 | miss high (-0.28: the phase was 432, not 289) |
+| full12r16d | + GGK | 40.84 noisy; re-timed 40.61 / 40.37 (40.28 / 40.27) | optimiser -0.32 +- 0.05; analysis G1 -0.50 +- 0.07 | ~-0.41 by cycles: optimiser miss (better), analysis slight miss |
 | full12r16e | + SSQ (-SSX) | 40.25 (40.13); re-timed 40.23 | -0.17 +- 0.04 (phase ~715 +- 20) | phase hit (715), step slight miss (-0.125 by cycles) |
 | full12r16f | + SIG10 | 40.18 (40.08); re-timed 40.20 (40.10) | -0.10 +- 0.03 | miss (-0.05..-0.07) |
-| full12r16g | + N1K, one call per unit | 40.13 (39.96) | research N1 -0.6 +- 0.25 | miss (-0.05..-0.12) |
+| full12r16g | + N1K, one call per unit | 40.13 (39.96) | analysis N1 -0.6 +- 0.25 | miss (-0.05..-0.12) |
 | full12r16h | + N1K _begin / _step / _end | 39.96 (39.85); re-timed 40.04 (39.82) | | -0.16..-0.28 vs r16f: N1 miss |
 | **full12r16z** | r16h's configuration, fresh build (the round's final) | **39.94 (39.83)** | | |
 Twins (outputs wrong): r16tw2 NORM_TWIN=2 (pass 1 + statistics skipped) 38.20; r16tw4 NORM_TWIN=4 (the n1k steps skipped) 38.43.
@@ -828,26 +828,26 @@ timing (4): pops 8-12 wrong; dense 24 pops without (6) / with (7) a fill every 8
 | 8 | 26.86 (26.74) | 29.12 | 34.3 | not run | 68.22 |
 | 6 | 20.18 (20.11) | 22.53 | 44.4 | not run | 64.77 |
 
-## 26. Round 17 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; a foreign CPU job (another project's python
-worker, 100 % of one core) ran throughout, and for part of the session my own CP-SAT run on testbox (load 7-14): dispatch times are
+## 26. Round 17 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; a background CPU job (a python
+worker, 100 % of one core) ran throughout, and for part of the session a CP-SAT run on the test machine (load 7-14): dispatch times are
 bimodal (~0.17 ms apart), so the table gives SPREAD lines (200 iterations after 20 warm-up, interleaved with r16z) where taken)
 ### 26.1 Step at depth 12 (every build BIT-IDENTICAL to full12r9a; asmlint 0 errors each)
 | build | change | measured (ms) | predicted | verdict |
 |---|---|---|---|---|
 | full12r16z (re-timed x6) | round 16 best | median 39.94-40.42, p10 39.87-39.91, mean 40.00-40.29 | | |
-| full12r17s2 | + S2 (attkb II 36, running max on the stack) | p10 39.56, median 39.71, mean 39.69 (-0.31 at every percentile) | research -0.38 (-0.29..-0.45); main -0.35 +- 0.08 | hit |
-| full12r17al2 | + AL1 (params padded to 3 KB multiples) | p10 39.82, mean 39.87 (-0.05..-0.15) | research -0.21 +- 0.05 | miss |
+| full12r17s2 | + S2 (attkb II 36, running max on the stack) | p10 39.56, median 39.71, mean 39.69 (-0.31 at every percentile) | analysis -0.38 (-0.29..-0.45); optimiser -0.35 +- 0.08 | hit |
+| full12r17al2 | + AL1 (params padded to 3 KB multiples) | p10 39.82, mean 39.87 (-0.05..-0.15) | analysis -0.21 +- 0.05 | miss |
 | full12r17al (1 KB padding) | | TIMEOUT (1): a fill group must stay a 768 B slot multiple | | dead |
-| full12r17np (G 2) / np3 / np4 / np6 | + NPIPE, NPIPE_G units per group | p10 39.96-39.98 / 39.89 / 39.82 / 39.80 (G 4-6: -0.05..-0.15; G 2: +0.07) | research -0.55 (-0.54..-0.56) | miss |
-| full12r17x3 (sliding X1, N = 3) | rotating frames vs wrap | rotating 39.67-39.74, wrap 40.00-40.08 (240 iters x2) | main -0.36 +- 0.05 (rotating frame) | hit (-0.33) |
+| full12r17np (G 2) / np3 / np4 / np6 | + NPIPE, NPIPE_G units per group | p10 39.96-39.98 / 39.89 / 39.82 / 39.80 (G 4-6: -0.05..-0.15; G 2: +0.07) | analysis -0.55 (-0.54..-0.56) | miss |
+| full12r17x3 (sliding X1, N = 3) | rotating frames vs wrap | rotating 39.67-39.74, wrap 40.00-40.08 (240 iters x2) | optimiser -0.36 +- 0.05 (rotating frame) | hit (-0.33) |
 | full12r17x8 (sliding, N = 8) | sweep | d12 39.71 (cycle mean; rotating 39.61-39.74, wrap 39.92) | | superseded |
 | full12r17c (sliding N 8 + S2 + AL1 + NPIPE 6) | | rotating 39.17-39.21, wrap 39.47, cycle mean 39.23 | | superseded by mod 4 |
-| **full12r17d** | S2 + AL1 + NPIPE_G=6 + X1 mod 4 (XROT=4) | **sweep 39.16 (39.13); time run 39.19**; in a noisier slot p10 39.19, median 39.62, mean 39.55 | X1 research -0.34 alone / -0.26 after AL1 | hit (timeline ssm -0.47 incl. AL1) |
+| **full12r17d** | S2 + AL1 + NPIPE_G=6 + X1 mod 4 (XROT=4) | **sweep 39.16 (39.13); time run 39.19**; in a noisier slot p10 39.19, median 39.62, mean 39.55 | X1 analysis -0.34 alone / -0.26 after AL1 | hit (timeline ssm -0.47 incl. AL1) |
 Timeline (one dispatch, r11/tlcmp): r16z 40.07 -> r17d 39.28 ms: attn 7.08 -> 6.78, ssm 4.45 -> 3.99, norms 4.93 -> 4.87, GEMMs +-0.06.
 Text r17d: GEMM 16,336 / 16,384 (48 free), EW 15,808.
 ### 26.2 Probes
 - NPROF (norm unit waits, cycles per unit, all norm ops): r16z in_need 101.5, out_begin 45.0 (new stamp), n1k step 161.5; NPIPE_G=2
-  in_need 61.0, out_begin 46.6, step 160.6. Research rev 12's ewio predicted out_begin 147 (RMS) / 90 (LN) at r16z: the norms are
+  in_need 61.0, out_begin 46.6, step 160.6. Analysis rev 12's ewio predicted out_begin 147 (RMS) / 90 (LN) at r16z: the norms are
   not output-bound at the measured waits; the input side waits ~2x as long.
 - CPROF (r17d config without N1K / NPIPE for text): convk alone in situ 280 cycles per chunk incl. ~25 of stamps (one-core bench 251),
   part pointers + mapping 101, the rest of the chunk 2,562; SSM op 351 us (r16e PROF 426, with ~14 stamps). The round-16 "conv 440"
@@ -863,7 +863,7 @@ Text r17d: GEMM 16,336 / 16,384 (48 free), EW 15,808.
 | 8 | 26.29 (26.25) | 28.37 | 35.2 | not run | 68.22 |
 | 6 | 19.79 (19.72) | 21.87 | 45.7 | not run | 64.77 |
 
-## 27. Round 18 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the foreign CPU worker ran throughout: A/B
+## 27. Round 18 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the background CPU job ran throughout: A/B
 timing by r18/ab.py = both builds in ONE process, 20-22-dispatch blocks interleaved, 2 discarded per block)
 ### 27.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors each)
 | build | change (cumulative) | A/B delta vs previous (p10 / median / mean ms) | predicted | verdict |
@@ -873,9 +873,9 @@ timing by r18/ab.py = both builds in ONE process, 20-22-dispatch blocks interlea
 | full12r18d | + KSC (k-step records build-time data) | -0.14 / -0.14 / -0.16 | ~0 (text lever, -288 B) | hit (bonus: per-call check ~16 cycles x 15,552) |
 | full12r18e | + NIOC (norm ring glue inline, ring state in locals) | -0.23 / -0.20 / -0.17 | tcall static -0.55 | miss (pass 1 waits on input) |
 | full12r18g | + V2T (attv / attvs once per chunk for both tiles) | -0.06 / -0.08 / -0.08 | -0.06..-0.10 | hit |
-| full12r18h | + CGF (convk pushes xc's bfp panels) | -0.05 / -0.06 / -0.06 | research -0.10..-0.13, tcall ~-0.06 | miss vs research, hit vs tcall |
-| full12r18j | + P35 (mm_ktile: a tile's k-steps per call, B locks by id) | 30 rounds: -0.11 / -0.10 / -0.08 | research -0.44 +- 0.1 | miss |
-| full12r18r6 = r18m | + ROT g2a (rotating-accumulator k-step, research pass 14 + acq gap 6) | -3.34 / -3.27 / -3.35 (vs r18j) | -3.84 +- 0.4 (calibrated), -3.46 (uncalibrated) | slight miss |
+| full12r18h | + CGF (convk pushes xc's bfp panels) | -0.05 / -0.06 / -0.06 | analysis -0.10..-0.13, tcall ~-0.06 | miss vs analysis, hit vs tcall |
+| full12r18j | + P35 (mm_ktile: a tile's k-steps per call, B locks by id) | 30 rounds: -0.11 / -0.10 / -0.08 | analysis -0.44 +- 0.1 | miss |
+| full12r18r6 = r18m | + ROT g2a (rotating-accumulator k-step, analysis pass 14 + acq gap 6) | -3.34 / -3.27 / -3.35 (vs r18j) | -3.84 +- 0.4 (calibrated), -3.46 (uncalibrated) | slight miss |
 | r18r4 / r18r5 | ROT g2f as delivered (acq.cond 1 bundle before the A fill) / + plain rel | regress DIFFERENT, run-to-run varying (rms_rel 0.15-0.25) | | race: fixed by g2a |
 | r18hG4 / r18hG12 | NPIPE_G 4 / 12 with NIOC | +0.06..+0.13 | | dead |
 | K1C (not kept) | attention -m prep loop two row blocks per trip | tcall -28 per (tile, chunk), +96 B | | dropped (text) |
@@ -888,7 +888,7 @@ Text at r18m: GEMM 15,536 / 16,384, EW 15,808.
   timer 2,056.7. mm_rot (r18r6K): TRUE 1,603.2, MEMORY 167.5, LOCK 13.4, timer 1,613.2.
 - NIO2 (ew8 -DNIO2, cycles incl. stamps): r18d RMS nrm 144.8 / pass-2 unit 341.8 / pass-1 unit 302.0, LN 229.5 / 428.4 / 287.5;
   r18h (NIOC, ZK off for text) RMS 147.2 / 302.0 / 293.2, LN 231.9 / 390.7 / 248.6.
-- ROT one-core bench (r18/rotbench.py, research's rotb): g2f and g2a 36/36 pieces identical after 1 and 4 k-steps, warm 1,431.
+- ROT one-core bench (r18/rotbench.py, analysis's rotb): g2f and g2a 36/36 pieces identical after 1 and 4 k-steps, warm 1,431.
 ### 27.3 Depth sweep and DAVIS (full12r18m, one xclbin, 4 phase sequences per depth)
 | depth | dispatch median (min) | whole step | fps (whole step) | DAVIS AJ (OA), 10 videos | r17d dispatch |
 |---|---|---|---|---|---|
@@ -898,7 +898,7 @@ Text at r18m: GEMM 15,536 / 16,384, EW 15,808.
 | 6 | 17.53 (17.50) | 19.61 | 51.0 | not run | 19.79 |
 (r18k = r18h + P35 before ROT: 38.11 / 31.91 / 25.57 / 19.23; DAVIS 70.84 / 69.90.)
 
-## 28. Round 19 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the foreign CPU worker ran throughout; A/B by
+## 28. Round 19 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the background CPU job ran throughout; A/B by
 r18/ab.py = both builds in ONE process, 22-dispatch blocks interleaved, 2 discarded per block)
 ### 28.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors each; timeouts this round: 0)
 | build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
@@ -910,7 +910,7 @@ r18/ab.py = both builds in ONE process, 22-dispatch blocks interleaved, 2 discar
 | full12r19e2 | + zero tail calls (text -208 B, acc_hi 0x719C0) | +0.001 / -0.009 / +0.004 (vs r19d) | 0 | hit |
 | full12r19f | + EPLR (plain epilogues release part 1 after rb 11) | -0.100 / -0.119 / -0.096 (vs r19d) | -0.06 | better |
 | full12r19g | + KPREP (attention K prep straight-line) | -0.130 / -0.093 / -0.147 | -0.12..-0.18 | hit |
-| full12r19h | SEQPRE v1 (loads + sends + drains before the wait) | +1.098 / +1.015 / +1.091 (vs r19g) | -1.4 +- 0.5 (research) | dead (queue block) |
+| full12r19h | SEQPRE v1 (loads + sends + drains before the wait) | +1.098 / +1.015 / +1.091 (vs r19g) | -1.4 +- 0.5 (analysis) | dead (queue block) |
 | full12r19h2 | SEQPRE v2 (sends after the fills) | +0.109 / +0.131 / +0.145 | | dead |
 | r19h3m2 / r19h3m1 | SEQPRE only drains / only slot loads before the wait | +0.150 / +0.158 / +0.151; -0.039 / -0.042 / -0.032 (40) | | m1 kept |
 | **full12r19z** | r19g + SEQPRE=1 (the round's best) | **-0.880 / -0.888 / -0.874 vs r18m** (30 rounds: 34.88 -> 33.99 median) | | |
@@ -936,8 +936,8 @@ Text at r19z: GEMM 15,984 / 16,384, EW 15,808.
 | 8 | 22.74 (22.70) | 24.96 | 40.1 | not run | 23.33 / 25.55 |
 | 6 | 17.09 (17.07) | 18.99 | 52.7 | not run | 17.56 / 20.02 |
 
-## 29. Round 20 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the foreign CPU worker ran throughout and from ~03:50 a
-second foreign 7.6-core CPU job (crop_study) too: A/B spreads wider after that; A/B by r18/ab.py, one process, 22-dispatch blocks)
+## 29. Round 20 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0), 1.81 GHz; the background CPU job ran throughout and later on a
+second 7.6-core CPU job (a study run) too: A/B spreads wider after that; A/B by r18/ab.py, one process, 22-dispatch blocks)
 ### 29.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0; timeouts this round: 0)
 | build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
 |---|---|---|---|---|
@@ -949,7 +949,7 @@ second foreign 7.6-core CPU job (crop_study) too: A/B spreads wider after that; 
 | full12r20n8 | + NRES norm1 | -0.177 / -0.186 / -0.208 (vs q1) | -0.15..-0.28 | hit |
 | full12r20n9 | + NRES norm0 / 2 / 3 | -0.690 / -0.651 / -0.641 | -0.45..-0.9 | hit |
 | full12r20z1 | + SRES | -0.106 / -0.195 / -0.156 | -0.10..-0.20 | hit |
-| full12r20q3 | + AQPRE | 30 x 20 -0.037 / -0.230 / -0.177; 40 x 20 -0.087 / -0.106 / -0.127 (crop_study load) | -0.10..-0.20 | hit |
+| full12r20q3 | + AQPRE | 30 x 20 -0.037 / -0.230 / -0.177; 40 x 20 -0.087 / -0.106 / -0.127 (study-job load) | -0.10..-0.20 | hit |
 | full12r20k1 | + AKVPRE | -0.241 / -0.134 / -0.168 (40 x 20, loaded) | -0.10..-0.14 | hit |
 | full12r20o1 | + OPPRE | +0.117 / +0.205 / +0.184 | -0.18..-0.3 | dead |
 | **full12r20z** | = r20k1 (the round's best) | **-1.992 / -2.074 / -2.057 vs r19z** (40 x 20, loaded) | | |
@@ -964,7 +964,7 @@ Text at r20z: GEMM 15,984 / 16,384, EW 16,272 (NRES + SRES +464 B; 112 free).
 - POPLF1 (r20/poplf1*.py, one core): vldb control, vlda.pop on lf1, vlda / vldb alternating, vlda.fill: 128 / 128 each.
 - ATPROF (mm8 -DATPROF, r20/atprof.py): r20z1 first Q copy 28.6 us after qkv's last epilogue, begin +4.6, first K +0.5, groups 72-75 /
   40 us; with AQPRE Q copy at 0.4 us, first K +12 us (then AKVPRE).
-### 29.3 Depth sweep (full12r20z, one xclbin, 4 phase sequences; r19z re-swept in the same session; both under the crop_study load)
+### 29.3 Depth sweep (full12r20z, one xclbin, 4 phase sequences; r19z re-swept in the same session; both under the study-job load)
 | depth | r20z dispatch median (min) | whole step | r19z same session median (min) |
 |---|---|---|---|
 | 12 | 33.71 (32.15) | 36.87 | 35.65 (34.03) |
@@ -972,9 +972,9 @@ Text at r20z: GEMM 15,984 / 16,384, EW 16,272 (NRES + SRES +464 B; 112 free).
 | 8 | 22.35 (21.51) | 25.58 | 23.91 (22.96) |
 | 6 | 16.76 (16.20) | 19.82 | 17.89 (17.14) |
 
-## 30. Round 21 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks; until ~06:20
-crop_study (~8 cores) and research CP-SAT (up to 12 workers) loaded the CPU and **the NPU clock was 1.405 GHz** for much of that
-window (r7/clk.py), marked below; the final sweep and A/B ran with only research CP-SAT at 4 workers + the background job)
+## 30. Round 21 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks; for the first part of the session
+a ~8-core study job and analysis CP-SAT (up to 12 workers) loaded the CPU and **the NPU clock was 1.405 GHz** for much of that
+window (r7/clk.py), marked below; the final sweep and A/B ran with only analysis CP-SAT at 4 workers + a background CPU job)
 ### 30.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 1 (LATEC))
 | build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
 |---|---|---|---|---|
@@ -1002,8 +1002,8 @@ Text at r21k1: GEMM 15,760 / 16,384 (624 free), EW 16,272 (112 free).
 - AEXP3 (aexp_ab in .aie.bank3, sgelu_cd in the data area; r21x2): bit-identical.
 - E7 rb-0 diagnosis (r21/e7dbg.py, depth 1): 2.2 % of yx values differ, all in rows 0-7 of each column's 144 rows and column blocks
   1-3 (r68try) / 2-4 (R 64 unfitted): the jobs the prologue starts; the fitted kernels are exact.
-### 30.3 Depth sweep (full12r21k1, one xclbin, 4 phase sequences; r20z re-swept in the same session; quiet box: crop_study finished,
-research CP-SAT 4 workers + the background job)
+### 30.3 Depth sweep (full12r21k1, one xclbin, 4 phase sequences; r20z re-swept in the same session; quiet box: the study job finished,
+analysis CP-SAT 4 workers + a background CPU job)
 | depth | r21k1 dispatch median (min) | whole step | r20z same session median (min) | DAVIS AJ (OA) |
 |---|---|---|---|---|
 | 12 | 31.30 (31.23) | 34.06 (DAVIS loop 34.4) | 32.33 (31.94) | 70.84 (92.57) |
@@ -1013,7 +1013,7 @@ research CP-SAT 4 workers + the background job)
 (an earlier same-session sweep of r21v4 = r21k1 without K0B: 31.32 / 26.25 / 21.04 / 15.93 vs r20z 32.02 / 26.86 / 21.83 / 16.26)
 
 ## 31. Round 22 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks; box load 2.5-16
-(my CP-SAT up to 8 workers + research's 4 early on; 1.81 GHz on every A/B's fast mode; final sweep quiet, r7/clk.py 1.806 GHz))
+(a CP-SAT up to 8 workers + the analysis CP-SAT's 4 early on; 1.81 GHz on every A/B's fast mode; final sweep quiet, r7/clk.py 1.806 GHz))
 ### 31.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 2 (KTL))
 | build | change (cumulative) | A/B vs previous (p10 / median / mean ms) | predicted | verdict |
 |---|---|---|---|---|
@@ -1022,7 +1022,7 @@ research CP-SAT 4 workers + the background job)
 | full12r22b | r21k1 + K2 (attkq II 14) | -0.025 / -0.020 / -0.061 (30 x 20) | -0.05..-0.10 | miss, OFF (608 B text) |
 | full12r22d6 / d4 | r21k1 + --l2-depth 6 / 4 | +0.004 / +0.005 / +0.100; -0.025 / -0.023 / -0.039 | ~0 | neutral |
 | full12r22c | r21k1 + 3A | -0.076 / -0.080 / +0.027 (30 x 20); -0.081 / -0.070 / +0.064 (40 x 20) | -0.07..-0.10 | hit, kept |
-| full12r22k2 | r22c + KTL (research mm_e7k_r70) | first dispatch TIMED OUT (recovered) | -0.50..-0.70 | open |
+| full12r22k2 | r22c + KTL (analysis mm_e7k_r70) | first dispatch TIMED OUT (recovered) | -0.50..-0.70 | open |
 | full12r22k3 | r22c + KTL1 (KTL kernel once per k-step) | TIMED OUT (recovered) | (bisect) | open |
 | full12r22t | r22c + TXT18 | -0.072 / -0.076 / -0.117 (30 x 20); -0.076 / -0.072 / -0.055 (40 x 20) | 0 +- 0.02 | kept (miss, good side) |
 | full12r22n | r22t + NTWIN norm0, norm2 (wrong) | -0.951 / -0.920 / -0.927 (20 x 20) | MSPLIT gate | walls shift: gate passed |
@@ -1036,7 +1036,7 @@ Text at r22z: GEMM 15,856 / 16,384 (528 free), EW 15,824 (560 free).
   destinations (p / m values 20-bit). Plain lda into p4 / m0 the same.
 - NTWIN timeline (r22t vs r22n, blocks 3-6): norm0 / norm2 first word 30-50 us before the producer's last word, walls 0.08-0.10 ms in both.
 - E7'' CP (gen_e7 / gen_e7m, 4 workers, 1,800 s, hinted): nx 10 R 64 excess 4 + 91, R 65 2 + 71; W3 1,800 nx 8 R 64 4 + 59, R 65 2 + 43;
-  research's R 64 x8 replay: 1,244 + 129 stalls, R 65 1,277 + 79, R 68 1,338 + 0.
+  analysis's R 64 x8 replay: 1,244 + 129 stalls, R 65 1,277 + 79, R 68 1,338 + 0.
 - attkb CP: II 31-33 none at 600 s (life 2), II 32 none at 1,800 s, II 33 U 2 at 1,800 s (life 2), II 33 U 1 at 1,800 s (life 1, one forbid).
   attv --two --stages 3: II 15-19 infeasible (proved), II 20 optimal. attkq: II 14 (3 stages, U 2: 602 B), II 14 U 1 (474 B), II 18 2 stages (394 B).
 - Resource-bound scan of deployed generators: bgelu 12 / 11, gup 6 / 6, pan 16 / 16, vt 13 / 6, resc 8 / 8, reck 11 / 10, convk 20 / 20,
@@ -1051,7 +1051,7 @@ Text at r22z: GEMM 15,856 / 16,384 (528 free), EW 15,824 (560 free).
 | 6 | 15.58 (15.54) | 18.01 | 15.79 (15.72) | not run |
 (the sweep inside r22z's own build, minutes earlier: d12 31.26 / whole 34.49, d10 25.81, d8 20.67, d6 15.56: d12 in a slow-mode window)
 ## 32. Round 23 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks (2 skipped); box
-load 1.1-7.2 (the background job; my CP-SAT 12 workers only between A/Bs); r7/clk.py 1.801 GHz before the final sweep)
+load 1.1-7.2 (a background CPU job; CP-SAT 12 workers only between A/Bs); r7/clk.py 1.801 GHz before the final sweep)
 ### 32.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 2)
 | build | change | A/B vs | p10 / median / mean ms | predicted | verdict |
 |---|---|---|---|---|---|
@@ -1092,7 +1092,7 @@ Text at r23z: GEMM 16,256 / 16,384 (128 free), EW 15,824 (560 free).
 (the sweep inside r23z's own build, under ~4-7 load minutes earlier: d12 28.92, d10 24.29, d8 19.43, d6 14.61)
 
 ## 33. Round 24 measurements (MEASURED, Turbo, GPU idle (gpu_busy 0); A/B by r18/ab.py, one process, 22-dispatch blocks (2 skipped); box
-load 1.4-11 (the background job; research's CP-SAT 4 workers nice 15 until ~15:30); r7/clk.py 1.808 GHz at the final sweeps)
+load 1.4-11 (a background CPU job; analysis's CP-SAT 4 workers nice 15); r7/clk.py 1.808 GHz at the final sweeps)
 ### 33.1 Step at depth 12 (every kept build BIT-IDENTICAL to full12r9a; asmlint 0 errors; timeouts this round: 0)
 | build | change | A/B vs | p10 / median / mean ms | predicted | verdict |
 |---|---|---|---|---|---|

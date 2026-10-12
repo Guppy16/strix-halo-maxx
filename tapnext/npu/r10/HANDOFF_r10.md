@@ -1,9 +1,9 @@
 # TAPNext++ on the XDNA2 NPU — hand-off (2026-10-10, end of round 10)
 
-Read `~/.claude/skills/xdna2-npu/SKILL.md` first (round 10 added runtime memtile tasks, the router multicast bug, the
-median rule and the forced-II warning), then `~/git/app/.scratch/npu-research/PROPOSALS.md` (revision 5) and the round-10
+Read `.claude/skills/xdna2-npu/SKILL.md` first (round 10 added runtime memtile tasks, the router multicast drop, the
+median rule and the forced-II warning), then the analysis proposals `PROPOSALS.md` (revision 5) and the round-10
 part of `RESULTS_FROM_MAIN.md`. RESULTS.md §19 has every round-10 number, NOTES.md §15 the changes, facts and dead ends.
-Round 9's hand-off: r9/HANDOFF_r9.md. All timings: testbox, Turbo, GPU idle, pyxrt `run.wait`, 1.81 GHz. No deadline.
+Round 9's hand-off: r9/HANDOFF_r9.md. All timings: test machine, Turbo, GPU idle, pyxrt `run.wait`, 1.81 GHz. No deadline.
 
 ## 1. State: 53.9 ms at depth 12, any depth from one xclbin
 
@@ -22,7 +22,7 @@ Numerics BIT-IDENTICAL to round 9 (`regress --ref full12r9a`); DAVIS identical. 
   up_b; with A_RT off it also multicasts into the two slot halves), A_RT (memtile A slot by runtime tasks), P23 (round-robin
   tiles for yx / qkv). mm8 `-DGELU_II` (rejected, off).
 - r10/: gdist.py (per-tile medians of PROF records), rtm.py/.cc (runtime memtile task bench, also the memtile->core rate:
-  7.95 B/cycle), pf1-5.mlir (router multicast bug), gx.cc / gxb.py (GELU loop bundles / one-core cycles), mmasm.sh, bak/
+  7.95 B/cycle), pf1-5.mlir (router multicast drop), gx.cc / gxb.py (GELU loop bundles / one-core cycles), mmasm.sh, bak/
   (round-9 sources before the edits).
 
 ## 3. Where the 53.9 ms go (timeline r10r, per block ~4.45 ms)
@@ -32,16 +32,16 @@ Numerics BIT-IDENTICAL to round 9 (`regress --ref full12r9a`); DAVIS identical. 
 
 ## 4. Next concrete actions (in order)
 1. **GELU epilogue by a hand modulo schedule** (gen_ks style generator for elementwise chains, reusable for the SSM chains,
-   research P29): floor ~16-20 cycles per 32 lanes vs 34-44 (n = 8 calls): -1.2 to -1.5 ms. Bench on one core (r10/gxb.py)
+   analysis P29): floor ~16-20 cycles per 32 lanes vs 34-44 (n = 8 calls): -1.2 to -1.5 ms. Bench on one core (r10/gxb.py)
    before building in; gated / gelu_pan also spend ~6 k cycles per tile on products + bfp pushes (look at those loops).
 2. **SSM**: P42 (EW stack 6,144 -> ~4.4 KB; deepest path 4,224 B) then P27 (a by table, one copy in bank 2 first).
    EW text 16,240 / 16,384 B: the fused pass must replace loga_p + exp_pA..D.
 3. **P7a** numerics emulation (no device), then the norm fold (largest lever: -4.6 to -6.8 ms predicted).
 4. Attention K phase (P12 / P19, -4 ms predicted); P35 (B locks in mm_ks), P24b (acc_zero fold), P38 counters.
-5. P14 two frames in flight; product wrap of Step8 for app (depth 10 default).
+5. P14 two frames in flight.
 
 ## 5. Rules that bit us this round (also in the skill)
 - Never read a k-step rate from means over tiles: per-tile medians (r10/gdist.py).
-- IRON pathfinder: multicast + unicast to the same DMA channels drops a destination (hang). Check masterset / rules.
+- Observed with IRON's pathfinder: multicast + unicast to the same DMA channels drops a destination (hang). Check masterset / rules.
 - A runtime-task BD needs a lock acquire AND release (or neither); push an op's tasks before any wait of that op.
 - A forced pipeline_initiation_interval can be 3x slower on the core than its bundle count: bench it.

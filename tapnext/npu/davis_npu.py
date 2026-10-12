@@ -1,4 +1,4 @@
-"""TAP-Vid DAVIS 'first' AJ for the VENDORED TAPNext++ (app/jobs/tapnext/model.py) with the NPU's GEMM numerics
+"""TAP-Vid DAVIS 'first' AJ for the VENDORED TAPNext++ (model.py) with the NPU's GEMM numerics
 emulated on the GPU: every trunk nn.Linear and the attention QK^T / PV run with bfp16ebs8 operands (blocks of 8
 along K share an exponent, 8-bit mantissas, round-to-nearest-even) and fp32 accumulation, outputs rounded to bf16
 (what the NPU kernels produce). Heads stay fp32 as in the live model.
@@ -11,18 +11,21 @@ usage: davis_npu.py --mode {bf16,bfp,bfp_attn} [--videos 10] [--tag name]
 import argparse
 import importlib.util
 import json
+import os
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-sys.path.insert(0, "~/git/app/.scratch/tapnet")
+SCRATCH = os.environ.get("SHM_SCRATCH") or str(Path(__file__).resolve().parents[3] / ".scratch")  # repo root / ../.scratch
+sys.path.insert(0, f"{SCRATCH}/tapnet")
 import davis  # noqa: E402  (load_davis, sample_queries_first, compute_tapvid_metrics)
 import tnpp  # noqa: E402  (preprocess)
 
-spec = importlib.util.spec_from_file_location("tn", "~/git/app/agent/app/jobs/tapnext/model.py")
+spec = importlib.util.spec_from_file_location("tn", os.environ["TAPNEXT_SRC"])
 tn = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tn)
 
@@ -83,7 +86,7 @@ def main():
         F.scaled_dot_product_attention = bfp_attention
     dev = torch.device("cuda")
     model = tn.TAPNext()
-    tn.load_state(model, "~/git/app/data/models/tapnextpp_256.safetensors")
+    tn.load_state(model, os.environ["TAPNEXT_WEIGHTS"])
     model.to(dev).to_half(torch.bfloat16).eval()
     data = davis.load_davis()
     names = sorted(data.keys())[: args.videos]
@@ -113,7 +116,7 @@ def main():
         print(f"{name:24s} T={T:3d} Q={qp.shape[1]:3d} AJ={per_video[-1]['average_jaccard']*100:5.1f} OA={per_video[-1]['occlusion_accuracy']*100:5.1f} PTS={per_video[-1]['average_pts_within_thresh']*100:5.1f} {ms[-1]:.1f} ms/f", flush=True)
     agg = {k: round(float(np.mean([v[k] for v in per_video])) * 100, 2) for k in per_video[0]}
     row = dict(mode=MODE, tag=args.tag, videos=len(names), ms_per_frame=round(float(np.median(ms)), 1), **agg)
-    with open("~/git/app/.scratch/npu-tapnext/davis_npu.jsonl", "a") as f:
+    with open(f"{SCRATCH}/npu-tapnext/davis_npu.jsonl", "a") as f:
         f.write(json.dumps(row) + "\n")
     print("RESULT", json.dumps(row))
     print("DAVIS_DONE")

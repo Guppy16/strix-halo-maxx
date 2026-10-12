@@ -3,12 +3,12 @@ II 30: CP-SAT found none
 II 31: CP-SAT found none
 II 32: CP-SAT found none
 Traceback (most recent call last):
-  File "~/git/app/.scratch/npu-tapnext/r13/gen_attk.py", line 227, in <module>
+  File "$SHM_SCRATCH/npu-tapnext/r13/gen_attk.py", line 227, in <module>
     main()
-  File "~/git/app/.scratch/npu-tapnext/r13/gen_attk.py", line 214, in main
+  File "$SHM_SCRATCH/npu-tapnext/r13/gen_attk.py", line 214, in main
     lp = build(o.ii, times, cp=dict(time_limit=o.time), max_ii=o.max_ii)
          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "~/git/app/.scratch/npu-tapnext/r13/gen_attk.py", line 165, in build
+  File "$SHM_SCRATCH/npu-tapnext/r13/gen_attk.py", line 165, in build
     raise Infeasible("none")
 msched.Infeasible: none
 EXIT=1

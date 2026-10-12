@@ -1,4 +1,5 @@
 #!/bin/bash
+SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
 # round 24: r23/try23.sh (full12r23z) + the round-24 kept changes:
 #   STATS64 (the norm statistics of both 32-row halves as one 64-lane chain, LN and RMS; STATS64=0 without);
 #   OPPRE2 (out_proj's A loaded per attention head group during pass 1, its sends before the waits; OPPRE2=0 without);
@@ -10,7 +11,7 @@
 # MSPLIT= ... --k-add -DTPROF (r20/tprof20.py + r24/tpk.py).
 # usage: r24/try24.sh NAME [--sweep] [--ew-add ..] [--k-add ..] [--env K=V] [--args ..]   (NOREG / NOTIME / MSPLIT / YXSSM / .. as try23)
 name=$1; shift
-cd ~/git/app/.scratch/npu-tapnext || exit 1
+cd "$SHM_SCRATCH/npu-tapnext" || exit 1
 R24=()
 [ "${STATS64:-1}" = 1 ] && R24+=(--ew-add -DSTATS64)
 [ "${OPPRE2:-1}" = 1 ] && R24+=(--env OPPRE2=1)  # out_proj's A per attention head group (OPPRE2_SENDS=0: its sends after the waits, v1)

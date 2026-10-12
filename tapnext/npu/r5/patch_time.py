@@ -1,10 +1,9 @@
 # times the host patch embedding as step8.put_x0 runs it: the real-weights lin_proj (bf16) on a 256x256x3 frame
 import sys, time, types
 import numpy as np, torch
-REPO = "/repo"
 tn = types.ModuleType("tn")
-exec(open(f"{REPO}/agent/app/jobs/tapnext/model.py").read().replace("-> TAPNext:", "-> \"TAPNext\":"), tn.__dict__)
-m = tn.TAPNext(); tn.load_state(m, f"{REPO}/data/models/tapnextpp_256.safetensors"); m.to_half(torch.bfloat16).eval()
+exec(open("/tapnext/model.py").read().replace("-> TAPNext:", "-> \"TAPNext\":"), tn.__dict__)
+m = tn.TAPNext(); tn.load_state(m, "/tapnext/tapnextpp_256.safetensors"); m.to_half(torch.bfloat16).eval()
 conv = m.lin_proj
 print("weight", tuple(conv.weight.shape), conv.weight.dtype, "abs mean", float(conv.weight.float().abs().mean()), "stride", conv.stride)
 frame = torch.rand(256, 256, 3) * 2 - 1

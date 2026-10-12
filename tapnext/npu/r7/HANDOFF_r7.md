@@ -1,11 +1,11 @@
 # TAPNext++ on the XDNA2 NPU — hand-off (2026-10-09, end of round 7)
 
-Read `~/.claude/skills/xdna2-npu/SKILL.md` first (round 7 added the clock, the core timer, stream re-seek and asm
-GEMM rules). Then `~/git/app/.scratch/npu-research/PROPOSALS.md` (revision 2) and `RESULTS_FROM_MAIN.md` (round 7
+Read `.claude/skills/xdna2-npu/SKILL.md` first (round 7 added the clock, the core timer, stream re-seek and asm
+GEMM rules). Then the analysis proposals `PROPOSALS.md` (revision 2) and `RESULTS_FROM_MAIN.md` (round 7
 verdicts on P10, P12, P15, P16-lite, P17, P18 at the end). RESULTS.md §16 has every round-7 number, NOTES.md §12 the
-changes, dead ends and tools. Round 6's hand-off: r6/HANDOFF_r6.md. All timings: testbox, Turbo, GPU idle
+changes, dead ends and tools. Round 6's hand-off: r6/HANDOFF_r6.md. All timings: test machine, Turbo, GPU idle
 (gpu_busy 0), pyxrt `run.wait` kernel time. **The clock is 1.81 GHz** (measured; the old 1.43 was wrong).
-No deadline (the maintainer): research project, measured understanding over quick wins.
+No deadline: research project, measured understanding over quick wins.
 
 ## 1. State: 71.2 ms at depth 12, any depth from one xclbin
 
@@ -28,7 +28,7 @@ No deadline (the maintainer): research project, measured understanding over quic
 | 6 | 39.7 (36.4) | 25.2 | 64.77 (CPU) |
 GPU (compiled bf16): 22 ms at depth 12. Depth 10 stays the default pick.
 
-## 2. What exists (`~/git/app/.scratch/npu-tapnext/`)
+## 2. What exists (`$SHM_SCRATCH/npu-tapnext`)
 - Sources: mm8.cc (attention: table exp `aexp_*`, unscaled scores, Q popped per key block; `-DMM_ASM` calls the asm
   `mm_core`; `-DPROF` stamps), exp_lut.h (`python3 r7/explut.py exp_lut.h 0.125`), design8.py (stack 0xC00,
   data_size 28,160; `asm_object()` builds mm8.cc + r7/gen_mm.py's mm_core.s into build/mm8asm.o and links it with
@@ -58,7 +58,6 @@ GPU (compiled bf16): 22 ms at depth 12. Depth 10 stays the default pick.
    64 (the 16 vldb lookups bound it at 16), P12's K/V per pass, P19 (EW cores idle during attention).
 4. **SSM / EW bubbles** (P13, P7): the profile shows GEMM tiles waiting 1.37 ms for the SSM before `out` and ~0.2 ms
    after each norm. P14 (two frames in flight) for fps.
-5. **Product**: wrap `Step8` for app (depth 10 default; `set_depth` exists).
 
 ## 4. Rules that bit us this round (also in the skill file)
 - read_tm needs the core's processor bus enabled (npu_maskwrite32 0x32038 bit 0 in the sequence) + sched barriers.

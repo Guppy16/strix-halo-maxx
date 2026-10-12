@@ -1,12 +1,12 @@
 # TAPNext++ on the XDNA2 NPU — hand-off (2026-10-09, end of round 5)
 
-Read `~/.claude/skills/xdna2-npu/SKILL.md` first (toolchain, rules, safety; round 5 added rules to §2, §3, §8). Then
-`~/git/app/.scratch/npu-research/PROPOSALS.md` if it exists (a research agent proposes experiments and tools there:
+Read `.claude/skills/xdna2-npu/SKILL.md` first (toolchain, rules, safety; round 5 added rules to §2, §3, §8). Then
+the analysis proposals (PROPOSALS.md, not in this repo; they list experiments and tools:
 run the worthwhile ones and record results against them). RESULTS.md §14 has every number of round 5, NOTES.md §10
 the changes and what failed, REDESIGN.md the next architecture (written, not built).
-All timings: testbox, Turbo, GPU idle (gpu_busy 0), pyxrt `run.wait` kernel time.
+All timings: test machine, Turbo, GPU idle (gpu_busy 0), pyxrt `run.wait` kernel time.
 
-**Priorities changed (the maintainer, 2026-10-09): no deadline. Treat this as a research project: thorough, measured
+**Priorities changed (2026-10-09): no deadline. Treat this as a research project: thorough, measured
 understanding over quick wins.**
 
 ## 1. State: 89.4 ms at depth 12, any depth from one xclbin
@@ -41,7 +41,7 @@ GPU (compiled bf16): 22 ms at depth 12. Depth 10 stays the default pick (13 fps,
 | 4 norms | 0.10-0.13 each (DDR-bound, ~57 GB/s) |
 | gaps before ops | ~0.05-0.12 each, ~1 ms in total |
 
-## 2. What exists (`~/git/app/.scratch/npu-tapnext/`)
+## 2. What exists (`$SHM_SCRATCH/npu-tapnext`)
 - Round-5 sources: `plan8.py` (`full_step(depth)` always lays out 12 blocks; ops only for `depth`), `design8.py`
   (EW worker = one `ew_op` call; GEMM cores = one block per worker iteration; `--kdefs` accepts commas),
   `ew8.cc` (`norm_rows<LN>`, `ew_op`, SSM with `exp_a2_n`), `mm8.cc` (attention with lazy max + `expd32x2`;
@@ -67,9 +67,7 @@ GPU (compiled bf16): 22 ms at depth 12. Depth 10 stays the default pick (13 fps,
    spills the Q registers (~4 bundles per mmul); `attn_end` runs `aie::inv` on 64 lanes (scalar unit) where 8 are
    needed. A one-column trace build (skill §4) would show the stall classes.
 4. **SSM sigmoids (~0.37 ms per block)**, then the gaps (split A-slot load, NOTES 10.1 item 4: ~25 us per op).
-5. **Product**: wrap `Step8` for app (depth 10 default; `set_depth` exists).
-6. **REDESIGN.md**: estimated ~62 ms with today's kernels, ~44 ms with 2x faster vector kernels; 4-5 weeks. the maintainer
-   decides whether to fund it. Items 1-4 are needed by either design.
+5. **REDESIGN.md**: estimated ~62 ms with today's kernels, ~44 ms with 2x faster vector kernels; 4-5 weeks. Items 1-4 are needed by either design.
 
 ## 4. Rules that bit us this round (also in the skill file)
 - LLVM fully unrolls a worker's constant-trip block loop (12 blocks -> 60 calls, 2 KB of program memory). Use IRON's
