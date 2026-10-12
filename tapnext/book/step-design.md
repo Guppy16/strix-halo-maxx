@@ -256,7 +256,7 @@ The whole step is 30.45 ms against 28.42 ms of dispatch (RESULTS 34.3).
 | launch floor | 0.097 (97 µs) |
 | **total** | **2.0 - 2.2** |
 
-(MACHINE R7.5, `r11/hostprof.py`, round 11.)
+(MACHINE [M16](../../common/MACHINE.md#m16), `r11/hostprof.py`, round 11.)
 
 - **Patch embedding on the host** (round 4). Torch's bf16 convolution (Conv2d 3 → 768, 8 × 8) takes 0.28 ms at 8 threads, and 0.39 ms with the permute, positional embedding
   and bf16 conversion (RESULTS 14.0; an earlier "0.2 ms" was the 16-thread conv alone). This gives torch's exact numerics and frees 0.7 KB of EW program text and
@@ -266,7 +266,7 @@ The whole step is 30.45 ms against 28.42 ms of dispatch (RESULTS 34.3).
 
 > **Pitfall.** Host jitter and CPU load matter. The OpenMP pool wakes late after the 28 ms wait, and other tenants add noise: a busy box makes dispatch times bimodal (~0.17 ms apart),
 > so A/Bs run in one process ([measurement](../../common/book/measurement.md#ab-in-one-process)). CPU load also slows the NPU itself: 12 threads of FP compute
-> at ~100 W cut the clock from 1.81 to 1.41 GHz (MACHINE R21.2). Cap BLAS/OpenMP threads at 6 beside the NPU ([M3](../../common/book/negative-results.md#m3)).
+> at ~100 W cut the clock from 1.81 to 1.41 GHz (MACHINE [M1.4](../../common/MACHINE.md#m1-4)). Cap BLAS/OpenMP threads at 6 beside the NPU ([M3](../../common/book/negative-results.md#m3)).
 
 ## How fast did it get?
 
@@ -340,5 +340,5 @@ The change names in the table (IL, ROT, KTL, ...) are build switches. Each is de
 
 - Design record: [`tapnext/npu/NOTES.md`](../npu/NOTES.md) 8-10 (design8, correctness, depth at run time), [`REDESIGN.md`](../npu/REDESIGN.md), [`HANDOFF.md`](../npu/HANDOFF.md) top block (state and every switch).
 - Code: `tapnext/npu/plan8.py` (memory plan, `full_step`), `design8.py` (sequence, `SEQLOG`), `pack8.py` (weight order), `step8.py` (host, `set_depth`, `select`, `reset`).
-- Evidence: [RESULTS](../npu/RESULTS.md) 12-14, 33-34 (sweeps); MACHINE R7.5 (host part), R9.1 (the A and K/V flows), R10.2 (memtile map).
+- Evidence: [RESULTS](../npu/RESULTS.md) 12-14, 33-34 (sweeps); MACHINE [M16](../../common/MACHINE.md#m16) (host part), [M8.6](../../common/MACHINE.md#m8-6) (the A and K/V flows), [M9.2](../../common/MACHINE.md#m9-2) (memtile map).
 - Next: [gemm.md](gemm.md), [attention.md](attention.md), [ssm.md](ssm.md), [norms.md](norms.md), [boundaries.md](boundaries.md), [ledger.md](ledger.md).
