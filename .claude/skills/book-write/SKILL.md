@@ -43,7 +43,9 @@ The reader knows ML and some systems programming, not this chip and not our shor
   the citation stays one click away.
 - **Callouts** as blockquotes: `> **Pitfall.** ...`, `> **Note.** ...`, `> **Open.** ...` (not MkDocs-only `!!!` admonitions).
 - **Figures that fit the page** (the content column is ~900 px, ~88 characters of code):
-    - flowcharts run `LR` and group steps into `subgraph`s; a one-column chart taller than the screen is a list, not a figure;
+    - a chain of steps: `flowchart TB` of `subgraph`s, each with `direction LR` (rows of 3-5 nodes); link the subgraphs,
+      not their nodes, or mermaid ignores the direction; no back edges (say "repeats" in the caption); a single row of
+      12+ nodes renders unreadably small and a single column taller than the screen is a list, not a figure;
     - sequence diagrams: at most 5 participants with 1-2 word aliases, messages of at most ~6 words, details in a table after;
     - quote node labels; no `-beta` diagram types except `xychart-beta`, which renders on the site and GitHub;
     - code blocks at most 86 columns: put explanations on their own lines or in the prose;
