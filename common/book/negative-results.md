@@ -1,23 +1,49 @@
-# Negative results (was DEAD_ENDS.md)
+# Negative results
 
-Ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo, XDNA2 / AIE2P), 225 entries. **Check here before trying an idea.** Each entry says what the idea was, the measured number, why it failed and what the lesson was, and is classified by HOW SURE we are that it is dead. An `unfinished` entry is an invitation, not a stop sign.
+> **In brief**
+>
+> - 225 ideas tried and refuted on the TAPNext++ and moondream NPU ports (AMD Strix Halo, XDNA2 / AIE2P). **Check here before trying an idea.**
+> - Each entry says what the idea was, the measured number, why it failed and the lesson, and carries a class saying HOW SURE we are that it is dead.
+> - An `unfinished` entry is an invitation, not a stop sign; a `revived` one is not dead at all.
 
 ## The five classes
 
-- **fundamental**: almost surely dead. A named hardware or ISA rule rules it out (a GEMM core has two input streams; a FIFO cannot pop twice in a bundle; a CP proof under the ISA's latency and register rules). The aggregate DDR caps are not in this class: they are observations under our memory config and load, so entries that rest on them are `measured-here`.
-- **measured-here**: dead in this context by measurement. A different model, shape, layout or toolchain version could change the answer; the entry says what would have to change.
-- **unfinished**: abandoned for time, a bug that was never chased, an untested hypothesis, or a solver that found nothing within its budget. A possible dead end. The entry says what would settle it.
-- **revived**: once called dead, later made to work. The entry says what changed. Do not cite these as dead.
-- **method**: a mistake in method (a wrong model of a bound, a stale header, a mis-averaged window). The idea itself may be fine; the lesson is about how to measure.
+| class | meaning | what to do | count |
+|---|---|---|---|
+| **fundamental** | almost surely dead: a named hardware or ISA rule rules it out (a GEMM core has two input streams; a FIFO cannot pop twice in a bundle; a CP proof under the ISA's latency and register rules) | don't retry unless you can show the limit does not apply | 20 |
+| **measured-here** | dead in this context by measurement; a different model, shape, layout or toolchain version could change the answer | retry only if what made it lose has changed; the entry says what | 109 |
+| **unfinished** | abandoned for time, a bug never chased, an untested hypothesis, or a solver that found nothing within its budget | a candidate: the entry says what would settle it | 19 |
+| **revived** | once called dead, later made to work | cite the working form, not the old verdict | 15 |
+| **method** | a mistake in method (a wrong model of a bound, a stale header, a mis-averaged window); the idea itself may be fine | apply the lesson to how you measure | 62 |
+
+The aggregate DDR caps are not `fundamental`: they are observations under our memory config and load, so entries that rest on them are `measured-here`.
 
 Counts (225): fundamental 20 | measured-here 109 | unfinished 19 | revived 15 | method 62.
 
-How to read the index: the `why` column names the limit, the measurement, or what is missing. Anchors are lowercase ids (`#a28`). The `project` column is where the evidence came from: `tapnext`, `moondream`, or `general` (toolchain and method lessons that apply to any AIE2P project). Classes are judgements from the entry text and the sources; where the evidence only supports "unfinished" it is not upgraded to "fundamental". Capacity arguments are called `fundamental` only when the shortfall follows from a hardware number and the model dimensions, and `measured-here` when a different tile shape or layout could change it.
+## How to read the index
 
-Last updated 2026-10-11 (research pass 21, then the chapter passes: moondream section N, F13-F14; 225 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
+- The `why` column names the limit, the measurement, or what is missing. Anchors are lowercase ids (`#a28`).
+- The `project` column is where the evidence came from: `tapnext`, `moondream`, or `general` (toolchain and method lessons that apply to any AIE2P project).
+- Classes are judgements from the entry text and the sources; where the evidence only supports "unfinished" it is not upgraded to "fundamental".
+  Capacity arguments are called `fundamental` only when the shortfall follows from a hardware number and the model dimensions, and `measured-here`
+  when a different tile shape or layout could change it.
+- Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson.
+  Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end.
+  "Conditional" = dead under today's design, may revive if X changes (the entry says what X is).
+- Last updated 2026-10-11 (research pass 21, then the chapter passes: moondream section N, F13-F14; 225 entries + section R).
 
-Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show eed3870:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Mx.y = `common/MACHINE.md` topic id (older Rx.y / §n: `common/tools/machine-id-map.tsv`); SKILL = `.claude/skills/xdna2-npu/SKILL.md`; MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
+## Source keys
 
+| key | meaning |
+|---|---|
+| RFM | `tapnext/research/RESULTS_FROM_MAIN.md` (round N section) |
+| NOTES / RESULTS / HANDOFF | `tapnext/npu/*.md` (§ = section number) |
+| revN/P, revN/A | revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md`; the revN/ folders were removed on 2026-10-11: read one with `git show eed3870:npu-research/revN/<file>` (revisions 10+ are also in `git log --follow -p` of the file) |
+| MACHINE Mx.y | `common/MACHINE.md` topic id (older Rx.y / §n: `common/tools/machine-id-map.tsv`) |
+| SKILL | `.claude/skills/xdna2-npu/SKILL.md` |
+| MD | `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware) |
+
+Units: ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
 
 ## Index
