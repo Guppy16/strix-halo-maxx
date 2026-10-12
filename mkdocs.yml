@@ -80,8 +80,6 @@ exclude_docs: |
   *.size
   *.jsonl
   common/tools/aie2p_isa_timing.json
-  # tracked symlink whose target (tapnext/research/tools/attsim.py) does not exist
-  tapnext/research/r15/attsim.py
 
 nav:
   - Home: README.md
