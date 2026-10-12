@@ -76,6 +76,7 @@ Decide with a twin (a build with one resource removed or doubled), not a fit.
 Each step was measured in situ in TAPNext (bit-identical to the reference throughout).
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "Static k-step length (cycles) by generation"
     x-axis ["C++", "mm_ks", "ROT", "g0a", "E7''", "KTL"]

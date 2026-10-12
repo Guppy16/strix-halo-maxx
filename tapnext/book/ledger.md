@@ -24,6 +24,7 @@ Segment times are from the r23z timelines (MEASURED). Floors are MODEL (`tapnext
 Floor ranges come from four bounds: the k-step floor (1,296 k-steps per block per core at 1,304-1,411 cycles), TPROF epilogues, the DDR read cap and the attention's compute bound.
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "ms per step by segment: now vs floor midpoint"
     x-axis ["attn", "up", "yx+SSM", "down", "mlp0", "mlp3", "qkv", "norm0", "norm3", "norm1", "out_proj", "out"]
@@ -32,7 +33,7 @@ xychart-beta
     bar [5.76, 4.15, 3.47, 2.78, 2.26, 1.81, 1.46, 1.10, 0.88, 0.87, 0.47, 0.30]
 ```
 
-Light bar = now, dark bar drawn over it = floor midpoint (midpoint of the range in the table); segments are sorted by time now. The table lists them in block order.
+Blue = now; orange, drawn over it = floor midpoint, so the blue cap is the gap to the floor (midpoint of the range in the table); segments are sorted by time now. The table lists them in block order.
 
 | segment | now µs per block | floor µs | ms per step now / floor | bound |
 |---|---|---|---|---|

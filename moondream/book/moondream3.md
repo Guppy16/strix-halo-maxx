@@ -41,6 +41,7 @@
 | absent (10): nothing returned, detect / point | 8 / 4 | 8 / 6 | |
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "detect latency, ms (median)"
     x-axis ["md2", "md3 compiled", "md3 eager"]

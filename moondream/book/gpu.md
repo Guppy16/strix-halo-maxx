@@ -19,6 +19,7 @@ GPU's last-level cache. KV = the attention key/value cache. W8A8 = int8 weights 
 ## The ladder
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "Per-frame time, ms (lower is better)"
     x-axis ["stock", "static", "Triton", "+int8", "+fusion", "HIP WMMA", "pool 16"]

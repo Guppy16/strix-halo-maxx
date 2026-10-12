@@ -123,6 +123,7 @@ The NPU alone, 27 blocks, Turbo (MEASURED pieces; the sum is arithmetic, MD RESU
 | **sum** | **159** | **75** | **~40** | GPU does the same work in ~30 ms |
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "NPU tower budget per frame, ms (phase 12)"
     x-axis ["GEMMs", "GELU", "LN+res", "attention", "patch"]

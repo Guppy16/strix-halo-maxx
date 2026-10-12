@@ -39,6 +39,7 @@ Details in [step-design](book/step-design.md).
 ## Progress (depth-12 step, best build at the end of each round)
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "step ms at depth 12, by round"
     x-axis [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
@@ -73,16 +74,22 @@ From `tapnext/npu` (the script `cd`s into the working copy of this folder under 
 The build takes ~10 min of CPU and runs in Docker only.
 
 ```bash
-r24/try24.sh NAME [--sweep]          # --sweep also builds depths 10 / 8 / 6 and times them
-                                     # NOREG=1 / NOTIME=1 skip the regress / timing
+# build (--sweep also builds and times depths 10 / 8 / 6;
+# NOREG=1 / NOTIME=1 skip the regress / timing)
+r24/try24.sh NAME [--sweep]
 
-# verify
-r16/nrun.sh NAME.reg python3 step8.py regress --build full12NAME --depth 12 --ref full12r9a
-                                     # must print BIT-IDENTICAL
-r24/lint.sh full12NAME               # must report 0 asmlint errors
+# numerics: must print BIT-IDENTICAL
+r16/nrun.sh NAME.reg python3 step8.py regress \
+    --build full12NAME --depth 12 --ref full12r9a
+
+# asm hazards: must report 0 asmlint errors
+r24/lint.sh full12NAME
+
+# speed: A/B in one process (p10 / median / mean)
 r16/nrun.sh NAME.ab python3 r18/ab.py --a full12r24z --b full12NAME
-                                     # A/B in one process (p10 / median / mean)
-TMO=3000 ./s8.sh LOG davis --build full12NAME --depth 12 --videos 10   # DAVIS AJ
+
+# accuracy: DAVIS AJ on 10 videos
+TMO=3000 ./s8.sh LOG davis --build full12NAME --depth 12 --videos 10
 ```
 
 - Every switch of the best build is listed in `npu/HANDOFF.md` (round-25 block). Each round's kept change can be turned off by an env switch (e.g. `STATS64=0`, `OPPRE2=0`); see the `try2N.sh` headers.

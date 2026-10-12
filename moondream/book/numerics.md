@@ -53,8 +53,8 @@ Operand rounding alone is cheap. What the stock design lost was the bf16 C betwe
 ([F4](../../common/book/negative-results.md#f4) <!-- nr: F4 -->): 1.4 points against the GPU path, 1.0 against the fp32-accumulating bfp variant.
 
 ```text
-stock:     C_bf16 = bf16( C_bf16 + A_k B_k )     rounded every 64 K  -> 96.6 %
-kernel:    C_fp32 =        C_fp32 + A_k B_k      rounded once at the end -> 97.6 %
+stock:   C_bf16 = bf16(C_bf16 + A_k B_k)  # rounded every 64 K   -> 96.6 %
+kernel:  C_fp32 = C_fp32 + A_k B_k        # rounded once at end  -> 97.6 %
 ```
 
 The kernel (`p2/mm_f32acc.cc`) therefore keeps an fp32 accumulator for the whole K, split between the output buffer and a static buffer, because an fp32 96×96 tile does not fit L1 beside a bf16 tile.

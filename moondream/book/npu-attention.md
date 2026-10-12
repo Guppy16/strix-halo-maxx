@@ -58,6 +58,7 @@ Per block, Turbo, rms against the `bf16emu` attention reference (MEASURED, `p9/a
 | **v15 v14's infrastructure with v9's exact exp** | **0.675** | **9.8e-3** | 6.5e-3 vs the bfp-operand reference |
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "ms per attention block (milestones)"
     x-axis ["v2", "v3", "v4", "v4b", "v5", "v7", "v9", "v13", "v14", "v15"]

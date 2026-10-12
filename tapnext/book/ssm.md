@@ -80,6 +80,7 @@ EW PROF, cycles per chunk (mean of 8 columns, MEASURED, NOTES 20.2, 21.2, RESULT
 | SSM op per block (timeline) | ~532 µs (r15m) | 426 µs | ~290 µs, overlapped with yx |
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "SSM cycles per chunk, by round, and the input floor"
     x-axis ["r15", "r16e", "r24", "input floor"]

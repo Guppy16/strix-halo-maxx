@@ -274,6 +274,7 @@ Step time at the end of each round (depth 12). The table for rounds 12-25 is als
 All kept changes from round 9 on are bit-identical. Timings from rounds 3-11 predate the final clock fix and the A/B-in-one-process rule.
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "Step time at depth 12 (ms), by round"
     x-axis [r3, r4, r5, r6, r7, r8, r9, r10, r15, r18, r20, r23, r25]

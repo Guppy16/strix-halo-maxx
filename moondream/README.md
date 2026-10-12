@@ -9,7 +9,8 @@ this folder covers both. The work predates the TAPNext port and is not active no
 > - On the GPU the yes/no query takes **88.7 ms per frame** (encode 79.6 + query 9.0), against ~340 ms for stock HF bf16 (3.8x),
 >   at 98.0 % accuracy on the 493-frame set. Pooling the image tokens to 16 x 16 gives ~65 ms.
 > - On the NPU the 27 vision-tower GEMM blocks run as **one program in 33.8 ms per frame**. The whole tower budget is ~75 ms per
->   frame on the NPU alone (phase 12), pipelined with the GPU text side: **27 fps**.
+>   frame on the NPU alone (phase 12); pipelined with the GPU text side **~22 fps** (extrapolated: the measured 27 fps
+>   left attention, LayerNorm, GELU and the projection out of both loops).
 > - moondream3-preview is not better on grounding (44 correct by eye for both) and is ~2.6x slower.
 > - The book chapters are in [book/](book/README.md); start with the [overview](book/overview.md).
 
@@ -18,7 +19,7 @@ this folder covers both. The work predates the TAPNext port and is not active no
 | folder | what | headline |
 |---|---|---|
 | [gpu/](gpu/README.md) | moondream2 latency on the GPU: fast path, Triton and hand-written HIP WMMA GEMMs, int8 text model | **88.7 ms per frame** (encode 79.6 + query 9.0) vs ~340 ms stock HF bf16 (3.8x), 98.0 % accuracy on the 493-frame set; ~65 ms with image tokens pooled to 16 x 16 |
-| [npu/](npu/RESULTS.md) | the moondream2 vision tower on the NPU, phases 1-12 (GEMMs, bfp16, LN, GELU, attention, the asm route) | the 27-block GEMMs in one NPU program: 33.8 ms per frame; tower budget ~75 ms per frame on the NPU alone (phase 12); pipelined with the GPU text side: **27 fps** |
+| [npu/](npu/RESULTS.md) | the moondream2 vision tower on the NPU, phases 1-12 (GEMMs, bfp16, LN, GELU, attention, the asm route) | the 27-block GEMMs in one NPU program: 33.8 ms per frame; tower budget ~75 ms per frame on the NPU alone (phase 12); pipelined with the GPU text side: **~22 fps** (extrapolated; 27 fps measured without attention, LN, GELU) |
 | [moondream3-eval/](moondream3-eval/NOTES.md) | moondream3-preview vs moondream2 on the grounding set | not better (44 correct by eye for both), ~2.6x slower (1.2-1.3 s vs 0.46 s per detect), ~4.5x the GPU memory |
 
 ## The split in one picture

@@ -252,7 +252,7 @@ L1, text and tile-shape limits killed these (all in [negative-results](../../com
 | Gated tiles in the CSUB group loop | +0.02 ms against −0.04..−0.08 predicted | kept only as a −256 B text lever (`4ed0218`) | [B13](../../common/book/negative-results.md#b13) <!-- nr: B13 --> |
 | Runtime-driven C drains with per-op lengths | ~−0.05..−0.1 ms for ~17 runtime pushes per block | the 74 MB of junk writes per step sit in part 2 and tiles are not write-bound; the CP is in order | [B14](../../common/book/negative-results.md#b14) <!-- nr: B14 --> |
 | Bank-aware runtime piece map | +0.8 µs per tile in the epilogue | the table-driven epilogue costs more than the k-step gains | [A8](../../common/book/negative-results.md#a8) <!-- nr: A8 --> |
-| B prefetch out of the popped bank | not kept | no idle bank, and bank 0 has no room | [A12](../../common/book/negative-results.md#a12) <!-- nr: A12 --> |
+| B prefetch out of the popped bank | not kept | the B bank is busy 0.97 of the time under ROT and no idle bank is left for the prefetch (this L1 layout) | [A12](../../common/book/negative-results.md#a12) <!-- nr: A12 --> |
 | A slots in the least busy bank | best assignment only −0.1 ms | no idle bank, and bank 0 has no room | [A15](../../common/book/negative-results.md#a15) <!-- nr: A15 --> |
 | E7'' at R 64 | neutral in situ | `unfinished`: more CP workers in a quiet window | [A27](../../common/book/negative-results.md#a27) <!-- nr: A27 --> |
 | KTL at R 68-69 bank-clean | no schedule | within the CP budgets; `unfinished`: a placement where A slots and pieces never share a bank | [L1](../../common/book/negative-results.md#l1) <!-- nr: L1 --> |

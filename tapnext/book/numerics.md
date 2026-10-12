@@ -69,6 +69,7 @@ Why both:
 - Depth 10 + 8 support points per query reached 71.33 (+0.35 over depth 12, CPU model), which needs up to 225 query slots, and the step has 48.
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%
 xychart-beta
     title "DAVIS AJ by depth (CPU bf16 model)"
     x-axis ["depth 6", "depth 8", "depth 10", "depth 12"]
@@ -140,13 +141,13 @@ Not bit-identical, so each needs a DAVIS round (and some a bigger budget) that w
 
 | idea | outcome | why | index |
 |---|---|---|---|
-| a reciprocal-free / polynomial GELU | 26-37 % bf16 mismatches, up to 4-6 ulp, vs 15 % / 2 ulp | a polynomial in \|x\| is ill-conditioned in bf16 Horner (1.6e-2) | [B6](../../common/book/negative-results.md#b6) <!-- nr: B6 --> |
+| a reciprocal-free / polynomial GELU | 26-37 % bf16 mismatches, up to 4-6 ulp, vs 15 % / 2 ulp | the LUT GELU replaced it; a looser tolerance could change the verdict | [B6](../../common/book/negative-results.md#b6) <!-- nr: B6 --> |
 | rounding s − m to bf16 before the exp | up to 2-3 % error at \|s − m\| ~ 10 | bf16 resolution near 10 | [D4](../../common/book/negative-results.md#d4) <!-- nr: D4 --> |
 | the hardware `vtanh`, `aie::exp2`, `aie::inv` | `vtanh` identity for \|x\| ≤ 0.5 and 2-7 % off up to 2; `exp2` p99 10 ulp; `inv` correct but scalar | inaccurate or scalar | [F7](../../common/book/negative-results.md#f7) <!-- nr: F7 --> |
 | the 8-lane bf16 `aie::max` | wrong values | cause not chased | [F8](../../common/book/negative-results.md#f8) <!-- nr: F8 --> |
-| one Newton step in the reciprocal | bfp ratio 0.4-0.6, visible on the next tensor | too coarse | [F9](../../common/book/negative-results.md#f9) <!-- nr: F9 --> |
+| one Newton step in the reciprocal | bfp ratio 0.4-0.6, visible on the next tensor | its error is about half the bfp16 rounding noise, which shows on real activations | [F9](../../common/book/negative-results.md#f9) <!-- nr: F9 --> |
 | SSM numerics judged by 30-frame max deviations | any ulp-level SSM change gives the same chaotic track noise | judge by DAVIS | [H26](../../common/book/negative-results.md#h26) <!-- nr: H26 --> |
-| the symmetric sigmoid table | revived as the asymmetric one | | [E13](../../common/book/negative-results.md#e13) <!-- nr: E13 --> |
+| the symmetric sigmoid table | revived as the asymmetric one | one asymmetric [-12, 8) table does the job (−2.8 ms with the sqrt change) | [E13](../../common/book/negative-results.md#e13) <!-- nr: E13 --> |
 | rarer lazy-max flags without a numerics change | already 0.055 % | only a numerics change (F11) reduces it | [D15](../../common/book/negative-results.md#d15) <!-- nr: D15 --> |
 
 ## Lessons

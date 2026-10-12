@@ -48,11 +48,26 @@ The reader knows ML and some systems programming, not this chip and not our shor
       12+ nodes renders unreadably small and a single column taller than the screen is a list, not a figure;
     - sequence diagrams: at most 5 participants with 1-2 word aliases, messages of at most ~6 words, details in a table after;
     - quote node labels; no `-beta` diagram types except `xychart-beta`, which renders on the site and GitHub;
-    - code blocks at most 86 columns: put explanations on their own lines or in the prose;
+    - code blocks at most 72 columns (wider ones scroll sideways): comments go on their own line above a command;
     - check the render before committing: build the site, serve it on localhost and take a headless screenshot
       (`firefox --headless --no-remote --profile <scratch dir> --window-size=1300,9000 --screenshot out.png <url>`), then look at it.
+- **Mermaid and maths gotchas** (all found by rendering):
+    - nodes in a `direction LR` subgraph with no edges between them stack as a column; chain them with `a ~~~ b ~~~ c`;
+    - `xychart-beta`: start the line with `%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#3f51b5, #ff9800, #4caf50"}}}}%%`
+      (the default bars are near-invisible); several `bar` series overlay rather than group, so name the colours in
+      the caption; start the y axis at 0 or say it doesn't; always give the numbers in a table too;
+    - sequence diagrams: no self-messages (they overlap); a hub talking to many participants is clearer as a table;
+    - display `$$...$$` inside a list item breaks the list: use inline `$...$` in bullets, display maths after the list;
+      split a display formula wider than ~90 rendered characters; write ranges as `\text{ to }`, not `--`;
+    - a table or code block nested in a list item breaks the bullets after it: put it after the list;
+    - in table cells, avoid `*` and `|` inside inline code (escaping shows the backslash); a table of more than 5
+      columns with a prose column renders too narrow: split it into a numbers table and a bullet list.
+- **Building and screenshotting**: Material prints a banner containing "Warning"; count only lines starting `WARNING`.
+  Keep screenshots and the Firefox profile in your own scratch subfolder and use your own port.
 - **Terms line**: a chapter that uses more than three abbreviations gets one `**Terms.**` line after "In brief".
-- **"What didn't work" as a table**: idea | outcome | why | index link, with the `<!-- nr: ID -->` marker in the row.
+- **"What didn't work" as a table**: idea | outcome | why | index link, with the `<!-- nr: ID -->` marker in the row. The
+  "why" comes from the index row or the cited evidence, never made up; a failure with no index id says "(no index entry)".
+  `negative-results.md` must keep its `Counts (N): ...` line (bookcheck reads it).
 - **Raw ids in evidence**: evidence tables, footnotes and `<details>` blocks may keep build and switch names (`full12r24z`,
   `ONE_SEG`); prose may not. A heading that other files link to keeps its wording (its anchor); new headings may be claims.
 - **Footnote markers** go in prose, never inside a code block or a mermaid block (they don't render there).
