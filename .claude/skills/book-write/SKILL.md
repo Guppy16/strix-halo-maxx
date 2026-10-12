@@ -42,6 +42,18 @@ The reader knows ML and some systems programming, not this chip and not our shor
   push long source lists into footnotes (`[^1]`) or a `<details><summary>Evidence</summary>` block. The claim stays readable;
   the citation stays one click away.
 - **Callouts** as blockquotes: `> **Pitfall.** ...`, `> **Note.** ...`, `> **Open.** ...` (not MkDocs-only `!!!` admonitions).
+- **Figures that fit the page** (the content column is ~900 px, ~88 characters of code):
+    - flowcharts run `LR` and group steps into `subgraph`s; a one-column chart taller than the screen is a list, not a figure;
+    - sequence diagrams: at most 5 participants with 1-2 word aliases, messages of at most ~6 words, details in a table after;
+    - quote node labels; no `-beta` diagram types except `xychart-beta`, which renders on the site and GitHub;
+    - code blocks at most 86 columns: put explanations on their own lines or in the prose;
+    - check the render before committing: build the site, serve it on localhost and take a headless screenshot
+      (`firefox --headless --no-remote --profile <scratch dir> --window-size=1300,9000 --screenshot out.png <url>`), then look at it.
+- **Terms line**: a chapter that uses more than three abbreviations gets one `**Terms.**` line after "In brief".
+- **"What didn't work" as a table**: idea | outcome | why | index link, with the `<!-- nr: ID -->` marker in the row.
+- **Raw ids in evidence**: evidence tables, footnotes and `<details>` blocks may keep build and switch names (`full12r24z`,
+  `ONE_SEG`); prose may not. A heading that other files link to keeps its wording (its anchor); new headings may be claims.
+- **Footnote markers** go in prose, never inside a code block or a mermaid block (they don't render there).
 - **Markdown hygiene**: a blank line before every list and table; nested lists indented by 4 spaces; relative links to `.md`
   files; link targets that exist.
 - **Reference pages** (`common/MACHINE.md`) are organised by topic, never by revision: a fact lives in its topic section with a
