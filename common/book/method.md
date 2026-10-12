@@ -84,5 +84,5 @@ The measurement-specific ones (H4, H9-H12, H16, H17, H20, H22, H26, H28) are exp
 ## Going deeper
 
 - `tapnext/research/RESULTS_FROM_MAIN.md` (verdicts per proposal, rounds 6-25), ANALYSIS / PROPOSALS history
-  (`git log --follow -p tapnext/research/PROPOSALS.md`; older revisions `git show bbff6a1:npu-research/revN/<file>`).
+  (`git log --follow -p tapnext/research/PROPOSALS.md`; older revisions `git show eed3870:npu-research/revN/<file>`).
 - [measurement.md](measurement.md) for the timing rules, [negative-results.md](negative-results.md) for the full list.

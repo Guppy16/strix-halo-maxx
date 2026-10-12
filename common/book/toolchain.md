@@ -13,7 +13,7 @@ replay and `asmlint` before it runs. The rules themselves are in the
   `TensorAccessPattern` (TAP) drives shim DMAs from the runtime sequence (SKILL §2).
 - When IRON cannot express a shape, **patch the lowered MLIR**. aiecc rebuilds a design byte for byte from its own
   `input_with_addresses.mlir`, so a patched copy (an extra lock, a split BD chain, a switchbox rule) rebuilds in
-  seconds (`tapnext/npu/r19/csplit.py`, round 19, cb41936). The rule that comes with it: never dispatch the
+  seconds (`tapnext/npu/r19/csplit.py`, round 19, d5a9ee2). The rule that comes with it: never dispatch the
   unpatched xclbin of a kernel that takes the new lock. It hangs.
 - IRON 1.4.4 behaviours we hit, with their workarounds:
 
@@ -23,7 +23,7 @@ replay and `asmlint` before it runs. The rules themselves are in the
 | two packet flows from two DMA channels of one tile onto one port | no route found | declare both from MM2S 0, patch the switchbox (`r20/nresfix.py`) | [G9](negative-results.md#g9) <!-- nr: G9 --> |
 | acquire-only BD block | verifier refuses | release by 0 (a no-op) | [G19](negative-results.md#g19) <!-- nr: G19 --> |
 | jit cache key excludes source files | an edited kernel reuses the old build | a new build name after every edit | [H22](negative-results.md#h22) |
-| worker loop counters lowered to i64 | ~6 extra scalar ops per loop | `scf.for` with i32 bounds (IV32: −560 B of text) | R13.5, 6748d1c |
+| worker loop counters lowered to i64 | ~6 extra scalar ops per loop | `scf.for` with i32 bounds (IV32: −560 B of text) | R13.5, e7afce3 |
 | `acquire(n)` means hold *n* in total | `acquire(1)` twice then `release(2)` drifts the locks | acquire one object per call | SKILL §2 |
 
 ## Peano (llvm-aie)
@@ -57,7 +57,7 @@ with IRON `Kernel(...)`. Never inject raw `.byte` bundles: that hung the core tw
 
 **The machine model** is `common/tools/aie2p_isa_timing.json`: 879 instructions with slot, operand latencies and itinerary ports,
 generated from llvm-aie's TableGen by `common/tools/gen_isa_timing.py`. Apply the visibility rule from
-[machine.md](machine.md#the-compute-tile) on top. This one table replaced three copies (23e314f).
+[machine.md](machine.md#the-compute-tile) on top. This one table replaced three copies (3976925).
 
 **Hardware rules a generator must encode** (each one cost at least one wrong kernel or one timeout):
 
@@ -91,7 +91,7 @@ The progression shows what each tool added:
 
 CP-SAT limits: "no schedule found" within a time budget is not a proof. Two levers stay open for that reason: KTL at R 68-69
 bank-clean ([L1](negative-results.md#l1)) and FSX at II 30-33 ([L2](negative-results.md#l2)). Re-solving old schedules with more
-time paid off once: attkb II 36 → 33, worth ~0.065 ms per II at depth 12 (round 22, 26d8aed, 438cf05).
+time paid off once: attkb II 36 → 33, worth ~0.065 ms per II at depth 12 (round 22, 5a75321, 2049c58).
 
 ## asmlint, tcall and fitting
 
@@ -114,7 +114,7 @@ time paid off once: attkb II 36 → 33, worth ~0.065 ms per II at depth 12 (roun
   serves depths 12 / 10 / 8 / 6 by swapping the instruction buffer.
 - Records as `constexpr` tables instead of run-time builders (−0.7 KB, round 13); `asmfit`; 2-stage schedules for short loops;
   tail calls; i32 loop bounds.
-- `llvm-size` after every kernel edit. Build the default configuration after every flag-guarded edit (9c5c4c2).
+- `llvm-size` after every kernel edit. Build the default configuration after every flag-guarded edit (6f7b7d7).
 
 ## What didn't work
 

@@ -30,7 +30,7 @@ Chapters cite sources this way (paths from the repo root):
 | SKILL §n | `.claude/skills/xdna2-npu/SKILL.md` |
 | NOTES n, RESULTS n, HANDOFF round n | `tapnext/npu/{NOTES,RESULTS,HANDOFF}.md` |
 | RFM round n | `tapnext/research/RESULTS_FROM_MAIN.md` |
-| ANALYSIS / PROPOSALS rev n | `tapnext/research/`; older revisions in `git log --follow -p` or `git show bbff6a1:npu-research/revN/<file>` |
+| ANALYSIS / PROPOSALS rev n | `tapnext/research/`; older revisions in `git log --follow -p` or `git show eed3870:npu-research/revN/<file>` |
 | MD NOTES / MD RESULTS phase n | `moondream/npu/{NOTES,RESULTS}.md` |
 | A1 … N36 | entries in [negative-results.md](negative-results.md) |
 | 7 hex digits | a commit in this repo |

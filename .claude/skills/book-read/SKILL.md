@@ -32,7 +32,7 @@ book and drop to the notebook only for raw evidence.
 - A number you will build on or quote: open the source the chapter cites (MACHINE R-id, NOTES / RESULTS section, commit).
 - What exactly was built: `git show <hash>`, the round's `tapnext/npu/rNN/` scripts, and the `try2N.sh` switch lists.
 - Why a proposal was ranked or priced: `tapnext/research/ANALYSIS.md`, `PROPOSALS.md`, and their history
-  (`git log --follow -p <file>`; old revisions `git show bbff6a1:npu-research/revN/<file>`).
+  (`git log --follow -p <file>`; old revisions `git show eed3870:npu-research/revN/<file>`).
 - Measured verdicts per proposal id: `tapnext/research/RESULTS_FROM_MAIN.md`.
 - The state at the pause and the best build's switches: `tapnext/npu/HANDOFF.md`, top block.
 - These files are big (NOTES, RESULTS, MACHINE run to thousands of lines). Grep for the id or the R-number; don't load them whole.
@@ -40,7 +40,7 @@ book and drop to the notebook only for raw evidence.
   ([DOC] / [MEAS] / [INF]; R15.3 / R15.4 are stale on DDR).
 
 ## How to cite
-- Every claim gets a number and its evidence: `common/MACHINE.md` R21.2, `tapnext/npu/NOTES.md` 25.2, commit `9537138`,
+- Every claim gets a number and its evidence: `common/MACHINE.md` R21.2, `tapnext/npu/NOTES.md` 25.2, commit `516d3a9`,
   `tapnext/npu/r19/ddrcap.py`, negative-results `C13`.
 - Keep the status the source gives: MEASURED, MODEL or EXTRAPOLATED. Quote A/B deltas as p10 / median / mean.
 - Give the conditions with absolute timings: build, depth, NPU clock (1.81 GHz), gpu_busy, power mode.

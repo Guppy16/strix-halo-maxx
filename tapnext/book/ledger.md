@@ -8,7 +8,7 @@ Read the conditions: Turbo, NPU clock 1.808 GHz, GPU idle, no CPU load beyond a 
 ## Where the 28.4 ms go
 
 Per block, frontier advance of each segment (how far the segment moves the latest last-word time; it sums to the wall and gives an overlapped op only what it extends), r23z timelines, MEASURED; floors are MODEL (`tapnext/research/r25/ledger25.py`, output `ledger25.out`;
-ANALYSIS rev 20 §1, `git show 873375f:npu-research/ANALYSIS.md`). Floor ranges come from the k-step floor (1,296 k-steps per block per core at 1,304-1,411 cycles), TPROF epilogues, the DDR read cap and the attention's compute bound.
+ANALYSIS rev 20 §1, `git show 3febc0d:npu-research/ANALYSIS.md`). Floor ranges come from the k-step floor (1,296 k-steps per block per core at 1,304-1,411 cycles), TPROF epilogues, the DDR read cap and the attention's compute bound.
 
 | segment | now µs per block | floor µs | ms per step now / floor | bound |
 |---|---|---|---|---|
@@ -119,5 +119,5 @@ The mispricings that shaped this ledger (method entries; the lessons are in [met
 ## Going deeper
 
 - [`tapnext/research/ANALYSIS.md`](../research/ANALYSIS.md) rev 21 (§0 scorecard, §1 SSM, §2 ledger, §6 queue, §7 method); [`PROPOSALS.md`](../research/PROPOSALS.md) rev 21; [`RESULTS_FROM_MAIN.md`](../research/RESULTS_FROM_MAIN.md) (verdicts); [`npu/HANDOFF.md`](../npu/HANDOFF.md) top block (state, switches, open queue).
-- Rev 20's ledger and prices: `git show 873375f:npu-research/ANALYSIS.md`; older revisions `git show bbff6a1:npu-research/revN/<file>`. Tools: `tapnext/research/r25/ledger25.py` (output `tapnext/research/r25/ledger25.out`), `tapnext/research/r25/advance.py`, `tapnext/research/r21/ddrbudget.py`.
+- Rev 20's ledger and prices: `git show 3febc0d:npu-research/ANALYSIS.md`; older revisions `git show eed3870:npu-research/revN/<file>`. Tools: `tapnext/research/r25/ledger25.py` (output `tapnext/research/r25/ledger25.out`), `tapnext/research/r25/advance.py`, `tapnext/research/r21/ddrbudget.py`.
 - [MACHINE](../../common/MACHINE.md) R16.5, R17.4, R20.x, R21.1-R21.6. Methods: [method](../../common/book/method.md), [measurement](../../common/book/measurement.md).

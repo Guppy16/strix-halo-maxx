@@ -56,7 +56,7 @@ All are bit-identical and measured in TAPNext. The specifics are in [TAPNext bou
 ## Overlap when the consumer's unit is finer (YXSSM pattern)
 
 The SSM's head *q* needs only two of yx's output tiles (y tile *q*, x tile 12 + *q*), but it waited for all of yx. The recipe (round 23,
-5417c3b, c47c756):
+baeaf64, c9f9779):
 
 1. Split the producer's drain into groups in the consumer's fill order.
 2. In the consumer's fill loop, wait per group instead of for the whole op.

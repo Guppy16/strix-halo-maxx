@@ -25,11 +25,11 @@ What bounds them depends on the **input count**: the two **3-input** norms (norm
 | 15 | `NRMK`: pass 2 as asm, X' stored and panels pushed straight into the output ring; `div768` for the slot counts | −0.40; −1.05 with the SSM | NOTES 20.1 |
 | 16 | `N1K`: pass 1 + statistics per unit, loop-carried 64-lane MACs on register pairs, LN II 11, RMS II 10 | −0.16..−0.28 (priced −0.6) | NOTES 21.1, RESULTS 25.1 |
 | 17 | `NPIPE`: pass 2 of rb interleaved with pass 1 of rb + 1 in groups of G = 6 units; AL1 padding of the params fills | −0.05..−0.15 (priced −0.55) | NOTES 22.1 |
-| 20 | `NSEQ` + `NRES` on all four norms; panels leave the EW core on MM2S 1 into the memtile A slot | −0.17 / −0.19 (norm1), −0.65 (the other three) | `0cd41da`, `ee462cc` |
-| 22 | `TXT18`: norm twins by function pointer, a 2-trip stats loop, one ring copy (EW text −448 B) | −0.07 | `f379564` |
+| 20 | `NSEQ` + `NRES` on all four norms; panels leave the EW core on MM2S 1 into the memtile A slot | −0.17 / −0.19 (norm1), −0.65 (the other three) | `a5e07bf`, `4041189` |
+| 22 | `TXT18`: norm twins by function pointer, a 2-trip stats loop, one ring copy (EW text −448 B) | −0.07 | `99e5b40` |
 | 23 | `MSPLIT-P` on down_b / mlp3_b / out_proj: norms start on rows 0-5 | −0.27 in all | [gemm.md](gemm.md#msplit-p-the-last-tile-as-two-row-passes) |
-| 24 | `STATS64`: the two 32-row halves' statistics as one 64-lane chain (tcall per row block LN ~1,050 → 471, RMS ~650 → 406) | −0.10 (priced −0.04..−0.08) | `02fdaf0` |
-| 25 | RRTWIN (timing twin), NIO2 (stamps), RRES (coded, not built) | nothing kept | `7c77c55`, `feadb8b` |
+| 24 | `STATS64`: the two 32-row halves' statistics as one 64-lane chain (tcall per row block LN ~1,050 → 471, RMS ~650 → 406) | −0.10 (priced −0.04..−0.08) | `3710969` |
+| 25 | RRTWIN (timing twin), NIO2 (stamps), RRES (coded, not built) | nothing kept | `cbee01b`, `2c1b366` |
 
 ## What bounds a norm
 
@@ -54,7 +54,7 @@ Walls, TL_ONLY at 3-4 µs polls, 3 runs each, r24z vs the RRTWIN twin (outputs w
 
 Norm0 and norm2 read the residual X' (a norm output of the previous block) from DDR. RRES parks the residual rows rb < 10 of those norms in memtile half 1 during mlp3_b / down_b (the GEMM that precedes the norm leaves them there) and feeds them to the EW core's free S2MM 1 through a 2 KB ring
 (`plan8.py` `RRES`, `RRB = 10`: 120 units of 1 KB fit half 1's 124,416 B). Priced −0.27 ms (RRTWIN bound −0.49; EXTRAPOLATED), the queue's item 1 in HANDOFF round 25. aiecc refuses it: memtile (0,1)'s runtime BD budget ("too many simultaneously
-active buffer descriptors") and the R ring's placement (.aie.bank0 / .aie.bank2 overflow; pin it after `core_data`, data_size 26,240). The default build also broke once when an `#ifdef` was inserted inside another's `#else` (`9c5c4c2`).
+active buffer descriptors") and the R ring's placement (.aie.bank0 / .aie.bank2 overflow; pin it after `core_data`, data_size 26,240). The default build also broke once when an `#ifdef` was inserted inside another's `#else` (`6f7b7d7`).
 
 ## What worked
 

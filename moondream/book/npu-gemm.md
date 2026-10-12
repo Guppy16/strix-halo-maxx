@@ -135,7 +135,7 @@ the topology does not suit ([numerics](numerics.md#int8) for the arithmetic).
 
 ## Going deeper
 
-- `moondream/npu/NOTES.md` and `RESULTS.md`, phases 1-6 and 11-12; code in `p2/` to `p12/` (`design3.py`, `design6.py`, `mm_f32acc.cc`, `run.py`); commit `258ba90`.
+- `moondream/npu/NOTES.md` and `RESULTS.md`, phases 1-6 and 11-12; code in `p2/` to `p12/` (`design3.py`, `design6.py`, `mm_f32acc.cc`, `run.py`); commit `02b787b`.
 - The tables of all seven ops per phase are in MD RESULTS phases 2b, 2c and 3. The hand-schedule generator is `p11/gen_gemm.py`, its checker `p11/asmcheck.py`.
 - General: [gemm](../../common/book/gemm.md#is-it-compute--or-data-bound), [data-movement](../../common/book/data-movement.md#keeping-data-on-chip),
   [fusion](../../common/book/fusion.md#one-dispatch), [toolchain](../../common/book/toolchain.md#program-memory).

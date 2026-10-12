@@ -60,7 +60,7 @@ the residual), 2-input norms compute-bound at ~500 (RMS) / ~560 (LN) cycles per 
 - A 2-input norm is compute-bound and a 3-input norm byte-bound: price norm levers per input count (RRTWIN).
 - A pinned dst_channel on a routed Flow into a core tile is refused ("already in use"): let the compiler assign it.
 - Build the DEFAULT configuration after every flag-guarded kernel edit: an #ifdef inserted inside another's #else broke the default
-  build while the flagged build failed elsewhere (fixed in 9c5c4c2).
+  build while the flagged build failed elsewhere (fixed in 6f7b7d7).
 - Re-read RESULTS_FROM_MAIN right before starting a build: the analysis passes may have asked for a build-free window.
 
 # ROUND 24 DONE (2026-10-11) - read this block first; the round-23 block below is the base it builds on
@@ -210,7 +210,7 @@ is inflated for BOTH builds (r19z quiet 33.88 vs 35.65 here); quiet-box estimate
 Build: `r20/try20.sh NAME [--sweep] [--k-add ..] [--env ..]` = r19z + IL DAPRE NSEQ NRES(norm0-3) SRES AQPRE AKVPRE (env defaults;
 NRES=, SRES=0 etc. override), then r20/csplit20.sh (CSPLIT patch + **NRESFIX**: the EW MM2S 1 panel route; never dispatch any
 *.unpatched.xclbin or a depth build's own xclbin). Text: GEMM 15,984, **EW 16,272 (112 B free)**. Timeouts this round: 0.
-Commits 80202f6 .. b83c7e4 + round end.
+Commits 9064248 .. b82f351 + round end.
 ## What changed (NOTES 25, RESULTS 29): the op boundaries = DDR bytes (drain tail at the write cap + CP + first tile at the read cap);
 A kept on chip from the EW producers (NRES, SRES), the next A loaded into the free slot half (IL, DAPRE, AQPRE, AKVPRE), NSEQ.
 ## Where the time goes (timeline r20z1, ms, loaded box): attention 6.6, norms 4.7 (DDR read cap), SSM 3.6, GEMMs ~17 (k-step model
@@ -240,7 +240,7 @@ Build: `r19/try19.sh NAME [--sweep] [--k-add ..] [--env ..]` = try18 + ROT_V=g0a
 **r19/csplit.sh** (patches the lowered MLIR: two-BD C drain + lock 6, and re-runs aiecc; an UNPATCHED -DCSPLIT xclbin HANGS: never
 dispatch full12NAME.unpatched.xclbin or a depth build's own xclbin), then regress / sweep. KS_ACC_HI default 0x719C0 (ksc_check names
 a new one when .data moves; g0a was solved conflict-free for 0x71940..0x71A00). Timing: r18/ab.py. Text: GEMM 15,984, EW 15,808.
-Timeouts this round: 0. Commits 86857ca .. 0b85f5e + round end.
+Timeouts this round: 0. Commits 3a6ee94 .. 735e64f + round end.
 ## Where the time goes (timeline r19d + TPROF): GEMM k-steps ~13 ms (1,576 per k-step), GEMM epilogues ~1.65, C part-1 drain waits
 ~0.78, op-boundary bubbles ~5 (GEMM ~3.3, attention 1.2, norms 0.8), attention span 5.5, norms 4.1 (DDR-read-bound), SSM 3.35.
 ## Next concrete actions (round 20)
@@ -267,8 +267,8 @@ Timeouts this round: 0. Commits 86857ca .. 0b85f5e + round end.
 | 6 | 17.53 | 19.61 | 51.0 | not run (64.77) |
 Build: `r18/try18.sh NAME [--sweep] [--ew-add ..] [--k-add ..]` = r17d + EW HRING PTRG ZK NIOC CGF + k V2T KSC (KS_* addresses,
 acc_hi 0x71980) P35 MM_ROT (ROT_V=g2a). ksc_check (design8) fails a build whose layout moved and names the new acc_hi (KS_ACC_HI=..).
-Timing: `r16/nrun.sh LOG python3 r18/ab.py --a BASE --b NEW --rounds 20 --block 22` (one process, interleaved). Commits 52ffad1 ..
-1ffff40 + round end. Timeouts: 1 (V2T, `add #64` wrapped; recovered). Text: GEMM 15,536, EW 15,808 (NIO2 stamps need ZK off).
+Timing: `r16/nrun.sh LOG python3 r18/ab.py --a BASE --b NEW --rounds 20 --block 22` (one process, interleaved). Commits 7b56ca4 ..
+992dfb6 + round end. Timeouts: 1 (V2T, `add #64` wrapped; recovered). Text: GEMM 15,536, EW 15,808 (NIO2 stamps need ZK off).
 ## Where the time goes now: GEMM k-step (mm_rot) 1,603 cycles in situ per k-step incl. 168 memory stalls (KS-P38); norms ~4.3 ms;
 SSM ~3.3 ms; attention ~6.6 ms. (A per-op timeline of r18m was not taken this round: take it first in round 19.)
 ## Next concrete actions (round 19)
@@ -300,8 +300,8 @@ SSM ~3.3 ms; attention ~6.6 ms. (A per-op timeline of r18m was not taken this ro
 | 8 | 26.29 | 28.37 | 35.2 | not run (68.22) |
 | 6 | 19.79 | 21.87 | 45.7 | not run (64.77) |
 Build: `r17/xtry.sh NAME 4 [--sweep] --k-add -DATTKS2MAX --env AL1=1 --ew-add -DAL1 --ew-add -DNPIPE --ew-add -DNPIPE_G=6` (try17.sh
-= r16z's flags; xtry adds XROT=4 / -DXROT and the phase builds full<d>NAME_p1..3, then regress / time / sweep). Commits: 16998cd (S2),
-26ccb0a (AL1, NPIPE, sliding X1, stamps), d3c671d (X1 mod 4), round end. Timeouts: 1 (1 KB AL1 padding; recovered). Text: GEMM
+= r16z's flags; xtry adds XROT=4 / -DXROT and the phase builds full<d>NAME_p1..3, then regress / time / sweep). Commits: 6462184 (S2),
+3f6be99 (AL1, NPIPE, sliding X1, stamps), 0b687ba (X1 mod 4), round end. Timeouts: 1 (1 KB AL1 padding; recovered). Text: GEMM
 16,336 / 16,384 (48 free), EW 15,808 (NPROF + CPROF fit only without N1K).
 ## Where the time goes (timeline r17d, ms per step): attn 6.78, norms 4.87, ssm 3.99, mlp0 3.82, up_a 3.53, up_b 3.29, qkv 2.76,
 yx 1.98, mlp3_a 1.92, down_a 1.45, mlp3_b 1.32, down_b 1.27, out 1.17, out_proj 1.04. SSM chunk (CPROF): convk 280, pointers 101,

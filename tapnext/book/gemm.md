@@ -39,8 +39,8 @@ The generation table is in [common/gemm](../../common/book/gemm.md#the-k-step-fr
   and the SSM output was garbage (NOTES 12.1; `step8.py blocks` found it in one run).
 - **Layout is part of the schedule.** The A ring is pinned away from the B fifo (`A_BANKS=1,2,2`, −1.5 ms, round 8). E7'' puts the X half of B at 0x70A00 / 0x70C40 in bank 0 and
   the Y half (4,224 B) in bank 3, with the GEMM stack +1,152 B so `core_data` starts at 0x70E80 (NOTES 26.1). `ksc_check` in `design8.py` fails a build whose layout moved and names
-  the new `KS_ACC_HI`: the k-step records are build-time constants (KSC, `6366140`, −288 B text).
-- **One call per tile.** `mm_ktile` (P35, `85040cd`) runs all of a tile's k-steps in one call, with B locks taken by id. KTL (`9537138`) then made that one modulo loop of
+  the new `KS_ACC_HI`: the k-step records are build-time constants (KSC, `c731fc3`, −288 B text).
+- **One call per tile.** `mm_ktile` (P35, `5bb071e`) runs all of a tile's k-steps in one call, with B locks taken by id. KTL (`516d3a9`) then made that one modulo loop of
   `76 + 1,260 × nks` cycles; the gap between k-steps was waits, not code ([A21](../../common/book/negative-results.md#a21)).
 - **In situ vs static.** In situ ROT ran 1,603 cycles per k-step with 168 memory stalls (round 18; KS-P38 counters), against 1,383 static. The excess is DMA writes into the bank the core
   is popping (DMAB), now ~140 cycles per k-step or ~1.2 ms per step (MODEL, `tapnext/research/r20/collide.py`). That is the largest unpriced GEMM item at the pause, and it is blocked by L1
@@ -71,15 +71,15 @@ The cures, in order, all bit-identical and measured in one-process A/B:
 
 | step | idea | A/B ms | commit |
 |---|---|---|---|
-| ZHI | zero `acc_hi` right after the C release, inside the drain wait | −0.15 | `b957625` |
-| CSPLIT | drain bytes 0-12,287 first (releases the next tile), 12,288-18,431 during it; the lowered MLIR is patched (`r19/csplit.py`, lock CS_Z), an unpatched build hangs | −0.25 | `cb41936` |
-| EPLR | plain epilogues release part 1 as they finish it | −0.12 | `42d408a` |
-| CSUB | part 1 in three sub-parts [0, 3,456) [3,456, 6,912) [6,912, 12,288) released one by one (release-by-0 BDs) | −0.13 | `0a0b485` |
-| ZLOAD | the first k-step's MACs use the `zero_acc` config bit; no zeroing stores | −0.13 | `f111cad` |
+| ZHI | zero `acc_hi` right after the C release, inside the drain wait | −0.15 | `9133756` |
+| CSPLIT | drain bytes 0-12,287 first (releases the next tile), 12,288-18,431 during it; the lowered MLIR is patched (`r19/csplit.py`, lock CS_Z), an unpatched build hangs | −0.25 | `d5a9ee2` |
+| EPLR | plain epilogues release part 1 as they finish it | −0.12 | `d6761bd` |
+| CSUB | part 1 in three sub-parts [0, 3,456) [3,456, 6,912) [6,912, 12,288) released one by one (release-by-0 BDs) | −0.13 | `5c9fa57` |
+| ZLOAD | the first k-step's MACs use the `zero_acc` config bit; no zeroing stores | −0.13 | `d09a01a` |
 
 TPROF hand-offs (epilogue end to the next tile's entry), plain / gated / mlp0 tiles: 1,355 / 676 / 1,807 cycles before CSUB, 345 / 75 / 668 after (r21t2). About 28 µs per block is still hand-off (up_a 6.4, up_b 7.1, mlp0 5.2,
 qkv 3.8; `r25/hands.py`). A double-buffered C needs 18 KB of GEMM L1; LATEC (acquire sub-parts 2 and 3 inside the first k-step) hung the step, probably a core waiting for its own drain while holding a multicast
-input (`9b8587a`, [B9](../../common/book/negative-results.md#b9)). The residual add cannot join the epilogue ([J1](../../common/book/negative-results.md#j1)).
+input (`50640be`, [B9](../../common/book/negative-results.md#b9)). The residual add cannot join the epilogue ([J1](../../common/book/negative-results.md#j1)).
 
 ## MSPLIT-P: the last tile as two row passes
 
@@ -89,7 +89,7 @@ compute the rest (NOTES 28.1; the overlap idea is in [boundaries.md](boundaries.
 - the passes' own record tables (464 B) do not fit the GEMM L1, so they run on `rot_rec` with five entries patched in place, and a `static_assert` compares the patched table with `ktl_rec`'s pass tables (it caught pass 1's head jump);
 - the memtile gets tasks `pa` (rows 0-5 of every chunk, lock-free) and `lastb` (rows 6-17 with the release); the sixth task of a column is pushed only after all columns have five (pushed column by column it hung, r23d).
 
-Result: −0.16..−0.21 ms on down_b + mlp3_b (`caeeb9c`, pre-registered −0.18..−0.30), −0.14..−0.19 on KTL (`9b49e88`), out_proj −0.08..−0.12 (`61ba91d`). That is near the static price and far under the NTWIN bound of −0.92 ms (norms
+Result: −0.16..−0.21 ms on down_b + mlp3_b (`dd3677b`, pre-registered −0.18..−0.30), −0.14..−0.19 on KTL (`7edc4ab`), out_proj −0.08..−0.12 (`a20ceff`). That is near the static price and far under the NTWIN bound of −0.92 ms (norms
 not waiting for their producers at all): each pass pays its own call and drain, and the norms take their DDR share. MSPLIT on `out` and MSPLIT-C (the GEMM after a norm) are dead or ~0: see [boundaries.md](boundaries.md#what-didnt-work).
 
 ## L1 and text budgets at the pause
@@ -103,7 +103,7 @@ not waiting for their producers at all): each pass pays its own call and drain, 
 | memtile (0-2) | A slot grown to 36 chunks; 3,584 B left after IRON re-packed it | NOTES 27.1 |
 
 Budgets decided what could be built, more often than any schedule did:
-- Text levers are time levers: `TXT18` (EW, −400 B) also gave −0.07 ms, `IV32` freed 560 B of GEMM text, `KSC` 288 B. K2 (a QK-only chunk-0 pass) is bit-identical and −0.02 ms for 608 B, so it stays off (`f13c7d1`).
+- Text levers are time levers: `TXT18` (EW, −400 B) also gave −0.07 ms, `IV32` freed 560 B of GEMM text, `KSC` 288 B. K2 (a QK-only chunk-0 pass) is bit-identical and −0.02 ms for 608 B, so it stays off (`5e3d6ba`).
 - Every layout lever needed an idle bank or free L1 the core does not have (J6, A24, A25 below); the GEMM core is the reason the largest remaining item is unreachable.
 
 ## What worked
@@ -125,7 +125,7 @@ L1, text and tile-shape limits killed these (all in [negative-results](../../com
 - [J3](../../common/book/negative-results.md#j3) <!-- nr: J3 --> K = 3072 as one op: 48 chunks = 497 KB of the 512 KB memtile with this chunking (3A already took it to 36).
 - [J6](../../common/book/negative-results.md#j6) <!-- nr: J6 --> alternating the popped B bank per k-step needs a second 4,224 B Y buffer in bank 0, which has no room.
 - [L4](../../common/book/negative-results.md#l4) <!-- nr: L4 --> `out`'s tiles 1-3 following the SSM heads like tile 0: four 18 KB C objects (72 KB) exceed the 64 KB L1, and the 1.77 MB drain would land after the last head anyway.
-- [B13](../../common/book/negative-results.md#b13) <!-- nr: B13 --> gated tiles in the CSUB group loop: +0.02 ms against −0.04..−0.08 predicted; kept only as a −256 B text lever (`72a06ad`).
+- [B13](../../common/book/negative-results.md#b13) <!-- nr: B13 --> gated tiles in the CSUB group loop: +0.02 ms against −0.04..−0.08 predicted; kept only as a −256 B text lever (`4ed0218`).
 - [B14](../../common/book/negative-results.md#b14) <!-- nr: B14 --> runtime-driven C drains with per-op lengths (74 MB of junk writes per step): the junk sits in part 2 and tiles are not write-bound, so ~−0.05..−0.1 ms for ~17 runtime pushes per block on the in-order CP.
 
 Measured against the C path or the k-step (details in [common/gemm](../../common/book/gemm.md#what-didnt-work)):

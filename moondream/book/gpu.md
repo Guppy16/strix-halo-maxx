@@ -104,7 +104,7 @@ of the pooled path with bf16 NPU numerics is in [numerics](numerics.md).
 
 ## Going deeper
 
-- `moondream/gpu/RESULTS.md` (every run with keep/discard), `moondream/gpu/README.md` (commands, file map), snapshot commit `cddae92`.
+- `moondream/gpu/RESULTS.md` (every run with keep/discard), `moondream/gpu/README.md` (commands, file map), snapshot commit `5afb31f`.
 - Kernels and wrappers: `moondream/gpu/hip/i8gemm.hip`, `hgemm.py`, `md2fast.py`, `tgemm.py`, `fused.py`; harness `bench.py`, `test_hgemm.py`, `verify.py`.
 - Next: [overview](overview.md) for the split between GPU and NPU, [numerics](numerics.md) for the bfp16 and bf16 emulations that were
   built on this path (`bfpemu.py`, `bf16emu.py`).

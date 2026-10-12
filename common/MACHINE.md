@@ -1,7 +1,7 @@
 # MACHINE.md — the XDNA2 / AIE2P NPU as a performance model
 
 Moved from npu-research/ on 2026-10-11; bare rNN/ and tools/ paths below are relative to `tapnext/research/` and
-`common/`. Earlier revisions: `git log --follow -p common/MACHINE.md`, or `git show bbff6a1:npu-research/revN/<file>`.
+`common/`. Earlier revisions: `git log --follow -p common/MACHINE.md`, or `git show eed3870:npu-research/revN/<file>`.
 
 Revision 10 additions at the end; Revision 9 additions at the end (2026-10-10, after round 13). Revision 8 additions before them (after round 12). Revision 7 additions before them (after round 11): register timing, itinerary ports, the slot model reconciled. Revision 6 additions before them. Revision 5, 2026-10-10: section 3 corrects the round-9 reading of the A path. The k-step is not A-port-bound: its
 steady state is 2,055 + 67 cycles, and the ~4 B/cycle figures were a mean that includes the op-start wait, plus the

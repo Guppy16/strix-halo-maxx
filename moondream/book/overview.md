@@ -123,7 +123,7 @@ that no single item delivers (phase 12 prices the reachable GEMM traffic cut at 
 ## Going deeper
 
 - Raw record: `moondream/npu/NOTES.md`, `moondream/npu/RESULTS.md` (phases 1-12; code in `moondream/npu/pN/`), `moondream/gpu/RESULTS.md`;
-  import commits `258ba90` (NPU, phases 1-12) and `cddae92` (GPU, moondream3).
+  import commits `02b787b` (NPU, phases 1-12) and `5afb31f` (GPU, moondream3).
 - Machine level: [gemm](../../common/book/gemm.md), [data-movement](../../common/book/data-movement.md), [fusion](../../common/book/fusion.md),
   [elementwise](../../common/book/elementwise.md), [attention](../../common/book/attention.md).
 - `moondream/npu/p6/nputloop.py` (the NPU frame loop), `moondream/gpu/textloop.py` (the GPU text-only loop).

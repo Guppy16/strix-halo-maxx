@@ -12,7 +12,7 @@ GPU idle, a shared box). Use them to read a measurement, not as rules: a product
   It alternates blocks of dispatches of the two builds in one process, so background CPU load and drift hit both alike.
   The first dispatches of each block follow a hardware-context switch and are skipped.
 - Quote **p10 / median / mean** and the deltas b − a. A change is real when all three agree in sign and size.
-  Example: KTL −0.82 ms (60 × 20 blocks; 9537138).
+  Example: KTL −0.82 ms (60 × 20 blocks; 516d3a9).
 - Why this matters: under a background worker, dispatch times split into two clusters ~0.17 ms apart, so a single median of
   60 dispatches can land in either ([H20](negative-results.md#h20) <!-- nr: H20 -->).
 - Absolute numbers come from `step8.py time` / `sweep` (median and min of many dispatches after 20 warm-up dispatches). The sweep

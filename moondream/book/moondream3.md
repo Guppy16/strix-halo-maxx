@@ -70,6 +70,6 @@ md3 is better as a presence test through `point` (6 of 10 absent frames correct 
 
 ## Going deeper
 
-- `moondream/moondream3-eval/NOTES.md` (all numbers, code review), `bench.py`, `score.py`, `compare.py`, `overlay.py`; `moondream/gpu/RESULTS-0.5b.md`, `probe05.py`, `eval05.py`; snapshot commit `cddae92`.
+- `moondream/moondream3-eval/NOTES.md` (all numbers, code review), `bench.py`, `score.py`, `compare.py`, `overlay.py`; `moondream/gpu/RESULTS-0.5b.md`, `probe05.py`, `eval05.py`; snapshot commit `5afb31f`.
   The outputs and the private test frames are not in the repo.
 - The fast path both models were compared with: [gpu](gpu.md). The overall plan: [overview](overview.md).

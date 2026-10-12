@@ -1,6 +1,6 @@
 # ANALYSIS.md — where the TAPNext++ step's time goes, what bounds it, and what is left
 
-Revision 21, 2026-10-11, research pass 21: the state at the pause of the NPU work. State: full12r24z, 28.43 ms at d12 (quiet sweep, MEASURED; r25z rebuilt byte-identical, 28.42); DAVIS d12 AJ 70.84 (OA 92.57), bit-identical. Earlier revisions: `git log --follow -p tapnext/research/ANALYSIS.md`, or `git show bbff6a1:npu-research/revN/<file>`.
+Revision 21, 2026-10-11, research pass 21: the state at the pause of the NPU work. State: full12r24z, 28.43 ms at d12 (quiet sweep, MEASURED; r25z rebuilt byte-identical, 28.42); DAVIS d12 AJ 70.84 (OA 92.57), bit-identical. Earlier revisions: `git log --follow -p tapnext/research/ANALYSIS.md`, or `git show eed3870:npu-research/revN/<file>`.
 
 ## 0. Scorecard
 - Rev 20 ranked SSPM-B first and priced the SSM glue at ~0 ("span read-capped"). Main's SSMIN and this pass's SSMCUT refuted that pricing (DEAD_ENDS M1).

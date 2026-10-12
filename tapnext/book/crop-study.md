@@ -1,6 +1,6 @@
 # TAPNext: the crop study (tracking from a small moving crop)
 
-A CPU study (2026-10-11, `bd7b946`, no NPU or GPU) asked whether TAPNext++ can track a compact group of points from a W × W crop of the 256 frame, which has fewer image tokens, without losing accuracy. Answer (MEASURED, 10 DAVIS videos, depth 12, bf16 CPU reference):
+A CPU study (2026-10-11, `e36e280`, no NPU or GPU) asked whether TAPNext++ can track a compact group of points from a W × W crop of the 256 frame, which has fewer image tokens, without losing accuracy. Answer (MEASURED, 10 DAVIS videos, depth 12, bf16 CPU reference):
 **yes, if the recurrent state moves with the content.** A moving crop at native scale loses nothing at W = 192 (AJ 69.72 vs 69.67) and 160 (69.46) and about 1 AJ at W = 128 (68.72). Without the state shift it collapses to AJ 21-27. A fixed zoomed crop loses 2.6-5.6 AJ because points leave it.
 On the CPU a smaller crop is 1.9x (W = 192) to 3.7x (W = 128) faster; the NPU numbers are **estimates from the round-19 timeline, not a build** (~17-20, 13-16, 8-12 ms against 33.9 then; the step is 28.42 ms now). It is not part of the NPU step: the step is built for 1,152 rows and every tile, panel and deal in
 [step-design.md](step-design.md) would have to be rebuilt for a smaller M. Source: [`tapnext/crop-study/README.md`](../crop-study/README.md), code `crop_study.py`, data `results.json`, `results_table.csv`, `results_per_video_aj.csv`.

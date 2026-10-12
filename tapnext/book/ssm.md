@@ -58,10 +58,10 @@ Three findings steered the work:
 | 12 | `sigk` in asm, II 12, kernel-only | −0.61 | NOTES 17.1 |
 | 15 | `ssx` −0.79, `cpy64` −0.18, `convk` −0.72, `reck` −0.84, `zring` −0.12 | | RESULTS 24.1 |
 | 16 | `sqk` −0.18..−0.25, `INPART_INLINE` −0.29, `XONE` −0.28, `ggk` ~−0.41, `ssq` −0.125, `sig10` −0.05..−0.07 | | RESULTS 25.1 |
-| 17 | X1 conv history as a mod-4 rotation | −0.33 per rotating frame | `d3c671d` |
+| 17 | X1 conv history as a mod-4 rotation | −0.33 per rotating frame | `0b687ba` |
 | 18 | `HRING` + `PTRG` −0.35, `ZK` −0.14, `CGF` −0.06 | | RESULTS 27.1 |
-| 23 | YXSSM −0.41, YXR −0.38 (the SSM starts while yx runs) | −0.79 | `5417c3b`, `c47c756` |
-| 24 | SSMPRE −0.07, CPPRE −0.09 (column skew of the CP issue) | −0.16 | `c6be234`, `639ee23` |
+| 23 | YXSSM −0.41, YXR −0.38 (the SSM starts while yx runs) | −0.79 | `baeaf64`, `c9f9779` |
+| 24 | SSMPRE −0.07, CPPRE −0.09 (column skew of the CP issue) | −0.16 | `39eadff`, `b76509d` |
 
 - **X1, the conv history by rotation.** x(t) needs x(t−1)..x(t−3). Copying them each frame cost 432 cycles per chunk (`cp_x`, 269 after XONE). Round 17's design writes the yx drain's x half into R[t mod 4] (the drain TAP splits y | x) and maps tap
   x − k to R[(t − k) mod 4] in the kernel (params header word 2 = 1 + phase; four params copies in W). No copy, no state motion; the price is **4 runtime sequences per depth** and a rotating instruction buffer.
@@ -70,7 +70,7 @@ Three findings steered the work:
 
 ## SSMIN and SSMCUT: what bounds the SSM
 
-Hypothesis in rev 20 (research): the SSM span reads at 54 GB/s, ~95 % of the aggregate DDR read cap, so it is read-capped and glue work is worth ~0 (SSPM-B ranked first). Main's SSMIN stamp (`919fd4d`, `r24/ssmin.py`) measured per chunk
+Hypothesis in rev 20 (research): the SSM span reads at 54 GB/s, ~95 % of the aggregate DDR read cap, so it is read-capped and glue work is worth ~0 (SSPM-B ranked first). Main's SSMIN stamp (`0413c92`, `r24/ssmin.py`) measured per chunk
 **in_need 52 cycles (≈44 of it the call), params 28, whole chunk 2,273**: the input ring never ran dry. Research's SSMCUT twin removed `sigk` and `ssq` (~1,000 cycles) and measured:
 
 | build | chunk cycles | in_need (input waits) |

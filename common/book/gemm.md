@@ -40,11 +40,11 @@ Each step was measured in situ in TAPNext (bit-identical to the reference throug
 | `gen_mm` asm call | 4 chains over 2 column blocks, B repacked on the host; 225 vs 321 bundles per call | ~290 per call in situ | −1.9 ms | round 7, [A7](negative-results.md#a7) |
 | A ring pinned away from B | layout fix for the bank conflicts the asm call exposed | | −1.5 ms | round 8 |
 | `mm_ks` | the whole k-step as one modulo-scheduled ZOL; affine accumulator pieces | 2,055 + 67 | −3.5 ms | round 9 |
-| ROT (`gen_rot`) | rotating accumulators: a job = one accumulator over 8 k-panels, jobs every 9 cycles, B popped in MAC order | 1,383 static, 1,603 in situ | **−3.3 ms** | round 18, 1ffff40 |
-| ROT g0a | the B stream wraps inside the last pop (2D post-modify) | 1,357 static | −0.18 | 86857ca |
-| ZLOAD | the first k-step's MACs use the zero_acc config bit; no zeroing stores | | −0.13 | f111cad |
-| E7'' (`gen_e7`) | B split over both FIFOs and two banks (X in bank 0, Y in bank 3) | 1,338 static (R 68) | −0.28 at 1.405 GHz | round 21, 42e51a6 |
-| KTL (`gen_e7k`) | one modulo loop per tile across its k-steps | 76 + 1,260 × nks | **−0.82 ms** | round 23, 9537138 |
+| ROT (`gen_rot`) | rotating accumulators: a job = one accumulator over 8 k-panels, jobs every 9 cycles, B popped in MAC order | 1,383 static, 1,603 in situ | **−3.3 ms** | round 18, 992dfb6 |
+| ROT g0a | the B stream wraps inside the last pop (2D post-modify) | 1,357 static | −0.18 | 3a6ee94 |
+| ZLOAD | the first k-step's MACs use the zero_acc config bit; no zeroing stores | | −0.13 | d09a01a |
+| E7'' (`gen_e7`) | B split over both FIFOs and two banks (X in bank 0, Y in bank 3) | 1,338 static (R 68) | −0.28 at 1.405 GHz | round 21, 728b59e |
+| KTL (`gen_e7k`) | one modulo loop per tile across its k-steps | 76 + 1,260 × nks | **−0.82 ms** | round 23, 516d3a9 |
 
 What each step found:
 
@@ -133,7 +133,7 @@ activation, conversion to bfp panels in the consumer's A layout, then a drain to
 | [A28](negative-results.md#a28) | KTL with one B FIFO | instances would straddle row blocks |
 | [L1](negative-results.md#l1) <!-- nr: L1 --> | KTL at R 68-69 bank-clean | no schedule found within the CP budgets; not a proof, worth a retry with a new placement |
 | [B1](negative-results.md#b1) <!-- nr: B1 --> | "C handoff 3-6 µs" | a fitted constant held the op-start waits; measured 1.31 µs |
-| [B8](negative-results.md#b8) | progressive C part-1 release in 4 sub-parts | parked unbuilt (the acquire-only BD looked unverified); the same idea later landed in 3 sub-parts as CSUB (−0.13, 0a0b485) |
+| [B8](negative-results.md#b8) | progressive C part-1 release in 4 sub-parts | parked unbuilt (the acquire-only BD looked unverified); the same idea later landed in 3 sub-parts as CSUB (−0.13, 5c9fa57) |
 | [B9](negative-results.md#b9) | C acquire inside the k-step | re-priced small; its round-21 form hung |
 | [J1](negative-results.md#j1) | residual add in the epilogue | no third core input port |
 

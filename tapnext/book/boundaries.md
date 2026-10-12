@@ -9,7 +9,7 @@ or let the consumer start on the producer's partial output. Mechanisms and the C
 
 - **mlp0 → mlp3_a** (CPST, TPROF, round 20; R16.1-R16.3): the CP passes the first completion token 12.2 µs after mlp0's last epilogue; 8 token waits ~1 µs; CP issue ~2.5 µs to column 0, +0.5-0.85 µs per further column;
   the consumer's first tile 6.5-8.5 µs (K 768) / 13.3 µs (K 1536) at the read cap. Over all dependent first tiles that was 0.87 ms per step at r19z.
-- The boundary's cost is real time, not compute: NTWIN (norm0 / norm2 do not wait for their producers, outputs wrong) saved −0.92 ms with walls unchanged (0.08-0.10 ms): ~38 µs per boundary, 24 boundaries per step (`dd434b3`).
+- The boundary's cost is real time, not compute: NTWIN (norm0 / norm2 do not wait for their producers, outputs wrong) saved −0.92 ms with walls unchanged (0.08-0.10 ms): ~38 µs per boundary, 24 boundaries per step (`d2db6ca`).
 - **Gaps at the pause** (TL_ONLY, 3-4 µs polls, r24z, MEASURED; RESULTS 33.2, 34.2): norm0 → yx 16.4 µs, norm1 → up_a 24.2 (27.9 in r24e's session), norm2 → qkv 13.4, norm3 → mlp0 13.9; a split producer's pass-1 end → the norm's first word 11-13 µs
   (the norm reads a whole row block before it writes); attn → out_proj 29.2 → **13.3 with OPPRE2**; qkv → attn 61.6. Remaining pace per block after NRES (r20t5): out 7.7, out_proj 6.8, down_b 6.0, mlp3_b 5.3 µs.
 
@@ -19,20 +19,20 @@ All bit-identical to `full12r9a`; A/B in one process (p10 / median / mean, `r18/
 
 | lever | pair | mechanism | A/B ms | pred | commit |
 |---|---|---|---|---|---|
-| IL | mlp0 → mlp3_a | mlp0 dealt round-robin so its first 24 output chunks are final after step 7 of 16; its drain is split into its own group; mlp3_a's A loads **half 1 first** into the slot half mlp0 leaves free, with per-half full locks | −0.40 | −0.35 ± 0.1 | `80202f6` |
-| DAPRE | up_b → down_a | down_a's chunks 12-23 load into the half up_b (which reuses up_a's A) leaves free | −0.13 | −0.07..−0.10 | `1b169e6` |
-| NSEQ | norm → GEMM | a norm's params fills and drains before the producer wait, only the 8 input fills after it | −0.17 | −0.08..−0.20 | `0cd41da` |
-| NRES | norm1 → up_a; then norm0-3 | the norm's panels leave the EW core on MM2S 1 (2-slot ring, packet 5) into memtile S2MM 5, which scatters them chunk-major into the A slot with a 3D TAP; X' alone goes to DDR; the GEMM loads no A and is issued before the norm is awaited | −0.19; −0.65 for the other three | −0.15..−0.28; −0.45..−0.9 | `0cd41da`, `ee462cc` |
-| SRES | SSM → out | the same for the SSM's z panels (units arrive head-major = contiguous) | −0.16 | −0.10..−0.20 | `91017b2` |
-| AQPRE | qkv → attn | attention's Q lives in half 1 (free under qkv's K = 768 A); its fill and memtile sends go before the wait on qkv's K / V groups | −0.11..−0.23 | −0.10..−0.20 | `acad29a` |
-| AKVPRE | qkv → attn | qkv's V of heads 0-2 (step 8) is its own drain group; head group 0's K / V fills go after it, not after the whole drain tail | −0.13..−0.24 | −0.10..−0.14 | `b83c7e4` |
-| 3A | down_a / mlp3_a → down_b / mlp3_b | third A region (chunks 24-35, 373,248 B slot); k-steps 12-23 of the K = 1536 ops load during the previous op | −0.07..−0.08 | −0.07..−0.10 | `d14c8cf` |
-| MSPLIT-P | down_b, mlp3_b, out_proj → norms | the last tile as two row passes; the norm starts on rows 0-5 ([gemm.md](gemm.md#msplit-p-the-last-tile-as-two-row-passes)) | −0.17, −0.10 | −0.18..−0.30 | `caeeb9c`, `61ba91d` |
-| YXSSM + YXR | yx → SSM | see below | −0.41, −0.38 | −0.15..−0.35 (above) | `5417c3b`, `c47c756` |
-| OUTPRE | SSM → out | out issued before the SSM's head fills; its sends wait on the per-head z chunks | −0.02..−0.03 | −0.05..−0.15 | `7d728f1` |
-| OPPRE2 | attn → out_proj | out_proj's A part g is filled per attention head group in pass 1; sends **before** the waits; pass-1 O drains are four head-group drains issued after the K / V fills | −0.15 (v1, sends after: −0.04) | −0.08..−0.16 | `e70a106` |
-| SSMPRE | yx → SSM | head 0's params fills for all columns before the yx wait | −0.07 | −0.04..−0.08 | `c6be234` |
-| CPPRE | SSM, norms | a fill that must wait is configured (BD blockwrite + patch) before the wait and only pushed after (`prefill()`) | −0.09 | −0.02..−0.08 | `639ee23` |
+| IL | mlp0 → mlp3_a | mlp0 dealt round-robin so its first 24 output chunks are final after step 7 of 16; its drain is split into its own group; mlp3_a's A loads **half 1 first** into the slot half mlp0 leaves free, with per-half full locks | −0.40 | −0.35 ± 0.1 | `9064248` |
+| DAPRE | up_b → down_a | down_a's chunks 12-23 load into the half up_b (which reuses up_a's A) leaves free | −0.13 | −0.07..−0.10 | `c6d7da8` |
+| NSEQ | norm → GEMM | a norm's params fills and drains before the producer wait, only the 8 input fills after it | −0.17 | −0.08..−0.20 | `a5e07bf` |
+| NRES | norm1 → up_a; then norm0-3 | the norm's panels leave the EW core on MM2S 1 (2-slot ring, packet 5) into memtile S2MM 5, which scatters them chunk-major into the A slot with a 3D TAP; X' alone goes to DDR; the GEMM loads no A and is issued before the norm is awaited | −0.19; −0.65 for the other three | −0.15..−0.28; −0.45..−0.9 | `a5e07bf`, `4041189` |
+| SRES | SSM → out | the same for the SSM's z panels (units arrive head-major = contiguous) | −0.16 | −0.10..−0.20 | `758a054` |
+| AQPRE | qkv → attn | attention's Q lives in half 1 (free under qkv's K = 768 A); its fill and memtile sends go before the wait on qkv's K / V groups | −0.11..−0.23 | −0.10..−0.20 | `3c8f7a0` |
+| AKVPRE | qkv → attn | qkv's V of heads 0-2 (step 8) is its own drain group; head group 0's K / V fills go after it, not after the whole drain tail | −0.13..−0.24 | −0.10..−0.14 | `b82f351` |
+| 3A | down_a / mlp3_a → down_b / mlp3_b | third A region (chunks 24-35, 373,248 B slot); k-steps 12-23 of the K = 1536 ops load during the previous op | −0.07..−0.08 | −0.07..−0.10 | `86442db` |
+| MSPLIT-P | down_b, mlp3_b, out_proj → norms | the last tile as two row passes; the norm starts on rows 0-5 ([gemm.md](gemm.md#msplit-p-the-last-tile-as-two-row-passes)) | −0.17, −0.10 | −0.18..−0.30 | `dd3677b`, `a20ceff` |
+| YXSSM + YXR | yx → SSM | see below | −0.41, −0.38 | −0.15..−0.35 (above) | `baeaf64`, `c9f9779` |
+| OUTPRE | SSM → out | out issued before the SSM's head fills; its sends wait on the per-head z chunks | −0.02..−0.03 | −0.05..−0.15 | `52688cb` |
+| OPPRE2 | attn → out_proj | out_proj's A part g is filled per attention head group in pass 1; sends **before** the waits; pass-1 O drains are four head-group drains issued after the K / V fills | −0.15 (v1, sends after: −0.04) | −0.08..−0.16 | `eb3d08d` |
+| SSMPRE | yx → SSM | head 0's params fills for all columns before the yx wait | −0.07 | −0.04..−0.08 | `39eadff` |
+| CPPRE | SSM, norms | a fill that must wait is configured (BD blockwrite + patch) before the wait and only pushed after (`prefill()`) | −0.09 | −0.02..−0.08 | `b76509d` |
 
 Notes on the table:
 - **NRES alone misses.** Without NSEQ, up_a's columns started 1.5 µs apart (the CP issues the norm's work column by column) and the B multicast held every column to the last: −0.06..−0.11. With NSEQ −0.18..−0.21 ([C18](../../common/book/negative-results.md#c18)).
@@ -66,7 +66,7 @@ Each of these hung or slowed a dispatch (NOTES 24.3, 28.3, 29.3; the general lis
 
 A shim holds at most 16 live runtime BDs, and a BD lives until its task group finishes. At `out_proj`, shim 0 held 16-20: nine of them the attention's Q fill and 8 K / V fills (4 per pass) kept until the attention group finishes, five drain groups (`#p0`, `#h0-3`), and out_proj's own (R21.5, MODEL; `tapnext/research/r26/design8_bd.py`).
 - OPPRE2 ran at a peak of exactly 16. CPPRE_OP (configuring OPPRE2's A parts ahead too) needed 20 and was never dispatched.
-- **P0FREE** puts Q and the pass-0 K / V fills into pass 0's drain group, so out_proj's wait on `#p0` frees 5 BDs (peak 20 → 16) and CPPRE_OP fits. Measured neutral (+0.009 median, `58268f1`): the last part's CP column spread does not gate out_proj. Kept off.
+- **P0FREE** puts Q and the pass-0 K / V fills into pass 0's drain group, so out_proj's wait on `#p0` frees 5 BDs (peak 20 → 16) and CPPRE_OP fits. Measured neutral (+0.009 median, `d9df358`): the last part's CP column spread does not gate out_proj. Kept off.
   **P1FREE** (pass-1 K / V of group *g* in `#h{g}`) would free one more per part wait; queue item 5, ~0 ms, BD room only.
 - Rule: a fill belongs in the earliest drain group whose completion proves it was consumed. `aiecc --reclaim-runtime-bds` instead inserts completion maskpolls, which hang when completion depends on a later push. The 206-op build needed it in round 3 (peak 14 of 16, `--lookahead 1`).
 

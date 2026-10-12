@@ -736,7 +736,7 @@ byte-identical); gen_sig --umax.
 - Not built: X1 full rotation (cp_x 269 -> 0: the sliding SSM area base needs per-frame runtime sequences), S2, FSX, P52 by DMA.
 
 ## 22. Round 17 (2026-10-10/11): 39.94 -> 39.16 ms, S2, X1 by rotation (mod 4), AL1, NPIPE
-### 22.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 26; commits 16998cd, 26ccb0a, d3c671d in strix-halo-maxx)
+### 22.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 26; commits 6462184, 3f6be99, 0b687ba in strix-halo-maxx)
 1. **S2** (mm8 -DATTKS2MAX, r14/gen_attkb.py --s2, schedule r17/attks.json): every attkb iteration loads its row block's max slot
    ([p6, #0] / [p6, #64], the caller's stack, bank 0), vmax_lt(slot, reloaded score) in the C++ test's operand order, stores it back
    (vst #64 then vst.2d d7: 0 x5, then +128); the stores in the last stage. The per-iteration flag stores are gone: attkb returns the
@@ -776,7 +776,7 @@ r17/cp_attks.sh (CP on the test machine), step8 SPREAD / PHASES lines, NPROF out
 - NPIPE_G 2 (+0.07), 1 KB AL1 (hang). S3 / V1 / K1 / K2: GEMM text 48 B free after S2 (not attempted). FSX, P52 by DMA, EWO bench.
 
 ## 23. Round 18 (2026-10-11): 39.16 -> 35.20 ms (sweep d12), ROT, P35, KSC, the SSM and norm glue
-### 23.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 27; commits 52ffad1 .. 1ffff40 in strix-halo-maxx)
+### 23.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 27; commits 7b56ca4 .. 992dfb6 in strix-halo-maxx)
 1. **HRING + PTRG** (ew8): reck writes h into the output ring (lacq before reck; the 2 KB cross the 9 KB ring end in one chunk of
    three: reck's second h store is `vst.2d` on d5 whose counter the caller starts at 16 - n1; r15/gen_rec.py --ring, msched check
    dc0); the chunk's part pointers from g_in_b by offset, taps from the rotation (no stack array / remap loop).
@@ -809,7 +809,7 @@ r8/ewprof NIO2 lines, r18/fsize.sh, r18/rotbench.py / rotlocks.py.
   call, FSX, the B / A bank layout (needs a hand-built B ring), ROT g0f / g1f (probes PWRAP / PADDA).
 
 ## 24. Round 19 (2026-10-11): 35.20 -> 33.88 ms (sweep d12; A/B -0.88 vs r18m), ROT g0a, the C drain (ZHI, CSPLIT, EPLR), KPREP
-### 24.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 28; commits 86857ca .. 0b85f5e + round end in strix-halo-maxx)
+### 24.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 28; commits 3a6ee94 .. 735e64f + round end in strix-halo-maxx)
 1. **ROT g0a**: the B stream wraps inside the last pop (`vldb.pop.576.2d .., d2`, m2 = -4608, dn2 0); r18/gen_rot.py emit + replay
    fixed after the wrap probes; r19/build_rot.sh solves with ROT_ACQ_GAP 6 / ROT_REL_GAP 8 (g1a 1,368, g0a 1,357 static).
 2. **ZHI**: acc_zero_hi() zeroes acc_hi right after out_c.release (inside the C drain wait); acc_zero zeroes the C part only when
@@ -843,7 +843,7 @@ r19/cbytes.py, design8 env CPRATE / CPRATE_POLL / SEQPRE; r19/try19.sh = the cur
   DAPRE, attention S3 / K2, SSM ssq2 / FSX, N-IO / NS (LN 2-input only, <= 0.2).
 
 ## 25. Round 20 (2026-10-11): 33.88 -> ~31.8 ms (A/B vs r19z -2.07 in one process), the op boundaries taken apart and bypassed
-### 25.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 29; commits 80202f6 .. b83c7e4 + round end)
+### 25.1 Changes (each regress BIT-IDENTICAL vs full12r9a; RESULTS 29; commits 9064248 .. b82f351 + round end)
 1. **IL** (plan8 / design8 env IL=1): mlp0 dealt round-robin (P23 rr for gelu_pan: step j of row r = chunk 3j + r), its drain split at
    step 8 into its own dependency group "<name>#0" (= mlp3_a's chunks 0-23), mlp3_a filled half 1 first (h1first: two shim fills, ld[1]
    before ld[0]) and **per-half full locks** (lk["Fhi"]: half 1 may load first; one F for both halves would send half-0 chunks unloaded).
@@ -1089,7 +1089,7 @@ r20/try20.sh = r19/try19.sh + all of the above (+ NRESFIX); r20/csplit20.sh = cs
 - The two norm kinds bind differently: price norm levers per input count. Norm pass 2 (the per-unit asm + ~170-190 cycles of glue) is
   the larger half of a compute-bound norm unit.
 - IRON: a routed Flow into a core tile with a pinned dst_channel is refused; leave channels to the compiler.
-- After a flag-guarded kernel edit build the default configuration too (9c5c4c2 fixed a default-build break that the flagged build hid).
+- After a flag-guarded kernel edit build the default configuration too (6f7b7d7 fixed a default-build break that the flagged build hid).
 - The best build reproduces byte-identically from the checkout (r25z = r24z: 16 sequences, 32 elfs, CDO).
 ### 30.3 Dead ends (measured or priced)
 - CPPRE_OP with P0FREE: +0.009 median (neutral). Out's bias decoupling: 0.03 us on the critical column. MSPLIT-C up_a: ~0 (read-capped

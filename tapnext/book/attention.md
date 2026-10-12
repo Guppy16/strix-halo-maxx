@@ -35,11 +35,11 @@ that assumes the stored max is still valid and reports a flag.
 | 14 | ATTKB `attkb` | one call per (tile, chunk), 36 (row block, key block) iterations, 2D modifiers, II 34 | warm unit 444 → 261 cycles on one core; −0.04..−0.47 in situ (bimodal) | NOTES 19; `r14/gen_attkb.py` |
 | 14 | ATTKE | chunk 0 skips the rescale (O = +0); the last chunk's 4 invalid P panels stored as zero bytes | 48.70 ms | NOTES 19.1 |
 | 15 | RESCK `resc` | `rescale_rb`'s O and sum update in asm (II 8) | −0.29 | NOTES 20.1 |
-| 17 | S2 | each iteration loads/stores its row block's max slot, the flags are OR-ed, no rerun of the first pass | **−0.31** at every percentile | `16998cd` |
-| 19 | KPREP | -m rows and -inf slots straight-line after three loads | −0.13 | `2510e6c` |
-| 21 | K0B | chunk 0 through the batched fast pass | −0.01..−0.03 | `421c375` |
-| 22 | II re-solves | 36 → 34 → 33 (U 1, `--life 1`, dm order 0,1,2,4,3) | −0.13, then −0.035 | `26d8aed`, `438cf05` |
-| 22 | K2 `gen_attkq` | QK-only chunk-0 pass, II 14 | −0.02 for 608 B of text, **off** | `f13c7d1` |
+| 17 | S2 | each iteration loads/stores its row block's max slot, the flags are OR-ed, no rerun of the first pass | **−0.31** at every percentile | `6462184` |
+| 19 | KPREP | -m rows and -inf slots straight-line after three loads | −0.13 | `c64e978` |
+| 21 | K0B | chunk 0 through the batched fast pass | −0.01..−0.03 | `5b0a14c` |
+| 22 | II re-solves | 36 → 34 → 33 (U 1, `--life 1`, dm order 0,1,2,4,3) | −0.13, then −0.035 | `5a75321`, `2049c58` |
+| 22 | K2 `gen_attkq` | QK-only chunk-0 pass, II 14 | −0.02 for 608 B of text, **off** | `5e3d6ba` |
 
 What the numbers said:
 - **The loop price was right, the production price was not.** The fast loop alone gave −2.9 ms as priced (P56), but production was −0.84: ~10 % of units (8.6-10.9 % per core: chunk 0, chunk 22 and 1-2 % whose max really moves) cost +400-900 cycles, and the multicast turned that
@@ -52,7 +52,7 @@ What the numbers said:
 ## The V phase
 
 `attv` (`r14/gen_attv.py`) computes O += P·V two dimension blocks per iteration, 24 iterations per (tile, chunk), II 21 with 2 stages; `attvs` computes the row sums from the ones panel (II 18, resource bound 11).
-The V phase per (tile, chunk) fell 1,316 → 813 cycles (round 14, bench). V2T (round 18, `d61f7ad`) runs both tiles in one `attv` and one `attvs` call per chunk; II 21 → 20 with 3 stages gave −0.03..−0.04 (`f4eb39a`; CP proves II 15-19 infeasible).
+The V phase per (tile, chunk) fell 1,316 → 813 cycles (round 14, bench). V2T (round 18, `1ac3fc9`) runs both tiles in one `attv` and one `attvs` call per chunk; II 21 → 20 with 3 stages gave −0.03..−0.04 (`3c92210`; CP proves II 15-19 infeasible).
 `VTK` (`r14/gen_vt.py`, II 13) is the qkv V^T epilogue; its −496 B of C++ for 278 B paid for ATTV's text. `attvs` to its bound is ≤ −0.02 ms ([K4](../../common/book/negative-results.md#k4)).
 
 ## Lockstep, P60 and P60g

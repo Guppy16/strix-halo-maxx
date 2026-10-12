@@ -16,7 +16,7 @@ How to read the index: the `why` column names the limit, the measurement, or wha
 
 Last updated 2026-10-11 (research pass 21, then the chapter passes: moondream section N, F13-F14; 225 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
-Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show bbff6a1:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Rx.y = `common/MACHINE.md` revision additions; SKILL = `.claude/skills/xdna2-npu/SKILL.md`; MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
+Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show eed3870:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Rx.y = `common/MACHINE.md` revision additions; SKILL = `.claude/skills/xdna2-npu/SKILL.md`; MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
 
 
@@ -59,7 +59,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [B5](#b5) | GELU-II10 / bgelu II 11 | tapnext | unfinished | CP-SAT found no II 10 in 400 s (not proven infeasible); padding-aware model never tried | [elementwise](elementwise.md#gelu) |
 | [B6](#b6) | RECIP-FREE-GELU | tapnext | measured-here | 26-37 % bf16 mismatches vs 15 % today; LUT GELU replaced it; a looser tolerance could change it | [tapnext/numerics](../../tapnext/book/numerics.md#what-didnt-work) · [elementwise](elementwise.md#gelu) |
 | [B7](#b7) | P43 / P43b | tapnext | measured-here | Boundary is the A slot load from DDR (B is 14 % of bytes): -0.35 vs -0.8 | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) · [tapnext/gemm](../../tapnext/book/gemm.md#what-didnt-work) |
-| [B8](#b8) | CSPLIT4 | tapnext | revived | Built as CSUB (3 sub-parts, release-by-0 BDs, commit 0a0b485): -0.13 ms, round 21 | [gemm](gemm.md#epilogues-and-the-c-path) |
+| [B8](#b8) | CSPLIT4 | tapnext | revived | Built as CSUB (3 sub-parts, release-by-0 BDs, commit 5c9fa57): -0.13 ms, round 21 | [gemm](gemm.md#epilogues-and-the-c-path) |
 | [B9](#b9) | LATE-C | tapnext | unfinished | Not built; re-priced -0.08..-0.12; revives if the C wait grows | [tapnext/gemm](../../tapnext/book/gemm.md#what-didnt-work) · [gemm](gemm.md#epilogues-and-the-c-path) |
 | [B10](#b10) | DUALDRAIN | tapnext | measured-here | DDR write cap is aggregate (~55 GB/s) under our conditions; a second channel per column adds nothing | [data-movement](data-movement.md#the-ddr-caps) |
 | [B11](#b11) | MRES | tapnext | measured-here | 124 KB park vs 112 KB free in memtile holes; MLPRR got -0.40 through DDR instead | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) · [tapnext/step-design](../../tapnext/book/step-design.md#what-didnt-work) |
@@ -76,7 +76,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 | [C8](#c8) | BDPRE | tapnext | revived | Priced on 0.10 us CP time per BD write; measured 0.55 us, CPPRE -0.09 ms | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) · [fusion](fusion.md#the-command-processor-sequence) |
 | [C9](#c9) | SENDPRE-dep | tapnext | measured-here | After the wait the first tile is DDR-paced anyway: ~0 | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) |
 | [C10](#c10) | SENDPRE | tapnext | measured-here | +0.16 ms: early pushes delay the critical path; cause not separately measured | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) |
-| [C11](#c11) | OPPRE | tapnext | revived | Worked as OPPRE2 (e70a106, round 24): sends issued before the waits, -0.15 ms | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) |
+| [C11](#c11) | OPPRE | tapnext | revived | Worked as OPPRE2 (eb3d08d, round 24): sends issued before the waits, -0.15 ms | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) |
 | [C12](#c12) | DDR84 | tapnext | method | Derived from norm walls x bytes; DDRCAP measured ~55-59 GB/s aggregate | [tapnext/ledger](../../tapnext/book/ledger.md#what-didnt-work) · [tapnext/norms](../../tapnext/book/norms.md#what-didnt-work) · [data-movement](data-movement.md#the-ddr-caps) |
 | [C13](#c13) | NIN2 | tapnext | measured-here | 3-input norms already at the aggregate DDR read cap (55.5 GB/s), an observation under our conditions | [data-movement](data-movement.md#the-ddr-caps) |
 | [C14](#c14) | H_WR | tapnext | method | Hypothesis refuted: one stream writes ~6.7 B/cycle; tail is the aggregate write cap | [tapnext/boundaries](../../tapnext/book/boundaries.md#what-didnt-work) · [data-movement](data-movement.md#the-ddr-caps) |
@@ -442,7 +442,7 @@ in the prologue) is the working form; the longer prologue is what KTL amortises.
 <a id="b8"></a>
 **B8 — CSPLIT4: progressive release of C part 1 in 4 sub-parts** (rev 15 rank 3, −0.3..−0.35) [MEAS TPROF + MODEL]. Re-priced rev 16 as CSPLIT4-lite −0.11..−0.17 (one static sub-part boundary at 9,216 B): measured hands 1,808 cycles (gelu_pan / qkv / gated-first / gelu) vs floor 676; EPLR had taken the plain share (−0.12). Not built through round 20 (needs every epilogue rb-major for rb < 12 and an acquire-only BD whose lowering is UNVERIFIED). Conditional: worth building only as -lite, or if epilogues change.
 
-**Class:** revived — Built as CSUB (commit 0a0b485, round 21, -0.13 ms A/B, bit-identical): C part 1 released in 3 sub-parts instead of 4 by the epilogues, using release-by-0 BDs because the MLIR verifier refuses an acquire-only BD (G19); predicted -0.12..-0.25.
+**Class:** revived — Built as CSUB (commit 5c9fa57, round 21, -0.13 ms A/B, bit-identical): C part 1 released in 3 sub-parts instead of 4 by the epilogues, using release-by-0 BDs because the MLIR verifier refuses an acquire-only BD (G19); predicted -0.12..-0.25.
 
 <a id="b9"></a>
 **B9 — LATE-C: C acquire inside mm_rot at rb 6 + zero-load first k-step** (rev 15 R3 / rank 7, −0.3) [MODEL]. Re-priced rev 16 to −0.08..−0.12: plain hand 1,371 after EPLR leaves at most ~700 cycles × 32 tiles. Not built. Conditional: revives if the C wait grows again (e.g. a faster epilogue path) — needs gen_rot CACQ + CP feasibility at R = 72.
@@ -533,7 +533,7 @@ pushes per block on the in-order CP (4-deep queues). Not proposed.
 <a id="c11"></a>
 **C11 — OPPRE: out_proj's A loaded in 4 parts during attention pass 1** (main, round 20, predicted −0.18..−0.3) [MEAS]. +0.117 / +0.205 / +0.184 ms (full12r20o1). Pass 17 (rev17/P): the aggregate-DDR reading is refuted by the bytes — attention pass 1 reads ~2.65 MB of K / V in ~160 µs (~17 GB/s) and the 1 MB A adds ~6 GB/s, ~23 GB/s against the ~55 cap. Remaining hypotheses: H_CP (the per-head-group drain waits and their extra task groups / BD reclamation sit in the in-order CP stream and delay the K / V pushes behind them; 3 waits × ~5 µs tail ≈ 15 µs per block = +0.18) and H_SHIM (shims 0–2 carry the K / V on MM2S 1 and now an A part on MM2S 0 at once). Separating probe: OPPRE-W (the same waits, 64 B fills) and OPPRE-37 (the A parts only on shims 3–7). The patch was not committed: commit dead experiments so their order can be read. Lesson: a CP wait is a barrier for every push behind it.
 
-**Class:** revived — OPPRE2 (commit e70a106, round 24, -0.15 ms; pre-registered -0.08..-0.16) made it work: out_proj's A part g is filled per attention head group, with the memtile sends issued before the waits, and the attention's K / V fills and Q tasks issued first so the drains and waits no longer sit in front of the K / V pushes (the H_CP hypothesis above). With the sends after the waits it gave only -0.04 ms.
+**Class:** revived — OPPRE2 (commit eb3d08d, round 24, -0.15 ms; pre-registered -0.08..-0.16) made it work: out_proj's A part g is filled per attention head group, with the memtile sends issued before the waits, and the attention's K / V fills and Q tasks issued first so the drains and waits no longer sit in front of the K / V pushes (the H_CP hypothesis above). With the sends after the waits it gave only -0.04 ms.
 
 <a id="c12"></a>
 **C12 — DDR84: "the NPU sustains ≥ 84 GB/s DDR read + write"** (rev 15 R15.4; DDRCAP pre-registered ≥ 84, ceiling ~110–120?) [MEAS]. DDRCAP (r19/ddrcap.py): one stream ~7 B/cycle; 4 × 1 and 2 × 2 streams 50 GB/s (minus dispatch), 8 × 1 / 4 × 2 59, 8 × 2 54 GB/s; with drains 63–74 GB/s read + write. Aggregate read cap ~55–59 GB/s. Why: rev 15 derived 84 from norm walls × bytes (8 × 4,672 B per 801 cycles) and called MACHINE §5's 55–63 GB/s "8 × the single-channel rate" — DDRCAP restored the old figure. Note: MACHINE R15.4 still states ≥ 84 (stale).
@@ -884,7 +884,7 @@ rev17/P 3A.
 
 
 <a id="f13"></a>
-**F13 — CROP-NOSHIFT: track from a moving crop with the RG-LRU state and conv cache indexed by crop-local slot** (crop study, 2026-10-11, `bd7b946`) [MEAS CPU]. W = 192 / 160 / 128: AJ 27.39 / 22.40 / 21.18 (OA 85.7 / 83.1 / 77.6) against 69.67 for the grouped full-frame base, 10 DAVIS videos, depth 12, bf16 CPU reference. Why: the recurrent state is tied to its patch, so a crop that moves while the state stays put feeds each token another patch's history. The same crops with the state indexed by absolute patch (so it moves with the content) lose nothing at W = 192 / 160 (69.72 / 69.46) and about 1 AJ at W = 128 (68.72). Lesson: any scheme that moves or crops the token grid must move the recurrent state and the conv cache with it.
+**F13 — CROP-NOSHIFT: track from a moving crop with the RG-LRU state and conv cache indexed by crop-local slot** (crop study, 2026-10-11, `e36e280`) [MEAS CPU]. W = 192 / 160 / 128: AJ 27.39 / 22.40 / 21.18 (OA 85.7 / 83.1 / 77.6) against 69.67 for the grouped full-frame base, 10 DAVIS videos, depth 12, bf16 CPU reference. Why: the recurrent state is tied to its patch, so a crop that moves while the state stays put feeds each token another patch's history. The same crops with the state indexed by absolute patch (so it moves with the content) lose nothing at W = 192 / 160 (69.72 / 69.46) and about 1 AJ at W = 128 (68.72). Lesson: any scheme that moves or crops the token grid must move the recurrent state and the conv cache with it.
 
 **Class:** measured-here — Crop-local recurrent state without the shift: AJ 21-27 at every W (base 69.67). Would have to change: A model whose state is not tied to spatial position, or a state remap with the crop; the shifted form (crop-study.md) is the working one.
 
@@ -947,7 +947,7 @@ rev17/P 3A.
 
 - Tile BDs refuse stride 0: P5a's "write twice into half 1" was impossible; K = 1536 ops write the whole slot over both channels instead (round 10).
 - padds / padda immediates must be multiples of 64: no per-frame bump of a 40 B record (round 9, P20c).
-- Two BDs for a joined fifo's producer (CSPLIT): not expressible in IRON; patch the lowered MLIR and re-run aiecc (round 19). An acquire-only BD is legal in hardware; the MLIR verifier refuses it and a release by 0 is the working form, verified by G19 and by CSUB (0a0b485).
+- Two BDs for a joined fifo's producer (CSPLIT): not expressible in IRON; patch the lowered MLIR and re-run aiecc (round 19). An acquire-only BD is legal in hardware; the MLIR verifier refuses it and a release by 0 is the working form, verified by G19 and by CSUB (5c9fa57).
 
 <a id="g11"></a>
 **G11 — BDSTEP20: a BD step larger than 20 bits (words)** (round 4) [MEAS]. norm3 took 6 ms: its 2-input fill had a 10.5 MB step; the transfer was correct but the columns ran one after another. R4 now follows R3 (NOTES 9.2).

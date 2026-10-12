@@ -60,10 +60,10 @@ All in `plan8.py` / `pack8.py`; the reason for each is that **one op's C drain w
   every drained object lands in padding.
 - **QKV**: `[head][column][…]` Q, K and V^T objects of 4,608 B (K and V use 3,456 B of it; the tail is scratch while the core holds the object,
   NOTES 19.3). V^T panels share exponents over keys, so the host reference must encode the transposed matrix (NOTES 8.3).
-- **SSM area** per block: seven input streams S apart, `[y][conv history R0..R3][h lo][h hi][z]`, read by the SSM as one TAP. The conv history rotates mod 4 with the frame (X1, round 17, `d3c671d`): the yx drain writes x(t) into R[t mod 4], so
+- **SSM area** per block: seven input streams S apart, `[y][conv history R0..R3][h lo][h hi][z]`, read by the SSM as one TAP. The conv history rotates mod 4 with the frame (X1, round 17, `0b687ba`): the yx drain writes x(t) into R[t mod 4], so
   the state never moves. Four runtime sequences per depth select the phase ([ssm.md](ssm.md)).
 - **A slot** in the memtile: 24 chunks × 10,368 B = 248,832 B (K = 1536 ops hold all 24, K = 768 ops half). Driven by runtime tasks (A_RT,
-  −2.0 ms, round 10). 3A (round 22, `d14c8cf`) grows it to 36 chunks = 373,248 B for down_b / mlp3_b.
+  −2.0 ms, round 10). 3A (round 22, `86442db`) grows it to 36 chunks = 373,248 B for down_b / mlp3_b.
 - **W** (weights and parameter objects, 232 MB, RESULTS 12.3) and **ACT** (324 MB at round 3). Weight bytes per step ~215-230 MB, streamed once through the
   B fifos of memtiles 0-2 and multicast across the row (REDESIGN 2.2).
 
@@ -125,7 +125,7 @@ All kept changes from round 9 on are bit-identical. Timings from rounds 3-11 pre
 | 11-14 | 52.1 → 47.3 | modulo-scheduled asm: GELU, gated epilogues, the SSM sigmoid, the attention K and V loops | NOTES 16-19 |
 | 15 | 41.52 | SSM and norm passes in asm, query deal P60g (−1.06), slot-count divides (−1.05) | NOTES 20 |
 | 16-17 | 39.94 → 39.16 | SQK, GGK, SSQ, N1K; S2, X1 | NOTES 21-22 |
-| 18 | 35.20 | ROT rotating-accumulator k-step (−3.3, `1ffff40`) | NOTES 23 |
+| 18 | 35.20 | ROT rotating-accumulator k-step (−3.3, `992dfb6`) | NOTES 23 |
 | 19 | 33.88 | C drain (ZHI, CSPLIT, EPLR), ROT g0a | NOTES 24 |
 | 20 | ~31.8 | op boundaries taken apart: IL, DAPRE, NSEQ, NRES, SRES, AQPRE, AKVPRE (−2.07 A/B) | NOTES 25 |
 | 21-22 | 31.30 → 30.78 | CSUB, ZLOAD, E7''; 3A, TXT18, attention IIs | NOTES 26-27 |
