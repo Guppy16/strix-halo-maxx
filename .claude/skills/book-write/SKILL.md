@@ -18,11 +18,34 @@ what is true now, why, and what didn't work, with numbers and evidence.
   section headings stable (other files link to the anchors).
 
 ## Update in place
-Chapter structure: a lead paragraph (the point first); topic sections, each giving the hypothesis, what was observed, what worked,
+Chapter structure: "In brief" bullets (the point first); topic sections, each giving the hypothesis, what was observed, what worked,
 what didn't and the lesson; `## What didn't work`; `## Lessons`; `## Going deeper`. Model chapters also have `## What worked`.
 - Edit the section the result belongs to. Change the numbers, the lead and the lessons if they moved.
 - Every claim gets a number with its status (MEASURED / MODEL / EXTRAPOLATED) and an evidence link (path, round folder, commit,
   MACHINE R-id). Keep a chapter to a 5-10 minute read; push depth into links.
+
+## Presentation: write a book for people
+The reader knows ML and some systems programming, not this chip and not our shorthand. They read on the site
+(MkDocs Material) or on GitHub, so use only syntax both render.
+- **Open with "In brief"**: 3-5 bullets after the title, result first (what this chapter shows, the key number, the lesson).
+- **Show, then tell.** Every chapter has at least one figure:
+  - a ```` ```mermaid ```` diagram for dataflow (`flowchart`), ordering and handshakes (`sequenceDiagram`) or timelines (`gantt`);
+  - a table or a code-block sketch for memory layouts and tile maps (exact bytes and shapes);
+  - LaTeX for cost models and formulas, inline `$...$` and display `$$...$$` (e.g. $t = \max(t_\text{compute}, t_\text{DDR})$);
+  - code blocks with a language tag (`asm`, `cpp`, `python`, `bash`) for real snippets, kept short and annotated.
+- **Structure over prose.** One idea per paragraph, at most ~4 sentences. Lists for enumerations, tables for comparisons and
+  numbers. Headings state a question or a claim ("Why one dispatch?", "The k-step is bank-bound").
+- **Define before use.** Spell out an abbreviation at first use (BD = buffer descriptor, CP = command processor, AJ = average
+  Jaccard). Internal ids (proposal ids like P23, switch names like ONE_SEG, build names like full12r9a) appear only as evidence,
+  never as the subject of a sentence the reader must parse.
+- **Evidence without clutter.** Put measurement conditions once per chapter (a "Conditions" line) or in a table column, and
+  push long source lists into footnotes (`[^1]`) or a `<details><summary>Evidence</summary>` block. The claim stays readable;
+  the citation stays one click away.
+- **Callouts** as blockquotes: `> **Pitfall.** ...`, `> **Note.** ...`, `> **Open.** ...` (not MkDocs-only `!!!` admonitions).
+- **Markdown hygiene**: a blank line before every list and table; nested lists indented by 4 spaces; relative links to `.md`
+  files; link targets that exist.
+- **Reference pages** (`common/MACHINE.md`) are organised by topic, never by revision: a fact lives in its topic section with a
+  stable id, a tag (DOC / MEAS / INF) and its evidence. When a fact changes, edit it in place; the history is in git.
 
 ## Record every failure
 - Add the entry to `common/book/negative-results.md`: id, name, project (tapnext / moondream / general), class (fundamental,

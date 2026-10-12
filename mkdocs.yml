@@ -41,15 +41,33 @@ hooks:
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
   - tables
   - toc:
       permalink: true
       # GitHub-style anchors, so the book's #fragment links work on both
       slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+# MathJax for $...$ / $$...$$ (pymdownx.arithmatex, generic mode)
+extra_javascript:
+  - tools/site/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
 
 validation:
   omitted_files: ignore
@@ -84,7 +102,7 @@ exclude_docs: |
 
 nav:
   - Home: README.md
-  - Common book:
+  - Strix Halo:
       - common/book/README.md
       - common/book/machine.md
       - common/book/toolchain.md
@@ -96,32 +114,34 @@ nav:
       - common/book/attention.md
       - common/book/method.md
       - common/book/negative-results.md
-  - TAPNext:
-      - tapnext/README.md
-      - tapnext/book/README.md
-      - tapnext/book/step-design.md
-      - tapnext/book/gemm.md
-      - tapnext/book/attention.md
-      - tapnext/book/ssm.md
-      - tapnext/book/norms.md
-      - tapnext/book/boundaries.md
-      - tapnext/book/numerics.md
-      - tapnext/book/ledger.md
-      - tapnext/book/crop-study.md
-  - Moondream:
-      - moondream/README.md
-      - moondream/book/README.md
-      - moondream/book/overview.md
-      - moondream/book/gpu.md
-      - moondream/book/npu-gemm.md
-      - moondream/book/npu-attention.md
-      - moondream/book/npu-elementwise.md
-      - moondream/book/numerics.md
-      - moondream/book/moondream3.md
-  - Reference:
-      - Machine model: common/MACHINE.md
-      - TAPNext notes: tapnext/npu/NOTES.md
-      - TAPNext results: tapnext/npu/RESULTS.md
-      - TAPNext handoff: tapnext/npu/HANDOFF.md
-      - Moondream NPU notes: moondream/npu/NOTES.md
-      - Moondream NPU results: moondream/npu/RESULTS.md
+      - Machine reference: common/MACHINE.md
+  - Projects:
+      - TAPNext:
+          - tapnext/README.md
+          - tapnext/book/README.md
+          - tapnext/book/step-design.md
+          - tapnext/book/gemm.md
+          - tapnext/book/attention.md
+          - tapnext/book/ssm.md
+          - tapnext/book/norms.md
+          - tapnext/book/boundaries.md
+          - tapnext/book/numerics.md
+          - tapnext/book/ledger.md
+          - tapnext/book/crop-study.md
+          - Lab notebook:
+              - Notes: tapnext/npu/NOTES.md
+              - Results: tapnext/npu/RESULTS.md
+              - Handoff: tapnext/npu/HANDOFF.md
+      - Moondream:
+          - moondream/README.md
+          - moondream/book/README.md
+          - moondream/book/overview.md
+          - moondream/book/gpu.md
+          - moondream/book/npu-gemm.md
+          - moondream/book/npu-attention.md
+          - moondream/book/npu-elementwise.md
+          - moondream/book/numerics.md
+          - moondream/book/moondream3.md
+          - Lab notebook:
+              - NPU notes: moondream/npu/NOTES.md
+              - NPU results: moondream/npu/RESULTS.md

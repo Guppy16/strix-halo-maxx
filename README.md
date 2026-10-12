@@ -1,48 +1,60 @@
 # strix-halo-maxx
 
-Hand-optimised model inference on AMD Strix Halo (Ryzen AI Max+ 395): the XDNA2 NPU and the gfx1151 GPU.
+Hand-optimised, low-latency model inference on AMD Strix Halo (Ryzen AI Max+ 395): kernels for the XDNA2 NPU and the
+gfx1151 GPU, the measurements behind them, and a book of what worked, what didn't and why.
 
-First step in a checkout: `source setup.sh`. It sets `SHM_REPO` and `SHM_SCRATCH` (the scratch dir, default `<repo>/.scratch`, gitignored)
-and lists the other variables the scripts use.
+Read it as a book at **https://guppy16.github.io/strix-halo-maxx/**, or browse the Markdown here.
 
-## The hardware
+## The hardware in one picture
 
-The Ryzen AI Max+ 395 puts Zen 5 CPU cores, a gfx1151 iGPU and an XDNA2 NPU on one die. All three share one pool of
-unified LPDDR5X memory. The NPU is an AIE2P array: 8 columns x 4 rows of compute tiles (32 VLIW vector cores, each with
-64 KB of data memory and 16 KB of program memory), one memtile per column, and a shim row that talks to DDR. Its clock
-was measured at 1.81 GHz. The measured performance model is [common/MACHINE.md](common/MACHINE.md).
+```mermaid
+flowchart LR
+  subgraph SoC["Ryzen AI Max+ 395"]
+    CPU["16 Zen 5 cores"]
+    GPU["gfx1151 iGPU<br/>40 CUs"]
+    subgraph NPU["XDNA2 NPU (AIE2P), 1.81 GHz"]
+      direction TB
+      C["4 rows x 8 columns of compute tiles<br/>VLIW vector core, 64 KB data, 16 KB program"]
+      M["memtile row: 512 KB per column"]
+      S["shim row: DMA to DDR"]
+      C --- M --- S
+    end
+  end
+  DDR[("unified LPDDR5X")]
+  CPU --- DDR
+  GPU --- DDR
+  S --- DDR
+```
+
+The measured performance model of the NPU is the [machine chapter](common/book/machine.md); every fact with its
+evidence is in the [machine reference](common/MACHINE.md).
 
 ## Projects
 
-| project | headline | start here |
+| project | result | start here |
 |---|---|---|
-| TAPNext++ point tracker on the NPU | **28.43 ms per step at depth 12**, one fused dispatch per frame; DAVIS AJ 70.84; bit-identical to the round-9 reference | [tapnext/README.md](tapnext/README.md) |
-| moondream2 on the GPU (low-latency VLM inference for local use) | 88.7 ms per frame (stock HF bf16: ~340 ms), 98.0 % accuracy on the 493-frame yes/no set | [moondream/README.md](moondream/README.md) |
-| moondream2 vision tower on the NPU | 27 blocks in one NPU program; tower ~75 ms per frame on the NPU alone (phase 12); 27 fps with the GPU pipelined | [moondream/README.md](moondream/README.md) |
-| moondream3-preview evaluation | not better at grounding than moondream2, ~2.6x slower | [moondream/README.md](moondream/README.md) |
+| **TAPNext++** point tracker, whole step on the NPU | **28.42 ms** per frame at 12 blocks, one fused dispatch; DAVIS AJ 70.84 (CPU bf16: 70.98) | [TAPNext](tapnext/README.md) |
+| **moondream2** VLM on the GPU | **88.7 ms** per frame (stock HF bf16: ~340 ms) | [moondream](moondream/README.md) |
+| moondream2 vision tower on the NPU | 27 blocks in one NPU program, ~75 ms per frame; ~22 fps with the GPU pipelined (extrapolated) | [moondream](moondream/README.md) |
+| moondream3-preview evaluation | not better at grounding than moondream2, ~2.6x slower | [moondream3](moondream/book/moondream3.md) |
 
 ## Where things live
 
-- `CLAUDE.md`: the short entry point for an agent (safety rules, how to verify, commit conventions).
-- `common/book/`: **the book**, the machine-level manual (hardware, toolchain, measurement, GEMM, data movement, fusion,
-  elementwise, attention, method) and `negative-results.md`, the classified index of refuted ideas.
-  `tapnext/book/` and `moondream/book/` hold the model chapters.
-- `.claude/skills/`: `book-read` (find things in the book), `book-write` (add to it), `xdna2-npu` (NPU hardware and
-  toolchain rules, safety; this repo copy is canonical).
-- `common/`: `MACHINE.md` (the hardware model with every fact tagged), `tools/` (asmlint, tcall, the simulators, try.sh, the
-  timing table `aie2p_isa_timing.json`).
-- `tapnext/`, `moondream/`: one folder per model; the lab notebook (NOTES, RESULTS, HANDOFF, rNN/) lives there.
+| what | where |
+|---|---|
+| The book, machine level: hardware, toolchain, measurement, GEMM, data movement, fusion, elementwise, attention, method | [common/book](common/book/README.md) |
+| Every refuted idea, classified (fundamental, measured here, unfinished, ...) | [negative results](common/book/negative-results.md) |
+| The hardware model, every fact tagged and sourced | [common/MACHINE.md](common/MACHINE.md) |
+| Model chapters | [tapnext/book](tapnext/book/README.md), [moondream/book](moondream/book/README.md) |
+| Lab notebooks (raw evidence per round or phase) | [tapnext/npu](tapnext/npu/NOTES.md), [tapnext/research](tapnext/research/ANALYSIS.md), [moondream/npu](moondream/npu/NOTES.md) |
+| Tools: asm linter, simulators, the ISA timing table, try.sh | [common/tools](common/tools/) |
+| Agent entry point and skills (book-read, book-write, xdna2-npu) | [CLAUDE.md](CLAUDE.md), [.claude/skills](.claude/skills/) |
 
-Measured symptoms to keep in mind when reading a timing (observations under our load, not rules): heavy floating-point CPU
-load lowered the NPU clock (1.81 -> 1.41 GHz), and the NPU's DDR reads and writes each capped at ~55-59 GB/s aggregate with the
-GPU idle. See [common/book/measurement.md](common/book/measurement.md).
+## Running the code
 
-Only hand-written code, generators, docs and small result tables are tracked: builds, weights, venvs and logs stay out.
-`setup.sh` creates `$SHM_SCRATCH/npu-{tapnext,research,moondream}` as symlinks to `tapnext/npu`, `tapnext/research` and
-`moondream/npu`. Containers that mount .scratch at /work also mount this repo at its own path, so the links resolve.
+Start with `source setup.sh`: it finds the repo root, sets the scratch directory (`<repo>/.scratch`, gitignored) and
+lists the other environment variables. NPU builds run in Docker; how to rebuild and verify each project is in its README.
 
-## Reading the book
-
-The Markdown here is also built as a MkDocs Material site (`mkdocs.yml`, links to code handled by `tools/mkdocs_hooks.py`).
-Read it at https://guppy16.github.io/strix-halo-maxx/ (`.github/workflows/pages.yml` publishes it on every push to `main`),
-or preview locally with `uvx --with mkdocs-material --with mkdocs-same-dir mkdocs serve`.
+> **Reading a timing.** Two effects we measured change NPU numbers under load: heavy floating-point CPU load lowered the
+> NPU clock (1.81 → 1.41 GHz), and the NPU's DDR traffic capped at ~55-59 GB/s per direction. They are observations
+> under our conditions, not rules; see [measurement](common/book/measurement.md).
