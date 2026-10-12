@@ -1,13 +1,35 @@
 # Research method
 
-The TAPNext port ran as two alternating workstreams. The **optimisation rounds** ("main") built, verified and timed one change at a
-time. The **analysis passes** ("research") read the measurements, kept the hardware model and the time ledger, and proposed a ranked,
-priced queue of experiments with pre-registered predictions. It worked: rounds 3-25 took the step from 269 ms to 28.42 ms,
-bit-identical to the round-9 reference from round 9 on. The analysis side's mispredictions were the expensive part. Many of
-the 187 negative results are refuted prices, not refuted mechanisms, and the method entries ([H1-H29](negative-results.md#h1), M1, L3)
-record how each misprediction happened. This chapter turns them into rules.
+> **In brief**
+>
+> - The TAPNext port ran as two alternating workstreams: **optimisation rounds** ("main") that built, verified and timed one change at a time,
+>   and **analysis passes** ("research") that kept the hardware model and time ledger and proposed a ranked, priced queue with
+>   pre-registered predictions.
+> - It worked: rounds 3-25 took the step from 269 ms to 28.42 ms, bit-identical to the round-9 reference from round 9 on.
+> - The analysis side's mispredictions were the expensive part. Many of the 187 negative results are refuted *prices*, not refuted
+>   mechanisms; the method entries ([H1-H29](negative-results.md#h1), M1, L3) record how each one happened.
+> - The rule that kept paying: **twin first, fit at most one constant, price from the deployed binary's whole call.**
+
+**Terms.** Twin = a build with one component removed or changed, to measure what that component costs. Probe = an experiment designed
+to separate two hypotheses. Lever = an optimisation priced from probe-backed facts. CP-SAT = the constraint solver used for schedules.
 
 ## The two-workstream loop
+
+```mermaid
+flowchart TB
+    subgraph main["Optimisation rounds (tapnext/npu/)"]
+        direction LR
+        m1["build the queue's<br/>top items"] --> m2["one commit per<br/>experiment"] --> m3["verdict per<br/>proposal id"]
+    end
+    subgraph res["Analysis passes (tapnext/research/)"]
+        direction LR
+        r1["re-read the<br/>measurements"] --> r2["score predictions,<br/>re-price the queue"] --> r3["propose probes<br/>and levers"]
+    end
+    main --> res
+```
+
+Caption: the loop repeats every round. The optimisation side hands RESULTS_FROM_MAIN.md to the analysis side; the analysis side hands
+back new revisions of ANALYSIS, PROPOSALS and MACHINE.
 
 | | optimisation rounds (`tapnext/npu/`) | analysis passes (`tapnext/research/`) |
 |---|---|---|
@@ -16,6 +38,7 @@ record how each misprediction happened. This chapter turns them into rules.
 | hands back | RESULTS_FROM_MAIN.md: a verdict per proposal id | a new revision of ANALYSIS / PROPOSALS / MACHINE (git history keeps every revision) |
 
 What made it work:
+
 - **Stable ids.** Every proposal and probe has an id (P60g, ROT, SSMCUT). The commit, the verdict and the negative-results entry all use it.
 - **Separate probes from levers.** A probe answers one question and is designed to separate two hypotheses (CPST, DDRCAP, SSMCUT, RRTWIN). A
   lever is priced only from probe-backed facts. Probes were cheap, and a few of them moved the queue more than any lever did. DDRCAP
@@ -27,15 +50,24 @@ What made it work:
 
 ## Pricing
 
+A price is a prediction of the saving, not a measurement. The checklist:
+
 - **Price from the deployed build**, like for like, not from an older round's measurement ([H6](negative-results.md#h6) <!-- nr: H6 -->).
 - **Price the whole call**: body + call/return delay slots + loop setup + prologue + drain + glue. Use `tcall`
   ([H8](negative-results.md#h8) <!-- nr: H8 -->, [H29](negative-results.md#h29)). Loop-only prices missed by 1.5x (P50: 87 → 136 cycles).
 - **Every component measured, or flagged with a wide bar.** A guessed "half a stash copy" was 7x off ([H7](negative-results.md#h7) <!-- nr: H7 -->).
-- **Known discounts**: k-step static cuts land at ~0.75 ([A18](negative-results.md#a18)). A compute cut lands only down to the op's input floor
-  ([M2](negative-results.md#m2)). A rare per-unit cost under a multicast costs the max over destinations, not the mean
-  ([H19](negative-results.md#h19)).
 - **State which code path each part of a saving depends on**, and score a partial build part by part ([H27](negative-results.md#h27) <!-- nr: H27 -->).
 - Give a range, the hypothesis it tests, and the in-between outcome. Score each prediction as hit or miss in the commit message.
+
+Known discounts to apply before quoting a saving:
+
+| lever | what lands | entry |
+|---|---|---|
+| k-step static cut | ~0.75 of the priced saving | [A18](negative-results.md#a18) |
+| compute cut | only down to the op's input floor | [M2](negative-results.md#m2) |
+| rare per-unit cost under a multicast | the max over destinations, not the mean | [H19](negative-results.md#h19) |
+
+$$\text{saving}_\text{landed} \approx 0.75 \times \text{saving}_\text{priced}\quad(\text{k-step static cuts})$$
 
 ## How mispredictions happened
 
@@ -49,13 +81,13 @@ Grouped by mechanism. Each one recurred until a rule or a tool stopped it.
 | **means instead of distributions** | k-step means with the op-start wait ([H4](negative-results.md#h4)); PROF walls for coupling ([H5](negative-results.md#h5) <!-- nr: H5 -->); a CPU lazy-max map too hot by 1/0.6 ([H18](negative-results.md#h18)) | per-tile medians; full-step timelines; one fitted constant (κ) with per-unit one-core costs |
 | **near a cap read as on the cap** | the SSM at 95 % of the read cap priced as capped ([M1](negative-results.md#m1) <!-- nr: M1 -->); a window average ([L3](negative-results.md#l3)) | removal twin + input-wait stamps; the binding op's own span |
 | **benches that are not the deployed code** | the forced-II GELU, C++ serial in situ, pre-released locks ([H9-H12](negative-results.md#h9)) | bench the deployed binary, feed rings by DMA, guard zones |
-| **twins priced from the step** | the norm twin −1.98 vs −0.2 real ([H17](negative-results.md#h17)) | per-op walls; twins only where downstream work is data-independent |
+| **twins priced from the step** | the norm twin -1.98 vs -0.2 real ([H17](negative-results.md#h17)) | per-op walls; twins only where downstream work is data-independent |
 | **post-hoc hits** | ranges written after the measurement ([H21](negative-results.md#h21) <!-- nr: H21 -->) | not counted |
 | **false nulls** | a stale jit cache, an `#undef`-ed flag: same elf ([H22](negative-results.md#h22)) | new build name; check the elf changed |
 
-The pattern behind most rows: a model that reproduced the past was used to price the future before a probe had separated its
-terms. The cure was to name the probe that would distinguish the hypotheses, run it, and only then rank levers. CPST did this for
-the CP-bound boundary model, DDRCAP for "84 GB/s", and SSMCUT for "the SSM is read-capped".
+> **Note.** The pattern behind most rows: a model that reproduced the past was used to price the future before a probe had separated its
+> terms. The cure was to name the probe that would distinguish the hypotheses, run it, and only then rank levers. CPST did this for
+> the CP-bound boundary model, DDRCAP for "84 GB/s", and SSMCUT for "the SSM is read-capped".
 
 ## Keeping the record
 
@@ -72,8 +104,11 @@ the CP-bound boundary model, DDRCAP for "84 GB/s", and SSMCUT for "the SSM is re
 
 The method entries: [H1](negative-results.md#h1)-[H29](negative-results.md#h29), [L3](negative-results.md#l3), [M1](negative-results.md#m1).
 The measurement-specific ones (H4, H9-H12, H16, H17, H20, H22, H26, H28) are explained in [measurement.md](measurement.md). Also:
-- [H15](negative-results.md#h15) <!-- nr: H15 --> "5 ms of boundaries" counted first-tile compute as boundary.
-- [H18](negative-results.md#h18) <!-- nr: H18 --> the CPU lazy-max map overstated in-situ flags; "lockstep × 6" came from compensating fits.
+
+| idea | outcome | why | index |
+|---|---|---|---|
+| "5 ms of boundaries" | overcounted | first-tile compute was counted as boundary | [H15](negative-results.md#h15) <!-- nr: H15 --> |
+| CPU lazy-max map as in-situ flags | overstated flags | "lockstep × 6" came from compensating fits | [H18](negative-results.md#h18) <!-- nr: H18 --> |
 
 ## Lessons
 
