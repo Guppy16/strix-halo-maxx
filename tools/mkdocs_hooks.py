@@ -4,7 +4,8 @@ The Markdown is written for GitHub, which is lenient where Python-Markdown is st
 
 1. a blank line before a list or table that directly follows a paragraph (otherwise it renders as running text);
 2. nested-list indentation doubled where a list nests by 2 spaces (Python-Markdown needs 4);
-3. links to repo files that are not site pages (code, data, directories, and Markdown kept out of the site such as
+3. the book's `<!-- nr: ID -->` index markers removed with the space before them (they left "(A1 )" in links);
+4. links to repo files that are not site pages (code, data, directories, and Markdown kept out of the site such as
    the skills and CLAUDE.md) rewritten to their GitHub URL (``repo_url`` in mkdocs.yml).
 
 The source files are not changed, so GitHub keeps rendering them as before.
@@ -20,6 +21,7 @@ FENCE = re.compile(r"^\s*(```|~~~)")
 ITEM = re.compile(r"^(\s*)([-*+]|\d+[.)])\s")
 TABLE = re.compile(r"^\s*\|")
 HEADING = re.compile(r"^\s{0,3}#")
+NR_MARK = re.compile(r"\s*<!-- nr: [^>]*-->")
 
 _repo_url = None
 _branch = "main"
@@ -81,6 +83,7 @@ def _double_list_indent(lines):
 
 
 def on_page_markdown(markdown, page, config, files):
+    markdown = NR_MARK.sub("", markdown)
     lines = markdown.split("\n")
     markdown = "\n".join(_double_list_indent(_blank_before_blocks(lines)))
 
