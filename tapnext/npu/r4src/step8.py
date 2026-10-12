@@ -250,7 +250,7 @@ def demo_queries(n=48):
 
 
 def smoke(o):
-    frames = np.load("/work/tapnet/data/clip30.npy")[: o.frames]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[: o.frames]
     video = preprocess(frames)
     s = Step8(o.build, o.depth)
     ref = load_model(o.depth)
@@ -274,7 +274,7 @@ def smoke(o):
 def blocks(o):
     """depth-1 build: compare every region of block 0 against the CPU block (first frame, then a second frame)."""
     assert o.depth == 1
-    frames = np.load("/work/tapnet/data/clip30.npy")[:2]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[:2]
     video = preprocess(frames)
     s = Step8(o.build, 1)
     m = load_model(1)
@@ -397,7 +397,7 @@ def davis(o):
 
 
 def timing(o):
-    frames = np.load("/work/tapnet/data/clip30.npy")[:2]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[:2]
     video = preprocess(frames)
     s = Step8(o.build, o.depth)
     q = demo_queries()
@@ -435,7 +435,7 @@ def op_marks(op):
 def timeline(o):
     """Per-op timeline of one dispatch, measured from the host: a thread-free loop polls the first and last word of
     every op's column-0 output in the mapped ACT buffer while the NPU runs and records when each changes."""
-    frames = np.load("/work/tapnet/data/clip30.npy")[:3]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[:3]
     video = preprocess(frames)
     s = Step8(o.build, o.depth)
     q = demo_queries()

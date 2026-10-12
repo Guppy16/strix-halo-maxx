@@ -41,7 +41,7 @@ def main():
     o = ap.parse_args()
     import torch
 
-    frames = np.load("/work/tapnet/data/clip30.npy")[:o.frames]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[:o.frames]
     video = preprocess(frames)
     s = Step8(o.build, o.depth)
     q = demo_queries()

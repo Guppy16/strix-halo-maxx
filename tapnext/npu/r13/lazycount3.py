@@ -15,7 +15,7 @@ from ml_dtypes import bfloat16  # noqa: E402
 SU, TAU, NEG, KC, NK = 8.0, 8.0 * 8, -64.0 * 8, 48, 1072
 torch.set_num_threads(16)
 model = S8.load_model(12)
-frames = np.load("/work/tapnet/data/clip30.npy")[: int(sys.argv[1]) if len(sys.argv) > 1 else 1]
+frames = np.load("/work/tapnet/data/davis_reg.npy")[: int(sys.argv[1]) if len(sys.argv) > 1 else 1]
 video = S8.preprocess(frames)
 q = S8.demo_queries()
 cap = []

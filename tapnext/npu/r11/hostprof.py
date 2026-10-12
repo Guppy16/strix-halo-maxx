@@ -79,7 +79,7 @@ def main():
     ap.add_argument("--warmup", type=int, default=8)
     ap.add_argument("--threads", default="8,4,2,1")
     o = ap.parse_args()
-    frames = np.load("/work/tapnet/data/clip30.npy")[:2]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[:2]
     video = preprocess(frames)
     s = Step8(o.build, o.depth)
     q = demo_queries()

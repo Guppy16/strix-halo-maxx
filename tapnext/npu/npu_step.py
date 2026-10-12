@@ -255,7 +255,7 @@ def preprocess(frames_u8, res=256):
 
 def smoke():
     sys.path.insert(0, "/work/.scratch/tapnet")
-    frames = np.load("/work/.scratch/tapnet/data/clip30.npy")[:3]
+    frames = np.load("/work/.scratch/tapnet/data/davis_reg.npy")[:3]
     video = preprocess(frames)
     net = NpuTapNext()
     q = torch.tensor([[[0.0, 100.0, 100.0], [0.0, 200.0, 60.0], [0.0, 50.0, 220.0], [0.0, 128.0, 128.0]] + [[10000.0, 0.0, 0.0]] * 44])

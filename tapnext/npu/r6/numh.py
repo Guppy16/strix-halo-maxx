@@ -1,6 +1,6 @@
 """Numerics harness on real activations (round 6, npu-research P8 parts 2-3).
 
-usage: python3 r6/numh.py ranges|gelu [--acts build/acts_clip3.npz] [--cands c0,c1,...]
+usage: python3 r6/numh.py ranges|gelu [--acts build/acts_davis3.npz] [--cands c0,c1,...]
 
 ranges: per site, the real value range against each kernel's limits (margins, counts beyond).
 gelu:   GELU candidate formulations (bit-level emulations in r6/emu.py style) on the real GELU inputs of all
@@ -252,7 +252,7 @@ def sigmoid(o):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["ranges", "gelu", "sigmoid"])
-    ap.add_argument("--acts", default="build/acts_clip3.npz")
+    ap.add_argument("--acts", default="build/acts_davis3.npz")
     ap.add_argument("--cands", default="c0,c1,c2,c3,c4")
     ap.add_argument("--every", type=int, default=1, help="use every n-th block")
     ap.add_argument("--erf-ok", action="store_true", help="gelu: score vit_gelu against the erf GELU torch uses")

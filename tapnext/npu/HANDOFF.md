@@ -10,6 +10,7 @@ runtime sequences d12 / 10 / 8 / 6 x 4 phases, the 32 elfs and the CDO equal); r
 | 6 | 14.40 (14.35) | 16.86 | not run |
 Box for the sweep: load 3.0-9.1 (a background CPU job + analysis CP-SAT, scalar), r7/clk.py 1.808 GHz, gpu_busy 0. Timeouts: 0.
 References: bf16 CPU 70.98 (10 videos; 70.54 is the GPU emulation of a bf16 trunk, RESULTS 3); round-24 DAVIS 70.84 (92.57) d12, 69.90 (91.02) d10.
+## Test clip: regress / time / smoke load `$SHM_SCRATCH/tapnet/data/davis_reg.npy` (public, TAP-Vid DAVIS goat, 90 frames; `python3 tapnext/npu/make_davis_reg.py`). Numbers below were measured on the original 30-frame test clip (private, not included); re-timed on davis_reg: r24z 28.55 ms, regress ref full12r9a re-saved from it (r27d BIT-IDENTICAL).
 ## Exact build (from a clean checkout of strix-halo-maxx; .scratch/npu-tapnext is a symlink into it; ~10 min CPU, docker only):
     cd $SHM_SCRATCH/npu-tapnext && r24/try24.sh NAME [--sweep]
   (--sweep also builds depths 10 / 8 / 6 and times them; NOREG=1 / NOTIME=1 skip regress / time). The chain is r24/try24.sh ->

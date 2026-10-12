@@ -15,7 +15,7 @@ No deadline (2026-10-09): research project, measured understanding over quick wi
 | **Step at depth 12** (`build/full12r6e`, step8.py, one dispatch) | **76.34 ms dispatch, 78.9 ms per frame incl. host** (round 5: 89.4 / 91.9) |
 | per block (block 5) | 6.33 ms (round 5: 7.42) |
 | **DAVIS 10 videos 'first'** | depth 12 **AJ 70.83** (r5 71.00, CPU bf16 70.98), depth 10 **69.94** (r5 69.87, CPU 70.07), depth 8 **68.25** (r5 68.28, CPU 68.22) |
-| tracks vs CPU bf16 (clip30, 4 points, 4 frames) | within 0.037 px (full12r6b; r6e is bit-identical to it) |
+| tracks vs CPU bf16 (the original 30-frame test clip (private, not included), 4 points, 4 frames) | within 0.037 px (full12r6b; r6e is bit-identical to it) |
 | directed tests | t1/t2 epilogues = round 5 except GELU sites (all closer to their references now); t4 attention O rms_rel 6.99e-3 |
 | timeouts this round | 1 (the core-timer read in the one-core probe; recovered, not retried) |
 
@@ -40,7 +40,7 @@ up_a + up_b ~1.0, mlp0 0.54, yx 0.30, qkv 0.36, down/mlp3 4 x ~0.2, norms 4 x 0.
   (`<test>-<variant>` names), step8.py (`regress`, timeline JSON). Round-5 kernel sources: r6/r5src/.
 - **Best build**: `EW_OPT=-O2 AIECC_EXTRA=--reclaim-runtime-bds ./bb.sh full12r6e --lookahead 2 --kdefs=-O2` and the
   same for full{10,8,6,1}r6e (elfs byte-identical across depths; `Step8("full12r6e", d)`).
-- Tools (r6/): asmstat.py, ccs.sh, tlview.py, kprobe.py/.cc, emu.py, capture.py (build/acts_clip3.npz), numh.py,
+- Tools (r6/): asmstat.py, ccs.sh, tlview.py, kprobe.py/.cc, emu.py, capture.py (build/acts_davis3.npz), numh.py,
   lutgen.py. See NOTES 11.3.
 - Regression reference: `build/regress_full12r6b_d12.npz` (`./s8.sh LOG regress --build X --ref full12r6b`).
 

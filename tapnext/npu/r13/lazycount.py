@@ -1,6 +1,6 @@
 """Round 13 (P56 step 0): how often would a row block need the slow path under the lazy-fast K loop?
 
-Replays the kernel's lazy max on real scores (build/acts_clip3.npz attn_s_b<block>: 288 sampled query rows x 12 heads x
+Replays the kernel's lazy max on real scores (build/acts_davis3.npz attn_s_b<block>: 288 sampled query rows x 12 heads x
 1072 keys, q k^T / 8; the kernel's scores are 8x that, TAU = 8 x 8, NEG = -64 x 8): per 48-key chunk, in the kernel's
 units, a row block (8 rows) is flagged when any lane has s - m_old >= TAU - 0.25 SU (the lowered clamp bound), and the
 stored max moves (today's rule) when a row's max passes m_old + TAU. Chunk 0 always takes the slow path (m_old = NEG).
@@ -16,7 +16,7 @@ import numpy as np
 
 SU, TAU, NEG, KC = 8.0, 8.0, -64.0, 48
 bound = float(sys.argv[1]) if len(sys.argv) > 1 else TAU - 0.25
-z = np.load(Path(__file__).resolve().parent.parent / "build" / "acts_clip3.npz")
+z = np.load(Path(__file__).resolve().parent.parent / "build" / "acts_davis3.npz")
 keys = sorted(k for k in z.files if k.startswith("attn_s_b"))
 tot = flagged = moved = flag_after0 = units_after0 = 0
 per_chunk = np.zeros(23)

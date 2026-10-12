@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pack8 as P  # noqa: E402
 from step8 import COLS, KSTEP16, Step8, demo_queries, preprocess  # noqa: E402
 
-frames = np.load("/work/tapnet/data/clip30.npy")[:1]
+frames = np.load("/work/tapnet/data/davis_reg.npy")[:1]
 video = preprocess(frames)
 q = demo_queries()
 outs = []

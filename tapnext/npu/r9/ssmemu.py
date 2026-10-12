@@ -1,6 +1,6 @@
 """RG-LRU transcendentals on real activations (round 9): the deployed kernel against table candidates.
 
-usage (npu-iron-torch): python3 r9/ssmemu.py [--acts build/acts_clip3.npz] [--blocks 0,5,11]
+usage (npu-iron-torch): python3 r9/ssmemu.py [--acts build/acts_davis3.npz] [--blocks 0,5,11]
 
 Inputs: the real gate pre-activations of r6/capture.py (rglru_gx_b*, rglru_ga_b*: [rows, 768] bf16) and softplus(a_param)
 per channel from the safetensors. Reference = torch's own bf16 ops (the CPU model). For each formulation it prints the
@@ -222,7 +222,7 @@ def stats(got, ref, name):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--acts", default="/work/npu-tapnext/build/acts_clip3.npz")
+    ap.add_argument("--acts", default="/work/npu-tapnext/build/acts_davis3.npz")
     ap.add_argument("--blocks", default="0,1,2,3,4,5,6,7,8,9,10,11")
     ap.add_argument("--cands", default="")
     o = ap.parse_args()

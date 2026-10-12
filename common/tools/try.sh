@@ -94,7 +94,7 @@ if [ $LINT = 1 ]; then
 fi
 
 S8="docker run --rm --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $ROOT:/work -v $REPO:$REPO -v ${TAPNEXT_SRC:?path to the TAPNext torch model.py}:/tapnext/model.py:ro -v ${TAPNEXT_WEIGHTS:?path to tapnextpp_256.safetensors}:/tapnext/tapnextpp_256.safetensors:ro npu-iron-torch bash -c"
-# 3. numerics: bit-level regress vs the round-9 reference (4 frames of clip30)
+# 3. numerics: bit-level regress vs the round-9 reference (4 frames of davis_reg)
 SUM_REG="regress skipped"
 if [ $REGRESS = 1 ]; then
   run "$S8 \"cd /work/$WS && timeout 900 python3 step8.py regress --build full12$NAME --depth 12 --ref $REF > build/$NAME.regress.out 2>&1; echo rc=\\\$? >> build/$NAME.regress.out\""

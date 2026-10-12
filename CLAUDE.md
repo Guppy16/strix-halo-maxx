@@ -29,6 +29,10 @@ timing advice is `common/book/measurement.md`.
   (`tapnextpp_256.safetensors`); the scripts mount them read-only into the container.
 - Numerics: `r16/nrun.sh NAME.reg python3 step8.py regress --build full12NAME --depth 12 --ref full12r9a` must print
   BIT-IDENTICAL.
+- Test input: the regress / time / smoke scripts load the public clip `$SHM_SCRATCH/tapnet/data/davis_reg.npy` (TAP-Vid DAVIS
+  `goat`, 90 frames); make it with `python3 tapnext/npu/make_davis_reg.py`. The stored regress reference `build/regress_full12r9a_d12.npz`
+  and `build/acts_davis3.npz` (`r6/capture.py --out`) come from it. Historic numbers in the docs were measured on the original 30-frame
+  test clip (private, not included).
 - Asm hazards: `r24/lint.sh full12NAME` must report 0 errors.
 - Speed: `r16/nrun.sh NAME.ab python3 r18/ab.py --a full12r24z --b full12NAME` (A/B in one process; see
   `common/book/measurement.md`).

@@ -17,7 +17,7 @@ understanding over quick wins.**
 | **Step at depth 12** (`build/full12m`, `step8.py`; 205 ops, one dispatch) | **89.4 ms dispatch, 91.9 ms per frame incl. host** (round 4: 106.8 / 110) |
 | per block | 7.4 ms (round 4: 8.9) |
 | **DAVIS 10 videos 'first'** | **depth 12 AJ 71.00**, depth 10 69.87, depth 8 68.28 (CPU bf16: 70.98 / 70.07 / 68.22) |
-| tracks vs CPU bf16 (clip30, 4 points, 4 frames) | depth 12 within 0.021-0.027 px, depth 10 within 0.042 px |
+| tracks vs CPU bf16 (the original 30-frame test clip (private, not included), 4 points, 4 frames) | depth 12 within 0.021-0.027 px, depth 10 within 0.042 px |
 | depth at run time | `Step8(build, depth)` + `set_depth(d)`: one xclbin, per-depth .bin (elfs + CDO byte-identical across depths) |
 | host patch embedding (corrected) | 0.39 ms per frame at 8 torch threads (conv alone 0.28; 1 thread 0.93 / 1.57) |
 

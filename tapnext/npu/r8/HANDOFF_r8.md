@@ -45,7 +45,7 @@ GPU (compiled bf16): 22 ms at depth 12. Depth 10 stays the default pick.
 
 ## 4. Next concrete actions (in order)
 1. **SSM transcendentals** (largest lever left, ~-5 ms if 3x): sigmoid x2, exp (a, 1 - a^2), sqrt at ~80 cycles per
-   32-lane vector each. Options, emulate first (r6/emu.py style, real inputs `build/acts_clip3.npz` rglru_gx/ga,
+   32-lane vector each. Options, emulate first (r6/emu.py style, real inputs `build/acts_davis3.npz` rglru_gx/ga,
    sp from the safetensors): (a) sigmoid by table with an exact-enough x < -8 tail (inputs reach -105; gate_a feeds
    a = exp(-8 sp sigma), so a ~3e-4 error near a = 1 is a different bf16 a); (b) a and mult as functions of the bf16
    log_a; (c) exact bf16 sqrt by mantissa / exponent-parity table. Judge by the bf16 mismatch vs torch and by DAVIS

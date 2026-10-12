@@ -1,6 +1,6 @@
 """SSM numerics inside the CPU model (round 9): run the torch bf16 tracker with the RG-LRU's transcendentals replaced by
 bit-level emulations (r9/ssmemu.py) and compare the tracks against the plain torch bf16 run, so a numeric change can be
-judged end to end without a build. 48 query points on a grid at t = 0, clip30 (30 frames).
+judged end to end without a build. 48 query points on a grid at t = 0, the original 30-frame test clip (private, not included).
 
 usage (npu-iron-torch): python3 r9/cpuemu.py [--frames 30] [--cands deployed,lut,...]
 Prints per variant: |track - torch| in px (mean, p95, max over points x frames, and the last 10 frames), visibility flips.
@@ -103,7 +103,7 @@ def main():
     ap.add_argument("--cands", default="exact,deployed,lut,flip5%,flip18%")
     o = ap.parse_args()
     torch.set_num_threads(16)
-    frames = np.load("/work/tapnet/data/clip30.npy")[: o.frames]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[: o.frames]
     video = step8.preprocess(frames)
     model = step8.load_model(o.depth)
     q = grid_queries()

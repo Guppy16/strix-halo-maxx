@@ -14,7 +14,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--build", required=True)
 ap.add_argument("--frames", type=int, default=3)
 o = ap.parse_args()
-frames = np.load("/work/tapnet/data/clip30.npy")[: o.frames]
+frames = np.load("/work/tapnet/data/davis_reg.npy")[: o.frames]
 video = S8.preprocess(frames)
 s = S8.Step8(o.build, 12)
 q = S8.demo_queries()

@@ -183,7 +183,7 @@ Host side unchanged from round 2 (launch floor 97 us). Timeouts this round: 10, 
 | test | result |
 |---|---|
 | attention `t4` (the round-3 late fix in mm8.cc: g_srb 384 -> 768 B; the maxima aliased score blocks 3-5) | O rms_rel 7.2e-3, corr 1.000, every head/tile/column 0.01; out_proj bit-exact |
-| `step8.py blocks --build full1a` (depth 1, real weights, clip30 frames 0-1, every region vs the torch block) | after the GELU fix every region corr >= 0.9995, rms_rel 0.6-3% (bfp operand noise); before it y corr 0.89 |
+| `step8.py blocks --build full1a` (depth 1, real weights, the original 30-frame test clip (private, not included) frames 0-1, every region vs the torch block) | after the GELU fix every region corr >= 0.9995, rms_rel 0.6-3% (bfp operand noise); before it y corr 0.89 |
 | **GELU bug**: `nk8::gelu32` clamped x to [-8, 8] and multiplied the CLAMPED x (gelu(39) = 8): random-data tests never hit it | fixed (the clamp only bounds the exp argument) |
 | `step8.py smoke --build full12e` (depth 12, 4 frames, 4 tracked points vs the vendored model on the CPU in bf16) | **tracks within 0.030-0.055 px**, query-token corr 0.9995-0.9999 |
 | **DAVIS 10 videos, first** (`step8.py davis --build full12a`) | **AJ 70.72** (OA 92.48, <delta> 83.38) vs CPU bf16 70.98 (davis_cpu.py), GPU bf16 70.54, prototype 70.68; 282 ms/frame incl. host |
@@ -200,7 +200,7 @@ poll round) while the dispatch runs: a per-op wall-clock timeline of the real st
 | **full12f** | + host patch embedding (X0 written per frame; the device patch op and its 1.2 ms gone), 2-chain exp / sigmoid / sqrt / gelu helpers (nk8.h), EW -O2 again (fits without ew_patch) | **106.8** (min 106.8, 20 iters) | attn 1.75, SSM 1.45, norms 0.31-0.36, up_a + up_b 1.33, mlp0 0.85, yx 0.43, qkv 0.43 |
 SSM differentials (t3 = SSM + one GEMM, 20 iters): -Oz 7.45 ms, -O2 3.06, new kernel 2.11 (no transcendentals
 0.89, ring traffic only 0.51). Host side of a step (frame -> patches, query tokens, writes, read-back, heads): ~2.5 ms.
-### 13.3 The current best step and the depth front (MEASURED; `step8.py time`, 20 iters after 5 warm-ups, clip30)
+### 13.3 The current best step and the depth front (MEASURED; `step8.py time`, 20 iters after 5 warm-ups, the original 30-frame test clip (private, not included))
 | build | depth | dispatch ms median / min | whole step incl. host |
 |---|---|---|---|
 | full12f | 12 | 106.83 / 106.77 | 109.93 |
@@ -322,7 +322,7 @@ down_a (96 k-steps per core): 0.20 / 0.10 / 0.35 ms -> data movement ~1.0 us, co
 | nk8 exp32 / sigmoid | 0.99% / 0.97% | 0.50 | - |
 Per range (gelu): LUT is closer to RNE than nk8 on [-1, 4) (e.g. [0.01, 1): 1.7% vs 10.2% mismatches) and worse on
 [-4, -1) (up to 7 ulp) and below -4 (s clamped: |gelu| ~2e-4 instead of ~0).
-### 15.5 Real activations (clip30 3 frames, 12 blocks; `r6/numh.py`)
+### 15.5 Real activations (the original 30-frame test clip (private, not included), 3 frames, 12 blocks; `r6/numh.py`)
 GELU candidates, rms rel / bfp ratio (ssm_gelu, ffw_gate x up, vit_gelu vs tanh): nk8 4.41e-4 / 0.059, 2.05e-3 /
 0.264, 4.42e-4 / 0.093; LUT 64 x 1/8 4.40e-4 / 0.059, 2.05e-3 / 0.264, 4.77e-4 / 0.100; one Newton step 0.40-0.60;
 quadratic 2^f = nk8. vit_gelu vs the erf reference: nk8 (tanh) p99 39 ulp, erf LUT p99 3.3 ulp, same rms (8.7e-4).
@@ -440,7 +440,7 @@ cycles. The op's first tile waits 27-50 us for the A slot load in g11 (no EW dep
 | params (per head, /18) | 301 | 303 |
 | **op total** | **1340 us** | **1115 us** (PROF; t3 1554 -> 1263 us unprofiled) |
 Compute-bound: waits are 1.3% of the op. The transcendental chains (sigmoid, exp, sqrt) are now 52%.
-Real pre-activation ranges (build/acts_clip3.npz, block 0): gate_x input [-87, 79] (1-99%: -13.6..4), gate_a
+Real pre-activation ranges (activations of the original 30-frame test clip (private, not included), block 0): gate_x input [-87, 79] (1-99%: -13.6..4), gate_a
 [-105, 93] (1-99%: -10.6..13.8): a sigmoid table must keep the x < -8 tail (gate_a feeds a = exp(-8 sp sigma)).
 ### 17.4 Attention per head group (full12r8cp -DPROF, 192 records, median us)
 | pass | Q copies + waits | begin | K phase | V phase | waits between calls | end | total |
@@ -503,7 +503,7 @@ Real gates (r9/ssmemu.py, 5 blocks x 288 rows x 768, vs torch bf16): deployed nk
 mult 40.3% != torch, fixed-point drift p99 3.3%; tables (sigmoid /8 + nk8 exp + exact sqrt): 5.3% / 4.9% / 8.5% / 6.6%,
 drift p99 2.9%. Direct exp tables on log_a: 29% / 17% a mismatches (rejected); range-reduced 2^f table: as accurate,
 not faster (rejected for speed).
-CPU model with emulated RG-LRU numerics (r9/cpuemu.py, 48 grid points x 30 frames of clip30, |track - torch bf16|):
+CPU model with emulated RG-LRU numerics (r9/cpuemu.py, 48 grid points x 30 frames of the original 30-frame test clip (private, not included), |track - torch bf16|):
 | variant | mean px | p95 | max | vis flips |
 |---|---|---|---|---|
 | exact (fp64, RNE) | 0 | 0 | 0 | 0 |
@@ -511,7 +511,7 @@ CPU model with emulated RG-LRU numerics (r9/cpuemu.py, 48 grid points x 30 frame
 | tables (r9a) | 0.0146 | 0.0392 | 0.126 | 0.07% |
 | random 1-ulp flips of 5% / 18% of the gates | 0.0141 / 0.0146 | 0.038 / 0.037 | 0.195 / 0.150 | 0.07% / 0 |
 Any ulp-level change of the SSM numerics is the same chaotic noise (~0.1-0.2 px max over 30 frames).
-NPU smoke vs CPU (clip30, 4 demo points): 4 frames max 0.038 px (r8c 0.035); 30 frames max 0.131 (r8c 0.070; inside
+NPU smoke vs CPU (the original 30-frame test clip (private, not included), 4 demo points): 4 frames max 0.038 px (r8c 0.035); 30 frames max 0.131 (r8c 0.070; inside
 the noise envelope above).
 SSM op (t3, us, 40 iters): r8b 1260 -> r9a 1022 -> r9e 987 -> r9f 946. In-situ phases (t3-r9ap, PROF, cycles per chunk):
 sigmoid 2541 -> 1168, sqrt 1093 -> 493, log_a + exp 1507 (then -> passes), conv 1058, recurrence 888, out copies 798,

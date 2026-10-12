@@ -47,8 +47,8 @@ Not retried. Cycle counts now come from host timing of repeated work on one core
 each repetition consuming the previous output so none can be elided) or from the trace unit (one-column builds).
 
 ## P8. Real-activation numerics harness — DONE (parts 1-3), verdict: valuable, found two real issues
-`r6/capture.py` (CPU bf16 model, clip30 3 frames, 96 random token rows x full feature dim per block and site, all 12
-blocks -> build/acts_clip3.npz) + `r6/numh.py ranges|gelu` + `r6/emu.py` (bit-level models of the nk8 ops; checked
+`r6/capture.py` (CPU bf16 model, the original 30-frame test clip (private, not included), 3 frames, 96 random token rows x full feature dim per block and site, all 12
+blocks -> build/acts_davis3.npz) + `r6/numh.py ranges|gelu` + `r6/emu.py` (bit-level models of the nk8 ops; checked
 against the device on every bf16 input: GELU 99.17% / exp32 99.86% / sigmoid 99.92% bit-equal, the rest 1 ulp in
 narrow bands; the LUT GELU model 100.00%).
 - Ranges (MEASURED on real data): GELU inputs are large: vit (mlp0) |x| max 195, 21% beyond the +-8 exp clamp

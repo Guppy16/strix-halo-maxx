@@ -1,6 +1,6 @@
 """Attention exp candidates on real scores (round 7): the deployed expd_i vs piecewise-linear LUT exps.
 
-Scores: build/acts_clip3.npz attn_s_b<block> (CPU bf16 model, clip30 3 frames, 288 sampled query rows x 12 heads x
+Scores: build/acts_davis3.npz attn_s_b<block> (CPU bf16 model, original 30-frame test clip (private), 3 frames, 288 sampled query rows x 12 heads x
 1072 keys, q k^T / 8). The kernel's lazy max is replayed per 48-key chunk (m starts at -64, moves when a chunk's row
 max passes it by TAU = 8), P = exp(s - m) per chunk goes to bfp16 (blocks of 8 keys, encode_hw rounding), and the
 softmax weights a = P' / sum P' (P' rescaled to the final m exactly) are compared with exact softmax weights.
@@ -137,7 +137,7 @@ def main():
     if len(sys.argv) > 2:  # "lo:hi:h,lo:hi:h" (fused only)
         VARIANTS = tuple(tuple(float(v) for v in t.split(":")) for t in sys.argv[2].split(","))
         FUSED = (True,)
-    z = np.load(HERE.parent / "build" / "acts_clip3.npz")
+    z = np.load(HERE.parent / "build" / "acts_davis3.npz")
     variants = {"expd_i (deployed)": lambda s, m: expd_i(s, m)}
     if (HERE / "aexp_lut.npz").exists():
         variants["aexp (r7 device table, fp32->bfp)"] = aexp_dev

@@ -28,7 +28,7 @@ ROWS = 96
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--frames", type=int, default=3)
-    ap.add_argument("--video", default="/work/tapnet/data/clip30.npy")
+    ap.add_argument("--video", default="/work/tapnet/data/davis_reg.npy")
     ap.add_argument("--out", required=True)
     o = ap.parse_args()
     torch.set_num_threads(16)

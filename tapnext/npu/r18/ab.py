@@ -43,7 +43,7 @@ def main():
     ap.add_argument("--skip", type=int, default=2)
     ap.add_argument("--warmup", type=int, default=20)
     o = ap.parse_args()
-    frames = np.load("/work/tapnet/data/clip30.npy")[:2]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[:2]
     video = step8.preprocess(frames)
     q = step8.demo_queries()
     names = [o.a] + o.b

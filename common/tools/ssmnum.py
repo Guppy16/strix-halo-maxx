@@ -2,7 +2,7 @@
 
 Reference = torch's bf16 op order (pack8.ssm_ref): sg = bf(sigmoid(x)); t = bf(-8 sg); log_a = bf(t * sp);
 a = bf(exp(log_a)); a2 = bf(exp(2 log_a)); om = bf(1 - a2); mult = bf(sqrt(om)). Every bf() is RNE.
-Inputs: build/acts_clip3.npz rglru_ga_b* / rglru_gx_b* (288 rows x 768, 12 blocks, real desk frames) and
+Inputs: build/acts_davis3.npz rglru_ga_b* / rglru_gx_b* (288 rows x 768, 12 blocks, real davis_reg frames) and
 sp = bf(softplus(a_param)) from the safetensors.
 
 Designs emulated (D-numbers = ANALYSIS rev 4 section 7):
@@ -28,7 +28,7 @@ import numpy as np
 
 BF = ml_dtypes.bfloat16
 SCRATCH = os.environ.get("SHM_SCRATCH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../.scratch")
-ACTS = f"{SCRATCH}/npu-tapnext/build/acts_clip3.npz"
+ACTS = f"{SCRATCH}/npu-tapnext/build/acts_davis3.npz"
 W = os.environ.get("TAPNEXT_WEIGHTS", f"{SCRATCH}/models/tapnextpp_256.safetensors")
 
 

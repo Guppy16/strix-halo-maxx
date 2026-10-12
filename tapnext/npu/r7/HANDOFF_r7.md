@@ -16,7 +16,7 @@ No deadline: research project, measured understanding over quick wins.
 | attention, t4 directed test | 1706 -> 1506 us (O rms_rel 6.987e-3 -> 6.938e-3) |
 | GEMM call (mm_acc) | 321 -> 225 bundles (asm, bit-identical) |
 | DAVIS 10 videos 'first' (full12r7g) | depth 12 **AJ 70.78** OA 92.58 (r6 70.83, CPU bf16 70.98); depth 10 **AJ 69.83** OA 91.13 (r6 69.94, CPU 70.07) |
-| tracks vs CPU bf16 (clip30, 4 points, 4 frames) | within 0.035 px (full12r7a; r7c..r7g are BIT-IDENTICAL to r7a) |
+| tracks vs CPU bf16 (the original 30-frame test clip (private, not included), 4 points, 4 frames) | within 0.035 px (full12r7a; r7c..r7g are BIT-IDENTICAL to r7a) |
 | timeouts this round | 0 |
 
 ### The Pareto front (latency MEASURED, sweep on one xclbin full12r7g; AJ: see the DAVIS row)

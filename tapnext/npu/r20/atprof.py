@@ -15,7 +15,7 @@ def main():
     import torch
     from step8 import Step8, demo_queries, preprocess
 
-    frames = np.load("/work/tapnet/data/clip30.npy")[:3]
+    frames = np.load("/work/tapnet/data/davis_reg.npy")[:3]
     video = preprocess(frames)
     s = Step8(sys.argv[1], 12)
     q = demo_queries()

@@ -2,7 +2,7 @@
 from pathlib import Path
 import numpy as np
 SU, TAU, NEG, KC = 8.0, 8.0, -64.0, 48
-z = np.load(Path(__file__).resolve().parent.parent / "build" / "acts_clip3.npz")
+z = np.load(Path(__file__).resolve().parent.parent / "build" / "acts_davis3.npz")
 keys = sorted(k for k in z.files if k.startswith("attn_s_b"))
 rows_meta = [k for k in z.files if "row" in k or "idx" in k]
 print("other keys:", [k for k in z.files if not k.startswith("attn_s")][:12], rows_meta)

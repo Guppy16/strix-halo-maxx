@@ -28,7 +28,7 @@ NCH = -(-NK // KC)  # 23
 torch.set_num_threads(4)
 nfr = int(sys.argv[1]) if len(sys.argv) > 1 else 1
 model = S8.load_model(12)
-frames = np.load("/work/tapnet/data/clip30.npy")[:nfr]
+frames = np.load("/work/tapnet/data/davis_reg.npy")[:nfr]
 video = S8.preprocess(frames)
 q = S8.demo_queries()
 cap = []
