@@ -1,11 +1,32 @@
 # The book: Strix Halo NPU and GPU, machine level
 
-A manual for this machine: what the hardware does, how to program and measure it, and which general techniques worked
-or failed, with numbers and evidence. Read it before the model chapters. Each chapter links down to the model-specific
-parts in [tapnext/book](../../tapnext/book/README.md) and [moondream/book](../../moondream/book/README.md). The lab
-notebook (rNN/ folders, NOTES, RESULTS, the commit log) is the raw evidence. Use the
-[book-read skill](../../.claude/skills/book-read/SKILL.md) to find things, and the
-[book-write skill](../../.claude/skills/book-write/SKILL.md) to add to the book.
+> **In brief**
+>
+> - A manual for this machine: what the hardware does, how to program and measure it, and which general techniques worked or failed, with numbers and evidence.
+> - Read it before the model chapters. Each chapter links down to [tapnext/book](../../tapnext/book/README.md) and [moondream/book](../../moondream/book/README.md) for shapes, layouts and the specific attempts.
+> - The lab notebook (rNN/ folders, NOTES, RESULTS, the commit log) is the raw evidence. Find things with the [book-read skill](../../.claude/skills/book-read/SKILL.md); add to the book with the [book-write skill](../../.claude/skills/book-write/SKILL.md).
+
+## Where to start
+
+Chapters 1-3 are the foundation (what the chip is, how code is built, how timings are trusted). Chapters 4-8 are techniques built on it. Chapter 9 is how the work was organised.
+
+```mermaid
+flowchart TB
+    subgraph found["Foundation"]
+        direction LR
+        c1["1 machine"] --> c2["2 toolchain"] --> c3["3 measurement"]
+    end
+    subgraph tech["Techniques"]
+        direction LR
+        c4["4 gemm"] --> c5["5 data-movement"] --> c6["6 fusion"]
+        c7["7 elementwise"] --> c8["8 attention"]
+    end
+    subgraph meta["Method"]
+        direction LR
+        c9["9 method"] --> nr["negative-results"]
+    end
+    found --> tech --> meta
+```
 
 | # | chapter | one line |
 |---|---|---|
@@ -36,5 +57,14 @@ Chapters cite sources this way (paths from the repo root):
 | 7 hex digits | a commit in this repo |
 | round n, rNN/ | a TAPNext round; its tools and logs are in `tapnext/npu/rNN/` (implementer) or `tapnext/research/rNN/` (research) |
 
-Number status follows the sources: MEASURED (on the device), MODEL (a calibrated model or CP result), EXTRAPOLATED.
-The DDR caps and the CPU-load clock drop are observations under our conditions, not rules.
+## Number status
+
+Number status follows the sources:
+
+| tag | meaning |
+|---|---|
+| MEASURED | taken on the device |
+| MODEL | a calibrated model or CP-SAT result |
+| EXTRAPOLATED | projected beyond what was measured |
+
+> **Note.** The DDR caps and the CPU-load clock drop are observations under our conditions, not rules.
