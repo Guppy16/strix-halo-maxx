@@ -7,3 +7,4 @@ stray/
 *.npz
 *.pt
 *.safetensors
+site/

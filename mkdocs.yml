@@ -1,0 +1,128 @@
+site_name: strix-halo-maxx
+site_description: Hand-optimised model inference on AMD Strix Halo (XDNA2 NPU and gfx1151 GPU)
+# TODO: no remote yet. Once pushed, set these; the link hook then points code links at GitHub.
+# repo_url: https://github.com/OWNER/strix-halo-maxx
+# edit_uri: edit/main/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.view
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+# The Markdown stays where it is (GitHub renders it too); same-dir lets the
+# repo root be the docs dir.
+docs_dir: .
+plugins:
+  - search
+  - same-dir
+
+hooks:
+  - tools/mkdocs_hooks.py
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+      # GitHub-style anchors, so the book's #fragment links work on both
+      slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+validation:
+  omitted_files: ignore
+
+# Keep build products and big files out of the site. Only Markdown and small
+# text sources the book links to are copied.
+exclude_docs: |
+  .git/
+  .github/
+  .claude/
+  CLAUDE.md
+  site/
+  build/
+  **/build/
+  **/bak/
+  __pycache__/
+  *.o
+  *.out
+  *.log
+  *.dis
+  *.s
+  *.npy
+  *.npz
+  *.pt
+  *.safetensors
+  *.xclbin
+  *.elf
+  *.nm
+  *.size
+  *.jsonl
+  common/tools/aie2p_isa_timing.json
+  # tracked symlink whose target (tapnext/research/tools/attsim.py) does not exist
+  tapnext/research/r15/attsim.py
+
+nav:
+  - Home: README.md
+  - Common book:
+      - common/book/README.md
+      - common/book/machine.md
+      - common/book/toolchain.md
+      - common/book/measurement.md
+      - common/book/gemm.md
+      - common/book/data-movement.md
+      - common/book/fusion.md
+      - common/book/elementwise.md
+      - common/book/attention.md
+      - common/book/method.md
+      - common/book/negative-results.md
+  - TAPNext:
+      - tapnext/README.md
+      - tapnext/book/README.md
+      - tapnext/book/step-design.md
+      - tapnext/book/gemm.md
+      - tapnext/book/attention.md
+      - tapnext/book/ssm.md
+      - tapnext/book/norms.md
+      - tapnext/book/boundaries.md
+      - tapnext/book/numerics.md
+      - tapnext/book/ledger.md
+      - tapnext/book/crop-study.md
+  - Moondream:
+      - moondream/README.md
+      - moondream/book/README.md
+      - moondream/book/overview.md
+      - moondream/book/gpu.md
+      - moondream/book/npu-gemm.md
+      - moondream/book/npu-attention.md
+      - moondream/book/npu-elementwise.md
+      - moondream/book/numerics.md
+      - moondream/book/moondream3.md
+  - Reference:
+      - Machine model: common/MACHINE.md
+      - TAPNext notes: tapnext/npu/NOTES.md
+      - TAPNext results: tapnext/npu/RESULTS.md
+      - TAPNext handoff: tapnext/npu/HANDOFF.md
+      - Moondream NPU notes: moondream/npu/NOTES.md
+      - Moondream NPU results: moondream/npu/RESULTS.md

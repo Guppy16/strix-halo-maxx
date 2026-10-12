@@ -37,3 +37,9 @@ GPU idle. See [common/book/measurement.md](common/book/measurement.md).
 Only hand-written code, generators, docs and small result tables are tracked: builds, weights, venvs and logs stay out.
 On testbox, `~/git/app/.scratch/npu-{tapnext,research,moondream}` are symlinks to `tapnext/npu`, `tapnext/research` and
 `moondream/npu`. Containers that mount .scratch at /work also mount this repo at its own path, so the links resolve.
+
+## Reading the book
+
+The Markdown here is also built as a MkDocs Material site (`mkdocs.yml`, links to code handled by `tools/mkdocs_hooks.py`).
+Preview locally with `uvx --with mkdocs-material --with mkdocs-same-dir mkdocs serve`. Once the repo is pushed to GitHub
+and Pages is set to "GitHub Actions", `.github/workflows/pages.yml` publishes it on every push to `main`.
