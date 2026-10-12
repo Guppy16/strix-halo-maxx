@@ -9,7 +9,6 @@ theme:
   name: material
   features:
     - navigation.tabs
-    - navigation.sections
     - navigation.top
     - navigation.indexes
     - search.suggest
@@ -103,45 +102,45 @@ exclude_docs: |
 nav:
   - Home: README.md
   - Strix Halo:
-      - common/book/README.md
-      - common/book/machine.md
-      - common/book/toolchain.md
-      - common/book/measurement.md
-      - common/book/gemm.md
-      - common/book/data-movement.md
-      - common/book/fusion.md
-      - common/book/elementwise.md
-      - common/book/attention.md
-      - common/book/method.md
-      - common/book/negative-results.md
+      - Contents: common/book/README.md
+      - The machine: common/book/machine.md
+      - Toolchain and assembly: common/book/toolchain.md
+      - Measurement: common/book/measurement.md
+      - Matrix multiplies: common/book/gemm.md
+      - Data movement: common/book/data-movement.md
+      - Fusion and overlap: common/book/fusion.md
+      - Elementwise maths: common/book/elementwise.md
+      - Attention: common/book/attention.md
+      - Research method: common/book/method.md
+      - Negative results: common/book/negative-results.md
       - Machine reference: common/MACHINE.md
   - Projects:
       - TAPNext:
           - tapnext/README.md
-          - tapnext/book/README.md
-          - tapnext/book/step-design.md
-          - tapnext/book/gemm.md
-          - tapnext/book/attention.md
-          - tapnext/book/ssm.md
-          - tapnext/book/norms.md
-          - tapnext/book/boundaries.md
-          - tapnext/book/numerics.md
-          - tapnext/book/ledger.md
-          - tapnext/book/crop-study.md
+          - Book contents: tapnext/book/README.md
+          - Step design: tapnext/book/step-design.md
+          - GEMM: tapnext/book/gemm.md
+          - Attention: tapnext/book/attention.md
+          - SSM: tapnext/book/ssm.md
+          - Norms: tapnext/book/norms.md
+          - Op boundaries: tapnext/book/boundaries.md
+          - Numerics: tapnext/book/numerics.md
+          - Time ledger: tapnext/book/ledger.md
+          - Crop study: tapnext/book/crop-study.md
           - Lab notebook:
               - Notes: tapnext/npu/NOTES.md
               - Results: tapnext/npu/RESULTS.md
               - Handoff: tapnext/npu/HANDOFF.md
       - Moondream:
           - moondream/README.md
-          - moondream/book/README.md
-          - moondream/book/overview.md
-          - moondream/book/gpu.md
-          - moondream/book/npu-gemm.md
-          - moondream/book/npu-attention.md
-          - moondream/book/npu-elementwise.md
-          - moondream/book/numerics.md
-          - moondream/book/moondream3.md
+          - Book contents: moondream/book/README.md
+          - Overview: moondream/book/overview.md
+          - GPU fast path: moondream/book/gpu.md
+          - NPU GEMMs: moondream/book/npu-gemm.md
+          - NPU attention: moondream/book/npu-attention.md
+          - NPU elementwise: moondream/book/npu-elementwise.md
+          - Numerics: moondream/book/numerics.md
+          - moondream3 and 0.5B: moondream/book/moondream3.md
           - Lab notebook:
               - NPU notes: moondream/npu/NOTES.md
               - NPU results: moondream/npu/RESULTS.md
