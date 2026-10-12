@@ -1,11 +1,36 @@
 # Data movement and DDR
 
-Inside the array, data moves fast: 7.95 B/cycle per memtile → core port. The slow parts are DDR and the DMA
-bookkeeping. The NPU's DDR reads and writes each cap at **~55-59 GB/s in aggregate** (observed, GPU idle), and adding channels
-does not raise that. Every TAPNext norm and the SSM sit at or near the read cap, and every dependent op boundary
-was DDR bytes (a drain tail at the write cap, then the consumer's first tile at the read cap). So the levers are fewer DDR
-bytes and keeping data on chip, not more channels. The second half of this chapter is DMA bookkeeping: BD budgets, task
-queues, and where a fill must be issued so the command processor neither blocks nor deadlocks.
+> **In brief**
+>
+> - Inside the array data moves fast (7.95 B/cycle per memtile → core port). The slow parts are DDR and the DMA bookkeeping.
+> - The NPU's DDR reads and writes each cap at **~55-59 GB/s in aggregate** (observed, GPU idle). Adding channels does not raise that.
+> - Every TAPNext norm and the SSM sit at or near the read cap, and every dependent op boundary was DDR bytes
+>   (a drain tail at the write cap, then the consumer's first tile at the read cap).
+>   So the levers are fewer DDR bytes and keeping data on chip, not more channels.
+> - The second half is DMA bookkeeping: BD budgets, task queues, and where a fill must be issued so the command processor
+>   neither blocks nor deadlocks.
+
+**Conditions.** DDR rates are MEASURED with the GPU idle (gpu_busy 0), NPU clock 1.808 GHz; they are observations under these conditions, not rules.
+
+**Terms.** DDR = shared system memory. BD = DMA buffer descriptor. CP = the NPU's command processor. TAP = tensor access pattern.
+MM2S / S2MM = DMA channel reading from / writing to a stream. Shim = the tile that talks to DDR. Memtile = the shared on-chip scratch memory of a column (512 KB).
+EW = elementwise core. L1 = a core's local memory.
+
+## Where does the data travel?
+
+```mermaid
+flowchart TB
+    subgraph r1["off chip to the column"]
+        direction LR
+        ddr["DDR: 55-59 GB/s read, 50-60 write"] <--> shim["shim: ~7 B/cycle per stream"]
+    end
+    subgraph r2["inside the column"]
+        direction LR
+        mt["memtile 512 KB"] -->|"7.95 B/cycle to core"| core["core L1"]
+        core -->|"drain 7.9 B/cycle"| mt
+    end
+    r1 --> r2
+```
 
 ## Rates
 
@@ -23,13 +48,15 @@ queues, and where a fill must be issued so the command processor neither blocks 
 
 ## The DDR caps
 
+Write throughput climbs with the number of columns (2 columns 24.4 GB/s, 4 columns 45.3, 8 columns ~50-60), then flattens: the cap is aggregate, not per stream.
+
 - **The cap is aggregate.** 4 × 1 and 2 × 2 streams give the same rate, and 8 × 1 the same as 8 × 2 (DDRCAP). A second input channel per column
   for the norms ([C13](negative-results.md#c13) <!-- nr: C13 -->) or a second drain channel per column
   ([B10](negative-results.md#b10) <!-- nr: B10 -->, [C16](negative-results.md#c16) <!-- nr: C16 -->) cannot help.
-- History: moondream measured "~55-60 GB/s peak" early (MD p2/bw.py). Research rev 15 derived "≥ 84 GB/s" from norm walls × bytes and called
+- **History.** moondream measured "~55-60 GB/s peak" early (MD p2/bw.py). Research rev 15 derived "≥ 84 GB/s" from norm walls × bytes and called
   the old figure a per-channel artefact; DDRCAP restored it ([C12](negative-results.md#c12) <!-- nr: C12 -->). MACHINE [M10.4](../MACHINE.md#m10-4), [M8.7](../MACHINE.md#m8-7) now give
   the DDRCAP reading; [M10.5](../MACHINE.md#m10-5), [M15.3](../MACHINE.md#m15-3) apply it.
-- A per-channel write limit (~4 B/cycle) and token latency were both proposed for the 12 µs drain tail. Both were refuted: one stream writes
+- **The drain tail is bytes.** A per-channel write limit (~4 B/cycle) and token latency were both proposed for the 12 µs drain tail. Both were refuted: one stream writes
   6.7 B/cycle, and the tail is the last 442 KB of C objects at the aggregate write cap ([C14](negative-results.md#c14) <!-- nr: C14 -->,
   [C15](negative-results.md#c15) <!-- nr: C15 -->).
 - **Near the cap is not on the cap.** The SSM span read at 54 GB/s, ~95 % of the cap, yet it was compute-bound by ~255 cycles per chunk
@@ -37,9 +64,18 @@ queues, and where a fill must be issued so the command processor neither blocks 
 - Price a bound over the binding op's own span, with the cap of the same kind ([L3](negative-results.md#l3)).
 - GPU load shares this DDR. Every TAPNext number is gpu_busy 0. An LLM on the GPU will slow the read-capped ops (untested; HANDOFF risks).
 
-**What the cap means for a design**: count DDR bytes per op span. TAPNext's step reads 914 MB and writes 676 MB
-(`tapnext/research/r21/ddrbudget.py`, [M10.5](../MACHINE.md#m10-5)). Its EW ops read at 48-55 GB/s inside their spans, while GEMM steady tiles use only 13-24 GB/s.
-The norms' floor is bytes: keeping the panels on chip (NRES) saved −0.65 ms, and a second channel saved nothing.
+**What the cap means for a design**: count DDR bytes per op span, so that an op's lower bound is
+
+$$t_\text{op} \ge \frac{\text{bytes read}}{57\ \text{GB/s}} \quad\text{or}\quad \frac{\text{bytes written}}{55\ \text{GB/s}}.$$
+
+| quantity | value |
+|---|---|
+| TAPNext step DDR reads | 914 MB |
+| TAPNext step DDR writes | 676 MB |
+| EW ops inside their spans | read at 48-55 GB/s |
+| GEMM steady tiles | use only 13-24 GB/s |
+
+Sources: `tapnext/research/r21/ddrbudget.py`, [M10.5](../MACHINE.md#m10-5). The norms' floor is bytes: keeping the panels on chip (NRES) saved −0.65 ms, and a second channel saved nothing.
 
 ## Keeping data on chip
 
@@ -49,45 +85,74 @@ The memtile (512 KB per column) is where activations can stay between ops:
   one lock per chunk). Runtime-driven memtile tasks (`FlowEndpoint.task`, A_RT) let the first tile start after one chunk:
   −2.0 ms (round 10).
 - **Producer → memtile directly**: an EW core streams its output panels into the next GEMM's A slot through its free MM2S (NRES, SRES; round 20).
-- Capacity binds quickly: a GEMM → GEMM output park needed 124 KB against 112 KB free ([B11](negative-results.md#b11)). A third A region needed
+- **Capacity binds quickly.** A GEMM → GEMM output park needed 124 KB against 112 KB free ([B11](negative-results.md#b11)). A third A region needed
   contiguous space the holes did not have until IRON re-packed the memtile ([C24](negative-results.md#c24)). The model chapters have the details.
-- moondream: residency of A in the memtile is the reachable cut of the frame's DDR traffic (A read ~2x: 403 MB vs ~200 inherent).
+- **moondream**: residency of A in the memtile is the reachable cut of the frame's DDR traffic (A read ~2x: 403 MB vs ~200 inherent).
   It was designed, not built (MD RESULTS phase 12).
 
 ## DMA bookkeeping
 
-**BDs.** Shim and core tiles have 16 BDs, memtiles 48 in two halves of 24 per channel group (a static chain gets ~22).
+### Buffer descriptors
+
+| limit | value |
+|---|---|
+| BDs per shim or core tile | 16 |
+| BDs per memtile | 48, in two halves of 24 per channel group (a static chain gets ~22) |
+
 - `BdIteration(size, stride)` lets one BD walk a ring of slots and keeps rings under the budget (SKILL §2).
 - A shim BD lives until its TaskGroup finishes. Put each fill in the earliest drain group whose completion proves it was consumed. At
   TAPNext's out_proj, shim 0 held 16-20 live BDs until the attention's fills moved into pass 0's group (P0FREE: peak 20 → 16; [M10.3](../MACHINE.md#m10-3)).
 - `aiecc --reclaim-runtime-bds` inserts completion maskpolls instead, and those can hang when completion depends on a later push.
-- `TaskGroup.finish()` frees *every* BD in the group, waited or not. A group holding only `wait=False` fills must not finish before they
-  complete (silent corruption or a hang).
 
-**Field limits** ([machine.md](machine.md#dma-streams-and-ports)):
-- Shim BD steps are 20 bits of words. A larger step moves the right bytes but serialises the columns (norm3: 6 ms instead of 0.8;
-  [G11](negative-results.md#g11) <!-- nr: G11 -->). Keep the regions one TAP strides across within 4 MB.
-- Shim TAP dims hold ≤ 1023 words each. A 4,608 B object needs a fold dimension or per-object tasks.
-- Tile and memtile BDs refuse stride 0 ([G10](negative-results.md#g10)).
-- A BD takes one acquire and one release, or neither. Release by 0 is the no-op form ([G19](negative-results.md#g19)).
-- An EW input fill group must total a multiple of the 768 B ring slot. 1 KB padding left a slot unfilled and hung the step
-  ([E12](negative-results.md#e12) <!-- nr: E12 -->).
+> **Pitfall.** `TaskGroup.finish()` frees *every* BD in the group, waited or not. A group holding only `wait=False` fills must not finish before they
+> complete (silent corruption or a hang).
 
-**Queues.** Each memtile MM2S channel takes **5 tasks without blocking** (1 running + 4 queued). A shim channel behaves the same (~5,
-inferred). A 6th push blocks the command processor until that channel's oldest task completes ([M10.2](../MACHINE.md#m10-2); round 23):
+### Field limits
+
+See [machine.md](machine.md#dma-streams-and-ports).
+
+| limit | consequence |
+|---|---|
+| Shim BD steps are 20 bits of words | a larger step moves the right bytes but serialises the columns (norm3: 6 ms instead of 0.8; [G11](negative-results.md#g11) <!-- nr: G11 -->). Keep the regions one TAP strides across within 4 MB |
+| Shim TAP dims hold ≤ 1023 words each | a 4,608 B object needs a fold dimension or per-object tasks |
+| Tile and memtile BDs refuse stride 0 | ([G10](negative-results.md#g10)) |
+| A BD takes one acquire and one release, or neither | release by 0 is the no-op form ([G19](negative-results.md#g19)) |
+| An EW input fill group must total a multiple of the 768 B ring slot | 1 KB padding left a slot unfilled and hung the step ([E12](negative-results.md#e12) <!-- nr: E12 -->) |
+
+### Queues
+
+Each memtile MM2S channel takes **5 tasks without blocking** (1 running + 4 queued). A shim channel behaves the same (~5,
+inferred). A 6th push blocks the command processor until that channel's oldest task completes ([M10.2](../MACHINE.md#m10-2); round 23).
+
+```mermaid
+sequenceDiagram
+    participant CP as CP
+    participant Q as channel queue
+    participant D as DMA
+    CP->>Q: push tasks 1-5
+    Note over Q: full: 1 running, 4 queued
+    CP->>Q: push task 6
+    Q--xCP: blocks
+    D-->>Q: oldest completes
+    Q-->>CP: push accepted
+```
+
 - Never push a memtile MM2S task before the same op's fills exist. The blocked push waits on work the CP has not issued
   (SEQPRE v1 +1.1 ms; [C5](negative-results.md#c5) <!-- nr: C5 -->).
 - When a column's tile 0 needs a B multicast, push every column's first five tasks before any column's sixth (r23d hung column by column).
 - Keep drain groups ≤ 4-5 per column: 7 drain TAPs per column blocked the CP behind them (+0.44 ms; [L6](negative-results.md#l6)).
 
-**Fills before or after waits.**
+### Fills before or after waits
+
 - Issue everything independent of a producer before its wait (NSEQ: a norm's params and drains before the wait, −0.17 with NRES).
   GEMM drains moved before a wait cost +0.15 instead, cause unexplained ([C7](negative-results.md#c7) <!-- nr: C7 -->).
 - A fill that must wait can still be *configured* before the wait and pushed after (CPPRE, −0.09). A post-wait fill costs the CP ~0.55 µs per column,
   and 8 columns skew by ~4.4 µs ([M11.2](../MACHINE.md#m11-2)). See [fusion.md](fusion.md#the-command-processor-sequence).
 - Lock-governed memtile sends wait in the channel FIFO, so push a split consumer's sends *before* its part waits (OPPRE2 v2 −0.15 vs v1 −0.04).
 
-**Multicast.** A memtile `forward` to N cores is one MM2S channel. A send starts only when every destination has a free L1 slot, so
+### Multicast
+
+A memtile `forward` to N cores is one MM2S channel. A send starts only when every destination has a free L1 slot, so
 the destinations run in lockstep. A rare slow unit costs ~3x its own time on the wall ([attention.md](attention.md#lockstep-under-a-multicast)).
 
 ## Packet routing
@@ -98,17 +163,19 @@ A core tile's 4 south ports were full in TAPNext (C × 3 + EW output), so a fift
 
 ## What didn't work
 
-- [B10](negative-results.md#b10) <!-- nr: B10 --> C drains over two shim S2MM per column: the write cap is aggregate.
-- [C12](negative-results.md#c12) <!-- nr: C12 --> "≥ 84 GB/s": the read cap is ~55-59 GB/s.
-- [C13](negative-results.md#c13) <!-- nr: C13 --> a second norm input channel: the 3-input norms already sit at the aggregate cap.
-- [C14](negative-results.md#c14) <!-- nr: C14 --> a per-channel write limit as the tail: one stream writes 6.7 B/cycle.
-- [C15](negative-results.md#c15) <!-- nr: C15 --> token / CP latency as the tail: the tail is bytes at the write cap.
-- [C16](negative-results.md#c16) <!-- nr: C16 --> a two-drain probe: moot once the 1/2/4/8-column series showed an aggregate cap.
-- [C5](negative-results.md#c5) <!-- nr: C5 --> memtile sends before the wait: the 5-deep queue blocked the CP (+1.1 ms).
-- [C7](negative-results.md#c7) <!-- nr: C7 --> GEMM drains before the wait: +0.15 ms, cause unexplained.
-- [G11](negative-results.md#g11) <!-- nr: G11 --> a BD step above 20 bits: correct, but columns serialised.
-- [E12](negative-results.md#e12) <!-- nr: E12 --> a 1 KB fill pad: not a slot multiple, hang.
-- [L6](negative-results.md#l6) <!-- nr: L6 --> finer drain groups: the shim channel's task queue blocked.
+| id | idea | why it failed |
+|---|---|---|
+| [B10](negative-results.md#b10) <!-- nr: B10 --> | C drains over two shim S2MM per column | the write cap is aggregate |
+| [C12](negative-results.md#c12) <!-- nr: C12 --> | "≥ 84 GB/s" | the read cap is ~55-59 GB/s |
+| [C13](negative-results.md#c13) <!-- nr: C13 --> | a second norm input channel | the 3-input norms already sit at the aggregate cap |
+| [C14](negative-results.md#c14) <!-- nr: C14 --> | a per-channel write limit as the tail | one stream writes 6.7 B/cycle |
+| [C15](negative-results.md#c15) <!-- nr: C15 --> | token / CP latency as the tail | the tail is bytes at the write cap |
+| [C16](negative-results.md#c16) <!-- nr: C16 --> | a two-drain probe | moot once the 1/2/4/8-column series showed an aggregate cap |
+| [C5](negative-results.md#c5) <!-- nr: C5 --> | memtile sends before the wait | the 5-deep queue blocked the CP (+1.1 ms) |
+| [C7](negative-results.md#c7) <!-- nr: C7 --> | GEMM drains before the wait | +0.15 ms, cause unexplained |
+| [G11](negative-results.md#g11) <!-- nr: G11 --> | a BD step above 20 bits | correct, but columns serialised |
+| [E12](negative-results.md#e12) <!-- nr: E12 --> | a 1 KB fill pad | not a slot multiple, hang |
+| [L6](negative-results.md#l6) <!-- nr: L6 --> | finer drain groups | the shim channel's task queue blocked |
 
 ## Lessons
 
