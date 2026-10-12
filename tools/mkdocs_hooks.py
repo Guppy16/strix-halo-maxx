@@ -21,7 +21,7 @@ FENCE = re.compile(r"^\s*(```|~~~)")
 ITEM = re.compile(r"^(\s*)([-*+]|\d+[.)])\s")
 TABLE = re.compile(r"^\s*\|")
 HEADING = re.compile(r"^\s{0,3}#")
-NR_MARK = re.compile(r"\s*<!-- nr: [^>]*-->")
+NR_MARK = re.compile(r"[ \t]*<!-- nr: [^>]*-->")
 
 _repo_url = None
 _branch = "main"
