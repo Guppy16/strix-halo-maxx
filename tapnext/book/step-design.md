@@ -22,28 +22,29 @@ k-step = one 64-wide slice of the reduction dimension $K$ for one tile. AJ = ave
 One block is 17 ops. Each is assigned to one core kind and the cores hand data to each other through DDR.
 
 ```mermaid
-flowchart LR
+flowchart TB
     classDef ew fill:#fde9c9,stroke:#b36b00,color:#000
     classDef gemm fill:#d6e8fb,stroke:#1f5fa8,color:#000
     subgraph mixer["mixer"]
+        direction LR
         n0["norm0 RMS"]:::ew --> yx["yx GEMM"]:::gemm --> ssm["ssm EW"]:::ew --> out["out GEMM"]:::gemm
     end
     subgraph mlp1["MLP 1"]
+        direction LR
         n1["norm1 RMS"]:::ew --> up["up a,b"]:::gemm --> down["down a,b"]:::gemm
     end
     subgraph att["attention"]
+        direction LR
         n2["norm2 LN"]:::ew --> qkv["qkv"]:::gemm --> attn["attn"]:::gemm --> op["out_proj"]:::gemm
     end
     subgraph mlp2["MLP 2"]
+        direction LR
         n3["norm3 LN"]:::ew --> m0["mlp0"]:::gemm --> m3["mlp3 a,b"]:::gemm
     end
-    out --> n1
-    down --> n2
-    op --> n3
-    m3 -.-> |next block| n0
+    mixer --> mlp1 --> att --> mlp2
 ```
 
-Orange = EW core, blue = GEMM core. Attention is blue because it also runs on the GEMM cores: the matrix unit and the vector unit are one unit,
+Orange = EW core, blue = GEMM core; after MLP 2 the next block starts again at norm0. Attention is blue because it also runs on the GEMM cores: the matrix unit and the vector unit are one unit,
 so a core does one or the other (REDESIGN §1). Norm kinds: norm0 and norm1 are RMS, norm2 and norm3 are LayerNorm (LN).
 
 | op | core | shape (K = reduction, N = output; tiles of 64 per core) | notes |
