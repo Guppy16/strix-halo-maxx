@@ -3,7 +3,20 @@
 The model-specific chapters for moondream2 on the gfx1151 GPU and the XDNA2 NPU, plus the moondream3-preview evaluation.
 The work predates the TAPNext port and is not active. Read [the machine-level book](../../common/book/README.md) first.
 
-Each chapter uses the same sections, so links stay stable: a lead, the topic sections, `## What worked`,
+```mermaid
+flowchart TB
+    subgraph map["Read in this order"]
+        direction LR
+        ov["1 overview"] --> gp["2 gpu"] --> ge["3 npu-gemm"] --> at["4 npu-attention"]
+    end
+    subgraph rest["Then"]
+        direction LR
+        ew["5 npu-elementwise"] --> nu["6 numerics"] --> m3["7 moondream3"]
+    end
+    map --> rest
+```
+
+Each chapter uses the same sections, so links stay stable: "In brief", the topic sections, `## What worked`,
 `## What didn't work` (anchor `#what-didnt-work`), `## Lessons`, `## Going deeper`.
 
 | # | chapter | covers | general part |

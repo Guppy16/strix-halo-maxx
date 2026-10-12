@@ -1,14 +1,36 @@
 # moondream: the workload, the split and the budget
 
-moondream is low-latency VLM inference for local use; the hardware can be the NPU or a strong GPU. Here moondream2 is used as an object-presence (yes/no) query ("Is there a mug in this image? Answer yes or no.") on camera frames. The GPU alone runs it in
-**88.7 ms per frame** (MEASURED, 10.9 fps, 98.0 % on 493 frames; [GPU path](gpu.md)). The NPU project tried to take the vision tower off
-the GPU so that the two sides work on different frames at once. It built a 27-block GEMM program at **33.8 ms per frame**, a fused
-attention at **0.675 ms per block**, and bf16 GELU and LayerNorm kernels. Summed, the tower on the NPU costs **~75 ms** against
-~30 ms for the same work on the GPU (MEASURED pieces, summed in MD RESULTS phase 9-12). So the pipelined design is real but half-built:
-the NPU does the GEMMs, the GPU keeps the text model, and the tower's other pieces are not placed yet. The work stopped after phase 12
-(the project is paused, not finished). This chapter is the map; the other chapters have the mechanisms.
+> **In brief**
+>
+> - moondream is low-latency VLM inference for local use; the hardware can be the NPU or a strong GPU. Here moondream2 answers an
+>   object-presence (yes/no) query ("Is there a mug in this image? Answer yes or no.") on camera frames.
+> - The GPU alone runs it in **88.7 ms per frame** (MEASURED, 10.9 fps, 98.0 % on 493 frames; [GPU path](gpu.md)).
+> - The NPU project tried to take the vision tower off the GPU so that the two sides work on different frames at once. It built a
+>   27-block GEMM program at **33.8 ms per frame**, a fused attention at **0.675 ms per block**, and bf16 GELU and LayerNorm kernels.
+> - Summed, the tower on the NPU costs **~75 ms** against ~30 ms for the same work on the GPU (MEASURED pieces, summed in MD RESULTS
+>   phase 9-12). The pipelined design is real but half-built: the NPU does the GEMMs, the GPU keeps the text model, and the tower's
+>   other pieces are not placed yet. The work stopped after phase 12 (the project is paused, not finished).
+> - This chapter is the map; the other chapters have the mechanisms.
+
+**Terms.** NPU = the XDNA2 neural engine. GPU = the gfx1151 iGPU. DDR = the shared system memory. BD = DMA buffer descriptor.
+GEMM = matrix multiply. LN = LayerNorm. GELU = the MLP activation. bfp16 = block floating point, the matrix unit's input format.
+MD RESULTS / MD NOTES = `moondream/npu/RESULTS.md` / `NOTES.md`.
 
 ## The workload
+
+```mermaid
+flowchart TB
+    classDef big fill:#fde9c9,stroke:#b36b00,color:#000
+    subgraph a["Encode: 79.6 ms on the GPU"]
+        direction LR
+        img["720x1280 frame<br/>squashed to 378x378"] --> vt["SigLIP tower<br/>27 blocks, 729 patches"] --> pj["projection MLP<br/>2304 -> 8192 -> 2048"]
+    end
+    subgraph b["Answer"]
+        direction LR
+        pf["text prefill<br/>~730 tokens, 24 layers"]:::big --> lg["yes/no logit pair<br/>first decoded token"]
+    end
+    a --> b
+```
 
 - **Yes/no presence gate.** One 720x1280 camera frame is squashed to 378x378 (one crop, 27x27 = 729 patches of 14 px), the question is
   a fixed sentence, and the answer is the yes/no logit margin of the first decoded token. Test set: 493 frames, tv 402 (46 found) and
@@ -18,9 +40,17 @@ the NPU does the GEMMs, the GPU keeps the text model, and the tower's other piec
   (MD RESULTS phase 1, phase 4).
 - **Grounding** (boxes and points for a named object) uses the same model family but a longer decode. It was only
   evaluated, never optimised; [moondream3](moondream3.md) compares the newer model on it.
-- **Where the 79.6 ms of encode goes** (MEASURED in situ on the GPU, MD NOTES phase 1): text int8 GEMMs 48.4 ms, vision bf16 GEMMs
-  20.7 ms, flash attention ~10 ms (vision ~4.5), LN/GELU/adds/quant ~6 ms. "Encode" includes the text prefill. The part an NPU can take over is
-  the vision tower plus projection, **~30 ms**, not the whole 79.6.
+
+Where the 79.6 ms of encode goes (MEASURED in situ on the GPU, MD NOTES phase 1). "Encode" includes the text prefill:
+
+| part | ms |
+|---|---|
+| text int8 GEMMs | 48.4 |
+| vision bf16 GEMMs | 20.7 |
+| flash attention (vision ~4.5) | ~10 |
+| LN, GELU, adds, quantisation | ~6 |
+
+The part an NPU can take over is the vision tower plus projection, **~30 ms**, not the whole 79.6.
 
 ## Which side runs what
 
@@ -39,7 +69,28 @@ the per-core input port peaks at ~20 GB/s (MD RESULTS phase 4; [numerics](numeri
 
 ## The pipelined 27 fps design
 
-Frame N is encoded by the NPU while the GPU prefills and queries frame N-1, so the rate is 1 / max(NPU, GPU) instead of their sum.
+Frame N is encoded by the NPU while the GPU prefills and queries frame N-1, so the rate is
+
+$$\text{rate} = \frac{1}{\max(t_\text{NPU},\, t_\text{GPU})} \quad\text{instead of}\quad \frac{1}{t_\text{NPU} + t_\text{GPU}}.$$
+
+```mermaid
+flowchart TB
+    classDef npu fill:#d6e8fb,stroke:#1f5fa8,color:#000
+    classDef gpu fill:#fde9c9,stroke:#b36b00,color:#000
+    subgraph i1["Loop iteration k (both sides busy, sharing the DDR)"]
+        direction LR
+        n1["NPU: tower of frame k"]:::npu
+        g1["GPU: text prefill + query of frame k-1"]:::gpu
+    end
+    subgraph i2["Iteration k+1: tokens of frame k move to the GPU"]
+        direction LR
+        n2["NPU: tower of frame k+1"]:::npu
+        g2["GPU: text prefill + query of frame k"]:::gpu
+    end
+    i1 --> i2
+```
+
+
 Phase 5 measured the two halves running together on the shared DDR; phase 6 re-measured with the one-program encoder.
 
 | side | alone | during the other | slowdown | evidence |
@@ -47,8 +98,11 @@ Phase 5 measured the two halves running together on the shared DDR; phase 6 re-m
 | NPU, 27 blocks of GEMMs in one dispatch | 33.8 ms | 36.8 ms (p90 37.8, 1,545 frames) | +9 % | MEASURED, [p6](../npu/p6/), MD RESULTS phase 6 |
 | GPU, pooled text prefill + query (24.9 + 8.3 ms) | 33.2 ms | 34.6 ms | +4 % | MEASURED, same |
 
-1 / max(36.8, 34.6) = **27 fps**, latency ~71 ms per frame, the sides balanced within 6 % (MEASURED as two concurrent loops; GPU-only
+$$\frac{1}{\max(36.8,\ 34.6)\ \text{ms}} = \mathbf{27\ fps},$$
+
+with a latency of ~71 ms per frame and the sides balanced within 6 % (MEASURED as two concurrent loops; GPU-only
 pooled is 15.6 fps; phase 5 with four xclbins gave 22 fps). Two cautions on the 27:
+
 - The GPU loop starts from cached projected tokens, and the NPU loop has GEMMs only. Attention, LN, GELU and the projection (~8.5 ms of
   tower work plus ~2 ms, MD RESULTS phase 1 and 6) belong to neither loop. If the GPU kept them, its side would be ~45 ms and the rate
   ~22 fps (EXTRAPOLATED; arithmetic from the table, not a run).
@@ -57,7 +111,7 @@ pooled is 15.6 fps; phase 5 with four xclbins gave 22 fps). Two cautions on the 
 
 ## The tower budget
 
-The NPU alone, 27 blocks, Turbo (MEASURED pieces; the sum is arithmetic, MD RESULTS phase 9-12):
+The NPU alone, 27 blocks, Turbo (MEASURED pieces; the sum is arithmetic, MD RESULTS phase 9-12). Times in ms per frame:
 
 | piece | phase 8 | phase 12 | target | what limits it |
 |---|---|---|---|---|
@@ -67,6 +121,14 @@ The NPU alone, 27 blocks, Turbo (MEASURED pieces; the sum is arithmetic, MD RESU
 | attention | 102 | **18.2** | 10 | exp block and softmax bookkeeping (~25 % vector issue) |
 | patch embedding | 0.15 | 0.15 | | |
 | **sum** | **159** | **75** | **~40** | GPU does the same work in ~30 ms |
+
+```mermaid
+xychart-beta
+    title "NPU tower budget per frame, ms (phase 12)"
+    x-axis ["GEMMs", "GELU", "LN+res", "attention", "patch"]
+    y-axis "ms" 0 --> 40
+    bar [34, 15, 8, 18.2, 0.15]
+```
 
 Attention was the largest piece until phase 9; after it, the GEMMs are. Beating the GPU needs the whole tower at about 35 ms, a 2x cut
 that no single item delivers (phase 12 prices the reachable GEMM traffic cut at ~7 ms and the GELU schedule at ~10 ms).
@@ -98,18 +160,16 @@ that no single item delivers (phase 12 prices the reachable GEMM traffic cut at 
 
 ## What didn't work
 
-- **Standalone NPU GEMMs never beat the GPU's 20.7 ms** (best 29.7 ms with four dispatches, 33.8 ms as one program). Only the pipelining
-  pays. The 1.4 GHz clock behind the "% of peak" figures was a lower bound, not the clock ([H1](../../common/book/negative-results.md#h1) <!-- nr: H1 -->;
-  [machine](../../common/book/machine.md#array-and-clock)). Bundles per MAC are clock-free and stay valid.
-- **The text model on the NPU**: 180 ms pooled (MEASURED, one dispatch of 24 layers) against ~25-48 ms on the GPU. A port-topology
-  limit, not a tuning gap ([N5](../../common/book/negative-results.md#n5) <!-- nr: N5 -->).
-- **Pricing from structure**: attention was priced at ~27 ms per frame (phase 7) and measured 102 ms (phase 8). The fp32 elementwise
-  estimate (120 ms GELU) was the first to turn the plan around ([N11](../../common/book/negative-results.md#n11) <!-- nr: N11 -->, [N17](../../common/book/negative-results.md#n17) <!-- nr: N17 -->). See [method](../../common/book/method.md) for the general pattern.
-- **Calling the asm route closed** after one failed inline-asm attempt (phase 5); phase 10 built it from `clang -S` output
-  ([N16](../../common/book/negative-results.md#n16) <!-- nr: N16 -->, [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 -->, [npu-attention](npu-attention.md#what-didnt-work)).
-- Per-chapter failures are in [npu-gemm](npu-gemm.md#what-didnt-work), [npu-attention](npu-attention.md#what-didnt-work),
-  [npu-elementwise](npu-elementwise.md#what-didnt-work), [numerics](numerics.md#what-didnt-work), [gpu](gpu.md#what-didnt-work) and
-  [moondream3](moondream3.md#what-didnt-work).
+| idea | outcome | why | index |
+|---|---|---|---|
+| Standalone NPU GEMMs against the GPU's 20.7 ms | best 29.7 ms with four dispatches, 33.8 ms as one program; only the pipelining pays | the 1.4 GHz clock behind the "% of peak" figures was a lower bound, not the clock ([machine](../../common/book/machine.md#array-and-clock)); bundles per MAC are clock-free and stay valid | [H1](../../common/book/negative-results.md#h1) <!-- nr: H1 --> |
+| The text model on the NPU | 180 ms pooled (MEASURED, one dispatch of 24 layers) against ~25-48 ms on the GPU | a port-topology limit, not a tuning gap | [N5](../../common/book/negative-results.md#n5) <!-- nr: N5 --> |
+| Pricing from structure | attention priced at ~27 ms per frame (phase 7), measured 102 ms (phase 8); the fp32 elementwise estimate (120 ms GELU) was the first to turn the plan around | cost read off bundle counts, not measured; see [method](../../common/book/method.md) | [N11](../../common/book/negative-results.md#n11) <!-- nr: N11 -->, [N17](../../common/book/negative-results.md#n17) <!-- nr: N17 --> |
+| Calling the asm route closed | declared closed after one failed inline-asm attempt (phase 5); phase 10 built it from `clang -S` output | one failure generalised to the whole route ([npu-attention](npu-attention.md#what-didnt-work)) | [N16](../../common/book/negative-results.md#n16) <!-- nr: N16 -->, [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 --> |
+
+Per-chapter failures are in [npu-gemm](npu-gemm.md#what-didnt-work), [npu-attention](npu-attention.md#what-didnt-work),
+[npu-elementwise](npu-elementwise.md#what-didnt-work), [numerics](numerics.md#what-didnt-work), [gpu](gpu.md#what-didnt-work) and
+[moondream3](moondream3.md#what-didnt-work).
 
 ## Lessons
 
