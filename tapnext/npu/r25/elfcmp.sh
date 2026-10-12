@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 25: are two builds' core elfs (patched csplit prj and the IRON prj) and CDOs byte-identical? usage: r25/elfcmp.sh A B
 cd "$SHM_SCRATCH/npu-tapnext" || exit 1
 for n in "$1" "$2"; do

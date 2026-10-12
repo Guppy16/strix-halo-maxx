@@ -8,12 +8,11 @@
 #   mem     np.copyto on 64 MB arrays (DRAM bandwidth, almost no FLOPs)
 # Reading: mem drops it, vec_l1 not -> DRAM / fabric (the NPU shares the data fabric or its DPM); vec_l1 drops it, mem not -> CPU
 # vector current (an EDC / rail limit the SMU resolves by lowering the NPU); avx2 between them -> width-dependent current.
-REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 set -u
 HW=$(grep -l amdgpu /sys/class/hwmon/hwmon*/name | head -1 | xargs dirname)
 KT=$(grep -l k10temp /sys/class/hwmon/hwmon*/name | head -1 | xargs dirname)
-DK="docker run --rm --name clkload25 --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron"
+DK="docker run --rm --name clkload25 --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $SHM_SCRATCH:/work -v $SHM_REPO:$SHM_REPO npu-iron"
 mhz() { awk '/cpu MHz/ {s += $4; n++} END {printf "%.0f", s / n}' /proc/cpuinfo; }
 sample() { echo "power_uW $(cat $HW/power1_input 2>/dev/null || cat $HW/power1_average) tctl_mC $(cat $KT/temp1_input) cpu_MHz $(mhz)"; }
 load() {

@@ -2,6 +2,9 @@
 
 Hand-optimised model inference on AMD Strix Halo (Ryzen AI Max+ 395): the XDNA2 NPU and the gfx1151 GPU.
 
+First step in a checkout: `source setup.sh`. It sets `SHM_REPO` and `SHM_SCRATCH` (the scratch dir, default `<repo>/.scratch`, gitignored)
+and lists the other variables the scripts use.
+
 ## The hardware
 
 The Ryzen AI Max+ 395 puts Zen 5 CPU cores, a gfx1151 iGPU and an XDNA2 NPU on one die. All three share one pool of
@@ -14,7 +17,7 @@ was measured at 1.81 GHz. The measured performance model is [common/MACHINE.md](
 | project | headline | start here |
 |---|---|---|
 | TAPNext++ point tracker on the NPU | **28.43 ms per step at depth 12**, one fused dispatch per frame; DAVIS AJ 70.84; bit-identical to the round-9 reference | [tapnext/README.md](tapnext/README.md) |
-| moondream2 on the GPU | 88.7 ms per frame (stock HF bf16: ~340 ms), 98.0 % accuracy on the 493-frame yes/no set | [moondream/README.md](moondream/README.md) |
+| moondream2 on the GPU (low-latency VLM inference for local use) | 88.7 ms per frame (stock HF bf16: ~340 ms), 98.0 % accuracy on the 493-frame yes/no set | [moondream/README.md](moondream/README.md) |
 | moondream2 vision tower on the NPU | 27 blocks in one NPU program; tower ~75 ms per frame on the NPU alone (phase 12); 27 fps with the GPU pipelined | [moondream/README.md](moondream/README.md) |
 | moondream3-preview evaluation | not better at grounding than moondream2, ~2.6x slower | [moondream/README.md](moondream/README.md) |
 
@@ -35,7 +38,7 @@ load lowered the NPU clock (1.81 -> 1.41 GHz), and the NPU's DDR reads and write
 GPU idle. See [common/book/measurement.md](common/book/measurement.md).
 
 Only hand-written code, generators, docs and small result tables are tracked: builds, weights, venvs and logs stay out.
-On the test machine, `$SHM_SCRATCH/npu-{tapnext,research,moondream}` are symlinks to `tapnext/npu`, `tapnext/research` and
+`setup.sh` creates `$SHM_SCRATCH/npu-{tapnext,research,moondream}` as symlinks to `tapnext/npu`, `tapnext/research` and
 `moondream/npu`. Containers that mount .scratch at /work also mount this repo at its own path, so the links resolve.
 
 ## Reading the book

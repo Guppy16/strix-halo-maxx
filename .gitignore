@@ -8,3 +8,4 @@ stray/
 *.pt
 *.safetensors
 site/
+/.scratch

@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 16: run any python command in npu-iron-torch with the NPU; usage (host): r16/nrun.sh LOG python3 args...
 # output -> build/LOG.out (rc= last line); TMO seconds (default 900)
 log=$1; shift

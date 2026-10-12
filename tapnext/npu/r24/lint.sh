@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 24: asmlint (common/tools/asmlint.py --prj: GEMM core 0_2 + EW core 0_5) + elf text sizes of a build; usage: r24/lint.sh BUILD
 b=$1
 cd "$SHM_SCRATCH/npu-tapnext" || exit 1

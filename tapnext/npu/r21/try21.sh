@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 21: r20/try20.sh (the round-20 best, full12r20z) + the round-21 kept changes; then csplit20 (CSPLIT + NRESFIX [+ CSUB sub-parts]),
 # regress / time / sweep as try20. usage: r21/try21.sh NAME [--sweep] [--ew-add ..] [--k-add ..] [--env K=V]
 #   CSUB=0: without the C part-1 sub-parts (round 21: -DCSUB + csplit --sub 1728,3456); ZLOAD=0: without the zero-load first k-step

@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 19: research's r19/build_all.sh on main's r18/gen_rot.py (ROT_ACQ_GAP / ROT_REL_GAP, the probed g0 wrap): solve + fit + link +
 # lint + tcall + replay per variant; output r19/rot_<v>.json, r19/mm_rot_<v>.s / .h / .dis.
 #   r19/build_rot.sh [--solve] g1a g0a     (v = g<g><a = acq gap 6 + rel gap 8, --free>)

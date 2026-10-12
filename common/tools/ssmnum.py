@@ -27,7 +27,7 @@ import ml_dtypes
 import numpy as np
 
 BF = ml_dtypes.bfloat16
-SCRATCH = os.environ.get("SHM_SCRATCH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../.scratch")
+SCRATCH = os.environ.get("SHM_SCRATCH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".scratch")
 ACTS = f"{SCRATCH}/npu-tapnext/build/acts_davis3.npz"
 W = os.environ.get("TAPNEXT_WEIGHTS", f"{SCRATCH}/models/tapnextpp_256.safetensors")
 

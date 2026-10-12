@@ -1,6 +1,6 @@
 # moondream: the workload, the split and the budget
 
-moondream2 is used as an object-presence (yes/no) query ("Is there a mug in this image? Answer yes or no.") on camera frames. The GPU alone runs it in
+moondream is low-latency VLM inference for local use; the hardware can be the NPU or a strong GPU. Here moondream2 is used as an object-presence (yes/no) query ("Is there a mug in this image? Answer yes or no.") on camera frames. The GPU alone runs it in
 **88.7 ms per frame** (MEASURED, 10.9 fps, 98.0 % on 493 frames; [GPU path](gpu.md)). The NPU project tried to take the vision tower off
 the GPU so that the two sides work on different frames at once. It built a 27-block GEMM program at **33.8 ms per frame**, a fused
 attention at **0.675 ms per block**, and bf16 GELU and LayerNorm kernels. Summed, the tower on the NPU costs **~75 ms** against

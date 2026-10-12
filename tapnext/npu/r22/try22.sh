@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 22: r21/try21.sh (full12r21k1) + the round-22 kept changes: A3 (the third A slot region for down_b / mlp3_b; A3=0 without),
 # TXT18 (EW text -448 B; TXT18=0 without), attkb at II 33 (ATTKS_JSON=r17/attks.json for the old II 36),
 # attv at II 20 with 3 stages (ATTV_JSON=r14/attv.json for the old II 21).

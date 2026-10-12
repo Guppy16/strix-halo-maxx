@@ -1,6 +1,7 @@
 #!/bin/bash
 # The TV-question wordings, each through the GTT-guarded runner (exact path, 729 tokens).
-cd "${SHM_SCRATCH:-$(dirname "$0")/../../../.scratch}/moondream-opt"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
+cd "$SHM_SCRATCH/moondream-opt"
 py=venv-rocm714/bin/python
 ./gpu_safe.sh runs-1007/tvq_base.log $py frame_preds.py --name q_base
 ./gpu_safe.sh runs-1007/tvq_tele.log $py frame_preds.py --name q_television \

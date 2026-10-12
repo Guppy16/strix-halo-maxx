@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 23: r22/try22.sh (full12r22z) + the round-23 kept changes:
 #   KTL (research r24/mm_e7k_r70b: one modulo loop per GEMM tile) as r23/mm_rot_k70p (the record period's lda.2d wrap an argument);
 #   MSPLIT-P (down_b / mlp3_b run their last tile as two row passes, rb 0-5 then 6-17, so norm2 / norm0 start on rows 0-5;

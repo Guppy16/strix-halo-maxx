@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 15: depth variants of a build suffix, the sweep and DAVIS at depth 12 / 10 (host side; sequential)
 S=$1
 cd "$SHM_SCRATCH/npu-tapnext"

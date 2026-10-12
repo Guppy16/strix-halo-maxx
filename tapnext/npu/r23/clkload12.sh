@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 23 (main): research's r23/clkload.sh capped at 12 load threads (main's worker rule) and 0 / 6 / 12 threads per kind; loads
 # niced, stopped by their own PIDs (plain kill). Logs package power (amdgpu hwmon) and Tctl with the core clock (r7/clk.py).
 set -u

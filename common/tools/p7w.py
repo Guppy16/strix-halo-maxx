@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-ST = Path(os.environ.get("TAPNEXT_WEIGHTS") or Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[3] / ".scratch") / "models/tapnextpp_256.safetensors")
+ST = Path(os.environ.get("TAPNEXT_WEIGHTS") or Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[2] / ".scratch") / "models/tapnextpp_256.safetensors")
 
 
 def tensors():

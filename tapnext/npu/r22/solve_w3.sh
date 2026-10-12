@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 22: E7 R / nx with the bank-3 excess weighed as its real cost (18 stalls per call per excess residue = E7_W3 1800 against
 # 100 per modelled stall; research's 10000 traded ~5 stalls of other conflicts for one stall of bank 3), repaired from a hint.
 # usage: r22/solve_w3.sh R NX N1 HINT TIME TAG

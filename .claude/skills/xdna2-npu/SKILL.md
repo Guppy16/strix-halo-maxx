@@ -13,7 +13,7 @@ the book: load the `book-read` skill and start at `common/book/README.md`. Progr
 
 ## 1. Environment
 - **Repo:** the NPU work lives in this git repo; `$SHM_SCRATCH/npu-{tapnext,research,moondream}`
-  (`SHM_SCRATCH` defaults to `<repo root>/../.scratch`) are absolute symlinks into it. Every `docker run` that mounts `-v $SHM_SCRATCH:/work` must ALSO mount
+  (`source setup.sh` sets `SHM_SCRATCH`, default `<repo root>/.scratch`, and creates them) are absolute symlinks into it. Every `docker run` that mounts `-v $SHM_SCRATCH:/work` must ALSO mount
   `-v <repo root>:<repo root>`, or `/work/npu-*` is a dangling link inside the container.
   Commit locally (one commit per kept change or failed experiment, measured ms + predicted vs measured); never push.
 - **All compute on the test machine**: generators, CP-SAT (`nice -n 10`, <= 12 workers), sims and tools run there; edit there
@@ -937,7 +937,7 @@ Shared tools and the timing table are in `common/tools/`, the hardware model in 
 - `tapnext/npu/r13/` (round 13): gen_attk.py (the fused attention K loop: QK^T + exp(s - stored max) + push + flag, CP
   schedule attk.json), gen_attqk.py / gen_aexp.py (the split loops: superseded), attkb.cc / attkb.py (one-core bench of
   chunk_k vs the fused driver, bit-exact, skip modes), lazycount*.py (the lazy-max fallback rate on captured / model scores),
-  attkcount.py (+ mm8 `-DATTK_COUNT`: in-situ slow-unit counts over the attention output), textmap.py, push.sh. Flags: mm8
+  attkcount.py (+ mm8 `-DATTK_COUNT`: in-situ slow-unit counts over the attention output), textmap.py. Flags: mm8
   `-DATTKF` (fused K phase), `-DATTK_FORCE=bits` (timing twins), design8 env `ASM_FIT=1` (asmfit on the asm kernels), `--l2-depth`.
 - `tapnext/npu/r14/` (round 14): gen_attkb.py (batched fused K loop, attkb.json), gen_attv.py (V phase pairs, attv.json; `--sums`
   the row sums, attvs.json), gen_vt.py (qkv V^T epilogue, vt.json), zero2.s, csize.sh (per-function GEMM text of mm8.cc),
@@ -953,7 +953,7 @@ Shared tools and the timing table are in `common/tools/`, the hardware model in 
   B fills every 8 pops), gen_ssq (ssx + sqk fused), gen_n1p / gen_n1k (norm pass 1 + loop-carried statistics, _begin / _step /
   _end), sig10.json (r12/gen_sig.py --umax 4); benches sqkb / ggkb (+ ggkref.py host bfp reference) / ssqb / n1pb / n1kb;
   popprobe.s + popb.py (FIFO pop probes); nrun.sh (python + NPU in npu-iron-torch), b16.sh, try16.sh (research try.sh + the
-  current best's flags), commit.sh (commit with a message file). Flags: EW_DEFS SQK INPART_INLINE XONE GGK SSQ (replaces SSX)
+  current best's flags). Flags: EW_DEFS SQK INPART_INLINE XONE GGK SSQ (replaces SSX)
   SIG10 N1K, NPROF (norm-step stamps; PROF no longer fits), twins NORM_TWIN=2 / 4.
 - `tapnext/npu/r17/` (round 17): try17.sh (r16z base), xtry.sh (XROT=4 phase builds + regress / time / sweep), xrotsim.py (state
   flow of the rotation), cp_attks.sh (CP run), attks.json (S2 schedule). Flags: mm8 ATTKS2MAX (gen_attkb --s2); EW_DEFS XROT

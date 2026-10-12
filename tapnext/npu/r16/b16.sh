@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 16 (host): build NAME = full12r15m's configuration + extra EW_DEFS ($EWX) / kdefs ($KX, comma list) / design8 args
 # usage: [D=depth] [EWX="-DSQK"] [KX=",-DX"] r16/b16.sh NAME [design8 args...]
 name=$1; shift

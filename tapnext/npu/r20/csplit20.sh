@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 19 CSPLIT: patch build/full12NAME's lowered MLIR (r19/csplit.py) and rebuild its xclbin with aiecc from it (the runtime
 # sequence .bin must come out byte-identical: the patch touches only core-tile DMAs, locks and core code). Run RIGHT AFTER the build
 # (aiecc relinks the kernel objects build/*.o, which the next design build overwrites). The unpatched xclbin of a -DCSPLIT build

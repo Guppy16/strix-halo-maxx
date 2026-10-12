@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 24 (copy of npu-research/r23/ewsize.sh with TXT18, output in r24/): compile an ew8.cc variant with the deployed EW flags (full12r22c: EW_OPT -O2 + EW_DEFS) and print its C++ text and
 # the largest functions. CPU only (npu-iron). usage (from $SHM_SCRATCH): npu-research/r23/ewsize.sh [SRC] [extra -D ...]
 #   SRC defaults to npu-tapnext/ew8.cc; a variant must sit in npu-tapnext/ (it includes "build/*.h" relative to itself)

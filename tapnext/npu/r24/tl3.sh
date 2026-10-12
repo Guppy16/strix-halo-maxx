@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 24: N timelines of one build (step8.py timeline), saved as build/tl_<build>_d<depth>_run<i>.json, then r24/tlcmp.py on them.
 # usage: r24/tl3.sh BUILD [N=3] [DEPTH=12]   (refuses to run while another NPU container is up)
 b=$1; n=${2:-3}; d=${3:-12}

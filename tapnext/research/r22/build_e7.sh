@@ -1,11 +1,10 @@
 #!/bin/bash
 # pass 17: fit (prologue alignment) + assemble + link + asmlint + whole-call replay (pads 0 / 1, both B buffers, acc_hi range)
 # for E7'' schedules solved by r22/gen_e7.py:   r22/build_e7.sh r64_x12 [r66_x8 ...]   (json r22/e7_<v>.json)
-REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 set -e
 cd "$(dirname "$0")/.."
-DK="docker run --rm --network none -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron"
+DK="docker run --rm --network none -v $SHM_SCRATCH:/work -v $SHM_REPO:$SHM_REPO npu-iron"
 B=/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin
 mkdir -p r22/build
 for v in "$@"; do

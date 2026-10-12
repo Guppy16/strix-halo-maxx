@@ -6,7 +6,7 @@ from PIL import Image
 
 # Private camera frames are not in the repo. MD_FRAMES holds one folder per session (sessA, sessB, ...) with
 # judged_NNNN.jpg and judged.jsonl; its parent holds labels and calibration/ output.
-SCRATCH = os.environ.get("SHM_SCRATCH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".scratch"))
+SCRATCH = os.environ.get("SHM_SCRATCH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".scratch"))
 SESS = os.environ.get("MD_FRAMES", os.path.join(SCRATCH, "frames", "sessions"))
 DATA = os.path.dirname(os.path.abspath(SESS))
 REV = "2025-06-21"

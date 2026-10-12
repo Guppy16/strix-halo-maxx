@@ -8,14 +8,15 @@ usage: python3 tapnext/npu/make_davis_reg.py [--video goat]
 """
 
 import argparse
-import os
 import pickle
+import sys
 from pathlib import Path
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRATCH = Path(os.environ.get("SHM_SCRATCH", ROOT.parent / ".scratch"))
+sys.path.insert(0, str(ROOT / "common" / "tools"))
+from shm_paths import SCRATCH  # noqa: E402
 
 
 def main():

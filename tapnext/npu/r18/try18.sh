@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 18: r17/xtry.sh (XROT=4 phase builds + regress + time) on the current round-18 best (r17d + HRING PTRG ZK KSC) plus your
 # changes. usage: r18/try18.sh NAME [--sweep] [--ew-add ..] [--k-add ..] [--env K=V]   (NOREG=1 / NOTIME=1 skip those steps)
 # KSC: the addresses are checked by design8 after the link (ksc_check); a layout change fails the build and names the new ones.

@@ -1,7 +1,6 @@
 #!/bin/bash
 # E7'' R = 66 / 67 (bank-3 cap hard), 4 workers; waits for solve_e7.sh to finish first
-REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 cd "$SHM_SCRATCH/npu-research"
 while pgrep -f "[s]olve_e7.sh" > /dev/null; do sleep 10; done
 for spec in "66 8 900" "67 8 600"; do

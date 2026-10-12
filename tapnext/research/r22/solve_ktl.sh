@@ -1,7 +1,6 @@
 #!/bin/bash
 # KTL feasibility: every stream segment instance serves one row block (--aligned), lf1 split L | N (N serves the next row block)
-REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 cd "$SHM_SCRATCH/npu-research"
 for spec in "68 16" "68 8" "70 16"; do
   set -- $spec

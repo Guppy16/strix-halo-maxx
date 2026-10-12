@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 24: N fast timelines (TL_ONLY op kinds) of a build -> build/tlo_<build>_<tag>_run<i>.json; then r24/tlo.py on them
 # usage: r24/tlo.sh BUILD KINDS(comma) [N=3] [TAG=x]
 b=$1; k=$2; n=${3:-3}; tag=${4:-x}

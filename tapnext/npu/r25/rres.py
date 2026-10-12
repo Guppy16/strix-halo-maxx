@@ -1,9 +1,13 @@
 """Round 25 RRES edits (plan8 / pack8 / step8 / design8 / ew8): the 3-input norms' residual (stream 2) for row blocks < RRB parked in
 memtile half 1 during the producer GEMM and fed to the EW core's S2MM 1 (a 2 x 1 KB ring) instead of the DDR input ring."""
 import os
+import sys
 from pathlib import Path
 
-D = Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[4] / ".scratch") / "npu-tapnext"
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "common" / "tools"))
+from shm_paths import SCRATCH  # noqa: E402
+
+D = SCRATCH / "npu-tapnext"
 
 
 def rep(f, pairs):

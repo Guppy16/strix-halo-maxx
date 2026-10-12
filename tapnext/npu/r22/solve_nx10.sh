@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 22: E7 at nx = 10, n1 = 30 (ny = 24 keeps the lf1 segment start 64 B aligned; bank 3 carries 61 reads per row block, not 63)
 # repaired from research pass 17 nx = 8 solutions. usage: r22/solve_nx10.sh R HINT TIME [NX]
 cd "$SHM_SCRATCH/npu-tapnext"

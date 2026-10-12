@@ -7,7 +7,8 @@ dev=$(dirname $(ls /sys/class/drm/card*/device/mem_info_gtt_total | head -1))
 total=$(cat $dev/mem_info_gtt_total)
 used=$(cat $dev/mem_info_gtt_used)
 if [ $((used * 100 / total)) -ge 70 ]; then echo "GTT $((used * 100 / total))% >= 70%: not starting" | tee $log; exit 2; fi
-cd "${SHM_SCRATCH:-$(dirname "$0")/../../../.scratch}/moondream-opt"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
+cd "$SHM_SCRATCH/moondream-opt"
 "$@" > $log 2>&1 &
 pid=$!
 while kill -0 $pid 2>/dev/null; do

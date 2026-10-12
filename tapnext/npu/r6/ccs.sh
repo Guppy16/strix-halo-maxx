@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # usage (host): r6/ccs.sh SRC TAG [flags]   compile SRC like the GEMM/EW design (build/asm/cc.sh) to r6/TAG.o and r6/TAG.s,
 # print the function sizes and the asmstat loop table for FUNCS (env, space-separated)
 cd "$SHM_SCRATCH/npu-tapnext"

@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # usage (host, npu-tapnext): r7/t4var.sh TAG KDEFS   builds t4-TAG with design8 kdefs (comma-separated) and times it
 # (20 iters after 10 warm-up) with the run8 accuracy checks -> build/r7_t4_TAG.out
 cd "$SHM_SCRATCH/npu-tapnext"

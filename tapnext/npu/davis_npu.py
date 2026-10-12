@@ -20,7 +20,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-SCRATCH = os.environ.get("SHM_SCRATCH") or str(Path(__file__).resolve().parents[3] / ".scratch")  # repo root / ../.scratch
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "common" / "tools"))
+from shm_paths import SCRATCH as _SCRATCH  # noqa: E402
+
+SCRATCH = str(_SCRATCH)
 sys.path.insert(0, f"{SCRATCH}/tapnet")
 import davis  # noqa: E402  (load_davis, sample_queries_first, compute_tapvid_metrics)
 import tnpp  # noqa: E402  (preprocess)

@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 17 (X1 full rotation): build NAME with XROT=N frame phases, i.e. try17.sh (phase 0, lint) + the phases 1 .. N-1 of every
 # depth (the same docker command with XPH=k and the name full<d>NAME_p<k>), then regress (4 frames: N <= 4 includes a wrap frame)
 # and time (per-phase medians). usage: r17/xtry.sh NAME N [try.sh options, e.g. --sweep --ew-add ..]

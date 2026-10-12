@@ -1,6 +1,6 @@
 # moondream on Strix Halo
 
-moondream2 for object-presence (yes/no) and grounding queries on camera frames, on the gfx1151 GPU and on the XDNA2 NPU. The work predates the
+moondream2 for object-presence (yes/no) and grounding queries on camera frames: low-latency VLM inference for local use. The hardware can be a strong GPU (gfx1151 here) or the XDNA2 NPU, and this folder covers both. The work predates the
 TAPNext port and is not active now.
 
 | folder | what | headline |

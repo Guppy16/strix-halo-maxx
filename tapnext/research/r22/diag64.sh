@@ -1,7 +1,6 @@
 #!/bin/bash
 # R = 64 feasibility diagnostics in residue mode (6 workers): which constraint group binds
-REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 cd "$SHM_SCRATCH/npu-research"
 for d in "soft,nb,bank3,bank0,qey:240" "soft,nb:300" "soft,bank3:300" "soft:400"; do
   dd=${d%%:*}; tt=${d##*:}

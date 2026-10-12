@@ -1,8 +1,11 @@
 """Round 25 RRTWIN edits (plan8 / design8 / step8): a timing twin whose norms do not read their residual input from DDR."""
-import os
+import sys
 from pathlib import Path
 
-D = Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[4] / ".scratch") / "npu-tapnext"
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "common" / "tools"))
+from shm_paths import SCRATCH  # noqa: E402
+
+D = SCRATCH / "npu-tapnext"
 
 
 def rep(f, pairs):

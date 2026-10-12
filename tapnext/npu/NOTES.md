@@ -556,7 +556,7 @@ split loops: attqk bit-exact at II 11 but only -27 cycles per row block vs the C
 attkb.cc / attkb.py (one-core bench of chunk_k vs the new driver on random Q / K / state: hashes of P / maxima / scores, O and
 sum checksums, per-block equality, dumps, skip modes incl. "ignore the flag"), lazycount.py / lazycount2.py (fallback rate on
 the captured scores), lazycount3.py (the same on the NPU's own 1152 rows from the CPU model, per core), attkcount.py (+ mm8
-`-DATTK_COUNT`: in-situ counts written over the attention output), textmap.py, push.sh. msched: ex_n = x_n (PARTS "ex");
+`-DATTK_COUNT`: in-situ counts written over the attention output), textmap.py. msched: ex_n = x_n (PARTS "ex");
 cpsched: `min_t`, `hint`. apb.py: `GC`, `NW` / data_size / stack overrides (the bench holds both K paths + acc_hi).
 ### 18.4 Measured facts
 - **ex_n aliases x_n**: a loop holding Q in ex0-7 beside x constants / temporaries computed garbage; pops are x registers.
@@ -704,7 +704,7 @@ Best: **full12r15m** = r14f + P60G=1, kdefs + -DRESCK, EW_DEFS + "-DSSX -DCPY64 
 7. **N1K** (r16/gen_n1k.py, n1k_ln.json / n1k_rms.json, n1kb; analysis N1): norm pass 1 + statistics per unit; the statistics
    are loop-carried 64-lane MACs on register pairs (y4 = x8:x9, y5 = 1.0 = x10:x11; a generator-level "y" class); _begin / _step
    / _end entries keep constants and accumulators in registers across a row block's 12 steps. LN II 11, RMS II 10.
-Tools: r16/nrun.sh, b16.sh, try16.sh (analysis tools/try.sh on the current best), commit.sh, popprobe.s + popb.py (FIFO probes),
+Tools: r16/nrun.sh, b16.sh, try16.sh (analysis tools/try.sh on the current best), popprobe.s + popb.py (FIFO probes),
 NPROF (norm-step stamps without the SSM phase stamps), timing twins NORM_TWIN=2 / 4. Analysis's build-lock patch applied.
 msched / cpsched: loop-carried uses (Op cuses, U 1, initial value from the preamble; opt-in, every deployed generator replays
 byte-identical); gen_sig --umax.

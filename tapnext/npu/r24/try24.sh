@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 24: r23/try23.sh (full12r23z) + the round-24 kept changes:
 #   STATS64 (the norm statistics of both 32-row halves as one 64-lane chain, LN and RMS; STATS64=0 without);
 #   OPPRE2 (out_proj's A loaded per attention head group during pass 1, its sends before the waits; OPPRE2=0 without);

@@ -1,7 +1,8 @@
 # strix-halo-maxx — agent entry point
 
-This repo holds the NPU and GPU optimisation work for AMD Strix Halo. Paths below are relative to the repo root;
-`$SHM_SCRATCH` is the scratch/working directory (default: `<repo root>/../.scratch`). Start with `README.md` for the map. For a project, read its README, then:
+This repo holds the NPU and GPU optimisation work for AMD Strix Halo. Paths below are relative to the repo root.
+First step: `source setup.sh` (sets `$SHM_REPO` and `$SHM_SCRATCH`, the scratch/working directory, default `<repo root>/.scratch`, gitignored;
+it creates the workspace symlinks on first use; scripts source it themselves). Start with `README.md` for the map. For a project, read its README, then:
 - TAPNext: `tapnext/npu/HANDOFF.md`, top block first.
 - moondream: `moondream/README.md`.
 

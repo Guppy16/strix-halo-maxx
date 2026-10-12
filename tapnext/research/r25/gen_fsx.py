@@ -16,7 +16,9 @@ import os
 import sys
 from pathlib import Path
 
-NT = Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[4] / ".scratch") / "npu-tapnext"
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "common" / "tools"))
+from shm_paths import SCRATCH  # noqa: E402
+NT = SCRATCH / "npu-tapnext"
 for d in ("r11", "r12", "r15", "r16"):
     sys.path.insert(0, str(NT / d))
 import gen_ssq as Q  # noqa: E402

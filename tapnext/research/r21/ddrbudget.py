@@ -12,7 +12,10 @@ from collections import defaultdict
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.environ.get("SHM_SCRATCH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../../.scratch"), "npu-tapnext"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../common/tools"))
+from shm_paths import SCRATCH  # noqa: E402
+
+sys.path.insert(0, str(SCRATCH / "npu-tapnext"))
 bj = json.load(open(sys.argv[1]))
 os.environ.update(A_HALF="1" if bj.get("a_half") else "0", P23="1" if bj.get("p23") else "0", P60G="1" if bj.get("p60g") else "0",
                   XROT=str(bj.get("xrot", 0)), AL1="1" if bj.get("al1") else "0")

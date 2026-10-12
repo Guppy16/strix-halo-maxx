@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 24: DETAIL timelines of one build for a list of ops (one dispatch each); usage: r24/tld.sh BUILD OP [OP ..]
 b=$1; shift
 cd "$SHM_SCRATCH/npu-tapnext" || exit 1

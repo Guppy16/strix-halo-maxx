@@ -7,12 +7,11 @@
 #   threads than the scalar spin (`yes`); DPM policy -> it tracks thread count (or does not move) whatever the load's power.
 # usage (from $SHM_SCRATCH, nothing else running):  npu-research/r23/clkload.sh > npu-research/r23/clkload.out
 # needs build/clk (python3 r7/clk.py build --out build/clk, npu-iron, CPU only) - run it first.
-REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 set -u
 HW=$(grep -l amdgpu /sys/class/hwmon/hwmon*/name | head -1 | xargs dirname)
 KT=$(grep -l k10temp /sys/class/hwmon/hwmon*/name | head -1 | xargs dirname)
-DK="docker run --rm --name clkload --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron"
+DK="docker run --rm --name clkload --device /dev/accel/accel0 --ulimit memlock=-1:-1 -v $SHM_SCRATCH:/work -v $SHM_REPO:$SHM_REPO npu-iron"
 sample() { echo "power_uW $(cat $HW/power1_input 2>/dev/null || cat $HW/power1_average) tctl_mC $(cat $KT/temp1_input)"; }
 spin() { for i in $(seq "$1"); do yes > /dev/null & done; }
 vec() { for i in $(seq "$1"); do OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python3 -c "

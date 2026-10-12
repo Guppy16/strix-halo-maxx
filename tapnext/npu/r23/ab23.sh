@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 23: one A/B timing window: note it in RESULTS_FROM_MAIN, record box state, run r18/ab.py, close the window.
 # usage: ab.sh TAG ROUNDS A B [B ...]
 tag=$1; rounds=$2; shift 2

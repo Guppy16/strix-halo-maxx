@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 19: r18/try18.sh on the round-19 best (r18m + ROT g0a + ZHI + CSPLIT + EPLR), then r19/csplit.sh (the C drain split is patched
 # into the lowered MLIR and the xclbin rebuilt BEFORE anything dispatches: an unpatched -DCSPLIT xclbin hangs), then regress / time /
 # sweep. usage: r19/try19.sh NAME [--sweep] [--ew-add ..] [--k-add ..] [--env K=V]

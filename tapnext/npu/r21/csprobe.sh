@@ -1,5 +1,5 @@
 #!/bin/bash
-SHM_REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel); SHM_SCRATCH=${SHM_SCRATCH:-$SHM_REPO/../.scratch}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)/setup.sh"
 # round 21: csplit (+ --sub) + nresfix + aiecc on a build's lowered MLIR into build/r21/<out> (compile probe; no dispatch)
 # usage: r21/csprobe.sh BUILD OUT "csplit args"
 cd "$SHM_SCRATCH/npu-tapnext"

@@ -1,8 +1,11 @@
 """Round 25 RRES: ew8.cc side (EW -DRRES)."""
-import os
+import sys
 from pathlib import Path
 
-p = (Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[4] / ".scratch") / "npu-tapnext" / "ew8.cc")
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "common" / "tools"))
+from shm_paths import SCRATCH  # noqa: E402
+
+p = SCRATCH / "npu-tapnext" / "ew8.cc"
 s = p.read_text()
 R = [
     ("""#ifndef NRES
