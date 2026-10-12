@@ -145,6 +145,6 @@ Measured against the C path or the k-step (details in [common/gemm](../../common
 ## Going deeper
 
 - [`tapnext/npu/NOTES.md`](../npu/NOTES.md) 12 (round 7), 14 (9), 17 (12), 23-24 (18-19), 26 (21), 28 (23); RESULTS 17-18, 28, 30, 32.
-- Generators: `tapnext/npu/r7/gen_mm.py`, `r9/gen_ks.py`, `r12/gen_gup.py`, `gen_pan.py`, `gen_bgelu.py`, `r14/gen_vt.py`, `r18/gen_rot.py`, `tapnext/research/r22/gen_e7.py` (`--ktl`); C path: `r19/csplit.py`, `r21/mkzload.py`; MSPLIT-P: `r23/mm_rot_k70p`.
+- Generators: `tapnext/npu/r7/gen_mm.py`, `r9/gen_ks.py`, `r12/gen_gup.py`, `r12/gen_pan.py`, `r12/gen_bgelu.py`, `r14/gen_vt.py`, `r18/gen_rot.py`, `tapnext/research/r22/gen_e7.py` (`--ktl`); C path: `r19/csplit.py`, `r21/mkzload.py`; MSPLIT-P: `r23/mm_rot_k70p`.
 - Probes: `r19/tprof.py` (tile stamps), `r18/ksp38.py`, `tapnext/research/r20/collide.py`, `r25/hands.py`.
 - [MACHINE](../../common/MACHINE.md) R13.6, R14.1, R15.1, R17.1-R17.5, R17.9, R18.7. Next: [attention.md](attention.md) (the other user of these cores), [boundaries.md](boundaries.md).
