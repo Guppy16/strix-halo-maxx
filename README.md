@@ -44,5 +44,5 @@ Only hand-written code, generators, docs and small result tables are tracked: bu
 ## Reading the book
 
 The Markdown here is also built as a MkDocs Material site (`mkdocs.yml`, links to code handled by `tools/mkdocs_hooks.py`).
-Preview locally with `uvx --with mkdocs-material --with mkdocs-same-dir mkdocs serve`. Once the repo is pushed to GitHub
-and Pages is set to "GitHub Actions", `.github/workflows/pages.yml` publishes it on every push to `main`.
+Read it at https://guppy16.github.io/strix-halo-maxx/ (`.github/workflows/pages.yml` publishes it on every push to `main`),
+or preview locally with `uvx --with mkdocs-material --with mkdocs-same-dir mkdocs serve`.

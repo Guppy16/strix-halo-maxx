@@ -1,8 +1,9 @@
 site_name: strix-halo-maxx
 site_description: Hand-optimised model inference on AMD Strix Halo (XDNA2 NPU and gfx1151 GPU)
-# TODO: no remote yet. Once pushed, set these; the link hook then points code links at GitHub.
-# repo_url: https://github.com/OWNER/strix-halo-maxx
-# edit_uri: edit/main/
+repo_url: https://github.com/Guppy16/strix-halo-maxx
+repo_name: Guppy16/strix-halo-maxx
+site_url: https://guppy16.github.io/strix-halo-maxx/
+edit_uri: edit/main/
 
 theme:
   name: material
