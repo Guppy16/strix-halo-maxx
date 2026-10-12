@@ -1,18 +1,40 @@
 # moondream numerics: bfp16 vs bf16, Hadamard, int8
 
-Every numeric decision for the NPU was made on the GPU first, by emulating the NPU arithmetic in the existing fast path and scoring the labelled
-frames, before any kernel was written. The answers: **bfp16 operands are fine if the accumulator stays fp32 across the whole K** (97.6 % against
-98.0 % on 493 frames, two more false positives; MEASURED, MD RESULTS phase 1); a **bf16 C between K chunks costs 1.4 points**; **a Hadamard rotation hurts**;
-**int8 breaks the vision tower** (89.2 %); and **bf16 elementwise ops are fine with the sigmoid form of GELU** (99.6 % with the full NPU numerics at 16x16 pooling against 99.4 % for the GPU path;
-MEASURED, `moondream/gpu/BF16_ELEMENTWISE.md`). The kernels were then built to match the emulations bit for bit. General rules are in
-[gemm](../../common/book/gemm.md#is-it-compute--or-data-bound) and [elementwise](../../common/book/elementwise.md#judging-accuracy).
+> **In brief**
+>
+> - Every numeric decision for the NPU was made on the GPU first: emulate the NPU arithmetic in the existing fast path, score the labelled frames, then write the kernel to match the emulation bit for bit.
+> - **bfp16 operands are fine if the accumulator stays fp32 across the whole K**: 97.6 % against 98.0 % on 493 frames, two more false positives (MEASURED, MD RESULTS phase 1).
+>   A **bf16 C between K chunks costs 1.4 points**.
+> - **A Hadamard rotation hurts. int8 breaks the vision tower** (89.2 %).
+> - **bf16 elementwise ops are fine with the sigmoid form of GELU**: 99.6 % with the full NPU numerics at 16×16 pooling against 99.4 % for the GPU path (MEASURED, `moondream/gpu/BF16_ELEMENTWISE.md`).
+> - General rules are in [gemm](../../common/book/gemm.md#is-it-compute--or-data-bound) and [elementwise](../../common/book/elementwise.md#judging-accuracy).
+
+**Terms.** bfp16 = block floating point (shared exponent per block of 8 values, 8-bit mantissas). bf16 = 16-bit brain float. K = the reduction dimension of a GEMM.
+fp = false positives. tv, mug = the two target objects of the yes/no gate. pool 16 = 16×16 token pooling. rms = root-mean-square error. ulp = unit in the last place.
 
 ## The gate and the emulators
 
 The gate is the 493-frame set of the [GPU chapter](gpu.md) (tv 402 / 46 found, mug 91 / 7 found); a change is acceptable if it costs about two frames.
-The emulators are `moondream/gpu/bfpemu.py` (bfp16 with a shared exponent per block of 8 values and 8-bit mantissas; verified bit-exact with
-`aie.utils.bfp.quantize(rounding="conv_even")` on 589,824 values) and `bf16emu.py` (every op computes in fp32 and rounds to bf16 immediately; constants bf16; exp correctly rounded from its bf16 input,
-the best case for a bf16 exp unit). They replace the GPU path's linears or `_vision` (`bench_bfp.py`, `frame_preds.py --bf16`).
+
+| emulator | what it does |
+|---|---|
+| `moondream/gpu/bfpemu.py` | bfp16 with a shared exponent per block of 8 values and 8-bit mantissas; verified bit-exact with `aie.utils.bfp.quantize(rounding="conv_even")` on 589,824 values |
+| `bf16emu.py` | every op computes in fp32 and rounds to bf16 immediately; constants bf16; exp correctly rounded from its bf16 input, the best case for a bf16 exp unit |
+
+They replace the GPU path's linears or `_vision` (`bench_bfp.py`, `frame_preds.py --bf16`).
+
+```mermaid
+flowchart TB
+    subgraph gpu["on the GPU"]
+        direction LR
+        em["emulate NPU<br/>arithmetic"] --> sc["score 493 / 462<br/>labelled frames"] --> dec["accept or drop"]
+    end
+    subgraph npu["only if accepted"]
+        direction LR
+        k["write kernel"] --> bx["demand bit-exact<br/>match to emulation"]
+    end
+    gpu --> npu
+```
 
 ## bfp16 operands and the accumulator
 
@@ -27,30 +49,45 @@ Vision encoder only (patch embedding, all blocks, projection), text model unchan
 | **bfp both, fp32 accumulator over all K** | **97.6 %** | 12 | 99.0 % |
 | bfp both + 64-wide Hadamard along K | 96.1 % | 19 | 98.0 % |
 
-Reading: operand rounding alone is cheap; what the stock design lost was the bf16 C between 64-K chunks ([F4](../../common/book/negative-results.md#f4) <!-- nr: F4 -->, 1.4 points
-against the GPU path, 1.0 against the fp32-accumulating bfp variant). The kernel (`p2/mm_f32acc.cc`) therefore keeps an fp32 accumulator for the whole K, split between the output buffer and
-a static buffer because an fp32 96x96 tile does not fit L1 beside a bf16 tile. Its output matches `bf16(float64 product of the decoded bfp operands)`: 0.0000 % of outputs differ, max 1 ulp, rms 1.66e-3 = the bf16 rounding
-floor (MEASURED on all seven encoder shapes, [p2](../npu/p2/), [p2b](../npu/p2b/)). Fixing the precision cost no speed (qkv 463 us against 486 us with bf16 accumulation);
-it did cap the output-stationary stream at ~67 % of peak, since an fp32 tile needs more input-port cycles ([npu-gemm](npu-gemm.md)).
+Operand rounding alone is cheap. What the stock design lost was the bf16 C between 64-K chunks
+([F4](../../common/book/negative-results.md#f4) <!-- nr: F4 -->): 1.4 points against the GPU path, 1.0 against the fp32-accumulating bfp variant.
+
+```text
+stock:     C_bf16 = bf16( C_bf16 + A_k B_k )     rounded every 64 K  -> 96.6 %
+kernel:    C_fp32 =        C_fp32 + A_k B_k      rounded once at the end -> 97.6 %
+```
+
+The kernel (`p2/mm_f32acc.cc`) therefore keeps an fp32 accumulator for the whole K, split between the output buffer and a static buffer, because an fp32 96×96 tile does not fit L1 beside a bf16 tile.
+
+Its output matches $\text{bf16}(\text{float64 product of the decoded bfp operands})$: 0.0000 % of outputs differ, max 1 ulp, rms 1.66e-3 = the bf16 rounding floor
+(MEASURED on all seven encoder shapes, [p2](../npu/p2/), [p2b](../npu/p2b/)).
+
+Fixing the precision cost no speed (qkv 463 µs against 486 µs with bf16 accumulation). It did cap the output-stationary stream at ~67 % of peak,
+since an fp32 tile needs more input-port cycles ([npu-gemm](npu-gemm.md)).
 
 ## Hadamard rotation
 
 A 64-wide Hadamard transform along K before the bfp quantisation is the standard trick to flatten outliers within a shared-exponent block. Here (BfpRotLin) it made things worse:
-96.1 % against 96.6 % for the same design without it, 19 false positives against 17 (MEASURED emulation, [F5](../../common/book/negative-results.md#f5) <!-- nr: F5 -->). The cause was not investigated; it was dropped without a kernel.
+96.1 % against 96.6 % for the same design without it, 19 false positives against 17 (MEASURED emulation, [F5](../../common/book/negative-results.md#f5) <!-- nr: F5 -->).
+The cause was not investigated; it was dropped without a kernel.
 
 ## Int8
 
-- **On the GPU**: per-token int8 for the vision tower gave 113 ms but 89.2 % (53 tv false positives), against 97.8 % for int8 on the text model only. SigLIP activations do not survive per-token int8
-  (MEASURED, `moondream/gpu/RESULTS.md`, `fast-all-int8-graph`). GPU int8 WMMA also peaks at 57 TOPS against bf16's 55 TFLOPS, so the assumption "int8 is 2x" was wrong there as well ([gpu](gpu.md)).
-- **On the NPU**: the dense int8 `mmul` is 8x8x8 = 512 MACs per instruction, the same rate as bfp16 (the 1,024-MAC 8x16x8 form needs a sparse B operand); int8 panels are 64 B against 72 B
-  for bfp16, 11 % fewer bytes. Int8 buys nothing in MACs and little in bytes ([F6](../../common/book/negative-results.md#f6) <!-- nr: F6 -->; MACHINE: MMUL rate).
+| where | result |
+|---|---|
+| GPU, vision tower | per-token int8 gave 113 ms but **89.2 %** (53 tv false positives), against 97.8 % for int8 on the text model only |
+| GPU, WMMA | int8 peaks at 57 TOPS against bf16's 55 TFLOPS: the assumption "int8 is 2×" was wrong there too ([gpu](gpu.md)) |
+| NPU | dense int8 `mmul` is 8×8×8 = 512 MACs per instruction, the same rate as bfp16; int8 panels are 64 B against 72 B for bfp16, 11 % fewer bytes |
+
+- SigLIP activations do not survive per-token int8 (MEASURED, `moondream/gpu/RESULTS.md`, `fast-all-int8-graph`).
+- The 1,024-MAC 8×16×8 form needs a sparse B operand. Int8 buys nothing in MACs and little in bytes ([F6](../../common/book/negative-results.md#f6) <!-- nr: F6 -->; MACHINE: MMUL rate).
 - The text-model W8A8 kernels (`p4/mm_i8.cc`) did match the GPU's numerics: int32 exact accumulation, the dequant epilogue in fp32 in the HIP kernel's order, 0.0000-0.0005 % mismatch
   (0.009-0.010 % with GELU, max 2-3.5 ulp, exp polynomial against numpy's exp). The text model still stays on the GPU for speed reasons ([npu-gemm](npu-gemm.md)).
 
 ## bf16 elementwise
 
-LayerNorm, GELU, softmax and residual adds rounded to bf16 at every step, fp32 only for reductions (the NPU has no fp32 vector arithmetic; [npu-elementwise](npu-elementwise.md)). 462 frames, 24 positives
-(`BF16_ELEMENTWISE.md`; flips are against the exact path, or against pool16 for pooled rows):
+LayerNorm, GELU, softmax and residual adds rounded to bf16 at every step, fp32 only for reductions (the NPU has no fp32 vector arithmetic; [npu-elementwise](npu-elementwise.md)).
+462 frames, 24 positives (`BF16_ELEMENTWISE.md`; flips are against the exact path, or against pool16 for pooled rows):
 
 | config | accuracy | fp | decision flips | max margin shift |
 |---|---|---|---|---|
@@ -64,23 +101,36 @@ LayerNorm, GELU, softmax and residual adds rounded to bf16 at every step, fp32 o
 | pool16 (GPU path) | 99.4 % | 3 | - | - |
 | **all bf16 + sigmoid GELU + bfp16 GEMMs, pool16** | **99.6 %** | 2 | 1 | 0.75 |
 
-Per-op relative rms error against fp32: LayerNorm 3.7-4.4e-3 (GPU path 1.6e-3), softmax 4.2-7.6e-3, tanh-form GELU **1.4-2.1e-2**, sigmoid-form GELU 0.5-4.5e-3. The tanh form
-`1 - 2/(exp(2u)+1)` loses precision to cancellation; the sigmoid form `x / (1 + exp(-2u))` is the same function. The verdict: bf16 elementwise is acceptable with the sigmoid form; at 729 tokens the full NPU numerics
-match the bfp16-GEMM-only result (+2 false positives against exact), at pool 16 they are one frame better than the GPU path.
+Per-op relative rms error against fp32:
+
+| op | rms |
+|---|---|
+| LayerNorm | 3.7-4.4e-3 (GPU path 1.6e-3) |
+| softmax | 4.2-7.6e-3 |
+| GELU, tanh form $1 - 2/(e^{2u}+1)$ | **1.4-2.1e-2** |
+| GELU, sigmoid form $x / (1 + e^{-2u})$ | 0.5-4.5e-3 |
+
+The tanh form loses precision to cancellation; the sigmoid form is the same function.
+
+The verdict: bf16 elementwise is acceptable with the sigmoid form. At 729 tokens the full NPU numerics match the bfp16-GEMM-only result (+2 false positives against exact);
+at pool 16 they are one frame better than the GPU path.
 
 ## Attention operands
 
-The kernel (`p9/attn15.cc`) uses bfp16 Q, K, V and P with an fp32 accumulator, a bf16 running max, row sums from a ones panel and a bf16 reciprocal. Emulated as `attn_bfp`, it has relative rms 1.0-1.6e-2
-against fp32 (bf16 attention 0.4-0.8e-2). Accuracy: 97.6 % against 97.8 % with bf16 attention at 729 tokens (one more false positive), 99.6 % at pool 16, no missed positive (smallest true-positive margin +4.8, same as exact).
-On random data the kernel is at the operand-rounding floor: rms 9.8e-3 against `bf16emu`, a host model of the bfp-rounded inputs already 8.1e-3 away (MEASURED, [npu-attention](npu-attention.md)).
-The conversions also depend on the core's rounding mode, which defaults to floor, not round-to-even.
+The kernel (`p9/attn15.cc`) uses bfp16 Q, K, V and P with an fp32 accumulator, a bf16 running max, row sums from a ones panel and a bf16 reciprocal.
+Emulated as `attn_bfp`, it has relative rms 1.0-1.6e-2 against fp32 (bf16 attention 0.4-0.8e-2).
+
+- Accuracy: 97.6 % against 97.8 % with bf16 attention at 729 tokens (one more false positive), 99.6 % at pool 16, no missed positive (smallest true-positive margin +4.8, same as exact).
+- On random data the kernel is at the operand-rounding floor: rms 9.8e-3 against `bf16emu`, a host model of the bfp-rounded inputs already 8.1e-3 away (MEASURED, [npu-attention](npu-attention.md)).
+- The conversions also depend on the core's rounding mode, which defaults to floor, not round-to-even.
 
 ## Reading the accuracy numbers
 
-- The deciding frames are few. Almost every flip is a tv frame of session B that the GPU path already scores within +-0.8 of zero, a band of ~15 borderline negatives; false-positive counts move up and down by noise
-  (bf16_all has fewer than bf16_gelu alone). No configuration misses a positive.
+- The deciding frames are few. Almost every flip is a tv frame of session B that the GPU path already scores within ±0.8 of zero, a band of ~15 borderline negatives;
+  false-positive counts move up and down by noise (bf16_all has fewer than bf16_gelu alone). No configuration misses a positive.
 - Cross-process noise on the GPU is of the same size: Triton autotune choices changed the accumulation order and flipped frames (97.0 to 98.0 % for one config). Compare emulations within one run.
-- Two frame sets appear: 493 frames (the phase-1 table, 53 positives) and 462 frames with 24 positives (the bf16 study, hand-labelled). Their absolute accuracies differ (98.0 vs 98.3 % for the exact path), so the tables above must not be mixed.
+- Two frame sets appear: 493 frames (the phase-1 table, 53 positives) and 462 frames with 24 positives (the bf16 study, hand-labelled).
+  Their absolute accuracies differ (98.0 vs 98.3 % for the exact path), so the tables above must not be mixed.
 
 ## What worked
 
@@ -90,13 +140,16 @@ The conversions also depend on the core's rounding mode, which defaults to floor
 
 ## What didn't work
 
-- [F4](../../common/book/negative-results.md#f4) <!-- nr: F4 --> bf16 C between 64-K chunks (the stock mlir-aie design): -1.4 points. Lesson: fp32 accumulator over the whole K.
-- [F5](../../common/book/negative-results.md#f5) <!-- nr: F5 --> Hadamard rotation along K: 96.1 % against 96.6 %.
-- [N23](../../common/book/negative-results.md#n23) <!-- nr: N23 --> int8 in the vision tower (GPU path): 89.2 %. [F6](../../common/book/negative-results.md#f6) <!-- nr: F6 --> is the NPU side: the dense int8 mmul runs at the bfp16 rate, so int8 buys no MACs.
-- [N18](../../common/book/negative-results.md#n18) <!-- nr: N18 --> GELU in the tanh form in bf16 (up to 2.2 margin shift, 10 flips).
-- [N19](../../common/book/negative-results.md#n19) <!-- nr: N19 --> A plain bf16 exp and reciprocal in the GELU: 38.8 % one-ulp flips against 0.998 % for the split-operand form.
-- [N27](../../common/book/negative-results.md#n27) <!-- nr: N27 --> The folded projection (its two K halves summed) and the fused residual epilogue on the GPU (98.4 % and 98.8 % agreement): bf16 rounding of a changed order moves decisions.
-- [N22](../../common/book/negative-results.md#n22) <!-- nr: N22 --> fp16 on the GPU: 96.1 %.
+| Idea | Outcome | Why (lesson) | Index |
+|---|---|---|---|
+| bf16 C between 64-K chunks (the stock mlir-aie design) | -1.4 points | fp32 accumulator over the whole K | [F4](../../common/book/negative-results.md#f4) <!-- nr: F4 --> |
+| Hadamard rotation along K | 96.1 % against 96.6 % | Cause not investigated | [F5](../../common/book/negative-results.md#f5) <!-- nr: F5 --> |
+| int8 in the vision tower (GPU path) | 89.2 % | SigLIP activations do not survive per-token int8 | [N23](../../common/book/negative-results.md#n23) <!-- nr: N23 --> |
+| int8 on the NPU | No MAC gain | The dense int8 mmul runs at the bfp16 rate | [F6](../../common/book/negative-results.md#f6) <!-- nr: F6 --> |
+| GELU in the tanh form in bf16 | Up to 2.2 margin shift, 10 flips | Cancellation | [N18](../../common/book/negative-results.md#n18) <!-- nr: N18 --> |
+| A plain bf16 exp and reciprocal in the GELU | 38.8 % one-ulp flips against 0.998 % for the split-operand form | | [N19](../../common/book/negative-results.md#n19) <!-- nr: N19 --> |
+| The folded projection (its two K halves summed) and the fused residual epilogue on the GPU | 98.4 % and 98.8 % agreement | bf16 rounding of a changed order moves decisions | [N27](../../common/book/negative-results.md#n27) <!-- nr: N27 --> |
+| fp16 on the GPU | 96.1 % | | [N22](../../common/book/negative-results.md#n22) <!-- nr: N22 --> |
 
 ## Lessons
 
