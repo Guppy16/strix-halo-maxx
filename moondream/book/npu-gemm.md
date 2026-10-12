@@ -1,12 +1,38 @@
 # moondream NPU GEMMs: design2, design3 and design6
 
-The encoder's four GEMMs (qkv, attn_out, fc1, fc2; 652 GFLOP per frame with the projection) run on the NPU as **one program for all
-27 blocks in 33.8 ms** (MEASURED, [`p6`](../npu/p6/), Turbo). That is still slower than the GPU's 20.7 ms, and the reason is not
-the kernel: the frame is **DDR-bound**, 1,317 MB per frame at 37-39 GB/s (MEASURED, MD RESULTS phase 11). The path there had three
-designs. design.py streamed A and B from DDR and hit the DDR cap. design2 tried to keep A in the memtile with runtime tasks and
-deadlocked. design3 did it with a static chain, and design6 squeezed the whole block into the memtile's buffer-descriptor (BD) budget.
-The numerics are bit-exact to bf16 throughout (rms 1.65e-3, the bf16 rounding floor). General mechanics are in
-[gemm](../../common/book/gemm.md) and [data-movement](../../common/book/data-movement.md); the clock-free unit here is bundles per MAC.
+> **In brief**
+>
+> - The encoder's four GEMMs (qkv, attn_out, fc1, fc2; 652 GFLOP per frame with the projection) run on the NPU as **one program for
+>   all 27 blocks in 33.8 ms** (MEASURED, [`p6`](../npu/p6/), Turbo). That is still slower than the GPU's 20.7 ms.
+> - The reason is not the kernel: the frame is **DDR-bound**, 1,317 MB per frame at 37-39 GB/s (MEASURED, MD RESULTS phase 11).
+> - The path there had three designs. design.py streamed A and B from DDR and hit the DDR cap. design2 tried to keep A in the memtile
+>   with runtime tasks and deadlocked. design3 did it with a static chain, and design6 squeezed the whole block into the memtile's
+>   buffer-descriptor (BD) budget.
+> - The numerics are bit-exact to bf16 throughout (rms 1.65e-3, the bf16 rounding floor).
+> - General mechanics are in [gemm](../../common/book/gemm.md) and [data-movement](../../common/book/data-movement.md); the clock-free
+>   unit here is bundles per MAC.
+
+**Terms.** A, B, C = the left operand (activations), right operand (weights) and output of a GEMM. K = the reduction dimension.
+Memtile = the shared on-chip scratch memory of a column. BD = DMA buffer descriptor. DDR = the shared system memory. L1 = a core's local memory.
+Bundle = one VLIW instruction word. MAC = multiply-accumulate. ERT / TDR = the firmware timeout and the driver's timeout-and-reset.
+MD RESULTS / MD NOTES = `moondream/npu/RESULTS.md` / `NOTES.md`.
+
+```mermaid
+flowchart TB
+    subgraph d1["Phase 1"]
+        direction LR
+        g["generic GEMM<br/>111 dispatches, 55.0 ms"] --> d0["design.py<br/>DDR cap, 463 us qkv"]
+    end
+    subgraph d2["A on chip"]
+        direction LR
+        a2["design2<br/>runtime tasks: hang"] --> a3["design3<br/>static chain, 36.2 ms"]
+    end
+    subgraph d3["One program"]
+        direction LR
+        a6["design6<br/>17 BDs, 33.8 ms"] --> a12["phase 11-12<br/>DDR-bound floor"]
+    end
+    d1 --> d2 --> d3
+```
 
 ## Setup: shapes and tiles
 
@@ -18,21 +44,36 @@ accumulator over the whole K, and a bf16 C. Column c holds M-tile c; the four ro
 
 mlir-aie's asymmetric-tile-buffering GEMM (bf16 A converted in the core, bfp16 B) at the encoder shapes: 9-13 TOPS (20-27 % of the ~50 TOPS
 peak), **55.0 ms per frame in 111 dispatches** (MEASURED, `moondream/npu/atb/`, MD RESULTS phase 1) against 20.7 ms on the GPU. Two lessons
-shaped everything after: switching between two xclbins costs ~2.8 ms (MEASURED, `atb/ctx_switch.py`), so the encoder must be one
-xclbin; and the design keeps bf16 C between K chunks, which the GPU emulation showed costs accuracy ([numerics](numerics.md)).
+shaped everything after:
+
+- Switching between two xclbins costs ~2.8 ms (MEASURED, `atb/ctx_switch.py`), so the encoder must be one xclbin.
+- The design keeps bf16 C between K chunks, which the GPU emulation showed costs accuracy ([numerics](numerics.md)).
 
 ## Phase 2a: fp32 accumulator, and the DDR bound (design.py)
 
 The new kernel (`p2/mm_f32acc.cc`) keeps the accumulator fp32 for the whole K. The L1 cannot hold an fp32 96x96 tile next to a bf16 output
 tile, so the accumulator is split: 48 rows inside the output buffer, 48 in a static buffer. Result: 0.0000 % of outputs differ from
-bf16(exact), but qkv takes 463 us, no faster than phase 1's 486 (MEASURED, [p2](../npu/p2/)). Why: DMA probes (`p2/bw.py`) found ~6.4 GB/s
-per shim stream and ~55-60 GB/s aggregate, and a build with no compute at all still took 515-549 us. qkv moved 18.8 MB (A re-read once per
-N pass) at ~50 GB/s. The inner loop was 68 bundles per 32 MACs (47 % of core peak). The early DDR numbers were read as a rule; the later
-caps are in [data-movement](../../common/book/data-movement.md#the-ddr-caps) ([C12](../../common/book/negative-results.md#c12) <!-- nr: C12 -->).
+bf16(exact), but qkv takes 463 us, no faster than phase 1's 486 (MEASURED, [p2](../npu/p2/)).
+
+Why: DMA probes (`p2/bw.py`) found ~6.4 GB/s per shim stream and ~55-60 GB/s aggregate, and a build with no compute at all still took
+515-549 us. qkv moved 18.8 MB (A re-read once per N pass) at ~50 GB/s. The inner loop was 68 bundles per 32 MACs (47 % of core peak).
+The early DDR numbers were read as a rule; the later caps are in [data-movement](../../common/book/data-movement.md#the-ddr-caps)
+([C12](../../common/book/negative-results.md#c12) <!-- nr: C12 -->).
 
 ## design2 and design3: A stays on chip
 
 Hypothesis: keep each column's A tile in the memtile and re-send it per N tile; qkv traffic drops 18.8 -> 10.8 MB.
+
+```text
+design3 memtile, per column (static chain, loops forever)
+
+  DDR --load BD--> [ A slot 0: 124 KB ] --+
+                   [ A slot 1: 124 KB ] --+--> MM2S [slot0, slot1] --> cores
+                          ^
+                          +-- lock value = "repeat this op n times"
+                              (no runtime task)
+```
+
 - **design2** drove the memtile with per-op runtime tasks. First run: ERT timeout and an amdxdna TDR. The lowered MLIR looked right
   (no channel or lock clash); the suspects are the memtile tasks' lock credits, the core's ping-pong order and the channel assignment of runtime tasks
   (nothing in the mlir-aie examples uses that path). It was never debugged (MD NOTES phase 2a-2b, [N1](../../common/book/negative-results.md#n1) <!-- nr: N1 -->).
@@ -56,8 +97,19 @@ is too big for the slots and streams per N tile, are near the cap.
 ## Where an op's time goes
 
 A twin of qkv with the kernel compiled out (NOCOMPUTE) takes 369 us of 446: the floor is data movement plus launch, not MACs. The
-per-core input port (~4 B/cycle) must carry 1.1 MB of B and 1.1 MB of A per qkv, ~176 us each in parallel. Later breakdown (417 us, 1.4 GHz
-estimate): launch 80, kernel 253, accumulator zero/store 13, C-tile stall ~26, A-load bubble ~20, other ~25 (MD NOTES phase 2c).
+per-core input port (~4 B/cycle) must carry 1.1 MB of B and 1.1 MB of A per qkv, ~176 us each in parallel.
+
+Later breakdown of qkv (417 us, 1.4 GHz estimate, MD NOTES phase 2c):
+
+| part | us |
+|---|---|
+| launch | 80 |
+| kernel | 253 |
+| accumulator zero/store | 13 |
+| C-tile stall | ~26 |
+| A-load bubble | ~20 |
+| other | ~25 |
+
 Each of these changed qkv by 2 % or less: A ring depth 6, B depth 3 in L1, B depth 4 in the memtile, C over 16 shim streams (a second B
 stream per row is impossible: a core has two input channels, A and B). Removing the A handshakes saved ~12 us.
 
@@ -78,11 +130,22 @@ characterised, not root-caused; a 30 ms encoder dispatch amortises it ([measurem
 
 Four dispatches meant three hardware-context switches (~2.7 ms each, 10.7 ms per frame: 40.4 ms looped against 29.7 ms of GEMM work,
 MEASURED, MD NOTES phase 5). Putting qkv, attn_out, fc1 and fc2 in one block needed more memtile BDs than exist: BDs come in two halves of
-24, and fc2's streamed A alone needs 24 load BDs per block pass ("Allocator exhausted available BD IDs"). design6 merges the two half slots
-into **one 31,104-word A buffer with one lock pair**, so a cached op is one load BD and an fc2 K chunk is one. The block chain is 15 loads
-+ 2 sends = 17 BDs (checked in the lowered MLIR before the first run). Result: **33.8 ms per frame**, 27 blocks in one dispatch, all ops
-bit-exact (587 frames in the loop, p90 33.9). The price: one buffer cannot double-buffer fc2's chunks, so fc2 runs ~550 us instead of 308
-(+6.7 ms per frame). The projection (44 loads) cannot join the static chain and stays on the GPU.
+24, and fc2's streamed A alone needs 24 load BDs per block pass ("Allocator exhausted available BD IDs").
+
+design6 merges the two half slots into **one 31,104-word A buffer with one lock pair**, so a cached op is one load BD and an fc2 K chunk is
+one. The block chain is 15 loads + 2 sends = 17 BDs (checked in the lowered MLIR before the first run).
+
+Result: **33.8 ms per frame**, 27 blocks in one dispatch, all ops bit-exact (587 frames in the loop, p90 33.9). The price: one buffer
+cannot double-buffer fc2's chunks, so fc2 runs ~550 us instead of 308 (+6.7 ms per frame). The projection (44 loads) cannot join the
+static chain and stays on the GPU.
+
+Dispatch granularity decides the frame:
+
+| granularity | ms per frame |
+|---|---|
+| 111 dispatches | 49.8 |
+| 4 dispatches | 36.2 |
+| one program | 33.8 |
 
 ## Phase 11-12: a faster loop does not help a DDR-bound frame
 
@@ -90,9 +153,21 @@ A hand-scheduled inner loop (II 18, 1.32 bundles per MAC) ran the frame in 31.5 
 only the odd k sub-steps: with two accumulator chains interleaved one MAC per cycle, a dependent MAC two cycles after its predecessor
 read the old accumulator (MEASURED; the hardware reads it earlier than the tables say; [toolchain](../../common/book/toolchain.md#the-asm-route)).
 The correct schedule (chains 3 apart) is II 26, 1.83 bundles per MAC, bit-exact, **33.6 ms**: a correct hand loop lands where Peano's 1.59 does.
-Even the wrong, 17 % faster loop moved the frame only 7.6 %, which is the point: the frame moves A 403 MB (re-read ~2x; ~200 inherent),
-B 484 MB and C 430 MB. Phase 12 priced the cuts: half-K residency of A in the memtile (-100 MB), and a bfp16 hand-off from fc1 to fc2 (-84 MB written,
--107 MB read), about 300 of 1,317 MB or ~7 ms, none built. A fused fc1-GELU-fc2 does not fit: the 4,304-wide intermediate is 465 KB per M tile.
+
+Even the wrong, 17 % faster loop moved the frame only 7.6 %, which is the point: the frame is bound by DDR traffic.
+
+| stream | MB per frame |
+|---|---|
+| A | 403 (re-read ~2x; ~200 inherent) |
+| B | 484 |
+| C | 430 |
+| **total** | **1,317** |
+
+$$t_\text{DDR} \approx \frac{1{,}317\ \text{MB}}{37\text{ to }39\ \text{GB/s}} \approx 34\text{ to }36\ \text{ms}$$
+
+(MODEL, arithmetic on the measured rate; it matches the measured 33.8 ms.) Phase 12 priced the cuts: half-K residency of A in the memtile (-100 MB),
+and a bfp16 hand-off from fc1 to fc2 (-84 MB written, -107 MB read), about 300 of 1,317 MB or ~7 ms, none built. A fused fc1-GELU-fc2 does
+not fit: the 4,304-wide intermediate is 465 KB per M tile.
 
 ## Text-model GEMMs: tried, stay on the GPU
 
@@ -110,20 +185,19 @@ the topology does not suit ([numerics](numerics.md#int8) for the arithmetic).
 
 ## What didn't work
 
-- [A22](../../common/book/negative-results.md#a22) <!-- nr: A22 --> Peano k-loop variants (pipeline off, II hint, unroll, full unroll): slower or spilled, because AIE2P has five `dm` registers.
-  Phase 2c's K2 (154 bundles per 64 MACs, 89 spills) and K3 (80 per 32, 36 spills) and phase 3's split accumulators, partial A hoists and unroll 3 (28-92 bundles per block against 27) belong here too. Lesson: the asm route, not C++ tweaks.
-- [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 --> The first hand-scheduled loop (1.32 bundles per MAC) was silently wrong; the correct one (1.83) was not faster than Peano's. Lesson: a checker
-  needs conveyor-intent assertions, and any hand loop must be bit-compared. TAPNext's later generators made hand scheduling pay.
-- [C12](../../common/book/negative-results.md#c12) <!-- nr: C12 --> The "~55-60 GB/s" DDR ceiling from the early probes; superseded by the aggregate caps.
-- [H1](../../common/book/negative-results.md#h1) <!-- nr: H1 --> The 1.4 GHz clock from the spin probe and the "% of peak" figures built on it.
-- [N1](../../common/book/negative-results.md#n1) <!-- nr: N1 --> design2's runtime memtile tasks: ERT timeout and a TDR, cause never found; replaced, not fixed. Lesson: static repeats, and read the lowered MLIR.
-- [N2](../../common/book/negative-results.md#n2) <!-- nr: N2 --> A whole-block static chain with fc2's streamed A: 24 BDs per channel half ("Allocator exhausted available BD IDs"); solved only by design6's merged buffer, at +6.7 ms for fc2.
-- [N3](../../common/book/negative-results.md#n3) <!-- nr: N3 --> Port and depth tuning (A ring 6, B depths 3 and 4, C over 16 streams, no handshakes): each <= 2 % on qkv; a second B stream per row is impossible (two input channels).
-- [N4](../../common/book/negative-results.md#n4) <!-- nr: N4 --> Sharing operands in a 2x2 quad: an AIE2 core reads only its own, north, south and west L1, so the quad cannot halve both ports. The K-split pair that can is parked (the kernel,
-  not the ports, was the limit).
-- [N5](../../common/book/negative-results.md#n5) <!-- nr: N5 --> The text model on the NPU: 180 ms pooled against 25-48 ms on the GPU.
-- [N6](../../common/book/negative-results.md#n6) <!-- nr: N6 --> A residual add in the GEMM epilogue: a third input stream is not available.
-- [N7](../../common/book/negative-results.md#n7) <!-- nr: N7 --> Turbo as a free multiplier: the plan said "scales every compute number"; it moved the clock ~3 %.
+| idea | outcome | why, and the lesson | index |
+|---|---|---|---|
+| Peano k-loop variants (pipeline off, II hint, unroll, full unroll) | slower or spilled | AIE2P has five `dm` registers. Phase 2c's K2 (154 bundles per 64 MACs, 89 spills) and K3 (80 per 32, 36 spills) and phase 3's split accumulators, partial A hoists and unroll 3 (28-92 bundles per block against 27) belong here too. Lesson: the asm route, not C++ tweaks | [A22](../../common/book/negative-results.md#a22) <!-- nr: A22 --> |
+| First hand-scheduled loop (1.32 bundles per MAC) | silently wrong; the correct one (1.83) was not faster than Peano's | a checker needs conveyor-intent assertions, and any hand loop must be bit-compared. TAPNext's later generators made hand scheduling pay | [A23](../../common/book/negative-results.md#a23) <!-- nr: A23 --> |
+| The "~55-60 GB/s" DDR ceiling from the early probes | superseded by the aggregate caps | early probe read as a rule | [C12](../../common/book/negative-results.md#c12) <!-- nr: C12 --> |
+| The 1.4 GHz clock from the spin probe and the "% of peak" figures built on it | wrong clock | a lower bound, not the clock | [H1](../../common/book/negative-results.md#h1) <!-- nr: H1 --> |
+| design2's runtime memtile tasks | ERT timeout and a TDR, cause never found; replaced, not fixed | lesson: static repeats, and read the lowered MLIR | [N1](../../common/book/negative-results.md#n1) <!-- nr: N1 --> |
+| A whole-block static chain with fc2's streamed A | 24 BDs per channel half ("Allocator exhausted available BD IDs") | solved only by design6's merged buffer, at +6.7 ms for fc2 | [N2](../../common/book/negative-results.md#n2) <!-- nr: N2 --> |
+| Port and depth tuning (A ring 6, B depths 3 and 4, C over 16 streams, no handshakes) | each <= 2 % on qkv | a second B stream per row is impossible (two input channels) | [N3](../../common/book/negative-results.md#n3) <!-- nr: N3 --> |
+| Sharing operands in a 2x2 quad | cannot halve both ports | an AIE2 core reads only its own, north, south and west L1. The K-split pair that can is parked (the kernel, not the ports, was the limit) | [N4](../../common/book/negative-results.md#n4) <!-- nr: N4 --> |
+| The text model on the NPU | 180 ms pooled against 25-48 ms on the GPU | port topology | [N5](../../common/book/negative-results.md#n5) <!-- nr: N5 --> |
+| A residual add in the GEMM epilogue | not possible | a third input stream is not available | [N6](../../common/book/negative-results.md#n6) <!-- nr: N6 --> |
+| Turbo as a free multiplier | moved the clock ~3 % | the plan said "scales every compute number" | [N7](../../common/book/negative-results.md#n7) <!-- nr: N7 --> |
 
 ## Lessons
 
