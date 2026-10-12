@@ -191,7 +191,7 @@ offload/pipelining (GPU free for prefill while the NPU encodes), as in phase 1's
 
 ## Phase 2c (2026-10-08; Default power mode for every number; NPU core clock measured ~1.4 GHz)
 Code: p2c/ (design3.py + mm_f32acc.cc -DBLK12, mode.py, spin.py, host.cpp). Experiments: NOTES.md "Phase 2c".
-*Note (2026-10-11):* the "% of peak" figures in phases 2c and 3 assumed a ~1.4 GHz clock; the NPU runs at ~1.8 GHz (common/MACHINE.md section 1). Bundles per MAC are unaffected.
+*Note (2026-10-11):* the "% of peak" figures in phases 2c and 3 assumed a ~1.4 GHz clock; the NPU runs at ~1.8 GHz (common/MACHINE.md M1.2). Bundles per MAC are unaffected.
 
 **Timing mode.** The 2x-slow processes of phase 2b could not be reproduced in ~45 processes on the idle box
 (zero/random/real data, 3 BO sets per process, alternating xclbins, CPU burn before timing): BO placement, flags,

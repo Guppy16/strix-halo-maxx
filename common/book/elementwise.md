@@ -55,7 +55,7 @@ AIE2P has a 4-way parallel table load (`load_lut_2x_float`, 16 lanes from two ta
 - 16-bit tables (`load_lut_2x_int8`, 4 B per entry, runs of 16 doubled) give an exact bf16 sqrt: 256 mantissa entries plus an int16 exponent halving.
 - Results in TAPNext: GELU = x·s(x) with s piecewise linear in 64 segments, 3.9x faster than the arithmetic GELU at the same real-data error
   (−6.0 ms, round 6). The SSM sigmoid and sqrt tables gave −2.8 ms. The LUT loops then sit at their port bound: DM_ADA and QEY_RS bind at
-  10 per 32 lanes, and register pressure gives II 11-13 (R7.3).
+  10 per 32 lanes, and register pressure gives II 11-13 ([M3.4](../MACHINE.md#m3-4)).
 
 ## GELU
 
@@ -124,4 +124,4 @@ by its I/O, not its math:
 
 - [SKILL](../../.claude/skills/xdna2-npu/SKILL.md) §3 (all rules with round numbers), `tapnext/npu/nk8.h` (exp32, recip, sigmoid, sqrt),
   `tapnext/npu/r6/lutgen.py`, `r7/explut.py`, `r9/ssmlut.py`, `moondream/npu/p8/expsplit.h`.
-- [MACHINE](../MACHINE.md) §2.3, R6, R7.2-R7.3.
+- [MACHINE](../MACHINE.md) [M2.1](../MACHINE.md#m2-1), [M3.3](../MACHINE.md#m3-3), [M3.4](../MACHINE.md#m3-4).

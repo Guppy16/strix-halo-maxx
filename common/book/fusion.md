@@ -9,7 +9,7 @@ the late rounds were CP-order deadlocks of our own making, and this chapter list
 
 ## One dispatch
 
-- A hardware-context switch costs ~2.7 ms and a pyxrt dispatch ~80-97 µs (MACHINE §1, SKILL §5). moondream's tower went from four
+- A hardware-context switch costs ~2.7 ms and a pyxrt dispatch ~80-97 µs (MACHINE [M1.6](../MACHINE.md#m1-6), SKILL §5). moondream's tower went from four
   xclbins (40.4 ms) to one program for 27 blocks (33.8 ms; MD RESULTS phase 6). TAPNext's first prototype ran six xclbins
   at ~2 ms each (NOTES 5); design8 (round 3) runs the whole 12-block step in one runtime sequence.
 - What one dispatch needs: one activation buffer with a memory plan (`tapnext/npu/plan8.py` records the last writer of every region),
@@ -21,7 +21,7 @@ the late rounds were CP-order deadlocks of our own making, and this chapter list
 
 ## What an op boundary is
 
-Measured on mlp0 → mlp3_a in TAPNext (CPST + TPROF, round 20; R16.1-R16.3):
+Measured on mlp0 → mlp3_a in TAPNext (CPST + TPROF, round 20; [M11.3](../MACHINE.md#m11-3)):
 
 | phase | time | what it is |
 |---|---|---|
@@ -75,7 +75,7 @@ than the op.
 
 - **The CP is in order.** A wait blocks every push behind it. A push into a full channel queue (5 tasks) blocks the CP until that
   channel's oldest task completes ([data-movement.md](data-movement.md#dma-bookkeeping)).
-- **A post-wait shim fill costs ~0.55 µs of CP time** (blockwrite + patch + maskpoll + maskwrite + push; R21.3). With 8 columns that is
+- **A post-wait shim fill costs ~0.55 µs of CP time** (blockwrite + patch + maskpoll + maskwrite + push; [M11.2](../MACHINE.md#m11-2)). With 8 columns that is
   ~4.4 µs of skew per wait. Configure the fill before the wait and push it after (design8 `prefill()`). The live BD count rises, so keep
   the static shim BD peak ≤ 16. This revived an idea that had been dropped on an inferred 0.10 µs ([C8](negative-results.md#c8) <!-- nr: C8 -->).
 - Decode and re-serialise a `.bin` with `aie.utils.txn_trace` to see or move CP instructions (`tapnext/npu/r20/binpatch.py`,
@@ -92,7 +92,7 @@ Each of these hung a dispatch at least once (rounds 10, 21, 23):
   with the op being issued: read it before dispatching a reordered sequence.**
 - Never make a core wait for its own C drain while it holds multicast inputs (LATEC, round 21; [B9](negative-results.md#b9)).
 - Per-chunk locks identify nothing: one F lock for both A halves would let half-0 sends go before their data. A reordered slot load needs
-  per-half locks (R16.6).
+  per-half locks ([M9.3](../MACHINE.md#m9-3)).
 - A kernel taking a new lock on an unpatched xclbin hangs ([toolchain.md](toolchain.md#iron-and-mlir-aie)).
 
 ## What didn't work
@@ -117,5 +117,5 @@ The TAPNext levers (SENDPRE, OPPRE, MSPLIT on out, YXH, NRES variants) are in [T
 
 ## Going deeper
 
-- [MACHINE](../MACHINE.md) §6, R15.5, R16.1-R16.7, R20.4-R20.5, R21.3, R21.5. [SKILL](../../.claude/skills/xdna2-npu/SKILL.md) §3 (round 19-24 rules).
+- [MACHINE](../MACHINE.md) [M11](../MACHINE.md#m11), [M11.1](../MACHINE.md#m11-1), [M11.2](../MACHINE.md#m11-2), [M11.3](../MACHINE.md#m11-3), [M9.3](../MACHINE.md#m9-3), [M10.2](../MACHINE.md#m10-2), [M10.3](../MACHINE.md#m10-3), [M10.5](../MACHINE.md#m10-5), [M14.5](../MACHINE.md#m14-5). [SKILL](../../.claude/skills/xdna2-npu/SKILL.md) §3 (round 19-24 rules).
 - NOTES 25 (round 20), 28 (round 23), 29 (round 24). `tapnext/npu/design8.py` (`prefill`, `SEQLOG`), `plan8.py`.

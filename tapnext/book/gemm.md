@@ -3,7 +3,7 @@
 The 11 GEMM ops of a block are **compute-bound** on 24 cores, and almost all of the 269 → 28.4 ms came from making their inner loop,
 their epilogues and their C drain cheaper, in that order. A core runs **1,296 k-steps per block** (MODEL, `tapnext/research/r25/ledger25.py`;
 ANALYSIS rev 20) on a 144 × 64 tile with a 64-deep K slice. The k-step went from ~2,900 cycles in situ (C++ `mm_acc`, round 6) to ~1,447
-(KTL, round 23) against an A-port floor of 1,304 (MODEL, R17.4). The epilogues went from ~77 bundles per 64 elements (round 5) to hand-scheduled
+(KTL, round 23) against an A-port floor of 1,304 (MODEL, [M8.3](../../common/MACHINE.md#m8-3)). The epilogues went from ~77 bundles per 64 elements (round 5) to hand-scheduled
 loops that cost ~1.6 ms per step (r21 timeline), and the C drain from ~2,330 cycles of waiting per tile to a few hundred. What is left is
 the DMA/bank collisions of the k-step (~1.2 ms per step, MODEL) and a GEMM L1 and text budget that is full to within 124 B and 128 B.
 The mechanisms are in [common/gemm](../../common/book/gemm.md); this chapter is the TAPNext instance.
@@ -96,10 +96,10 @@ not waiting for their producers at all): each pass pays its own call and drain, 
 
 | resource | state | evidence |
 |---|---|---|
-| GEMM program memory | 16,256 of 16,384 B (128 free); attention was ~6.9 KB of it at round 13 | HANDOFF round 25; MACHINE R9.4 |
-| GEMM L1 | data region 124 B free; bank 3 full (a +384 B `data_size` overflowed it); stack 2,560 B, deepest path 1,856 B | NOTES 28.3; MACHINE R17.9 |
+| GEMM program memory | 16,256 of 16,384 B (128 free); attention was ~6.9 KB of it at round 13 | HANDOFF round 25; MACHINE [M6.2](../../common/MACHINE.md#m6-2) |
+| GEMM L1 | data region 124 B free; bank 3 full (a +384 B `data_size` overflowed it); stack 2,560 B, deepest path 1,856 B | NOTES 28.3; MACHINE [M6.3](../../common/MACHINE.md#m6-3) |
 | EW program memory | 15,728 of 16,384 B (656 free) | HANDOFF round 24 |
-| EW L1 | stack 4,864 B (deepest 1,792), arena 22,016 B, input ring 20 × 768 B; research found 5.4-6.9 KB for the SSM glue (not applied) | ANALYSIS rev 21 §3; MACHINE R21.4 |
+| EW L1 | stack 4,864 B (deepest 1,792), arena 22,016 B, input ring 20 × 768 B; research found 5.4-6.9 KB for the SSM glue (not applied) | ANALYSIS rev 21 §3; MACHINE [M7.2](../../common/MACHINE.md#m7-2) |
 | memtile (0-2) | A slot grown to 36 chunks; 3,584 B left after IRON re-packed it | NOTES 27.1 |
 
 Budgets decided what could be built, more often than any schedule did:
@@ -148,4 +148,4 @@ Measured against the C path or the k-step (details in [common/gemm](../../common
 - [`tapnext/npu/NOTES.md`](../npu/NOTES.md) 12 (round 7), 14 (9), 17 (12), 23-24 (18-19), 26 (21), 28 (23); RESULTS 17-18, 28, 30, 32.
 - Generators: `tapnext/npu/r7/gen_mm.py`, `r9/gen_ks.py`, `r12/gen_gup.py`, `r12/gen_pan.py`, `r12/gen_bgelu.py`, `r14/gen_vt.py`, `r18/gen_rot.py`, `tapnext/research/r22/gen_e7.py` (`--ktl`); C path: `r19/csplit.py`, `r21/mkzload.py`; MSPLIT-P: `r23/mm_rot_k70p`.
 - Probes: `r19/tprof.py` (tile stamps), `r18/ksp38.py`, `tapnext/research/r20/collide.py`, `r25/hands.py`.
-- [MACHINE](../../common/MACHINE.md) R13.6, R14.1, R15.1, R17.1-R17.5, R17.9, R18.7. Next: [attention.md](attention.md) (the other user of these cores), [boundaries.md](boundaries.md).
+- [MACHINE](../../common/MACHINE.md) [M4.4](../../common/MACHINE.md#m4-4), [M6.3](../../common/MACHINE.md#m6-3), [M8.3](../../common/MACHINE.md#m8-3), [M15.1](../../common/MACHINE.md#m15-1). Next: [attention.md](attention.md) (the other user of these cores), [boundaries.md](boundaries.md).

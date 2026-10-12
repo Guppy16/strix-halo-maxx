@@ -16,7 +16,7 @@ How to read the index: the `why` column names the limit, the measurement, or wha
 
 Last updated 2026-10-11 (research pass 21, then the chapter passes: moondream section N, F13-F14; 225 entries + section R). Each entry: **ID — name** (round / rev), what it was; measured result; why it failed; lesson. Tags: [MEAS] measured on the device, [MODEL] refuted by a model or CP proof, [METHOD] a methodological dead end. "Conditional" = dead under today's design, may revive if X changes (say what X is).
 
-Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show eed3870:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Rx.y = `common/MACHINE.md` revision additions; SKILL = `.claude/skills/xdna2-npu/SKILL.md`; MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
+Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NOTES / RESULTS / HANDOFF = `tapnext/npu/*.md` (§ = section number); revN/P, revN/A = revision N of `tapnext/research/PROPOSALS.md` / `ANALYSIS.md` (the revN/ folders were removed on 2026-10-11: read one with `git show eed3870:npu-research/revN/<file>`; revisions 10+ are also in `git log --follow -p` of the file); MACHINE Mx.y = `common/MACHINE.md` topic id (older Rx.y / §n: `common/tools/machine-id-map.tsv`); SKILL = `.claude/skills/xdna2-npu/SKILL.md`; MD = `moondream/npu/{NOTES,RESULTS}.md` (pre-TAPNext, same hardware). ms = depth-12 step delta, Turbo, 1.81 GHz, unless stated. Negative = faster.
 
 
 
@@ -304,7 +304,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 **Class:** unfinished — Parked on L1/EW blockers; ROT superseded it in practice; conditional on k-step needing more A. What would settle it: Freeing L1 or removing the EW work (P41), then measure P36 / P39 on three cores.
 
 <a id="a11"></a>
-**A11 — ROT-TEMPLATES: identical job templates at 9-cycle offsets** (rev 14) [MODEL, CP proof]. With a B restart gap g > 0 (g ≢ 0 mod 9) identical job timings are INFEASIBLE: the B pass wraps each job's pops by R mod 9 and forces its 8 pops into consecutive cycles, which a dependent MAC chain (distance ≥ 3, 4 B registers) cannot follow (rev14/P headline; MACHINE R14.1). Fix used: per-job issue cycles (the loop body is one row block).
+**A11 — ROT-TEMPLATES: identical job templates at 9-cycle offsets** (rev 14) [MODEL, CP proof]. With a B restart gap g > 0 (g ≢ 0 mod 9) identical job timings are INFEASIBLE: the B pass wraps each job's pops by R mod 9 and forces its 8 pops into consecutive cycles, which a dependent MAC chain (distance ≥ 3, 4 B registers) cannot follow (rev14/P headline; MACHINE M15.1). Fix used: per-job issue cycles (the loop body is one row block).
 
 **Class:** fundamental — CP proof: a dependent MAC chain (distance >= 3, 4 B regs) cannot follow forced consecutive pops when g is not 0 mod 9.
 
@@ -319,7 +319,7 @@ Source keys: RFM = `tapnext/research/RESULTS_FROM_MAIN.md` (round N section); NO
 **Class:** revived — One FIFO could not split B; E7'' (B on both FIFOs, R 68) was built.
 
 <a id="a14"></a>
-**A14 — E7': B over two banks with one stream** (rev 14 rank 4; rev 15) [MODEL]. Void: ROT's R = 72 + g is the single B stream — the 72 line reads per row block all issue from ONE FIFO (lf1), a FIFO cannot pop twice in a bundle, so the ldb slot and bank 3 both bind at 72 + g (rev15/P; MACHINE R15.10). Successor E7'' (B on BOTH FIFOs, −0.9 ± 0.3 if CP-SAT finds R = 64): POPLF1 passed round 20 (vlda.pop.576 on lf1 128/128), not built. Conditional on E7'' feasibility, not on E7'.
+**A14 — E7': B over two banks with one stream** (rev 14 rank 4; rev 15) [MODEL]. Void: ROT's R = 72 + g is the single B stream — the 72 line reads per row block all issue from ONE FIFO (lf1), a FIFO cannot pop twice in a bundle, so the ldb slot and bank 3 both bind at 72 + g (rev15/P; MACHINE M15.1). Successor E7'' (B on BOTH FIFOs, −0.9 ± 0.3 if CP-SAT finds R = 64): POPLF1 passed round 20 (vlda.pop.576 on lf1 128/128), not built. Conditional on E7'' feasibility, not on E7'.
 
 **Class:** fundamental — One FIFO cannot pop twice in a bundle: ldb slot and bank 3 bind at 72+g; E7'' (two FIFOs) is the live successor.
 
@@ -516,7 +516,7 @@ pushes per block on the in-order CP (4-deep queues). Not proposed.
 **Class:** measured-here — +0.15 ms, cause unexplained (GEMM drains specifically). Would have to change: Understanding the shim S2MM queue / sync semantics for GEMM drains.
 
 <a id="c8"></a>
-**C8 — BDPRE: hoist the post-sync BD writes** (rev 16, `r21` analysis) [INF from CPST]. BD write (blockwrite) + address patch ~0.10 µs of CP time (MACHINE R16.2) ⇒ ≤ −0.1 ms per step. Dropped. The confirming probe CPBD (dummy blockwrites after mlp3_a's sync) was optional and not run.
+**C8 — BDPRE: hoist the post-sync BD writes** (rev 16, `r21` analysis) [INF from CPST]. BD write (blockwrite) + address patch ~0.10 µs of CP time (MACHINE M11.2) ⇒ ≤ −0.1 ms per step. Dropped. The confirming probe CPBD (dummy blockwrites after mlp3_a's sync) was optional and not run.
 
 **Class:** revived — Priced on 0.10 us CP time per BD write; measured 0.55 us, CPPRE -0.09 ms.
 
@@ -536,7 +536,7 @@ pushes per block on the in-order CP (4-deep queues). Not proposed.
 **Class:** revived — OPPRE2 (commit eb3d08d, round 24, -0.15 ms; pre-registered -0.08..-0.16) made it work: out_proj's A part g is filled per attention head group, with the memtile sends issued before the waits, and the attention's K / V fills and Q tasks issued first so the drains and waits no longer sit in front of the K / V pushes (the H_CP hypothesis above). With the sends after the waits it gave only -0.04 ms.
 
 <a id="c12"></a>
-**C12 — DDR84: "the NPU sustains ≥ 84 GB/s DDR read + write"** (rev 15 R15.4; DDRCAP pre-registered ≥ 84, ceiling ~110–120?) [MEAS]. DDRCAP (r19/ddrcap.py): one stream ~7 B/cycle; 4 × 1 and 2 × 2 streams 50 GB/s (minus dispatch), 8 × 1 / 4 × 2 59, 8 × 2 54 GB/s; with drains 63–74 GB/s read + write. Aggregate read cap ~55–59 GB/s. Why: rev 15 derived 84 from norm walls × bytes (8 × 4,672 B per 801 cycles) and called MACHINE §5's 55–63 GB/s "8 × the single-channel rate" — DDRCAP restored the old figure. Note: MACHINE R15.4 still states ≥ 84 (stale).
+**C12 — DDR84: "the NPU sustains ≥ 84 GB/s DDR read + write"** (rev 15; DDRCAP pre-registered ≥ 84, ceiling ~110–120?) [MEAS]. DDRCAP (r19/ddrcap.py): one stream ~7 B/cycle; 4 × 1 and 2 × 2 streams 50 GB/s (minus dispatch), 8 × 1 / 4 × 2 59, 8 × 2 54 GB/s; with drains 63–74 GB/s read + write. Aggregate read cap ~55–59 GB/s. Why: rev 15 derived 84 from norm walls × bytes (8 × 4,672 B per 801 cycles) and called MACHINE's 55–63 GB/s "8 × the single-channel rate" — DDRCAP restored the old figure. MACHINE M10.4 now states the DDRCAP cap.
 
 **Class:** method — Derived from norm walls x bytes; DDRCAP measured ~55-59 GB/s aggregate.
 
@@ -735,7 +735,7 @@ rev17/P 3A.
 **Class:** measured-here — Per-call overhead dominates small-grain output: 3x slower than the DMA bound. Would have to change: Nothing: use slot reservation plus direct ring stores.
 
 <a id="e2"></a>
-**E2 — ROUT235: "the norms are output-port bound, R_out 2.35 B/cycle"** (rev 12 headline) [MEAS stamps]. ewio fit on four measurements gave R_out 2.35 (2.3–2.45) and pre-registered out_begin waits 147 (RMS) / 90 (LN) per unit. NIO stamps (round 17, r16z): out_begin 45.0 gross ≈ 5 net (stamp interval contains ~40 cycles of call; MACHINE R13.2); with NPIPE_G 2 46.6. Refuted (rev13/A §1). Why: H13 (s2 fixed at the bench value, the fit put the missing pass-2 time on R_out).
+**E2 — ROUT235: "the norms are output-port bound, R_out 2.35 B/cycle"** (rev 12 headline) [MEAS stamps]. ewio fit on four measurements gave R_out 2.35 (2.3–2.45) and pre-registered out_begin waits 147 (RMS) / 90 (LN) per unit. NIO stamps (round 17, r16z): out_begin 45.0 gross ≈ 5 net (stamp interval contains ~40 cycles of call; MACHINE M14.5); with NPIPE_G 2 46.6. Refuted (rev13/A §1). Why: H13 (s2 fixed at the bench value, the fit put the missing pass-2 time on R_out).
 
 **Class:** method — Fit put the missing pass-2 time on R_out; stamps show out_begin ~5 net cycles.
 
@@ -750,7 +750,7 @@ rev17/P 3A.
 **Class:** measured-here — 3-input norms sit at the DDR read cap; both 2-input norms are compute-bound (~480 RMS / ~560 LN cycles per unit, RRTWIN). Would have to change: Fewer DDR bytes (NRES-like) for the 3-input norms; less glue per unit (~170-190 cycles) for the 2-input ones.
 
 <a id="e5"></a>
-**E5 — RIN575: fitted EW input rate R_in 5.75 B/cycle** (rev 13 fit13) [MEAS]. Round 19 walls (r19d): 3-input norms 801 / 821 cycles per 3,072 B unit = 3.84 / 3.74 B/cycle (input-bound), 2-input 567 / 693 (RFM round 19). The fit's free per-op constant F and fitted s2 absorbed the n3 input time; its one miss was this signal (n3 − n2 wall 10.7 µs modelled vs 15–19 measured) (rev15/P norm plan). Rev 15's replacement explanation — ONE shim MM2S channel at ~3.8 B/cycle — was refuted in turn by DDRCAP (one stream ~7 B/cycle; 4 × 1 = 2 × 2 streams): the bound is the aggregate DDR read cap (8 × 3,072 B per 801 cycles = 55.5 GB/s). MACHINE R15.3 still says "one shim MM2S channel" (stale).
+**E5 — RIN575: fitted EW input rate R_in 5.75 B/cycle** (rev 13 fit13) [MEAS]. Round 19 walls (r19d): 3-input norms 801 / 821 cycles per 3,072 B unit = 3.84 / 3.74 B/cycle (input-bound), 2-input 567 / 693 (RFM round 19). The fit's free per-op constant F and fitted s2 absorbed the n3 input time; its one miss was this signal (n3 − n2 wall 10.7 µs modelled vs 15–19 measured) (rev15/P norm plan). Rev 15's replacement explanation — ONE shim MM2S channel at ~3.8 B/cycle — was refuted in turn by DDRCAP (one stream ~7 B/cycle; 4 × 1 = 2 × 2 streams): the bound is the aggregate DDR read cap (8 × 3,072 B per 801 cycles = 55.5 GB/s). MACHINE M8.7 now gives the DDR-cap reading.
 
 **Class:** method — Free constants absorbed the 3-input time; the bound is the aggregate DDR read cap.
 
@@ -991,7 +991,7 @@ rev17/P 3A.
 
 <a id="g19"></a>
 **G19 — ACQ-ONLY-BD: a DMA BD block with only an acquire** (main, round 21) [MEAS]. The MLIR verifier refuses it; a release by 0 is the
-working form (csplit.py --sub). The hardware fields are independent (MACHINE R16.8).
+working form (csplit.py --sub). The hardware fields are independent (MACHINE M10.1).
 
 **Class:** measured-here — MLIR verifier refuses an acquire-only BD; release by 0 works. Would have to change: A newer MLIR verifier.
 
@@ -999,7 +999,7 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 ## H. Methodological dead ends
 
 <a id="h1"></a>
-**H1 — CONSTANTS: the "1.43 GHz" clock and the "4 B/cycle" A port** (rev 1, round 5) [METHOD]. The clock came from moondream phase-2c's spin loop (a 364-bundle call in 0.261 µs, a lower bound read as the clock; 1.408 GHz is also DPM level 5's H-clock); the driver's DPM table said 1.8 GHz all along. Measured: 1.8086 / 1.8076 GHz (r7/clk.py, RFM round 7 P10); memtile → core 7.95 B/cycle (round 10). The two errors compounded: the real A floor was ~0.72 µs, 0.4x the assumed 1.813 (rev2/A §0; MACHINE §1). Lesson: every conversion constant carries a source tag; [DOC] beats an old [MEAS] that measured something else.
+**H1 — CONSTANTS: the "1.43 GHz" clock and the "4 B/cycle" A port** (rev 1, round 5) [METHOD]. The clock came from moondream phase-2c's spin loop (a 364-bundle call in 0.261 µs, a lower bound read as the clock; 1.408 GHz is also DPM level 5's H-clock); the driver's DPM table said 1.8 GHz all along. Measured: 1.8086 / 1.8076 GHz (r7/clk.py, RFM round 7 P10); memtile → core 7.95 B/cycle (round 10). The two errors compounded: the real A floor was ~0.72 µs, 0.4x the assumed 1.813 (rev2/A §0; MACHINE M1.2). Lesson: every conversion constant carries a source tag; [DOC] beats an old [MEAS] that measured something else.
 
 **Class:** method — Wrong clock and port constants compounded.
 
@@ -1044,7 +1044,7 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 **Class:** method — Benched a binary that was not the claimed loop.
 
 <a id="h10"></a>
-**H10 — BENCH-CPP: a one-core bench of C++ is not the in-situ code** (rounds 15, 18) [METHOD]. The deployed conv loop ran 377 cycles on one core, ~1,000–1,125 in situ (P[] via the stack, in_part, ring stalls; 3x); the z loop pipelined in the bench (97 for 8) and was serial in ew_ssm (27 bundles per 64 lanes) — which made E15 a false dead end (RFM round 15 P29d; MACHINE R13.8). Lesson: price C++ phases from in-situ stamps / the deployed disassembly.
+**H10 — BENCH-CPP: a one-core bench of C++ is not the in-situ code** (rounds 15, 18) [METHOD]. The deployed conv loop ran 377 cycles on one core, ~1,000–1,125 in situ (P[] via the stack, in_part, ring stalls; 3x); the z loop pipelined in the bench (97 for 8) and was serial in ew_ssm (27 bundles per 64 lanes) — which made E15 a false dead end (RFM round 15 P29d; MACHINE M3.4). Lesson: price C++ phases from in-situ stamps / the deployed disassembly.
 
 **Class:** method — One-core C++ bench differs from in-situ code (3x).
 
@@ -1074,7 +1074,7 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 **Class:** method — "5 ms of boundaries" counted first-tile compute.
 
 <a id="h16"></a>
-**H16 — POLL-QUANT: medians of host-poll timelines** (rounds 19–20) [METHOD]. Polls come every ~16.5–17.5 µs, so per-op median gaps are 0 / 16.5 / 33 µs: "every norm gap 16.5 µs" (r19d) is an artefact; means over blocks 1–11 are 8.6–11.0 µs (r21/tlhist21.py; MACHINE R16.4). Earlier: the 17 µs quantum showed as a two-level 148 / 165 pattern for mlp3_a (rev8/A §0.1). Lesson: means over ≥ 8 blocks or effects ≥ 3x the quantum.
+**H16 — POLL-QUANT: medians of host-poll timelines** (rounds 19–20) [METHOD]. Polls come every ~16.5–17.5 µs, so per-op median gaps are 0 / 16.5 / 33 µs: "every norm gap 16.5 µs" (r19d) is an artefact; means over blocks 1–11 are 8.6–11.0 µs (r21/tlhist21.py; MACHINE M14.5). Earlier: the 17 µs quantum showed as a two-level 148 / 165 pattern for mlp3_a (rev8/A §0.1). Lesson: means over ≥ 8 blocks or effects ≥ 3x the quantum.
 
 **Class:** method — Host-poll medians quantised at 16.5 us.
 
@@ -1109,7 +1109,7 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 **Class:** method — Stale jit cache / #undef-ed flags gave false nulls.
 
 <a id="h23"></a>
-**H23 — BUILD-RACE: parallel builds and shared generated headers** (rounds 13, 16, 18) [METHOD]. Two design builds in one build dir race on the generated asm (asmfit temp files; spurious "bundle not 16 B aligned") (NOTES 18.4); per-build object dirs do not fix it because mm8.cc includes "build/<k>.h", resolved next to mm8.cc first (MACHINE R11.9). Build sequentially / under the build lock (tools/try.sh, round 16).
+**H23 — BUILD-RACE: parallel builds and shared generated headers** (rounds 13, 16, 18) [METHOD]. Two design builds in one build dir race on the generated asm (asmfit temp files; spurious "bundle not 16 B aligned") (NOTES 18.4); per-build object dirs do not fix it because mm8.cc includes "build/<k>.h", resolved next to mm8.cc first (MACHINE M6.4). Build sequentially / under the build lock (tools/try.sh, round 16).
 
 **Class:** method — Parallel builds race on shared generated files.
 
@@ -1134,7 +1134,7 @@ working form (csplit.py --sub). The hardware fields are independent (MACHINE R16
 **Class:** method — A half-built proposal scored as a whole.
 
 <a id="h28"></a>
-**H28 — STAMP-CONTAINS-CALL: stamp intervals include the call** (rev 13) [METHOD]. NPROF in_need 101.5 gross ≈ 57.5 net (35-cycle path + delay slots + stamp ≈ 44); out_begin 45.0 gross ≈ 5 net (MACHINE R13.2). Comparing gross stamps with modelled waits mis-sized every EW wait before rev 13.
+**H28 — STAMP-CONTAINS-CALL: stamp intervals include the call** (rev 13) [METHOD]. NPROF in_need 101.5 gross ≈ 57.5 net (35-cycle path + delay slots + stamp ≈ 44); out_begin 45.0 gross ≈ 5 net (MACHINE M14.5). Comparing gross stamps with modelled waits mis-sized every EW wait before rev 13.
 
 **Class:** method — Stamp intervals include the call's own cycles.
 
@@ -1342,7 +1342,7 @@ Moondream failures from the "What didn't work" sections of `moondream/book/`. So
 **Class:** fundamental — A residual add in the GEMM epilogue needs a third input stream (a core has two) or 166 KB per column in the memtile.
 
 <a id="n7"></a>
-**N7 — MD-TURBO-SCALE: Turbo as a free multiplier on the compute estimates** (moondream phase 2c plan; phase 3 measurement) [MEAS]. The phase 2c notes said turbo "scales every compute number by its clock ratio". The spin probe (a 364-bundle call: 0.254 µs in Turbo, 0.261 in Default) gave 1.43 vs 1.39 GHz, +3 %; the frame went 33.2 → 31.4 ms for the same build, because Turbo mostly trims dispatch and DMA latency. Later work (MACHINE §1) found Default and Turbo both run the array at 1.8 GHz while a context is open and Turbo only disables clock gating. Lesson: measure the clock with a register-only loop before scaling a plan by it (see H1).
+**N7 — MD-TURBO-SCALE: Turbo as a free multiplier on the compute estimates** (moondream phase 2c plan; phase 3 measurement) [MEAS]. The phase 2c notes said turbo "scales every compute number by its clock ratio". The spin probe (a 364-bundle call: 0.254 µs in Turbo, 0.261 in Default) gave 1.43 vs 1.39 GHz, +3 %; the frame went 33.2 → 31.4 ms for the same build, because Turbo mostly trims dispatch and DMA latency. Later work (MACHINE M1.2) found Default and Turbo both run the array at 1.8 GHz while a context is open and Turbo only disables clock gating. Lesson: measure the clock with a register-only loop before scaling a plan by it (see H1).
 
 **Class:** method — Plan assumed Turbo "scales every compute number"; it moved the core clock by ~3 %.
 
@@ -1495,7 +1495,7 @@ Moondream failures from the "What didn't work" sections of `moondream/book/`. So
 - **D13 chunk-0 rescale skip:** NOTES 18.5 "no measurable gain, reverted" (round 13) vs RFM round 14 "worth ~−0.3".
 - **E15 asm z loop:** RFM round 15 dead end ("no faster than C++, 100 vs 97") vs round 18 ZK −0.17 (in situ the C++ was serial).
 - **B2 GELU_II:** NOTES 15.3 still lists "GELU_II slower in situ" as a dead end; RFM round 11 shows it never pipelined and the fixed form gave −0.88.
-- **C12 / E5 DDR:** MACHINE R15.4 (≥ 84 GB/s) and R15.3 (norm input = one shim MM2S channel at 3.8 B/cycle) are stale against DDRCAP (aggregate read cap ~55–59 GB/s, one stream ~7 B/cycle). Rev 15 called MACHINE §5's 55–63 GB/s "8 × the single-channel rate"; DDRCAP restored it. SKILL §7 / MD keep "~55–60 peak" and "~4 B/cycle per column with all 8 loading", consistent with DDRCAP.
+- **C12 / E5 DDR:** MACHINE's former ≥ 84 GB/s and "norm input = one shim MM2S channel at 3.8 B/cycle" were stale against DDRCAP (now M10.4, M8.7) (aggregate read cap ~55–59 GB/s, one stream ~7 B/cycle). Rev 15 called MACHINE's 55–63 GB/s "8 × the single-channel rate"; DDRCAP restored it. SKILL §7 / MD keep "~55–60 peak" and "~4 B/cycle per column with all 8 loading", consistent with DDRCAP.
 - **D12 3D pops:** RFM round 13 says the 36-iteration form "needs the 3D Q pop stream"; round 14 built it with 2D modifiers.
 - **C4 SEQPRE price:** rev 15 raw −1.37..−2.31 at t_op 0.13–0.22; at CPRATE's measured rates main re-priced ~−0.6..−1.0 raw; measured best −0.04.
 - **H17 norm twin:** RFM round 16 "twin said 1.98 ms"; RESULTS 25.1 r16tw2 38.20 vs r16f 40.18 / r16h 39.96 gives 1.76–1.98 depending on the base.
@@ -1507,7 +1507,7 @@ Moondream failures from the "What didn't work" sections of `moondream/book/`. So
 - **B2 GELU_II** (−0.88 ms once the loop really pipelined), **E15 ZASM-BENCH** (ZK −0.17 in situ), **D13 CHUNK0-SKIP** (~−0.3 in round 14),
   **C17 NRES** (the idea, built chunk-major: −0.84 ms with norm1), **A13 B-2BANK** (void with one FIFO; E7'' splits B over two banks with
   two FIFOs and is live), **E6 FOLD** (retired under a refuted fit: re-price under the DDR-cap reading).
-- **C8 BDPRE** (pass 21): its price rested on ~0.10 us of CP time per post-sync BD write (R16.2, inferred). Main measured ~0.55 us per
+- **C8 BDPRE** (pass 21): its price rested on ~0.10 us of CP time per post-sync BD write (MACHINE M11.2, inferred). Main measured ~0.55 us per
   post-wait shim fill (blockwrite + patch + maskpoll + maskwrite + push) in round 24, and CPPRE (the same idea) gained -0.09 ms, plus
   -0.07 for SSMPRE. Entries that used 0.10 us: only C8. C3 (CPRATE: 0.06 / 0.11 us per write32 / maskpoll) is consistent with 0.55
   for five instructions; C2 / H14 stand (the boundary is not CP-bound), but per-column post-wait work skews the columns by

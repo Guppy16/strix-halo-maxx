@@ -11,10 +11,10 @@ The general mechanisms are in [common/attention](../../common/book/attention.md)
 - **Rows and keys.** 1,152 slots = 24 chunks of 48 keys, of which 1,072 are real (1,024 image + 48 query): chunk 22 has 16 real keys (2 of its 6 key blocks), chunk 23 none. A query *tile* is 48 rows (6 row blocks of 8).
   Each column holds 3 tiles (144 rows). The lazy max is decided per row block, so row blocks stay whole.
 - **Two passes.** Pass 0 handles tiles 0-1 (12 row blocks), pass 1 tile 2 (6), because the online-softmax state of three tiles does not fit L1. Each pass re-streams all of K and V for its heads. The K and V traffic is not the cost (D1 below).
-- **Head groups.** Core row *r* takes heads *r + 3g*, so a head group is three heads in flight, four groups per pass (R9.1). A group costs ~72-75 µs in pass 0 and ~40 µs in pass 1 (ATPROF, round 20):
+- **Head groups.** Core row *r* takes heads *r + 3g*, so a head group is three heads in flight, four groups per pass ([M8.6](../../common/MACHINE.md#m8-6)). A group costs ~72-75 µs in pass 0 and ~40 µs in pass 1 (ATPROF, round 20):
   4 × (73 + 40) ≈ 450 µs plus fixed costs of ~10 µs per group, which is the ~491 µs block.
 - **Flow.** Q objects go through the A slot (once per pass), K and V through the B fifo as 4,608 B objects (3,456 B payload) from a memtile fifo of 8 buffers per core row, **multicast by one memtile MM2S channel**
-  to the 8 columns (R9.1). O leaves as bfp chunks of out_proj's A (head h = k-step h). The qkv epilogue makes Q, K and V^T objects directly ([gemm.md](gemm.md#epilogue-kinds)).
+  to the 8 columns ([M8.6](../../common/MACHINE.md#m8-6)). O leaves as bfp chunks of out_proj's A (head h = k-step h). The qkv epilogue makes Q, K and V^T objects directly ([gemm.md](gemm.md#epilogue-kinds)).
 
 ## The softmax numerics, as built
 
@@ -43,11 +43,11 @@ that assumes the stored max is still valid and reports a flag.
 
 What the numbers said:
 - **The loop price was right, the production price was not.** The fast loop alone gave −2.9 ms as priced (P56), but production was −0.84: ~10 % of units (8.6-10.9 % per core: chunk 0, chunk 22 and 1-2 % whose max really moves) cost +400-900 cycles, and the multicast turned that
-  into ~3x its own time on the wall (see Lockstep). The exact test run for every unit had cost 1.35 ms; the in-loop flag removed it from the unflagged 90 % (NOTES 18.2). Each flagged row block cost 1,530 cycles in round 14 (rerun 393 + test 164 + rescale 578 + exact rerun 393; R10.4).
+  into ~3x its own time on the wall (see Lockstep). The exact test run for every unit had cost 1.35 ms; the in-loop flag removed it from the unflagged 90 % (NOTES 18.2). Each flagged row block cost 1,530 cycles in round 14 (rerun 393 + test 164 + rescale 578 + exact rerun 393; [M15.2](../../common/MACHINE.md#m15-2)).
 - **attkb is register-bound, not port-bound.** Its resource bound is 29-31 (DM_ADA, ldb), but ex_n aliases x_n and only 6 x registers are free for the exp, so splitting QK and exp, carrying exp lines across trips, or holding Q in ex0-7 all failed ([common](../../common/book/attention.md#the-k-loop)).
   II 36 → 33 came from CP-SAT time (600-1,800 s per II); II 32 was not found in 1,800 s at life 2 and is queue item 5 (−0.035..−0.065, PROPOSALS rev 21 / HANDOFF round 25).
 - **The K loop is on the critical path; chunk 0's fast pass is not.** II cuts landed 1:1 (round 22), while K2 removed ~850 cycles per (tile, chunk 0) for −0.02 of a predicted −0.05..−0.10 (NOTES 27.2).
-- **Lazy-max statistics** (CPU map, R9.3): flagged = moved to within 0.055 %. After chunk 0 2.26 % of row blocks flag, peaking at chunks 12-13 (4.4 %), clustered in columns 5-6 (4.2-4.9 % vs 0.25 % in column 0).
+- **Lazy-max statistics** (CPU map, [M15.2](../../common/MACHINE.md#m15-2)): flagged = moved to within 0.055 %. After chunk 0 2.26 % of row blocks flag, peaking at chunks 12-13 (4.4 %), clustered in columns 5-6 (4.2-4.9 % vs 0.25 % in column 0).
 
 ## The V phase
 
@@ -57,10 +57,10 @@ The V phase per (tile, chunk) fell 1,316 → 813 cycles (round 14, bench). V2T (
 
 ## Lockstep, P60 and P60g
 
-A multicast send waits for all eight destinations, so a column runs at most one object ahead of the slowest. A flagged unit costs its own cycles for one column but the whole row's time (MODEL R10.1: of the ~2.3 ms the slow path cost,
+A multicast send waits for all eight destinations, so a column runs at most one object ahead of the slowest. A flagged unit costs its own cycles for one column but the whole row's time (MODEL [M15.2](../../common/MACHINE.md#m15-2): of the ~2.3 ms the slow path cost,
 own cycles 0.22, multicast lockstep ~1.3, head-group barrier ~0.8). The slow rows are clustered in the lower image, i.e. in a few columns, so the lever was **balance**, not buffering:
 
-- `--l2-depth 4 → 8` (more K/V buffering) gave −0.36 ms, unexplained (R9.2). Later it was neutral (depth 3, 5, 6, 8 within 0.02, rounds 22-23), so the memtile depth became a free BD budget.
+- `--l2-depth 4 → 8` (more K/V buffering) gave −0.36 ms, unexplained ([M15.2](../../common/MACHINE.md#m15-2)). Later it was neutral (depth 3, 5, 6, 8 within 0.02, rounds 22-23), so the memtile depth became a free BD budget.
 - **P60** wanted the query tiles dealt over the columns with a single TAP per column. An exhaustive search plus a sum-of-squares identity shows only d = 0 solutions exist (`npu/r14/deal.py`, `npu/r14/deal2.py`; [C19](../../common/book/negative-results.md#c19)).
 - **P60g** (plan8, `P60G=1`, round 15) deals the query *half tiles* (3 row blocks, 1,728 B per head) across the columns **in the two gathers only** (the attention Q fill and out_proj's A fill; drains, K/V, cores and host unchanged):
   dealt column 3T + e takes half e of tile T from natural columns 3j + H, and the pair {2, 5} is dealt separately. Composition was checked piece by piece before the build (`research/r15/deal4.py`).
@@ -112,4 +112,4 @@ Smaller loops and text:
 - [`tapnext/npu/NOTES.md`](../npu/NOTES.md) 10, 12 (rounds 5, 7), 18-19 (13-14), 20 (15), 22 (17), 27 (22); RESULTS 22-24, 31; `tapnext/research/RESULTS_FROM_MAIN.md` rounds 13-15 (P56, P60g verdicts).
 - Generators and schedules: `tapnext/npu/r13/gen_attk.py`, `r14/gen_attkb.py` (`--s2`), `r14/gen_attv.py`, `r17/attks.json`, `r22/attks33.json`, `r22/gen_attkq.py`; benches `r13/attkb.py`; counts `r13/attkcount.py`.
 - Models: `common/tools/attsim17.py`, `tapnext/research/r14/lazystat.out` (flag statistics), `r14/attcal.out`; deal: `tapnext/npu/r14/deal.py`, `tapnext/research/r15/deal4.py`.
-- [MACHINE](../../common/MACHINE.md) R9.1-R9.4, R10.1, R10.4. Next: [boundaries.md](boundaries.md), [ledger.md](ledger.md).
+- [MACHINE](../../common/MACHINE.md) [M6.2](../../common/MACHINE.md#m6-2), [M8.6](../../common/MACHINE.md#m8-6), [M15.2](../../common/MACHINE.md#m15-2). Next: [boundaries.md](boundaries.md), [ledger.md](ledger.md).

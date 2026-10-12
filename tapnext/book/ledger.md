@@ -30,7 +30,7 @@ ANALYSIS rev 20 §1, `git show 3febc0d:npu-research/ANALYSIS.md`). Floor ranges 
 - Largest shares: attention 5.92 ms (20 %), up_a + up_b 4.69, yx + SSM 4.01, down + norm2 3.06, mlp0 2.72, mlp3 2.12, qkv 1.86; the four norms are 3.8 ms by their own walls (norm0 90, norm1 63, norm2 92, norm3 72 µs per block), partly overlapped with their producers.
 - Linear in depth: 2.34 ms per block plus ~0.4 ms (sweep 28.42 / 23.83 / 19.09 / 14.40, [step-design.md](step-design.md#depth-switching-and-phases)).
 - DDR (MODEL, `r21/ddrbudget.py`): a block reads 70.8 MB and writes 53.5 MB; the step's DDR floor at the read cap is 14.4-15.5 ms, so the step is not DDR-bound as a whole. Individual EW spans (norms, SSM) sit at the cap.
-- The k-step floor: 1,296 × 1,304 cycles (A port, R17.4) × 12 blocks / 1.808 GHz = 11.2 ms; at the in-situ ~1,447 cycles it is 12.4 ms (MODEL). The k-step is ~44 % of the step.
+- The k-step floor: 1,296 × 1,304 cycles (A port, [M8.3](../../common/MACHINE.md#m8-3)) × 12 blocks / 1.808 GHz = 11.2 ms; at the in-situ ~1,447 cycles it is 12.4 ms (MODEL). The k-step is ~44 % of the step.
 
 ## The floor, and how far from it we are
 
@@ -76,7 +76,7 @@ The open queue of the optimisation rounds at the pause (HANDOFF round 25) overla
 | C hand-offs (~28 µs per block) | LATEC-style split C locks | ≤ −0.1..−0.15 | L, risky: LATEC hung |
 | dead or ~0 | MSPLIT-C up_a / qkv / mlp0, out's bias wait, CPPRE_OP, SSPM-B alone | ~0 | |
 
-Risks that apply to any number here (HANDOFF round 25; MACHINE R21.2):
+Risks that apply to any number here (HANDOFF round 25; MACHINE [M1.4](../../common/MACHINE.md#m1-4)):
 - **The NPU clock drops to 1.41 GHz under many FP-compute CPU threads at ~100 W package power** (12 AVX-512 matmul threads; AVX2 the same; 12 DRAM-copy threads and 12 scalar-spin threads do not). Cap BLAS / OpenMP threads at 6 beside the NPU.
 - **The NPU with the GPU busy is untested.** The norms and the SSM sit at the 55-59 GB/s read cap, and an LLM on the GPU shares that DDR.
 - Dispatch time is bimodal (~0.17 ms apart, p90 ~32 ms) under foreign CPU load: compare A/Bs in one process.
@@ -120,4 +120,4 @@ The mispricings that shaped this ledger (method entries; the lessons are in [met
 
 - [`tapnext/research/ANALYSIS.md`](../research/ANALYSIS.md) rev 21 (§0 scorecard, §1 SSM, §2 ledger, §6 queue, §7 method); [`PROPOSALS.md`](../research/PROPOSALS.md) rev 21; [`RESULTS_FROM_MAIN.md`](../research/RESULTS_FROM_MAIN.md) (verdicts); [`npu/HANDOFF.md`](../npu/HANDOFF.md) top block (state, switches, open queue).
 - Rev 20's ledger and prices: `git show 3febc0d:npu-research/ANALYSIS.md`; older revisions `git show eed3870:npu-research/revN/<file>`. Tools: `tapnext/research/r25/ledger25.py` (output `tapnext/research/r25/ledger25.out`), `tapnext/research/r25/advance.py`, `tapnext/research/r21/ddrbudget.py`.
-- [MACHINE](../../common/MACHINE.md) R16.5, R17.4, R20.x, R21.1-R21.6. Methods: [method](../../common/book/method.md), [measurement](../../common/book/measurement.md).
+- [MACHINE](../../common/MACHINE.md) [M1.4](../../common/MACHINE.md#m1-4), [M7.2](../../common/MACHINE.md#m7-2), [M8.3](../../common/MACHINE.md#m8-3), [M10.2](../../common/MACHINE.md#m10-2), [M10.3](../../common/MACHINE.md#m10-3), [M10.5](../../common/MACHINE.md#m10-5), [M11.2](../../common/MACHINE.md#m11-2), [M11.3](../../common/MACHINE.md#m11-3), [M15.1](../../common/MACHINE.md#m15-1), [M15.3](../../common/MACHINE.md#m15-3). Methods: [method](../../common/book/method.md), [measurement](../../common/book/measurement.md).

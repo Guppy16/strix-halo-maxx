@@ -16,7 +16,7 @@ four generations of hand-scheduled asm. This chapter covers the general mechanic
   × 8 k-panels in the C++ form.
 - **Accumulators**: 5 `dm` registers of one 8x8 fp32 block each. A tile's partial sums live in L1 ("pieces") and are swapped
   in and out of the dm registers.
-- **A-port floor**: 10,368 B per k-step at 7.95 B/cycle memtile → core = **1,304 cycles** (R17.4). Once a k-step nears
+- **A-port floor**: 10,368 B per k-step at 7.95 B/cycle memtile → core = **1,304 cycles** ([M8.3](../MACHINE.md#m8-3)). Once a k-step nears
   ~1,300-1,450 cycles, body cuts stop paying.
 
 ## Is it compute- or data-bound?
@@ -36,7 +36,7 @@ Each step was measured in situ in TAPNext (bit-identical to the reference throug
 
 | generation | what changed | per k-step | step delta | ref |
 |---|---|---|---|---|
-| C++ `mm_acc` (Peano) | 2 accumulator chains at distance 3; 28 bundles per 16 MACs, bound by the chains | ~2,900 in situ (static 2,420) | — | R2.2 |
+| C++ `mm_acc` (Peano) | 2 accumulator chains at distance 3; 28 bundles per 16 MACs, bound by the chains | ~2,900 in situ (static 2,420) | — | [M15.1](../MACHINE.md#m15-1) |
 | `gen_mm` asm call | 4 chains over 2 column blocks, B repacked on the host; 225 vs 321 bundles per call | ~290 per call in situ | −1.9 ms | round 7, [A7](negative-results.md#a7) |
 | A ring pinned away from B | layout fix for the bank conflicts the asm call exposed | | −1.5 ms | round 8 |
 | `mm_ks` | the whole k-step as one modulo-scheduled ZOL; affine accumulator pieces | 2,055 + 67 | −3.5 ms | round 9 |
@@ -49,12 +49,12 @@ Each step was measured in situ in TAPNext (bit-identical to the reference throug
 What each step found:
 
 - **The accumulator swap was the largest static item.** `mm_ks` spent 12.75 of every 47.75 bundles storing and reloading the 4
-  accumulators, which all ended together (R13.6, `common/tools/ksplan.py`). ROT staggers the chains so one dm finishes every
+  accumulators, which all ended together ([M15.1](../MACHINE.md#m15-1), `common/tools/ksplan.py`). ROT staggers the chains so one dm finishes every
   9 cycles, and the swap disappears into the steady state.
 - **Then the B bank binds.** ROT's period per row block is R = 72 + g: 72 B line reads from one FIFO and one bank, plus the restart
-  gap (CP OPTIMAL for g = 0-2; R14.1). A FIFO pops once per bundle, so B over two banks with *one* FIFO was void
+  gap (CP OPTIMAL for g = 0-2; [M15.1](../MACHINE.md#m15-1)). A FIFO pops once per bundle, so B over two banks with *one* FIFO was void
   ([A14](negative-results.md#a14)). E7'' put B on *both* FIFOs (lf0 and lf1 pop and fill on either load slot, probes POPLF0/1) to get R 68.
-- **Then the per-call prologue.** A modulo k-step pays its whole call (18 R + setup + prologue + tail) every k-step (R17.1). KTL runs
+- **Then the per-call prologue.** A modulo k-step pays its whole call (18 R + setup + prologue + tail) every k-step ([M15.1](../MACHINE.md#m15-1)). KTL runs
   one loop across a tile's k-steps. That needs every B stream instance to serve exactly one row block, because consecutive k-steps
   read different buffers. One FIFO cannot do it, since one row block's 64 pops span ~85 cycles > R ([A28](negative-results.md#a28) <!-- nr: A28 -->).
   E7''s two segment-aligned FIFOs can (CP-feasible at R 70).
@@ -69,7 +69,7 @@ What each step found:
   Pinning the A ring away from B (`Buffer(mem_bank=)`) gave −1.5 ms.
 - **DMA writes collide with the core.** A 32 B DMA write into a bank the core touches that cycle costs ~0.72 cycles (DMAB,
   KS-P38, `tapnext/research/r20/collide.py`). With E7'' the floor is ~140 cycles per k-step (A ~93 into banks 1/2, B ~70 into bank 3),
-  ~1.2 ms per TAPNext step. No idle bank is left: the popped B bank is busy 0.9-0.97 of cycles (R15.1, R18.7). This is the
+  ~1.2 ms per TAPNext step. No idle bank is left: the popped B bank is busy 0.9-0.97 of cycles ([M4.4](../MACHINE.md#m4-4)). This is the
   largest unpriced GEMM item at the pause, blocked by L1 capacity (PROPOSALS rev 21 rank 8).
 - Check per-bank busy before proposing a layout lever. Moving B's prefetch, B into two banks, or A slots into the least busy
   bank all needed an idle bank or L1 that did not exist ([A12](negative-results.md#a12) <!-- nr: A12 -->,
@@ -151,5 +151,5 @@ Model-specific GEMM entries (L1 capacity, TAPNext layouts, moondream loops) are 
 
 - Generators: `tapnext/npu/r7/gen_mm.py`, `r9/gen_ks.py`, `tapnext/research/r19/gen_rot.py`, `r22/gen_e7.py` (`--ktl`), `r24/mm_e7k_r70b`.
 - Models: `common/tools/ksplan.py` (k-step budget), `tapnext/research/r20/collide.py` (collisions), `common/tools/bankmodel.py`.
-- [MACHINE](../MACHINE.md) R13.6, R14.1-R14.2, R15.1, R15.7-R15.10, R17.1-R17.5, R18.7, R20.6.
+- [MACHINE](../MACHINE.md) [M2.4](../MACHINE.md#m2-4), [M4.4](../MACHINE.md#m4-4), [M7.1](../MACHINE.md#m7-1), [M8.3](../MACHINE.md#m8-3), [M8.4](../MACHINE.md#m8-4), [M15.1](../MACHINE.md#m15-1).
 - NOTES 12 (round 7), 14 (round 9), 23-24 (rounds 18-19), 26 (round 21), 28 (round 23).

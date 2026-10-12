@@ -93,4 +93,4 @@ active buffer descriptors") and the R ring's placement (.aie.bank0 / .aie.bank2 
 
 - [`tapnext/npu/NOTES.md`](../npu/NOTES.md) 10.1, 20, 21, 22, 25, 30; RESULTS 25, 26, 34; RFM rounds 15, 16 (norm verdicts); PROPOSALS rev 21; HANDOFF round 25 queue items 1 and 3.
 - Kernels: `tapnext/npu/ew8.cc` (`norm_rows`, NPIPE loop, `stats64`), generators `tapnext/npu/r15/gen_nrm.py`, `tapnext/npu/r16/gen_n1k.py`; probes: NPROF (round 16), NIO2 (round 18), `tapnext/npu/r19/ddrcap.py` (DDR caps), walls via `TL_ONLY` (`tapnext/npu/r24/tlo.sh`).
-- [MACHINE](../../common/MACHINE.md) R13.2, R15.3 (stale on DDR), R16.5. Next: [boundaries.md](boundaries.md), [ledger.md](ledger.md).
+- [MACHINE](../../common/MACHINE.md) [M8.7](../../common/MACHINE.md#m8-7), [M10.5](../../common/MACHINE.md#m10-5), [M14.5](../../common/MACHINE.md#m14-5). Next: [boundaries.md](boundaries.md), [ledger.md](ledger.md).

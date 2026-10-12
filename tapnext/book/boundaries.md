@@ -7,7 +7,7 @@ or let the consumer start on the producer's partial output. Mechanisms and the C
 
 ## The boundary, measured
 
-- **mlp0 → mlp3_a** (CPST, TPROF, round 20; R16.1-R16.3): the CP passes the first completion token 12.2 µs after mlp0's last epilogue; 8 token waits ~1 µs; CP issue ~2.5 µs to column 0, +0.5-0.85 µs per further column;
+- **mlp0 → mlp3_a** (CPST, TPROF, round 20; [M11.3](../../common/MACHINE.md#m11-3)): the CP passes the first completion token 12.2 µs after mlp0's last epilogue; 8 token waits ~1 µs; CP issue ~2.5 µs to column 0, +0.5-0.85 µs per further column;
   the consumer's first tile 6.5-8.5 µs (K 768) / 13.3 µs (K 1536) at the read cap. Over all dependent first tiles that was 0.87 ms per step at r19z.
 - The boundary's cost is real time, not compute: NTWIN (norm0 / norm2 do not wait for their producers, outputs wrong) saved −0.92 ms with walls unchanged (0.08-0.10 ms): ~38 µs per boundary, 24 boundaries per step (`d2db6ca`).
 - **Gaps at the pause** (TL_ONLY, 3-4 µs polls, r24z, MEASURED; RESULTS 33.2, 34.2): norm0 → yx 16.4 µs, norm1 → up_a 24.2 (27.9 in r24e's session), norm2 → qkv 13.4, norm3 → mlp0 13.9; a split producer's pass-1 end → the norm's first word 11-13 µs
@@ -39,7 +39,7 @@ Notes on the table:
   NRES also needed a patch: IRON 1.4.4's pathfinder finds no route when two packet flows from two DMA channels of one tile merge, so Pn is declared from MM2S 0 and `r20/nresfix.py` adds the switchbox rule ([G9](../../common/book/negative-results.md#g9)).
   An rb-major A half broke correctness (the next op's chunk-0 load overwrote rows still being read), so the panels scatter into the usual chunk-major layout ([C17](../../common/book/negative-results.md#c17)).
 - **OPPRE failed in round 20 (+0.18) and worked in round 24 as OPPRE2** because the drains and waits no longer queued in front of the attention's K / V pushes, and the sends went before the waits ([C11](../../common/book/negative-results.md#c11)).
-- **CPPRE revived BDPRE**: the CP cost of a post-wait fill is ~0.55 µs per column (blockwrite, patch, maskpoll, maskwrite, push; R21.3), not the 0.10 µs inferred; 8 columns skew by ~4.4 µs per wait ([C8](../../common/book/negative-results.md#c8)).
+- **CPPRE revived BDPRE**: the CP cost of a post-wait fill is ~0.55 µs per column (blockwrite, patch, maskpoll, maskwrite, push; [M11.2](../../common/MACHINE.md#m11-2)), not the 0.10 µs inferred; 8 columns skew by ~4.4 µs per wait ([C8](../../common/book/negative-results.md#c8)).
 
 ## The YXSSM pattern
 
@@ -58,13 +58,13 @@ Each of these hung or slowed a dispatch (NOTES 24.3, 28.3, 29.3; the general lis
 - A memtile MM2S channel holds 5 tasks (1 running + 4 queued). A K = 1536 op pushing a 5th task before its fills blocked the CP: SEQPRE v1 +1.10 ms. A column's 6th push waits on that column's own tile 0, which needs every column's sends: push every column's first five before any sixth (r23d hung, timeout 1).
 - A shim channel queues ~5 tasks too (INFERRED, r24b): 7 yx drains per column plus `out`'s drain blocked the CP before the SSM's fills (+0.44); 4 drains are free.
 - A group finished through the lookahead early, with a later-issued op needed to complete it, is a deadlock (r23o2, timeout 2). **`SEQLOG=1` prints every group wait with the op being issued; read it before dispatching any reordered sequence.** Timeouts: 10 in round 3, 0 in rounds 24-25.
-- Per-chunk locks identify nothing: one F lock for both A halves lets half-0 sends go before their data. A reordered load needs per-half locks (R16.6).
-- An acquire-only BD is refused by the verifier, release-by-0 works, acquire-by-0 passes the verifier but fails CDO generation (use a hand-off lock; R17.8).
+- Per-chunk locks identify nothing: one F lock for both A halves lets half-0 sends go before their data. A reordered load needs per-half locks ([M9.3](../../common/MACHINE.md#m9-3)).
+- An acquire-only BD is refused by the verifier, release-by-0 works, acquire-by-0 passes the verifier but fails CDO generation (use a hand-off lock; [M10.1](../../common/MACHINE.md#m10-1)).
 - The CP can write a core's data memory (`npu_write32`), which is how CPST stamps CP progress; a `.bin` can be decoded and re-serialised (`aie.utils.txn_trace`; `r20/binpatch.py`, `r24/cpsegs.py`). At r24 the sequence has 59,720 CP instructions in 421 sync runs.
 
 ## BD pressure
 
-A shim holds at most 16 live runtime BDs, and a BD lives until its task group finishes. At `out_proj`, shim 0 held 16-20: nine of them the attention's Q fill and 8 K / V fills (4 per pass) kept until the attention group finishes, five drain groups (`#p0`, `#h0-3`), and out_proj's own (R21.5, MODEL; `tapnext/research/r26/design8_bd.py`).
+A shim holds at most 16 live runtime BDs, and a BD lives until its task group finishes. At `out_proj`, shim 0 held 16-20: nine of them the attention's Q fill and 8 K / V fills (4 per pass) kept until the attention group finishes, five drain groups (`#p0`, `#h0-3`), and out_proj's own ([M10.3](../../common/MACHINE.md#m10-3), MODEL; `tapnext/research/r26/design8_bd.py`).
 - OPPRE2 ran at a peak of exactly 16. CPPRE_OP (configuring OPPRE2's A parts ahead too) needed 20 and was never dispatched.
 - **P0FREE** puts Q and the pass-0 K / V fills into pass 0's drain group, so out_proj's wait on `#p0` frees 5 BDs (peak 20 → 16) and CPPRE_OP fits. Measured neutral (+0.009 median, `d9df358`): the last part's CP column spread does not gate out_proj. Kept off.
   **P1FREE** (pass-1 K / V of group *g* in `#h{g}`) would free one more per part wait; queue item 5, ~0 ms, BD room only.
@@ -115,4 +115,4 @@ Capacity and structure:
 
 - [`tapnext/npu/NOTES.md`](../npu/NOTES.md) 25 (round 20), 26.4, 27, 28, 29, 30; RESULTS 29, 32, 33, 34; RFM round 20 ("Reading"), round 24; ANALYSIS rev 21 §4.
 - Code: `tapnext/npu/design8.py` (`prefill`, `SEQLOG`), `plan8.py` (`NRES`, `IL`, `A3`, `YXSSM`, `YXR`, `OPPRE2`), `tapnext/npu/r20/nresfix.py`, `r20/binpatch.py`, `r24/cpsegs.py`, `r25/cpcompact.py`; timelines `r24/tlo.sh`, `r24/tl3.sh`.
-- [MACHINE](../../common/MACHINE.md) R16.1-R16.7, R17.8, R20.4, R20.5, R21.3, R21.5. Next: [ledger.md](ledger.md).
+- [MACHINE](../../common/MACHINE.md) [M9.3](../../common/MACHINE.md#m9-3), [M10.1](../../common/MACHINE.md#m10-1), [M10.2](../../common/MACHINE.md#m10-2), [M10.3](../../common/MACHINE.md#m10-3), [M10.5](../../common/MACHINE.md#m10-5), [M11.2](../../common/MACHINE.md#m11-2), [M11.3](../../common/MACHINE.md#m11-3), [M14.5](../../common/MACHINE.md#m14-5). Next: [ledger.md](ledger.md).

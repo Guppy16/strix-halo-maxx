@@ -22,7 +22,7 @@ A chunk is **8 rows × 64 channels of one head** (512 values). Per head the EW c
 | recurrence | `reck` | h = a·h + mult, state kept in vector order, written straight into the output ring (HRING) | 268 (92) |
 | z panels | `zk` | z = h·y, pushed as bfp panels straight into the ring (or the panel ring under SRES) | 74 (34) |
 
-Sum 1,828-1,845 cycles per unit static (R18.1). In situ the whole unit was 2,273 (SSMIN, r24s): the rest is part-pointer glue, locks and ring waits. The `first` frame flag is a vector mask (`mfirst` / `mrest`):
+Sum 1,828-1,845 cycles per unit static ([M15.3](../../common/MACHINE.md#m15-3)). In situ the whole unit was 2,273 (SSMIN, r24s): the rest is part-pointer glue, locks and ring waits. The `first` frame flag is a vector mask (`mfirst` / `mrest`):
 state = input on frame 0, no instruction variants per frame.
 
 ## Where the cycles went
@@ -125,4 +125,4 @@ In the r24 timeline the SSM's columns started ~1.6 µs apart in column order (st
 
 - [`tapnext/npu/NOTES.md`](../npu/NOTES.md) 9.2, 13-14, 20-23, 28-29; RESULTS 24-27, 32-33; ANALYSIS rev 21 §1, §3; PROPOSALS rev 21 ranks 1-4.
 - Generators: `tapnext/npu/r12/gen_sig.py`, `r15/gen_ssx.py`, `r15/gen_conv.py`, `r15/gen_rec.py`, `r15/gen_cpy64.py`, `r15/gen_zk.py`, `r16/gen_sqk.py`, `r16/gen_ggk.py`, `r16/gen_ssq.py`; tables `r9/ssmlut.py`, `r9/ssm9.h`; probes `r24/ssmin.py`, `tapnext/research/r26/ssmcut_r25s.out`.
-- [MACHINE](../../common/MACHINE.md) R10.5, R18.1, R21.1, R21.4. Next: [norms.md](norms.md), [boundaries.md](boundaries.md).
+- [MACHINE](../../common/MACHINE.md) [M6.3](../../common/MACHINE.md#m6-3), [M7.2](../../common/MACHINE.md#m7-2), [M15.3](../../common/MACHINE.md#m15-3). Next: [norms.md](norms.md), [boundaries.md](boundaries.md).

@@ -1226,8 +1226,8 @@ BIT-IDENTICAL vs full12r9a. Text: GEMM 16,256 (128 free), EW 15,824 (560 free). 
   - ZDROP (writes) pays only if writes take read bandwidth (DRAM read / write turnaround); ZDROP v2 is exactly that test.
 
 ## Analysis note (pass 20) - the yx / SSM window is input-channel bound, not aggregate-DDR bound
-- Every EW op reads through ONE shim MM2S channel per column: channel 0, packet-shared with the GEMM A loads (MACHINE R15.2), ~3.8 B /
-  cycle (R15.3). The SSM reads 1,695,744 B per column per block on it (12 heads x (12,288 params + 129,024 y / x), plan8 r23z), plus
+- Every EW op reads through ONE shim MM2S channel per column: channel 0, packet-shared with the GEMM A loads (MACHINE M10.3), ~3.8 B /
+  cycle (M8.7). The SSM reads 1,695,744 B per column per block on it (12 heads x (12,288 params + 129,024 y / x), plan8 r23z), plus
   yx's A (124 KB per column) when they overlap: 247 + 18 us at 3.8 B / cycle. Per SSM unit that is 2,066 cycles of input against
   2,115 static compute (tcall): the two are equal, so in situ (2,416 per unit in r23z, 2,336 in r22t) is their imperfect overlap
   through a 15 KB ring. r24d fits this: starting the SSM earlier put more of yx's A on the same channels and the SSM slowed (+19 us).
@@ -1236,7 +1236,7 @@ BIT-IDENTICAL vs full12r9a. Text: GEMM 16,256 (128 free), EW 15,824 (560 free). 
   aggregate DDR binds, which these numbers do not show; adding compute per chunk costs (r24h) because compute is co-binding.
 - So a compute cut alone (SSM glue: -185 static per unit) lands only down to the channel (2,066 + yx's share): about half, -0.06..-0.15
   ms. A channel-0 byte cut alone lands only down to compute. Both together pay: SSM glue + the params (147 KB per column per block)
-  off channel 0, e.g. into the EW core's unused S2MM 1 from shim MM2S 1 (free on columns 3-7, R15.2): -0.2..-0.35 together (routing
+  off channel 0, e.g. into the EW core's unused S2MM 1 from shim MM2S 1 (free on columns 3-7, M10.3): -0.2..-0.35 together (routing
   UNVERIFIED). Details in PROPOSALS rev 20.
 - WINDOW CLOSED
 - r24i A/B vs r24g (60 x 20, load 6.2-8.6): +0.007 / -0.002 / -0.009: NEUTRAL (r24h again +0.05). ZDROP OFF: the yx / SSM overlap is read-bound, not write-bound (INFERRED: SSM reads ~46 GB/s + yx B ~8 at the read cap).
@@ -1333,7 +1333,7 @@ Best **full12r24z** = r23z + STATS64 + OPPRE2 + SSMPRE + CPPRE (build r24/try24.
   in_need 71, params 28 (= r24s). Twin full12r25g (no sigk + ssq, ~1,000 cycles of compute removed): **chunk 2,034, in_need 529**.
   Neither H_C nor H_R as stated: removing ~1,000 cycles bought 255; the rest became input waits. **Both readings hold**: today the SSM
   is compute-bound (2,289 vs an input floor), and the input floor is **~2,030 cycles per chunk** = 7,851 B per column per chunk
-  at 3.86 B / cycle, i.e. exactly one shim MM2S channel (R15.3: 3.8) and, over 8 columns, ~56 GB/s (the read cap): the two limits
+  at 3.86 B / cycle, i.e. exactly one shim MM2S channel (M8.7: 3.8) and, over 8 columns, ~56 GB/s (the read cap): the two limits
   coincide, so this run cannot tell channel from aggregate DDR; it does not need to for the prices below. Twin end spread 0.5-0.9 us
   (vs 1.6-2.4): input-paced columns finish together.
   - SSM glue (-185 static per chunk) lands down to ~2,030: -0.15..-0.25 ms (full static price -0.27 minus the approach to the floor).

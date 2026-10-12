@@ -11,15 +11,15 @@ queues, and where a fill must be issued so the command processor neither blocks 
 
 | path | rate | source |
 |---|---|---|
-| core register ← L1 | 2 load slots × 64 B per cycle (+ pops) | MACHINE §7 |
+| core register ← L1 | 2 load slots × 64 B per cycle (+ pops) | MACHINE [M12](../MACHINE.md#m12) |
 | memtile → core (A broadcast) | **7.95 B/cycle** per core port | round 10 `r10/rtm.py` |
-| memtile → 8 L1 send (K/V multicast) | 580 cycles per 4,608 B object (7.95 B/cycle) | R9.2 |
-| one shim → core stream | ~7 B/cycle (~12.6 GB/s) | DDRCAP, R20.2 |
+| memtile → 8 L1 send (K/V multicast) | 580 cycles per 4,608 B object (7.95 B/cycle) | [M8.3](../MACHINE.md#m8-3) |
+| one shim → core stream | ~7 B/cycle (~12.6 GB/s) | DDRCAP, [M10.4](../MACHINE.md#m10-4) |
 | one shim S2MM write stream | ~6.7 B/cycle (12.1 GB/s) | DDRW, round 20 |
 | DDR read, 8+ streams | **~55-59 GB/s aggregate** | DDRCAP `tapnext/npu/r19/ddrcap.py` |
 | DDR write, 8 columns | ~50-60 GB/s aggregate (2 columns 24.4, 4 columns 45.3) | DDRW `r20/ddrw.py` |
 | reads + writes together | 63-74 GB/s | DDRCAP |
-| core MM2S drain of a C object | 7.9 B/cycle | R15.7 |
+| core MM2S drain of a C object | 7.9 B/cycle | [M8.4](../MACHINE.md#m8-4) |
 
 ## The DDR caps
 
@@ -27,8 +27,8 @@ queues, and where a fill must be issued so the command processor neither blocks 
   for the norms ([C13](negative-results.md#c13) <!-- nr: C13 -->) or a second drain channel per column
   ([B10](negative-results.md#b10) <!-- nr: B10 -->, [C16](negative-results.md#c16) <!-- nr: C16 -->) cannot help.
 - History: moondream measured "~55-60 GB/s peak" early (MD p2/bw.py). Research rev 15 derived "≥ 84 GB/s" from norm walls × bytes and called
-  the old figure a per-channel artefact; DDRCAP restored it ([C12](negative-results.md#c12) <!-- nr: C12 -->). MACHINE R15.3 / R15.4 are
-  stale on this point; R20.2 and R21.1 supersede them.
+  the old figure a per-channel artefact; DDRCAP restored it ([C12](negative-results.md#c12) <!-- nr: C12 -->). MACHINE [M10.4](../MACHINE.md#m10-4), [M8.7](../MACHINE.md#m8-7) now give
+  the DDRCAP reading; [M10.5](../MACHINE.md#m10-5), [M15.3](../MACHINE.md#m15-3) apply it.
 - A per-channel write limit (~4 B/cycle) and token latency were both proposed for the 12 µs drain tail. Both were refuted: one stream writes
   6.7 B/cycle, and the tail is the last 442 KB of C objects at the aggregate write cap ([C14](negative-results.md#c14) <!-- nr: C14 -->,
   [C15](negative-results.md#c15) <!-- nr: C15 -->).
@@ -38,7 +38,7 @@ queues, and where a fill must be issued so the command processor neither blocks 
 - GPU load shares this DDR. Every TAPNext number is gpu_busy 0. An LLM on the GPU will slow the read-capped ops (untested; HANDOFF risks).
 
 **What the cap means for a design**: count DDR bytes per op span. TAPNext's step reads 914 MB and writes 676 MB
-(`tapnext/research/r21/ddrbudget.py`, R16.5). Its EW ops read at 48-55 GB/s inside their spans, while GEMM steady tiles use only 13-24 GB/s.
+(`tapnext/research/r21/ddrbudget.py`, [M10.5](../MACHINE.md#m10-5)). Its EW ops read at 48-55 GB/s inside their spans, while GEMM steady tiles use only 13-24 GB/s.
 The norms' floor is bytes: keeping the panels on chip (NRES) saved −0.65 ms, and a second channel saved nothing.
 
 ## Keeping data on chip
@@ -59,7 +59,7 @@ The memtile (512 KB per column) is where activations can stay between ops:
 **BDs.** Shim and core tiles have 16 BDs, memtiles 48 in two halves of 24 per channel group (a static chain gets ~22).
 - `BdIteration(size, stride)` lets one BD walk a ring of slots and keeps rings under the budget (SKILL §2).
 - A shim BD lives until its TaskGroup finishes. Put each fill in the earliest drain group whose completion proves it was consumed. At
-  TAPNext's out_proj, shim 0 held 16-20 live BDs until the attention's fills moved into pass 0's group (P0FREE: peak 20 → 16; R21.5).
+  TAPNext's out_proj, shim 0 held 16-20 live BDs until the attention's fills moved into pass 0's group (P0FREE: peak 20 → 16; [M10.3](../MACHINE.md#m10-3)).
 - `aiecc --reclaim-runtime-bds` inserts completion maskpolls instead, and those can hang when completion depends on a later push.
 - `TaskGroup.finish()` frees *every* BD in the group, waited or not. A group holding only `wait=False` fills must not finish before they
   complete (silent corruption or a hang).
@@ -74,7 +74,7 @@ The memtile (512 KB per column) is where activations can stay between ops:
   ([E12](negative-results.md#e12) <!-- nr: E12 -->).
 
 **Queues.** Each memtile MM2S channel takes **5 tasks without blocking** (1 running + 4 queued). A shim channel behaves the same (~5,
-inferred). A 6th push blocks the command processor until that channel's oldest task completes (R20.5; round 23):
+inferred). A 6th push blocks the command processor until that channel's oldest task completes ([M10.2](../MACHINE.md#m10-2); round 23):
 - Never push a memtile MM2S task before the same op's fills exist. The blocked push waits on work the CP has not issued
   (SEQPRE v1 +1.1 ms; [C5](negative-results.md#c5) <!-- nr: C5 -->).
 - When a column's tile 0 needs a B multicast, push every column's first five tasks before any column's sixth (r23d hung column by column).
@@ -84,7 +84,7 @@ inferred). A 6th push blocks the command processor until that channel's oldest t
 - Issue everything independent of a producer before its wait (NSEQ: a norm's params and drains before the wait, −0.17 with NRES).
   GEMM drains moved before a wait cost +0.15 instead, cause unexplained ([C7](negative-results.md#c7) <!-- nr: C7 -->).
 - A fill that must wait can still be *configured* before the wait and pushed after (CPPRE, −0.09). A post-wait fill costs the CP ~0.55 µs per column,
-  and 8 columns skew by ~4.4 µs (R21.3). See [fusion.md](fusion.md#the-command-processor-sequence).
+  and 8 columns skew by ~4.4 µs ([M11.2](../MACHINE.md#m11-2)). See [fusion.md](fusion.md#the-command-processor-sequence).
 - Lock-governed memtile sends wait in the channel FIFO, so push a split consumer's sends *before* its part waits (OPPRE2 v2 −0.15 vs v1 −0.04).
 
 **Multicast.** A memtile `forward` to N cores is one MM2S channel. A send starts only when every destination has a free L1 slot, so
@@ -118,6 +118,6 @@ A core tile's 4 south ports were full in TAPNext (C × 3 + EW output), so a fift
 
 ## Going deeper
 
-- [MACHINE](../MACHINE.md) §3-§5, R10.2, R15.2-R15.4 (stale on DDR), R16.5-R16.8, R20.2-R20.5, R21.1, R21.5.
+- [MACHINE](../MACHINE.md) [M8](../MACHINE.md#m8), [M9](../MACHINE.md#m9), [M10](../MACHINE.md#m10) (streams, memtile, shim and DDR), [M8.2](../MACHINE.md#m8-2), [M8.7](../MACHINE.md#m8-7), [M9.2](../MACHINE.md#m9-2), [M9.3](../MACHINE.md#m9-3), [M10.1](../MACHINE.md#m10-1), [M10.2](../MACHINE.md#m10-2), [M10.3](../MACHINE.md#m10-3), [M10.4](../MACHINE.md#m10-4), [M10.5](../MACHINE.md#m10-5), [M11.3](../MACHINE.md#m11-3), [M15.3](../MACHINE.md#m15-3).
 - Probes: `tapnext/npu/r19/ddrcap.py`, `r20/ddrw.py`, `r10/rtm.py`; `tapnext/research/r21/ddrbudget.py`, `r26/design8_bd.py`.
 - Model chapters: [TAPNext boundaries](../../tapnext/book/boundaries.md), [moondream NPU GEMM](../../moondream/book/npu-gemm.md).

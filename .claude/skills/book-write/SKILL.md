@@ -22,7 +22,7 @@ Chapter structure: "In brief" bullets (the point first); topic sections, each gi
 what didn't and the lesson; `## What didn't work`; `## Lessons`; `## Going deeper`. Model chapters also have `## What worked`.
 - Edit the section the result belongs to. Change the numbers, the lead and the lessons if they moved.
 - Every claim gets a number with its status (MEASURED / MODEL / EXTRAPOLATED) and an evidence link (path, round folder, commit,
-  MACHINE R-id). Keep a chapter to a 5-10 minute read; push depth into links.
+  MACHINE M-id). Keep a chapter to a 5-10 minute read; push depth into links.
 
 ## Presentation: write a book for people
 The reader knows ML and some systems programming, not this chip and not our shorthand. They read on the site

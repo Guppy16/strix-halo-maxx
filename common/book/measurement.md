@@ -37,7 +37,7 @@ A **twin** is a build with one thing removed or doubled, used for timing only (i
   A-port-bound (RFM round 6 P1; [A1](negative-results.md#a1)).
 - **Removal twins with input-wait stamps** measure the distance to a floor directly. SSMCUT removed ~1,000 cycles of SSM
   compute; the chunk fell only 2,289 → 2,034 cycles while input waits rose 71 → 529, so the SSM was compute-bound by ~255
-  cycles above an input floor of ~2,030 (R21.1; [M1](negative-results.md#m1), [M2](negative-results.md#m2)).
+  cycles above an input floor of ~2,030 ([M15.3](../MACHINE.md#m15-3); [M1](negative-results.md#m1), [M2](negative-results.md#m2)).
 - **Read a twin's per-op walls, never the step delta.** A twin with wrong outputs changes downstream data-dependent work.
   The norm twin "saved" 1.98 ms, while the real asm change gave −0.16..−0.28 ([H17](negative-results.md#h17) <!-- nr: H17 -->), and the
   chunk-0 twins gave −0.79 and +0.5 for the same lever because the attention's lazy-max flags changed (round 22 K0TWIN).
@@ -61,11 +61,11 @@ A **twin** is a build with one thing removed or doubled, used for timing only (i
 - **TPROF / PROF**: core-timer records written into bytes nobody reads (an output pad) or over first output words (timing builds
   only). They need the processor-bus enable ([machine.md](machine.md#timers-and-counters)).
 - **A stamp interval contains the call it brackets.** `in_need` 101.5 cycles gross was ~57.5 net; `out_begin` 45 gross was ~5 net
-  (R13.2, [H28](negative-results.md#h28) <!-- nr: H28 -->). Subtract the static call before you compare with a model.
+  ([M14.5](../MACHINE.md#m14-5), [H28](negative-results.md#h28) <!-- nr: H28 -->). Subtract the static call before you compare with a model.
 - **Performance counters** (KS-P38): MEMORY_STALL and LOCK_STALL per k-step showed the in-situ excess was DMA bank collisions
-  (173.7 + 13.3 cycles; R14.3).
+  (173.7 + 13.3 cycles; [M4.4](../MACHINE.md#m4-4)).
 - **CPST**: the CP writes a word into a core's L1 and a spinning core stamps it, which tells you when the CP passed a point. It showed that
-  the op boundary was 12.2 µs of producer tail, not CP instructions (R16.1).
+  the op boundary was 12.2 µs of producer tail, not CP instructions ([M11.3](../MACHINE.md#m11-3)).
 - **Judge in-situ rates by the per-tile median.** A mean k-step of 2,588 cycles hid steady k-steps of 2,050 and one op-start wait per op
   ([H4](negative-results.md#h4) <!-- nr: H4 -->, [A3](negative-results.md#a3)).
 
@@ -86,7 +86,7 @@ predictable ways, so check these:
 ## Clock and CPU load
 
 Check the NPU clock with `python3 r7/clk.py run --out build/clk` (from `tapnext/npu`, in `npu-iron`; build it once with `clk.py build`).
-Quiet box: 1.81 GHz. Observed (R20.1, R21.2; probes `tapnext/research/r23/clkload.sh`, `r25/clkload2.sh`; 12 threads per kind):
+Quiet box: 1.81 GHz. Observed ([M1.4](../MACHINE.md#m1-4); probes `tapnext/research/r23/clkload.sh`, `r25/clkload2.sh`; 12 threads per kind):
 
 | CPU load | package power | NPU clock (GHz) |
 |---|---|---|
@@ -114,7 +114,7 @@ Quiet box: 1.81 GHz. Observed (R20.1, R21.2; probes `tapnext/research/r23/clkloa
 ## DDR as seen from the NPU
 
 These are observations used to read spans, with the GPU idle. Details in [data-movement.md](data-movement.md#the-ddr-caps).
-- Aggregate read ~55-59 GB/s with 8 or more shim → core streams; one stream alone ~7 B/cycle (~12.6 GB/s) (DDRCAP, R20.2).
+- Aggregate read ~55-59 GB/s with 8 or more shim → core streams; one stream alone ~7 B/cycle (~12.6 GB/s) (DDRCAP, [M10.4](../MACHINE.md#m10-4)).
 - Aggregate write ~50-60 GB/s with 8 columns draining, 12.1 GB/s for one column (DDRW). Reads plus writes together: 63-74 GB/s.
 - A span reading at ~95 % of the cap is not necessarily capped. Measure before you price it ([M1](negative-results.md#m1)).
 
@@ -146,4 +146,4 @@ The method failures are listed above, each next to the rule it produced: H4, H9-
 
 - `tapnext/npu/step8.py` (time, sweep, timeline, regress, blocks), `r18/ab.py`, `r24/tlo.sh`, `r19/tprof.py`, `r20/cpst.py`, `r7/clk.py`.
 - [SKILL](../../.claude/skills/xdna2-npu/SKILL.md) §8 (verifying and measuring).
-- [MACHINE](../MACHINE.md) R13.2, R16.1, R16.4, R20.1, R21.1-R21.2.
+- [MACHINE](../MACHINE.md) [M1.4](../MACHINE.md#m1-4), [M11.3](../MACHINE.md#m11-3), [M14.5](../MACHINE.md#m14-5), [M15.3](../MACHINE.md#m15-3).

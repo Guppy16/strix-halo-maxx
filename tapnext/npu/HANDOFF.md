@@ -38,7 +38,7 @@ the residual), 2-input norms compute-bound at ~500 (RMS) / ~560 (LN) cycles per 
 117 / 177 static. RRES (residual rows on chip) designed and coded, blocked at aiecc. C hand-offs priced ~28 us per block.
 ## Known risks
 - **CPU vector load drops the NPU clock**: 12 AVX-512 numpy threads -> 1.41 GHz (x1.27 slower) at the same package power that 12 spin
-  threads run at 1.81 (CLKLOAD, round 23). CLKLOAD2 (tapnext/research/r25/clkload2.sh) ran: MACHINE R21.2 - many FP-compute threads at the ~100 W package limit, not DRAM traffic or vector width. Keep <= 6 vector threads beside it.
+  threads run at 1.81 (CLKLOAD, round 23). CLKLOAD2 (tapnext/research/r25/clkload2.sh) ran: MACHINE M1.4 - many FP-compute threads at the ~100 W package limit, not DRAM traffic or vector width. Keep <= 6 vector threads beside it.
 - **The NPU with the GPU busy is untested**: every number here is gpu_busy 0. An LLM on the GPU shares DDR (the norms and the SSM sit at
   the 55-59 GB/s read cap) and maybe power: expect slower steps; measure before relying on 28 ms.
 - Dispatch-time noise under background CPU load is bimodal (p90 ~32 ms with a busy box): compare A/Bs in one process (r18/ab.py).

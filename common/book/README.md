@@ -26,7 +26,7 @@ Chapters cite sources this way (paths from the repo root):
 
 | key | where |
 |---|---|
-| MACHINE §n / Rx.y | `common/MACHINE.md` section or revision addition |
+| MACHINE Mx.y | `common/MACHINE.md` topic id (older commits cite §n / Rx.y: `common/tools/machine-id-map.tsv`) |
 | SKILL §n | `.claude/skills/xdna2-npu/SKILL.md` |
 | NOTES n, RESULTS n, HANDOFF round n | `tapnext/npu/{NOTES,RESULTS,HANDOFF}.md` |
 | RFM round n | `tapnext/research/RESULTS_FROM_MAIN.md` |

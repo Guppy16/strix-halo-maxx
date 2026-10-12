@@ -56,12 +56,12 @@ How it is built (TAPNext rounds 13-22; `tapnext/npu/r13/gen_attk.py`, `r14/gen_a
 ## Lockstep under a multicast
 
 - A memtile `forward` to N cores is one MM2S channel. A send waits until every destination has a free L1 slot, so a column runs at most one
-  object ahead of the slowest (R9.1).
+  object ahead of the slowest ([M8.6](../MACHINE.md#m8-6)).
 - **Price a non-uniform per-unit cost by the max over destinations per object, never by its mean.** ~10 % slow units cost ~3x their own
   cycles on the wall: P56's fallback cost +1.35 ms for ~0.45 ms of its own cycles ([H19](negative-results.md#h19) <!-- nr: H19 -->,
   [D11](negative-results.md#d11)). A cost every column pays at once passes 1:1.
 - The tool: `common/tools/attsim17.py` / `sim17.py`, an event model calibrated on twins (per-block correlation 0.97). Of the ~2.3 ms the
-  slow path cost in TAPNext, only ~0.22 ms was its own cycles. ~1.3 ms was multicast lockstep and ~0.8 ms the head-group barrier (R10.1).
+  slow path cost in TAPNext, only ~0.22 ms was its own cycles. ~1.3 ms was multicast lockstep and ~0.8 ms the head-group barrier ([M15.2](../MACHINE.md#m15-2)).
 - **Balance the rows across the destinations, rather than decoupling the destinations.** Deeper buffers and more slots helped a little
   (`--l2-depth` 4 → 8: −0.36 ms, unexplained) or did not fit L1. Dealing query rows round-robin over the columns (P60g) gained −1.06 ms.
 
@@ -88,5 +88,5 @@ The TAPNext-specific attempts (re-streaming K/V, deals, slots, chunk-0 tricks, n
 
 ## Going deeper
 
-- [SKILL](../../.claude/skills/xdna2-npu/SKILL.md) §3 (rounds 5, 7, 13-15 attention rules), [MACHINE](../MACHINE.md) R9.1-R9.3, R10.1, R10.4.
+- [SKILL](../../.claude/skills/xdna2-npu/SKILL.md) §3 (rounds 5, 7, 13-15 attention rules), [MACHINE](../MACHINE.md) [M8.6](../MACHINE.md#m8-6), [M15.2](../MACHINE.md#m15-2).
 - `moondream/npu/p9/attn15.cc` (one-pass v15), `tapnext/npu/mm8.cc` (`chunk_k_fused`, `attn_begin`, `attn_end`), the generators above.

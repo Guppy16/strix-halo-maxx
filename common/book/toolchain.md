@@ -23,7 +23,7 @@ replay and `asmlint` before it runs. The rules themselves are in the
 | two packet flows from two DMA channels of one tile onto one port | no route found | declare both from MM2S 0, patch the switchbox (`r20/nresfix.py`) | [G9](negative-results.md#g9) <!-- nr: G9 --> |
 | acquire-only BD block | verifier refuses | release by 0 (a no-op) | [G19](negative-results.md#g19) <!-- nr: G19 --> |
 | jit cache key excludes source files | an edited kernel reuses the old build | a new build name after every edit | [H22](negative-results.md#h22) |
-| worker loop counters lowered to i64 | ~6 extra scalar ops per loop | `scf.for` with i32 bounds (IV32: −560 B of text) | R13.5, e7afce3 |
+| worker loop counters lowered to i64 | ~6 extra scalar ops per loop | `scf.for` with i32 bounds (IV32: −560 B of text) | [M5.5](../MACHINE.md#m5-5), e7afce3 |
 | `acquire(n)` means hold *n* in total | `acquire(1)` twice then `release(2)` drifts the locks | acquire one object per call | SKILL §2 |
 
 ## Peano (llvm-aie)
@@ -42,7 +42,7 @@ Observed Peano behaviour: short, simple loops pipeline; long dependency chains d
   bundles, and round 10 blamed "interlocks". With separate restrict parameters the loop ran at 17.8 cycles, −0.88 ms
   ([B2](negative-results.md#b2) <!-- nr: B2 -->, [B3](negative-results.md#b3) <!-- nr: B3 -->). Read the emitted loop of the binary you deploy.
 - The same C++ can be serial in situ and pipelined in a one-core bench: the SSM z loop was 27 bundles per 64 lanes inside `ew_ssm`
-  and 97 cycles for all 8 in the bench ([E15](negative-results.md#e15), R13.8).
+  and 97 cycles for all 8 in the bench ([E15](negative-results.md#e15), [M3.4](../MACHINE.md#m3-4)).
 - Compiler errors: vectors assigned under runtime conditions or `aie::select` give "Bad PHI" ([G7](negative-results.md#g7) <!-- nr: G7 -->);
   inline sched barriers in a pipelined loop make the compiler fail ([G6](negative-results.md#g6) <!-- nr: G6 -->). Mask arithmetically and stamp
   through a noinline call.
@@ -63,7 +63,7 @@ generated from llvm-aie's TableGen by `common/tools/gen_isa_timing.py`. Apply th
 
 | rule | ref |
 |---|---|
-| ZOL: start and last body bundle 16 B aligned; body ≥ 3 bundles; ≥ 80 B from the last lc/ls/le write to `le` | [G13](negative-results.md#g13) <!-- nr: G13 -->, R11.1 |
+| ZOL: start and last body bundle 16 B aligned; body ≥ 3 bundles; ≥ 80 B from the last lc/ls/le write to `le` | [G13](negative-results.md#g13) <!-- nr: G13 -->, [M3.5](../MACHINE.md#m3-5) |
 | `.p2align 4` before a body inserts a nop bundle, so prologue ops run a cycle early; fit the prologue to end aligned | [G14](negative-results.md#g14) <!-- nr: G14 --> |
 | a dense 576-bit FIFO stream needs a fill every 8 pops | [G15](negative-results.md#g15) <!-- nr: G15 --> |
 | `add rX, rY, #imm` is 7-bit signed and wraps silently | [G12](negative-results.md#g12) <!-- nr: G12 --> |
