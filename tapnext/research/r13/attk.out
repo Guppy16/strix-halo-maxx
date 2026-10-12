@@ -1,4 +1,4 @@
-tools/attk.py results (laptop, 2026-10-10; msched = npu-tapnext r11/msched.py unmodified [GEN]; cpsched = r12/cpsched.py [CP])
+tools/attk.py results (2026-10-10; msched = npu-tapnext r11/msched.py unmodified [GEN]; cpsched = r12/cpsched.py [CP])
 per iteration = one key block (64 scores) of one row block
 
 qk                                    : ResMII 10 (QEY_WA 10, vec 9)  -> [GEN] II 10, U 1, 4 stages, maxlive x 6 dm 4

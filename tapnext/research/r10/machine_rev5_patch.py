@@ -1,4 +1,4 @@
-"""Applies the rev-5 edits to MACHINE.md in place (run on testbox from npu-research/, now tapnext/research). One-shot, history: MACHINE.md is now common/MACHINE.md and
+"""Applies the rev-5 edits to MACHINE.md in place (run from npu-research/, now tapnext/research). One-shot, history: MACHINE.md is now common/MACHINE.md and
 rev4/ is gone (git history)."""
 
 from pathlib import Path

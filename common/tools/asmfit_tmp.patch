@@ -1,6 +1,6 @@
 diff -ru a/design8.py b/design8.py
---- a/design8.py	2026-10-10 20:29:08.160095141 +0100
-+++ b/design8.py	2026-10-10 20:30:07.524657157 +0100
+--- a/design8.py	2026-10-10
++++ b/design8.py	2026-10-10
 @@ -11,6 +11,7 @@
  """
  
@@ -22,8 +22,8 @@ diff -ru a/design8.py b/design8.py
      iron.set_current_device(NPU2())
      kw = dict(sched_path=o.sched, w_words=meta["w_words"], act_words=meta["act_words"], pre_n=meta["pre_n"], body_n=meta["body_n"],
 diff -ru a/r12/asmfit.py b/r12/asmfit.py
---- a/r12/asmfit.py	2026-10-10 20:29:08.161082284 +0100
-+++ b/r12/asmfit.py	2026-10-10 20:30:07.524775240 +0100
+--- a/r12/asmfit.py	2026-10-10
++++ b/r12/asmfit.py	2026-10-10
 @@ -11,7 +11,9 @@
  """
  

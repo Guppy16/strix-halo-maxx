@@ -1,9 +1,11 @@
 #!/bin/bash
 # pass 17: KTL kernels from r22/gen_e7k.py: fit + assemble + link + asmlint + tcall + multi-k-step replay (2..5 k-step tiles)
 #   r22/build_e7k.sh r70      (json r22/e7k_<v>_n16.json -> r22/mm_e7k_<v>.s / .h / .dis)
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
 set -e
 cd "$(dirname "$0")/.."
-DK="docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron"
+DK="docker run --rm --network none -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron"
 B=/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin
 mkdir -p r22/build
 for v in "$@"; do

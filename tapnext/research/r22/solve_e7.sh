@@ -1,7 +1,9 @@
 #!/bin/bash
-# E7'' CP-SAT, residue mode, 4 workers (main measured the NPU clock dropping to 1.4 GHz under ~20 busy CPU threads, round 21):
+# E7'' CP-SAT, residue mode, 4 workers (the optimisation rounds measured the NPU clock dropping to 1.4 GHz under ~20 busy CPU threads, round 21):
 # the bank-3 cap as a cost, started from the relaxed (no bank-3 cap) R = 64 solution
-cd ~/git/app/.scratch/npu-research
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+cd "$SHM_SCRATCH/npu-research"
 H=r22/diag64_soft_bank3.json
 for spec in "64 8 1200" "65 8 900"; do
   set -- $spec

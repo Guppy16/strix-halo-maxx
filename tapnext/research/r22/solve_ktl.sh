@@ -1,6 +1,8 @@
 #!/bin/bash
 # KTL feasibility: every stream segment instance serves one row block (--aligned), lf1 split L | N (N serves the next row block)
-cd ~/git/app/.scratch/npu-research
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
+cd "$SHM_SCRATCH/npu-research"
 for spec in "68 16" "68 8" "70 16"; do
   set -- $spec
   nice -n 10 ~/.local/bin/uv run --no-project --with ortools --with numpy python r22/gen_e7.py solve --R $1 --nx 8 --n1b $2 --aligned \

@@ -1,6 +1,6 @@
-# The machine: XDNA2 / AIE2P in testbox
+# The machine: XDNA2 / AIE2P
 
-The NPU in testbox's Ryzen AI Max+ 395 is an AIE2P array: 8 columns, each with a shim tile (DDR access), a memtile
+The NPU in the Ryzen AI Max+ 395 is an AIE2P array: 8 columns, each with a shim tile (DDR access), a memtile
 (512 KB) and 4 compute tiles. A compute tile is a VLIW core with 64 KB of data memory in 4 banks, 16 KB of program
 memory and 512 bfp16 MACs per instruction. The array runs at **1.81 GHz** (MEASURED). Most of what made kernels
 fast or slow on this chip is in this chapter. Each fact carries its MACHINE R-id or a source path. The detailed

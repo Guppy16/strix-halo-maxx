@@ -1,4 +1,4 @@
-"""rev 7: G1 (fused bias + GELU (+ gate product) + output) and the other LUT / chain loops, scheduled with the main agent's
+"""rev 7: G1 (fused bias + GELU (+ gate product) + output) and the other LUT / chain loops, scheduled with the optimisation rounds'
 modulo scheduler (tapnext/npu/r11/msched.py, imported read-only) at the round-11 rules (LLVM visibility, mv bypass,
 itinerary ports). No device, no build: it answers "what II does the generator reach for this op list, with which binding
 resource, how many registers and stages, and how much text".

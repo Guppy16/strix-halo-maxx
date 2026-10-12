@@ -93,7 +93,7 @@ the destinations run in lockstep. A rare slow unit costs ~3x its own time on the
 ## Packet routing
 
 Several PacketFlows can share one shim MM2S channel. That is how a column gets more inbound streams than its 2 shim channels
-(GEMM A + EW input, round 2). The IRON 1.4.4 pathfinder bugs and their patches are in [toolchain.md](toolchain.md#iron-and-mlir-aie).
+(GEMM A + EW input, round 2). The IRON 1.4.4 pathfinder behaviours and their patches are in [toolchain.md](toolchain.md#iron-and-mlir-aie).
 A core tile's 4 south ports were full in TAPNext (C × 3 + EW output), so a fifth southbound flow must share a packet port.
 
 ## What didn't work

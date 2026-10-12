@@ -9,11 +9,11 @@ GPU idle, a shared box). Use them to read a measurement, not as rules: a product
 ## A/B in one process
 
 - `tapnext/npu/r18/ab.py --a BUILD_A --b BUILD_B [--rounds 10] [--block 22] [--skip 2]`, run through `r16/nrun.sh`.
-  It alternates blocks of dispatches of the two builds in one process, so foreign CPU load and drift hit both alike.
+  It alternates blocks of dispatches of the two builds in one process, so background CPU load and drift hit both alike.
   The first dispatches of each block follow a hardware-context switch and are skipped.
 - Quote **p10 / median / mean** and the deltas b − a. A change is real when all three agree in sign and size.
   Example: KTL −0.82 ms (60 × 20 blocks; 9537138).
-- Why this matters: under a foreign worker, dispatch times split into two clusters ~0.17 ms apart, so a single median of
+- Why this matters: under a background worker, dispatch times split into two clusters ~0.17 ms apart, so a single median of
   60 dispatches can land in either ([H20](negative-results.md#h20) <!-- nr: H20 -->).
 - Absolute numbers come from `step8.py time` / `sweep` (median and min of many dispatches after 20 warm-up dispatches). The sweep
   times every depth from one xclbin. TAPNext's best: 28.42 ms at depth 12 (sweep median, 1.808 GHz, gpu_busy 0;
@@ -25,7 +25,7 @@ GPU idle, a shared box). Use them to read a measurement, not as rules: a product
   bit-identical, so speed changes never need an accuracy round. A numerics change shows its size against NPU-vs-CPU noise.
 - **Real weights, region by region**: `step8.py blocks` compares a depth-1 build against the torch block. Random-weight tests
   missed a GELU that clamped its multiplicand (round 4).
-- **Model accuracy**: DAVIS AJ for TAPNext (10 videos, ~7 min on the NPU), the 493-frame yes/no set for moondream.
+- **Model accuracy**: DAVIS AJ for TAPNext (10 videos, ~7 min on the NPU), a private yes/no frame set for moondream.
   Judge SSM numerics by DAVIS, not by 30-frame max deviations ([H26](negative-results.md#h26) <!-- nr: H26 -->).
 - One dispatch with a short timeout before timing anything new (see [Timeouts](#timeouts-and-recovery)).
 
@@ -106,7 +106,7 @@ Quiet box: 1.81 GHz. Observed (R20.1, R21.2; probes `tapnext/research/r23/clkloa
 
 ## Check the box before timing
 
-- Load: `uptime`. Note the foreign workers (the background job, CP-SAT jobs) in the result.
+- Load: `uptime`. Note the background CPU load (other processes, CP-SAT jobs) in the result.
 - GPU: `cat /sys/class/drm/card1/device/gpu_busy_percent`. Record it. GPU load shares DDR with the NPU (moondream: +9 % on the
   NPU frame with the GPU running, MD RESULTS phase 6).
 - Power mode: Turbo for every TAPNext number. moondream phase 2 ran in Default.

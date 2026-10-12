@@ -13,7 +13,7 @@ merged objects, generated .s files or `llvm-objdump -d -z` text. Nothing runs on
     asmlint.py --rules               the rule table: id, severity, status (verified / from the .td / unverified), source
 
 Needs Peano (llvm-objdump, clang, ld.lld) for .elf / .o / .s inputs: run it in the npu-iron container (CPU only):
-    docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron python3 $HOME/git/app/strix-halo-maxx/common/tools/asmlint.py ...
+    docker run --rm --network none -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron python3 $REPO/common/tools/asmlint.py ...
 A .dis input needs no toolchain (made with `llvm-objdump -d -z --no-show-raw-insn`; -z matters: without it runs of
 2-byte nops print as `...` and every distance is wrong).
 
@@ -145,8 +145,8 @@ def xnum(reg):
 
 def find_file(rel):
     here = Path(os.path.abspath(__file__)).parent
-    roots = [here.parent.parent, Path(__file__).resolve().parent.parent.parent, Path("/work"),
-             Path.home() / "git/app/.scratch", Path("~/git/app/.scratch")]
+    scratch = Path(os.environ.get("SHM_SCRATCH") or here.parent.parent.parent / ".scratch")
+    roots = [here.parent.parent, Path(__file__).resolve().parent.parent.parent, Path("/work"), scratch]
     for r in roots:
         if (r / rel).exists():
             return r / rel

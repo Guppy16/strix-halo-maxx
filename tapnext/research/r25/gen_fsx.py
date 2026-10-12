@@ -12,10 +12,11 @@ The question (E16): is there a schedule whose x pressure fits x0-x10 (x11 = bf16
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
-NT = Path.home() / "git/app/.scratch/npu-tapnext"
+NT = Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[4] / ".scratch") / "npu-tapnext"
 for d in ("r11", "r12", "r15", "r16"):
     sys.path.insert(0, str(NT / d))
 import gen_ssq as Q  # noqa: E402

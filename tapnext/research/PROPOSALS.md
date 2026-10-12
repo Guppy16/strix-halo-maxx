@@ -53,7 +53,7 @@ Earlier revisions: `git log --follow -p tapnext/research/PROPOSALS.md`, or `git 
 |---|---|
 | SSMCUT (`r24/ssmin.py` on try24 builds with `--ew-add -DSSMIN [--ew-add -DSSM_NO_GATES]`) | distance to the SSM's input floor; `ssmcut_r25s.out`, `ssmcut_r25g.out` |
 | `r25/clkload2.sh` (+ `r26/clkload2.out`) | NPU clock under 12 threads of none / matmul AVX-512 / AVX2 / L1 matmul / DRAM copy |
-| `design8_bd.py` (+ `bdop.log`) | design8 copy (15:55) printing live shim-0 BD tasks per group at a threshold |
+| `design8_bd.py` (+ `bdop.log`) | design8 copy printing live shim-0 BD tasks per group at a threshold |
 | `ew_r24z.dis`, `ew_r24z.stack`, `ew_funcs.txt` | EW core disassembly, stack sizes, function map |
-| `cpgate.sh` | freezes research CP-SAT during main's windows |
+| `cpgate.sh` | freezes the CP-SAT solvers during the NPU measurement windows |
 | `r22/gen_e7.py` | `E7_DTIME`: a deterministic CP budget |

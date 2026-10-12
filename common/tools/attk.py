@@ -1,5 +1,5 @@
 """rev 8: the attention K phase as modulo-scheduled loops (P48 / P49 / the fused "lazy-fast" K loop), scheduled with the
-main agent's msched.py (list / IMS) and, on the laptop, cpsched.py (CP-SAT, exact register pressure).
+the msched.py of the optimisation rounds (list / IMS) and cpsched.py (CP-SAT, exact register pressure).
 No device, no build. Answers: which II per key block (64 scores = 8 query rows x 8 keys) each op list reaches under the
 round-12 rules, with which binding resource and register pressure.
 

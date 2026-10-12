@@ -4,7 +4,7 @@
 Each case is a historic artefact (copied into tapnext/research/r16/hist/; two are reconstructions, marked) with the rule that
 must fire, or a fixed / deployed version on which it must NOT fire. The deployed build must be clean (no error, no warning).
 Run in npu-iron (Peano):
-    docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron python3 $HOME/git/app/strix-halo-maxx/common/tools/asmlint_hist.py
+    docker run --rm --network none -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron python3 $REPO/common/tools/asmlint_hist.py
         [--prj /work/npu-tapnext/build/full12r15m.prj]
 """
 

@@ -32,4 +32,4 @@ Static PROF-build numbers for g11-r8pa (asm), common path (calls>0, stripe>0):
  gap at a k-step start = ~62 bundles static + the B acquire.
 PREDICTION (best guess H1): g11pa cyc/call 305-325 (static 284 + 20-40), gA/call 45-55, gKB/ks 60-75.
 If H2: cyc/call 280-290, gA/call >= 65. If H3: gKB/ks >= 200.
-2026-10-09T19:28:10+01:00
+2026-10-09

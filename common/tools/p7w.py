@@ -7,16 +7,17 @@ so with independent features the ratio of their Frobenius norms is the weight-si
 Also prints the gain statistics per site (spread inside 8-blocks along K is what hurts the shared exponent).
 The activation side (bfp16 of the un-normalised x vs of the normalised, gained y) needs real activations: P7a.
 
-usage: python3 p7w.py   (numpy only; reads data/models/tapnextpp_256.safetensors read-only)
+usage: python3 p7w.py   (numpy only; reads $TAPNEXT_WEIGHTS (default $SHM_SCRATCH/models/tapnextpp_256.safetensors) read-only)
 """
 
 import json
+import os
 import struct
 from pathlib import Path
 
 import numpy as np
 
-ST = Path.home() / "git/app/data/models/tapnextpp_256.safetensors"
+ST = Path(os.environ.get("TAPNEXT_WEIGHTS") or Path(os.environ.get("SHM_SCRATCH") or Path(__file__).resolve().parents[3] / ".scratch") / "models/tapnextpp_256.safetensors")
 
 
 def tensors():

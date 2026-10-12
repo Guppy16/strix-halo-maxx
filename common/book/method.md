@@ -1,15 +1,15 @@
 # Research method
 
-The TAPNext port ran as a loop of two agents. An **implementer** ("main") built, verified and timed one change at a
-time. A **research** agent read the measurements, kept the hardware model and the time ledger, and proposed a ranked,
+The TAPNext port ran as two alternating workstreams. The **optimisation rounds** ("main") built, verified and timed one change at a
+time. The **analysis passes** ("research") read the measurements, kept the hardware model and the time ledger, and proposed a ranked,
 priced queue of experiments with pre-registered predictions. It worked: rounds 3-25 took the step from 269 ms to 28.42 ms,
-bit-identical to the round-9 reference from round 9 on. The research side's mispredictions were the expensive part. Many of
+bit-identical to the round-9 reference from round 9 on. The analysis side's mispredictions were the expensive part. Many of
 the 187 negative results are refuted prices, not refuted mechanisms, and the method entries ([H1-H29](negative-results.md#h1), M1, L3)
 record how each misprediction happened. This chapter turns them into rules.
 
-## The two-agent loop
+## The two-workstream loop
 
-| | implementer (`tapnext/npu/`) | research (`tapnext/research/`) |
+| | optimisation rounds (`tapnext/npu/`) | analysis passes (`tapnext/research/`) |
 |---|---|---|
 | owns | the builds, the device, NOTES / RESULTS / HANDOFF | ANALYSIS (time ledger), PROPOSALS (ranked queue), MACHINE (hardware model) |
 | per round | builds the queue's top items, one commit per experiment, kept or failed, with predicted vs measured | re-reads the measurements, scores the last predictions, re-prices the queue, proposes probes |
@@ -20,9 +20,9 @@ What made it work:
 - **Separate probes from levers.** A probe answers one question and is designed to separate two hypotheses (CPST, DDRCAP, SSMCUT, RRTWIN). A
   lever is priced only from probe-backed facts. Probes were cheap, and a few of them moved the queue more than any lever did. DDRCAP
   killed four levers and re-ranked the norms in one run.
-- **Scheduling.** One GPU or NPU user at a time. The research agent's CP-SAT runs pause during the implementer's timing windows
+- **Scheduling.** One GPU or NPU user at a time. The analysis passes' CP-SAT runs pause during the optimisation rounds' timing windows
   (`tapnext/research/r26/cpgate.sh`), because CPU load drops the NPU clock ([measurement.md](measurement.md#clock-and-cpu-load)).
-- **Research builds kernels too.** ROT, E7'' and KTL were generated and replay-verified by research, then integrated by main. The hand-off was
+- **The analysis passes build kernels too.** ROT, E7'' and KTL were generated and replay-verified in the analysis passes, then integrated in the optimisation rounds. The hand-off was
   a kernel `.s` + its header + a recipe, with a one-core bench (`r20/rotdb.py`, `r24/ktlpb.py`).
 
 ## Pricing
@@ -50,7 +50,7 @@ Grouped by mechanism. Each one recurred until a rule or a tool stopped it.
 | **near a cap read as on the cap** | the SSM at 95 % of the read cap priced as capped ([M1](negative-results.md#m1) <!-- nr: M1 -->); a window average ([L3](negative-results.md#l3)) | removal twin + input-wait stamps; the binding op's own span |
 | **benches that are not the deployed code** | the forced-II GELU, C++ serial in situ, pre-released locks ([H9-H12](negative-results.md#h9)) | bench the deployed binary, feed rings by DMA, guard zones |
 | **twins priced from the step** | the norm twin −1.98 vs −0.2 real ([H17](negative-results.md#h17)) | per-op walls; twins only where downstream work is data-independent |
-| **post-hoc hits** | ranges written after main's measurement ([H21](negative-results.md#h21) <!-- nr: H21 -->) | not counted |
+| **post-hoc hits** | ranges written after the measurement ([H21](negative-results.md#h21) <!-- nr: H21 -->) | not counted |
 | **false nulls** | a stale jit cache, an `#undef`-ed flag: same elf ([H22](negative-results.md#h22)) | new build name; check the elf changed |
 
 The pattern behind most rows: a model that reproduced the past was used to price the future before a probe had separated its

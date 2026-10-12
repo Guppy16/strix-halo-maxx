@@ -1,14 +1,14 @@
-# MACHINE.md — the XDNA2 / AIE2P NPU in testbox, as a performance model
+# MACHINE.md — the XDNA2 / AIE2P NPU as a performance model
 
 Moved from npu-research/ on 2026-10-11; bare rNN/ and tools/ paths below are relative to `tapnext/research/` and
 `common/`. Earlier revisions: `git log --follow -p common/MACHINE.md`, or `git show bbff6a1:npu-research/revN/<file>`.
 
-Revision 10 additions at the end; Revision 9 additions at the end (2026-10-10 evening, after round 13). Revision 8 additions before them (after round 12). Revision 7 additions before them (after round 11): register timing, itinerary ports, the slot model reconciled. Revision 6 additions before them. Revision 5, 2026-10-10: section 3 corrects the round-9 reading of the A path. The k-step is not A-port-bound: its
+Revision 10 additions at the end; Revision 9 additions at the end (2026-10-10, after round 13). Revision 8 additions before them (after round 12). Revision 7 additions before them (after round 11): register timing, itinerary ports, the slot model reconciled. Revision 6 additions before them. Revision 5, 2026-10-10: section 3 corrects the round-9 reading of the A path. The k-step is not A-port-bound: its
 steady state is 2,055 + 67 cycles, and the ~4 B/cycle figures were a mean that includes the op-start wait, plus the
 DDR-bound slot load. Section 2.4 (perf counters and DMA events for P38) and section 2.5 (the L1 maps of the GEMM and
 EW cores) are new.
 
-Revision 4, 2026-10-09 night: section 2.2 now states the L1 bank rule exactly (fitted to every round-8 mmb placement
+Revision 4, 2026-10-09: section 2.2 now states the L1 bank rule exactly (fitted to every round-8 mmb placement
 with zero error) and what it implies for scheduling; section 2.3 (vector slot classes) is new; open question 6 is
 partly answered. Revision 3 measured the clock at 1.81 GHz and added
 the first bank table. Revision 1 (round 5) had two wrong constants, the clock (1.43 GHz) and the memtile -> core stream
@@ -23,14 +23,14 @@ Every fact carries a tag:
 Sources on disk (read without a device):
 - In the `npu-iron` image: mlir-aie 1.4.4's `AIETargetModel.h` (TM), aie-rt's `xaie2pgbl_params.h` (PARAMS) and
   `xaie_events_aie2p.h` (EVENTS), Peano's `aie2pintrin.h`, the AIE API headers.
-- On testbox's host: the amdxdna 2.21 driver source in `/usr/src/xrt-amdxdna-2.21.0/driver/amdxdna/` (DRV).
+- On the test machine's host: the amdxdna 2.21 driver source in `/usr/src/xrt-amdxdna-2.21.0/driver/amdxdna/` (DRV).
 - llvm-aie's AIE2P TableGen files, `moondream/npu/p10/td/` (TD).
 - The mlir-aie main checkout of 2026-10-06, `moondream/npu/mlir-aie/` (UPSTREAM).
 
 Web sources are AMD AM020 (AIE-ML) and AM027 (AIE-ML v2).
 
 **AIE2P is not AIE-ML v2.** In mlir-aie, `aie2ps` is the AIE-ML v2 part (VE3858, Versal AI Edge Gen 2), with its own
-target model. `aie2p` is Strix XDNA2. testbox's device is PCI 1022:17f0 revision 0x11, "NPU Strix Halo"
+target model. `aie2p` is Strix XDNA2. The test machine's device is PCI 1022:17f0 revision 0x11, "NPU Strix Halo"
 (`/sys/class/accel/accel0/device/{device,revision,vbnv}`), which the driver runs as `npu5` with the `npu4` family's
 tables (DRV `amdxdna_pci_drv.c`, `npu5_regs.c`).
 
@@ -81,7 +81,7 @@ tables (DRV `amdxdna_pci_drv.c`, `npu5_regs.c`).
 - Over the whole step, 15,552 k-steps x 2,718 bundles = 23.5 ms at 1.8 GHz and 29.6 ms at 1.43 GHz; measured
   +24.7 ms. The 1.43 GHz clock cannot produce that number.
 - The GELU kprobe: 110 bundles per vector in 63 ns, so f >= 1.75 GHz.
-- The main agent's round-7 clock probe (`tapnext/npu/r7/clk.cc`: pure-register loops of known bundle count, several
+- The round-7 clock probe (`tapnext/npu/r7/clk.cc`: pure-register loops of known bundle count, several
   trip counts) will measure it directly. Expect 1.80 GHz.
 
 ## 2. Compute tile (core + 64 KB memory module)
@@ -275,7 +275,7 @@ Sources (web): [AM020 memory tile](https://docs.amd.com/r/en-US/am020-versal-aie
 
 ## Revision 7 additions (2026-10-10, after round 11)
 
-### R7.1 Register timing (measured by the main agent, `tapnext/npu/r11/mk_haz.py`; SKILL section 3)
+### R7.1 Register timing (measured in the optimisation rounds, `tapnext/npu/r11/mk_haz.py`; SKILL section 3)
 | rule | value | tag |
 |---|---|---|
 | visibility | a register written by an op with .td latency w is seen by an operand read at .td stage r of an op issued **>= w - r + 1** cycles later (LLVM's latency). Before that, readers see the OLD value (no interlocks). Measured for vlda, vldb.4x64 (w 7), vadd.32, vconv, vfloor, vshuffle, vmin_ge (w 2) with a vst reader | [MEAS r11] |
@@ -348,7 +348,7 @@ Stacks [MEAS stackaudit]: GEMM 1,664 of 2,816 B used, EW 4,288 of 6,144 B.
 | read | 0.08 |
 | total | **2.0-2.2** |
 
-The variance comes from the OpenMP pool waking after the 52 ms NPU wait, and from tenants. Launch floor 97 us; frame upload 27 us.
+The variance comes from the OpenMP pool waking after the 52 ms NPU wait, and from background CPU load. Launch floor 97 us; frame upload 27 us.
 
 ## Revision 8 additions (2026-10-10, after round 12)
 
@@ -374,7 +374,7 @@ No dead entry points. Each GEMM core holds a single C object in L1 (C0_x_buff_0)
 `aiex.npu.load_pdi` exists for the full-ELF flow only; the pyxrt dispatch bridge rejects it. `npu_blockwrite` can address any
 tile register / memory in principle; writing core program memory at run time is untested (P59).
 
-## Revision 9 additions (2026-10-10 evening, after round 13)
+## Revision 9 additions (2026-10-10, after round 13)
 
 ### R9.1 The K / V multicast (design8 attention, lowered MLIR of full12r13f) [DOC]
 | item | value |
@@ -652,7 +652,7 @@ aexp_push 464, attn_qcopy 400, attn_chunk_k 304, exp32 304, attn_chunk_v 256, ro
   - After YXSSM the SSM's own span is at the DDR read cap: in its 288 us span it reads 13.57 MB plus ~2.0 MB of the overlapping yx = 54 GB/s vs 55-59 (DDRCAP, round 19; supersedes R15.4's ">= 84").
   - Writes in the span ~28 GB/s.
   - Channel 0 (R15.2 / R15.3) needs 2,066 cycles per SSM unit and static compute 2,115, both just under the cap; in situ 2,416 per unit (2,336 before the overlap).
-  - Main's r24d (the SSM 15 us earlier, its span +19 us) agrees.
+  - The r24d build (the SSM 15 us earlier, its span +19 us) agrees.
 - **R20.3 [DOC plan8 ssm()]** Per head and column the SSM has two fills.
   - Params: kb_pad(SSM_PARAM_BYTES) = 12,288 B for 10,752 B of data ([2 slots][Wx 4,608][Wa 4,608]). It is read at the same DDR address by all 8 columns: 1.18 MB per block of identical reads, 147 KB of it padding.
   - Activations: 7 streams x 18 units x 1 KB = 129,024 B from the column's own area.

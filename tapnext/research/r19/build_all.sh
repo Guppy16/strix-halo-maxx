@@ -1,6 +1,8 @@
 #!/bin/bash
-# research pass 14: solve (optional) + fit + link + lint + tcall + replay on the r17d / r18h-ROT placements, per ROT variant.
-#   r19/build_all.sh [--solve] g2f g1f g0f        (from ~/git/app/.scratch/npu-research on testbox)
+# analysis pass 14: solve (optional) + fit + link + lint + tcall + replay on the r17d / r18h-ROT placements, per ROT variant.
+#   r19/build_all.sh [--solve] g2f g1f g0f        (from $SHM_SCRATCH/npu-research)
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
 set -e
 cd "$(dirname "$0")/.."
 SOLVE=0
@@ -8,7 +10,7 @@ SOLVE=0
 P="c_obj=0x78900,slots=0x77b80:0x78000:0x78480,rec=0x71800,b=0x7d100"
 PLACES=(--place "acc_hi=0x718c0" --place "$P,acc_hi=0x71900" --place "$P,acc_hi=0x71980" --place "$P,acc_hi=0x719c0" --place "$P,acc_hi=0x71a00")
 UV="nice -n 10 $HOME/.local/bin/uv run --no-project --with ortools --with numpy python"
-DK="docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron"
+DK="docker run --rm --network none -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron"
 B=/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin
 for v in "$@"; do
   g=${v:1:1}

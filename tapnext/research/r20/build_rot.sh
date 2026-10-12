@@ -1,10 +1,12 @@
 #!/bin/bash
 # pass 15: fit + link + lint + tcall + replay on the full12r18m placement for ROT variants solved by r20/gen_rot.py
-#   r20/build_rot.sh g1a g0a      (from ~/git/app/.scratch/npu-research on testbox)
+#   r20/build_rot.sh g1a g0a      (from $SHM_SCRATCH/npu-research)
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+SHM_SCRATCH=$(cd "${SHM_SCRATCH:-$REPO/../.scratch}" && pwd)   # scratch / working dir (docker mounts it as /work)
 set -e
 cd "$(dirname "$0")/.."
 P="c_obj=0x78900,slots=0x77b80:0x78000:0x78480,rec=0x71804,b=0x7d100"
-DK="docker run --rm --network none -v $HOME/git/app/.scratch:/work -v $HOME/git/app/strix-halo-maxx:$HOME/git/app/strix-halo-maxx npu-iron"
+DK="docker run --rm --network none -v $SHM_SCRATCH:/work -v $REPO:$REPO npu-iron"
 B=/opt/ironenv/lib/python3.13/site-packages/llvm-aie/bin
 mkdir -p r20/build
 for v in "$@"; do

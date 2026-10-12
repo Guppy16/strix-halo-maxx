@@ -21,7 +21,7 @@ The CP model matches the 64 job pops to the stream's B pop positions by residue 
 order, so the only requirement is that a pop happens at the time the job wants it; the panel <-> position pairing (border) is
 read off the solution.
 
-usage (testbox; CP-SAT via uv, nice, <= 12 workers):
+usage (CP-SAT via uv, nice, <= 12 workers):
   nice -n 10 ~/.local/bin/uv run --no-project --with ortools --with numpy python r22/gen_e7.py solve --R 64 --json r22/e7_r64.json
   docker ... npu-iron python3 r22/gen_e7.py fit r22/e7_r64.json --out r22/mm_e7_r64.s     (emit + alignment fit + assemble + replay)
   python3 r22/gen_e7.py check r22/mm_e7_r64.s --json r22/e7_r64.json [--buf 1] [--place acc_hi=0x..]   (replay only)

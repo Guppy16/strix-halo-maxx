@@ -20,14 +20,16 @@ usage (read-only container): python3 ssmnum.py [--blocks 0,5,11]
 """
 
 import argparse
+import os
 import sys
 
 import ml_dtypes
 import numpy as np
 
 BF = ml_dtypes.bfloat16
-ACTS = "/r/.scratch/npu-tapnext/build/acts_clip3.npz"
-W = "/r/data/models/tapnextpp_256.safetensors"
+SCRATCH = os.environ.get("SHM_SCRATCH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../.scratch")
+ACTS = f"{SCRATCH}/npu-tapnext/build/acts_clip3.npz"
+W = os.environ.get("TAPNEXT_WEIGHTS", f"{SCRATCH}/models/tapnextpp_256.safetensors")
 
 
 def bf(x):

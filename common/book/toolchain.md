@@ -15,9 +15,9 @@ replay and `asmlint` before it runs. The rules themselves are in the
   `input_with_addresses.mlir`, so a patched copy (an extra lock, a split BD chain, a switchbox rule) rebuilds in
   seconds (`tapnext/npu/r19/csplit.py`, round 19, cb41936). The rule that comes with it: never dispatch the
   unpatched xclbin of a kernel that takes the new lock. It hangs.
-- IRON 1.4.4 bugs we hit, with their workarounds:
+- IRON 1.4.4 behaviours we hit, with their workarounds:
 
-| bug | symptom | workaround | ref |
+| behaviour | symptom | workaround | ref |
 |---|---|---|---|
 | multicast + unicast packet flows on shared DMA ports | a destination silently dropped, hang | multicast-only routes | [G8](negative-results.md#g8) <!-- nr: G8 --> |
 | two packet flows from two DMA channels of one tile onto one port | no route found | declare both from MM2S 0, patch the switchbox (`r20/nresfix.py`) | [G9](negative-results.md#g9) <!-- nr: G9 --> |
@@ -28,7 +28,7 @@ replay and `asmlint` before it runs. The rules themselves are in the
 
 ## Peano (llvm-aie)
 
-Peano is good at short, simple loops and bad at long dependency chains. What we measured:
+Observed Peano behaviour: short, simple loops pipeline; long dependency chains do not. What we measured:
 
 - **It does not software-pipeline long chains.** exp, sigmoid and GELU leave every MAC-latency slot as a nop. Two independent
   chains interleave (exp 73 → 38, sigmoid 140 → 77, GELU 199 → 111 bundles per vector). Four chains spill and gain nothing
@@ -43,8 +43,8 @@ Peano is good at short, simple loops and bad at long dependency chains. What we 
   ([B2](negative-results.md#b2) <!-- nr: B2 -->, [B3](negative-results.md#b3) <!-- nr: B3 -->). Read the emitted loop of the binary you deploy.
 - The same C++ can be serial in situ and pipelined in a one-core bench: the SSM z loop was 27 bundles per 64 lanes inside `ew_ssm`
   and 97 cycles for all 8 in the bench ([E15](negative-results.md#e15), R13.8).
-- Crashes: vectors assigned under runtime conditions or `aie::select` give "Bad PHI" ([G7](negative-results.md#g7) <!-- nr: G7 -->);
-  inline sched barriers in a pipelined loop crash ([G6](negative-results.md#g6) <!-- nr: G6 -->). Mask arithmetically and stamp
+- Compiler errors: vectors assigned under runtime conditions or `aie::select` give "Bad PHI" ([G7](negative-results.md#g7) <!-- nr: G7 -->);
+  inline sched barriers in a pipelined loop make the compiler fail ([G6](negative-results.md#g6) <!-- nr: G6 -->). Mask arithmetically and stamp
   through a noinline call.
 - Never re-seek a block-vector stream after popping from it; build a fresh stream object per block
   ([G5](negative-results.md#g5) <!-- nr: G5 -->).
@@ -84,7 +84,7 @@ The progression shows what each tool added:
 3. **`r11/msched.py`** (round 11): a general modulo scheduler over virtual registers, with ports from the itinerary, iterative modulo
    scheduling, modulo variable expansion and a value-level checker. GELU at II 13, bit-exact.
 4. **`r12/cpsched.py`** (round 12): CP-SAT (OR-tools) with one-hot issue cycles; slots, ports and banks modulo II; exact steady-state
-   MaxLive per register class. It found II 6 / 12 / 16 where list scheduling failed. Solve on testbox, `nice -n 10`, ≤ 12 workers.
+   MaxLive per register class. It found II 6 / 12 / 16 where list scheduling failed. Solve with `nice -n 10`, ≤ 12 workers.
 5. **`gen_rot` / `gen_e7` / `gen_e7k`** (research passes 14-19): the GEMM k-step as a CP model with banks per cycle,
    a whole-call value-level replay on any L1 placement, and `fit` (prologue alignment). See
    [gemm.md](gemm.md#the-k-step-from-c-to-ktl) for what they bought (ROT −3.3, E7'' −0.28, KTL −0.82 ms).
