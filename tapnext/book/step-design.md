@@ -22,23 +22,25 @@ k-step = one 64-wide slice of the reduction dimension $K$ for one tile. AJ = ave
 One block is 17 ops. Each is assigned to one core kind and the cores hand data to each other through DDR.
 
 ```mermaid
-flowchart TD
+flowchart LR
     classDef ew fill:#fde9c9,stroke:#b36b00,color:#000
     classDef gemm fill:#d6e8fb,stroke:#1f5fa8,color:#000
-    n0["norm0 RMS"]:::ew --> yx["yx GEMM, GELU on y half"]:::gemm
-    yx --> ssm["ssm: conv + RG-LRU, 12 heads"]:::ew
-    ssm --> out["out GEMM"]:::gemm
-    out --> n1["norm1 RMS"]:::ew
-    n1 --> up["up_a, up_b GEMM, gated pair"]:::gemm
-    up --> down["down_a, down_b GEMM, two K halves"]:::gemm
-    down --> n2["norm2 LN"]:::ew
-    n2 --> qkv["qkv GEMM"]:::gemm
-    qkv --> attn["attn: 12 heads x 1,072 keys"]:::gemm
-    attn --> op["out_proj GEMM"]:::gemm
-    op --> n3["norm3 LN"]:::ew
-    n3 --> m0["mlp0 GEMM, GELU"]:::gemm
-    m0 --> m3["mlp3_a, mlp3_b GEMM, two K halves"]:::gemm
-    m3 -. next block .-> n0
+    subgraph mixer["mixer"]
+        n0["norm0 RMS"]:::ew --> yx["yx GEMM"]:::gemm --> ssm["ssm EW"]:::ew --> out["out GEMM"]:::gemm
+    end
+    subgraph mlp1["MLP 1"]
+        n1["norm1 RMS"]:::ew --> up["up a,b"]:::gemm --> down["down a,b"]:::gemm
+    end
+    subgraph att["attention"]
+        n2["norm2 LN"]:::ew --> qkv["qkv"]:::gemm --> attn["attn"]:::gemm --> op["out_proj"]:::gemm
+    end
+    subgraph mlp2["MLP 2"]
+        n3["norm3 LN"]:::ew --> m0["mlp0"]:::gemm --> m3["mlp3 a,b"]:::gemm
+    end
+    out --> n1
+    down --> n2
+    op --> n3
+    m3 -.-> |next block| n0
 ```
 
 Orange = EW core, blue = GEMM core. Attention is blue because it also runs on the GEMM cores: the matrix unit and the vector unit are one unit,
@@ -81,14 +83,17 @@ so 80 rows are padding (RESULTS 8; REDESIGN). Column $c$ owns rows $144c \dots 1
                  column 0          column 1     ...    column 7
 rows           0 .. 143         144 .. 287    ...   1008 .. 1151
              +-----------+     +-----------+         +-----------+
- GEMM row 0  | GEMM core |     | GEMM core |   ...   | GEMM core |  } each owns 1/3 of an op's
- GEMM row 1  | GEMM core |     | GEMM core |   ...   | GEMM core |  } N tiles; tile = 144 rows
- GEMM row 2  | GEMM core |     | GEMM core |   ...   | GEMM core |  } x 64 columns, k-step = 64 K
- EW row      | EW core   |     | EW core   |   ...   | EW core   |  norms + SSM
+ GEMM row 0  | GEMM core |     | GEMM core |   ...   | GEMM core |
+ GEMM row 1  | GEMM core |     | GEMM core |   ...   | GEMM core |
+ GEMM row 2  | GEMM core |     | GEMM core |   ...   | GEMM core |
+ EW row      | EW core   |     | EW core   |   ...   | EW core   |
              +-----------+     +-----------+         +-----------+
  memtile     | A slot; B and C fifos (one memtile per column)    |
  shim        | DMA to DDR                                        |
 ```
+
+Each GEMM core owns a third of an op's N tiles (a tile is 144 rows x 64 columns; a k-step is 64 K).
+The EW core runs the norms and the SSM.
 
 That is 24 GEMM cores and 8 EW cores. Attention also runs on the GEMM cores, with the 12 heads dealt as head $r + 3g$ to core row $r$ ($g = 0 \dots 3$).
 
@@ -110,42 +115,47 @@ All layouts are defined in `plan8.py` and `pack8.py`. One rule shapes them: **an
 Per column, for each of the 64-wide k-steps, 18 row blocks, each 1,600 B:
 
 ```text
-Q16, per column:   [k-step] [row block 0..17]  -> 1,600 B each
-                                |
-                                +-- 1,024 B  bf16 data  (8 rows x 64)
-                                +--   576 B  bfp panels (block floating point, for the matrix unit)
+Q16, per column:  [k-step] [row block 0..17]  -> 1,600 B each
+                                   |
+                  +-- 1,024 B  bf16 data (8 rows x 64)
+                  +--   576 B  bfp panels
 ```
 
 - A GEMM drains its 1,024 B parts linearly.
 - A norm emits `X' | panel` per k-step with one 3-dimensional drain.
 - A GEMM's A input gathers the panels with one 4-dimensional TAP.
 - A residual norm gathers 1 to 3 streams with one 4-dimensional TAP (inputs at equal distances, sorted by address, since the sum is commutative).
+- bfp = block floating point, the format the matrix unit reads.
 
 ### APAN and QKV
 
 ```text
-APAN:  [epilogue-made k-step chunk] ...        stride 18,432 B = the size of one C object
-       (gated hidden layer, mlp0 output)       -> the junk tail of every drained object lands in padding
+APAN:  [k-step chunk] [k-step chunk] ...      stride 18,432 B
 
-QKV:   [head][column][ Q | K | V^T objects ]   each object 4,608 B
-                                               K and V use 3,456 B of it; the tail is scratch while the core holds it (NOTES 19.3)
+QKV:   [head][column][ Q | K | V^T objects ]  each object 4,608 B
 ```
+
+- APAN holds epilogue-made chunks (gated hidden layer, mlp0 output). Its stride equals the size of one C object,
+  so the junk tail of every drained object lands in padding.
+- K and V use 3,456 B of their 4,608 B object; the tail is scratch while the core holds it (NOTES 19.3).
 
 V^T panels share exponents over keys, so the host reference must encode the transposed matrix (NOTES 8.3).
 
 ### SSM area, A slot, weights
 
 ```text
-SSM area (per block): 7 input streams, S bytes apart, read by the SSM as one TAP
+SSM area (per block): 7 input streams, S bytes apart, read as one TAP
     [ y | conv history R0 R1 R2 R3 | h lo | h hi | z ]
-    conv history is a ring mod 4: the yx drain writes x(t) into R[t mod 4], so the state never moves.
-    Four runtime sequences per depth select the phase (ssm.md).
 
 A slot in the memtile (input operand staging):
-    24 chunks x 10,368 B = 248,832 B       K = 1536 ops hold all 24, K = 768 ops half
-    36 chunks            = 373,248 B       for down_b / mlp3_b (after the 3A change)
-    driven by runtime tasks (a 2.0 ms gain)
+    24 chunks x 10,368 B = 248,832 B
+    36 chunks            = 373,248 B   (down_b / mlp3_b, after change 3A)
 ```
+
+- The conv history is a ring mod 4: the yx drain writes x(t) into R[t mod 4], so the state never moves.
+  Four runtime sequences per depth select the phase ([ssm.md](ssm.md)).
+- In the 24-chunk slot, K = 1536 ops hold all 24 chunks and K = 768 ops hold half.
+- The slot is driven by runtime tasks (a 2.0 ms gain).
 
 The rotating conv history is change X1,[^x1] the larger slot is change 3A,[^3a] and the runtime-driven slot is A_RT.[^art]
 
@@ -165,24 +175,28 @@ The host writes the patch-embedded input, then hands the CP a precomputed instru
 
 ```mermaid
 sequenceDiagram
-    participant H as Host (CPU)
-    participant C as CP (command processor)
-    participant S as Shim + memtile DMA
-    participant K as 24 GEMM + 8 EW cores
-    participant D as DDR (ACT, W)
-    H->>D: write X0 (conv + pos-emb + query tokens), 2.8 MB
-    H->>C: dispatch instruction buffer for this depth and phase
-    loop 206 ops, two in flight
-        C->>S: BDs and tasks for op i (weights streamed once)
-        S->>D: read A and W
-        S->>K: A slot, B fifo
-        K->>S: C drain = next op's A layout
-        S->>D: write ACT
-        C->>C: sync until the producer group is finished
+    participant Host
+    participant CP
+    participant DMA
+    participant Cores
+    participant DDR
+    Host->>DDR: write X0
+    Host->>CP: dispatch stream
+    loop 206 ops, 2 in flight
+        CP->>DMA: BDs, tasks
+        DMA->>DDR: read A, W
+        DMA->>Cores: A slot, B fifo
+        Cores->>DMA: C drain
+        DMA->>DDR: write ACT
+        CP->>CP: sync on producer
     end
-    C-->>H: done
-    H->>D: read tracks, run heads (48 rows)
+    CP-->>Host: done
+    Host->>DDR: read tracks
 ```
+
+Host = CPU. CP = command processor. DMA = shim and memtile DMA engines. Cores = 24 GEMM + 8 EW cores.
+X0 = conv + positional embedding + query tokens (2.8 MB). Weights are streamed once per step. The C drain
+is already the next op's A layout. Heads (48 rows) run on the host after the read.
 
 How the sequence got here:
 
