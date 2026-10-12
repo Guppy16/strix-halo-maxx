@@ -4,8 +4,27 @@ The model-specific chapters for the TAPNext++ port: the whole 12-block step in o
 bit-identical to `full12r9a`, DAVIS AJ 70.84. Read [the machine-level book](../../common/book/README.md) first. These
 chapters hold the TAPNext shapes, layouts and attempts, and link back up to the general chapters.
 
-Each chapter uses the same sections, so links stay stable: a lead, the topic sections, `## What worked`,
+Each chapter opens with "In brief" and uses the same sections, so links stay stable: the topic sections, `## What worked`,
 `## What didn't work` (anchor `#what-didnt-work`), `## Lessons`, `## Going deeper`.
+
+```mermaid
+flowchart LR
+    subgraph design["how it is built"]
+        direction TB
+        sd["step-design"] --> g["gemm"] --> at["attention"]
+    end
+    subgraph ew["EW cores"]
+        direction TB
+        ss["ssm"] --> n["norms"] --> bo["boundaries"]
+    end
+    subgraph chk["checks"]
+        direction TB
+        nu["numerics"] --> le["ledger"] --> cr["crop-study"]
+    end
+    design --> ew --> chk
+```
+
+Chapter order is the reading order: design first, then the cores, then accuracy, the time ledger and the CPU crop study.
 
 | # | chapter | covers | general part |
 |---|---|---|---|
