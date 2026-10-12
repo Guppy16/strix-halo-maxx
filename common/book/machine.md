@@ -1,14 +1,36 @@
 # The machine: XDNA2 / AIE2P
 
-The NPU in the Ryzen AI Max+ 395 is an AIE2P array: 8 columns, each with a shim tile (DDR access), a memtile
-(512 KB) and 4 compute tiles. A compute tile is a VLIW core with 64 KB of data memory in 4 banks, 16 KB of program
-memory and 512 bfp16 MACs per instruction. The array runs at **1.81 GHz** (MEASURED). Most of what made kernels
-fast or slow on this chip is in this chapter. Each fact carries its MACHINE M-id or a source path. The detailed
-tables are in [MACHINE.md](../MACHINE.md), and the toolchain rules are in the
-[xdna2-npu skill](../../.claude/skills/xdna2-npu/SKILL.md) §3.
+> **In brief**
+>
+> - The NPU in the Ryzen AI Max+ 395 is an AIE2P array of 8 columns: each has a shim tile (DDR access), a memtile (512 KB) and 4 compute tiles.
+> - A compute tile is a VLIW core with 64 KB of data memory in 4 banks, 16 KB of program memory and 512 bfp16 MACs per instruction. The array runs at **1.81 GHz** (MEASURED), peak 59 TOPS.
+> - Most of what made kernels fast or slow is here: the slot a conversion issues on, no fp32 vector arithmetic, the bank rule, the 16 KB text budget, and only two input streams per GEMM core.
+> - Each fact carries its MACHINE M-id or a source path. The detailed tables are in [MACHINE.md](../MACHINE.md); the toolchain rules are in the [xdna2-npu skill](../../.claude/skills/xdna2-npu/SKILL.md) §3.
 
-AIE2P is not AIE-ML v2 (`aie2ps`), so don't use the AM027 tables for it. The device is PCI 1022:17f0 rev 0x11, which
-the driver runs as `npu5` with the `npu4` tables (MACHINE [M0.3](../MACHINE.md#m0-3)).
+**Terms.** AIE2P = the array's compute architecture. VLIW = very long instruction word (one bundle issues several instructions). L1 = a compute tile's 64 KB data memory. bfp16 = block floating point 16, the format the matrix unit reads. BD = DMA buffer descriptor. CP = the command processor that executes the runtime sequence. ZOL = zero-overhead loop. DPM = dynamic power management level.
+
+> **Pitfall.** AIE2P is not AIE-ML v2 (`aie2ps`), so don't use the AM027 tables for it. The device is PCI 1022:17f0 rev 0x11, which the driver runs as `npu5` with the `npu4` tables (MACHINE [M0.3](../MACHINE.md#m0-3)).
+
+## What does the array look like?
+
+```text
+              col 0      col 1     ...     col 7
+row 5  core |  core  |  core  |  ...  |  core  |
+row 4  core |  core  |  core  |  ...  |  core  |    32 cores
+row 3  core |  core  |  core  |  ...  |  core  |    64 KB L1, 16 KB text each
+row 2  core |  core  |  core  |  ...  |  core  |
+row 1  mem  | memtile| memtile|  ...  | memtile|    8 memtiles, 512 KB each
+row 0  shim |  shim  |  shim  |  ...  |  shim  |    DMA to and from DDR
+```
+
+Data flows DDR, shim, memtile, core and back. The rates on each hop (measured under our conditions, GPU idle) set what a kernel can ever reach:
+
+```mermaid
+flowchart LR
+    ddr["DDR<br/>55-59 GB/s read<br/>50-60 GB/s write<br/>(aggregate)"] -->|"~7 B/cycle<br/>per stream"| shim["shim"]
+    shim --> mem["memtile<br/>512 KB"]
+    mem -->|"7.95 B/cycle<br/>per port"| core["core L1<br/>64 KB"]
+```
 
 ## Array and clock
 
@@ -20,14 +42,15 @@ the driver runs as `npu5` with the `npu4` tables (MACHINE [M0.3](../MACHINE.md#m
 | programs | one hw context per xclbin; switching costs ~2.7 ms; pyxrt launch floor ~97 us | MACHINE [M1.6](../MACHINE.md#m1-6), SKILL §5 |
 | power modes | Default and Turbo both run the array at DPM level 7 while a context is open; Turbo only turns off clock gating | MACHINE [M1.2](../MACHINE.md#m1-2) (driver source) |
 
-The early "1.43 GHz" clock was a stalled spin loop read as a clock, and it mispriced every early model
-(negative-results [H1](negative-results.md#h1)). Measure the clock with `r7/clk.py` in the same session as the timing
-you quote ([measurement.md](measurement.md#clock-and-cpu-load)).
+The peak is
+
+$$32 \times 512\ \text{MAC} \times 1.8\ \text{GHz} = 29.5\ \text{TMAC/s} = 59\ \text{TOPS}.$$
+
+> **Pitfall.** The early "1.43 GHz" clock was a stalled spin loop read as a clock, and it mispriced every early model (negative-results [H1](negative-results.md#h1)). Measure the clock with `r7/clk.py` in the same session as the timing you quote ([measurement.md](measurement.md#clock-and-cpu-load)).
 
 ## The compute tile
 
-**Slots.** Each bundle issues at most one instruction per slot: `lda`, `ldb`, `st`, `mv`, `vec`, `alu`, `lng`.
-Where an op goes decides an elementwise kernel's floor (MACHINE [M2.1](../MACHINE.md#m2-1)):
+**Slots.** Each bundle issues at most one instruction per slot: `lda`, `ldb`, `st`, `mv`, `vec`, `alu`, `lng`. Where an op goes decides an elementwise kernel's floor (MACHINE [M2.1](../MACHINE.md#m2-1)):
 
 | slot | holds | result latency |
 |---|---|---|
@@ -36,55 +59,65 @@ Where an op goes decides an elementwise kernel's floor (MACHINE [M2.1](../MACHIN
 | mv | integer, bit, shuffle, min/max, `vups`, `vconv.fp32.bf16` | 2 |
 | lda / ldb | loads; LUT loads on ldb only; block-vector pops on either | 7 (pop 8) |
 
-**Registers.** 5 accumulators (dm0-dm4, each one 8x8 fp32 block), 12 x registers of 512 bit (the 576-bit `ex`
-bfp panels alias them: `ex_n` *is* `x_n`), and 6 `ey` pairs (MACHINE [M2.2](../MACHINE.md#m2-2), [M3.4](../MACHINE.md#m3-4)). Register pressure, not slots,
-sets the initiation interval of most table and epilogue loops ([M3.4](../MACHINE.md#m3-4)).
+**Registers.** 5 accumulators (dm0-dm4, each one 8x8 fp32 block), 12 x registers of 512 bit (the 576-bit `ex` bfp panels alias them: `ex_n` *is* `x_n`), and 6 `ey` pairs (MACHINE [M2.2](../MACHINE.md#m2-2), [M3.4](../MACHINE.md#m3-4)). Register pressure, not slots, sets the initiation interval of most table and epilogue loops ([M3.4](../MACHINE.md#m3-4)).
 
-**No fp32 vector arithmetic.** fp32 add, mul, compare and convert on vectors are emulated at ~21 bundles per 16 lanes.
-bf16 is native at 32 lanes. fp32 exists only inside the MAC accumulator (MACHINE [M2.5](../MACHINE.md#m2-5),
-`moondream/npu/RESULTS.md` phase 6). Everything in [elementwise.md](elementwise.md) follows from this.
+**No fp32 vector arithmetic.** fp32 add, mul, compare and convert on vectors are emulated at ~21 bundles per 16 lanes. bf16 is native at 32 lanes. fp32 exists only inside the MAC accumulator (MACHINE [M2.5](../MACHINE.md#m2-5), `moondream/npu/RESULTS.md` phase 6). Everything in [elementwise.md](elementwise.md) follows from this.
 
-**Rounding defaults to FLOOR.** Call `aie::set_rounding(conv_even)` once per core. Every moondream attention kernel
-before v7r ran truncating (MD RESULTS phase 9: rms 1.49e-2 → 1.03e-2 once set).
+**Rounding defaults to FLOOR.** Call `aie::set_rounding(conv_even)` once per core. Every moondream attention kernel before v7r ran truncating (MD RESULTS phase 9: rms 1.49e-2 → 1.03e-2 once set).
 
-**Register timing.** There are no interlocks. A register written by an op with .td latency *w* is seen by a reader at
-stage *r* of an op issued ≥ *w − r* + 1 cycles later; before that the reader gets the OLD value. An mv-slot result reaches
-mv-slot readers one cycle early (the mv → mv bypass). Dependent MACs need distance ≥ 3, or 2 through the one-deep
-accumulator bypass ([M3.1](../MACHINE.md#m3-1), measured by `tapnext/npu/r11/mk_haz.py`).
+### Register timing
 
-**Itinerary ports.** Some ports are shared across slots and are structural hazards, just like slots: DM_ADA (every `vlda` and
-every LUT load), QEY_RS (LUT index reads, `vfloor`, `vst x`), and others ([M3.3](../MACHINE.md#m3-3)). For any table-lookup loop the
-resource bound is max over slots *and* ports. GELU's "8-cycle floor" counted slots only; with ports it is 10-11
-(negative-results [B4](negative-results.md#b4)).
+There are no interlocks. A register written by an op with .td latency $w$ is seen by a reader at stage $r$ of an op issued at least $w - r + 1$ cycles later; before that the reader gets the OLD value.
+
+- An mv-slot result reaches mv-slot readers one cycle early (the mv → mv bypass).
+- Dependent MACs need distance $\ge 3$, or 2 through the one-deep accumulator bypass ([M3.1](../MACHINE.md#m3-1), measured by `tapnext/npu/r11/mk_haz.py`).
+
+### Itinerary ports
+
+Some ports are shared across slots and are structural hazards, just like slots: DM_ADA (every `vlda` and every LUT load), QEY_RS (LUT index reads, `vfloor`, `vst x`), and others ([M3.3](../MACHINE.md#m3-3)). For any table-lookup loop the resource bound is the maximum over slots *and* ports:
+
+$$\text{II} \ge \max\left(\max_\text{slots} n_s,\ \max_\text{ports} n_p\right)$$
+
+GELU's "8-cycle floor" counted slots only; with ports it is 10-11 (negative-results [B4](negative-results.md#b4)).
 
 ## L1: 64 KB in four banks
 
-The four banks are 16 KB each, at 0x70000 + 16 KB·i. The bank rule is exact (R4 §2.2, fitted to 207 placements with zero error):
+The four banks are 16 KB each, at `0x70000` + 16 KB·$i$. The bank rule is exact (R4 §2.2, fitted to 207 placements with zero error):
 
-> A bundle costs max(1, the largest number of its memory accesses that fall in one bank) cycles.
+> A bundle costs $\max(1,\ \text{the largest number of its memory accesses that fall in one bank})$ cycles.
+
+```text
+bundle A:  lda [bank 0]  ldb [bank 2]  st [bank 0]   2 in bank 0: 2 cycles
+bundle B:  lda [bank 0]  ldb [bank 1]  st [bank 2]   1 per bank:  1 cycle
+```
 
 Accesses in different bundles never conflict, and ops on the same slot never co-issue (so two `lda` never collide).
-In situ, DMA writes into a bank the core touches in that cycle also cost the core ~0.7 cycles per 32 B write
-(α = 0.72; DMAB measured 0.68-0.75; [M4.4](../MACHINE.md#m4-4)). A full GEMM k-step loses ~140 cycles per k-step to these collisions,
-about 1.2 ms per TAPNext step, and no idle bank is left to move them into ([M4.4](../MACHINE.md#m4-4),
-[gemm.md](gemm.md#bank-conflicts-and-dma-collisions)).
 
-L1 fills up. The deployed GEMM core used 64,960 of 65,536 B ([M7.1](../MACHINE.md#m7-1)), and the EW core ~2.5 KB free ([M7.2](../MACHINE.md#m7-2)). The
-linker script's `bankN` regions are where `.aie.bankN` sections go, not free space. Free space is the region length minus
-its sections ([H25](negative-results.md#h25)).
+In situ, DMA writes into a bank the core touches in that cycle also cost the core ~0.7 cycles per 32 B write ($\alpha = 0.72$; DMAB measured 0.68-0.75; [M4.4](../MACHINE.md#m4-4)). A full GEMM k-step loses ~140 cycles per k-step to these collisions, about 1.2 ms per TAPNext step, and no idle bank is left to move them into ([M4.4](../MACHINE.md#m4-4), [gemm.md](gemm.md#bank-conflicts-and-dma-collisions)).
+
+L1 fills up:
+
+| core | used / free |
+|---|---|
+| deployed GEMM core | 64,960 of 65,536 B used ([M7.1](../MACHINE.md#m7-1)) |
+| EW core | ~2.5 KB free ([M7.2](../MACHINE.md#m7-2)) |
+
+> **Pitfall.** The linker script's `bankN` regions are where `.aie.bankN` sections go, not free space. Free space is the region length minus its sections ([H25](negative-results.md#h25)).
 
 ## Program memory: 16 KB
 
-Text was the binding budget on both TAPNext core types for most of the rounds. The GEMM core sat at 16,256 / 16,384 B
-at the pause (HANDOFF round 25). It killed or parked several levers ([G18](negative-results.md#g18)). What it means for
-code is in [toolchain.md](toolchain.md#program-memory).
+Text was the binding budget on both TAPNext core types for most of the rounds. The GEMM core sat at 16,256 / 16,384 B at the pause (HANDOFF round 25). It killed or parked several levers ([G18](negative-results.md#g18)). What it means for code is in [toolchain.md](toolchain.md#program-memory).
 
 ## Locks
 
-Each core tile has 16 locks with 6-bit values (0-63), and a kernel reaches its own lock *n* as id 48 + *n*. A memtile has 64 (MACHINE [M5.1](../MACHINE.md#m5-1)).
-`acq #id, rV` with rV < 0 acquires ≥ −rV; rV ≥ 0 is acquire-EQUAL, so "acquire 0" waits for zero and hangs (SKILL §3).
-`acq.cond` / `rel.cond` take the condition in **r26 only** and test **bit 0** ([M5.2](../MACHINE.md#m5-2)). A lock request
-holds the lock unit for 4 cycles (MACHINE [M5.3](../MACHINE.md#m5-3)).
+| property | value |
+|---|---|
+| locks per core tile | 16, 6-bit values (0-63); a kernel reaches its own lock $n$ as id $48 + n$ |
+| locks per memtile | 64 (MACHINE [M5.1](../MACHINE.md#m5-1)) |
+| `acq #id, rV` with rV < 0 | acquires $\ge -rV$ |
+| `acq #id, rV` with rV $\ge$ 0 | acquire-EQUAL, so "acquire 0" waits for zero and hangs (SKILL §3) |
+| `acq.cond` / `rel.cond` | condition in **r26 only**, tests **bit 0** ([M5.2](../MACHINE.md#m5-2)) |
+| lock request | holds the lock unit for 4 cycles ([M5.3](../MACHINE.md#m5-3)) |
 
 ## DMA, streams and ports
 
@@ -94,47 +127,61 @@ holds the lock unit for 4 cycles (MACHINE [M5.3](../MACHINE.md#m5-3)).
 | memtile | 6 S2MM + 6 MM2S; channels 0-3 reach the neighbour memtile | 48, in two halves of 24 | 512 KB; queue 4 + 1 tasks per channel |
 | shim | 2 MM2S + 2 S2MM | 16 | 20-bit steps, 10-bit wraps; ~5 tasks per channel before the CP blocks |
 
-The rates and caps are in [data-movement.md](data-movement.md). In short: memtile → core 7.95 B/cycle per port,
-one shim stream ~7 B/cycle (~12.6 GB/s), and an **aggregate** DDR cap of ~55-59 GB/s read and ~50-60 GB/s write, as observed
-with the GPU idle.
+The rates and caps are in [data-movement.md](data-movement.md). In short:
 
-A GEMM core has exactly two input streams, A (the memtile broadcast to the column's cores) and B (the weight multicast
-to the row's cores). Neither can carry per-core data such as a residual tile ([M8.2](../MACHINE.md#m8-2)). That one fact ruled out
-fusing the residual add into the GEMM epilogue in both projects ([J1](negative-results.md#j1),
-`moondream/npu/RESULTS.md` phase 7).
+- memtile → core: 7.95 B/cycle per port;
+- one shim stream: ~7 B/cycle (~12.6 GB/s);
+- an **aggregate** DDR cap of ~55-59 GB/s read and ~50-60 GB/s write, as observed with the GPU idle.
+
+A GEMM core has exactly two input streams, A (the memtile broadcast to the column's cores) and B (the weight multicast to the row's cores).
+
+```mermaid
+flowchart LR
+    mem["memtile<br/>(per column)"] -->|"A: broadcast<br/>to the column"| core["GEMM core"]
+    w["weights"] -->|"B: multicast<br/>to the row"| core
+    core -.->|"no third port:<br/>no per-core residual"| x["residual tile"]
+```
+
+Neither stream can carry per-core data such as a residual tile ([M8.2](../MACHINE.md#m8-2)). That one fact ruled out fusing the residual add into the GEMM epilogue in both projects ([J1](negative-results.md#j1), `moondream/npu/RESULTS.md` phase 7).
 
 ## The command processor (CP)
 
-The runtime sequence (`.bin`) is a stream of CP instructions: BD writes, address patches, queue pushes, maskpolls and
-token waits. TAPNext's step is ~51k instructions in 289 sync runs ([M11.1](../MACHINE.md#m11-1)). Measured costs: `npu_write32` ~0.06 µs,
-`npu_maskpoll` ~0.11 µs (CPRATE, [C3](negative-results.md#c3)), and a post-wait shim fill (5 instructions) ~0.55 µs
-([M11.2](../MACHINE.md#m11-2)). The CP issues column by column, so per-column work after a wait skews the columns, and a B multicast then
-holds every column to the last one. [fusion.md](fusion.md) covers the consequences.
+The runtime sequence (`.bin`) is a stream of CP instructions: BD writes, address patches, queue pushes, maskpolls and token waits. TAPNext's step is ~51k instructions in 289 sync runs ([M11.1](../MACHINE.md#m11-1)). Measured costs:
+
+| CP operation | cost | source |
+|---|---|---|
+| `npu_write32` | ~0.06 µs | CPRATE |
+| `npu_maskpoll` | ~0.11 µs | CPRATE, [C3](negative-results.md#c3) |
+| post-wait shim fill (5 instructions) | ~0.55 µs | [M11.2](../MACHINE.md#m11-2) |
+
+The CP issues column by column, so per-column work after a wait skews the columns, and a B multicast then holds every column to the last one. [fusion.md](fusion.md) covers the consequences.
 
 ## Timers and counters
 
-Each module has a 64-bit timer. The core reads it with `read_tm(0x340F8)` **only after** the runtime sequence enables
-its processor bus (`npu_maskwrite32` 0x32038 bit 0). Without the enable the core hangs ([G17](negative-results.md#g17) <!-- nr: G17 -->).
-There are four performance counters per core (0x31500 / 0x31504 control, 0x31520 + 4n counters; MEMORY_STALL 23,
-LOCK_STALL 26). The CP can write a core's data memory, which gives CP-progress stamps (CPST). How to use these is in
-[measurement.md](measurement.md#in-kernel-stamps-and-counters).
+Each module has a 64-bit timer. The core reads it with `read_tm(0x340F8)` **only after** the runtime sequence enables its processor bus (`npu_maskwrite32` `0x32038` bit 0). Without the enable the core hangs ([G17](negative-results.md#g17) <!-- nr: G17 -->).
+
+- There are four performance counters per core (`0x31500` / `0x31504` control, `0x31520` + 4n counters; MEMORY_STALL 23, LOCK_STALL 26).
+- The CP can write a core's data memory, which gives CP-progress stamps (CPST).
+
+How to use these is in [measurement.md](measurement.md#in-kernel-stamps-and-counters).
 
 ## What didn't work
 
 The hardware facts above killed these ideas:
 
-- Two block-vector pops from one FIFO in one bundle: a FIFO pops once per bundle, so B over two banks with one FIFO was void (E7'). [A14](negative-results.md#a14) <!-- nr: A14 -->
-- Holding Q in `ex0-7` beside x constants: `ex_n` aliases `x_n`, so the loop computed garbage. [D9](negative-results.md#d9) <!-- nr: D9 -->
-- A "biased base" form of `vldb.4x64`: it does not exist; LUT loads take an index vector only. [D10](negative-results.md#d10) <!-- nr: D10 -->
-- Lock conditions as flag × counter: `acq.cond` tests bit 0, which skipped every even acquire (the KTL hang). [K1](negative-results.md#k1) <!-- nr: K1 -->
-- "Scalar results need an extra cycle in a ZOL body": the .td latencies hold (mul 2, add 1). [K2](negative-results.md#k2) <!-- nr: K2 -->
-- The residual add in the GEMM epilogue: there is no third core input port. [J1](negative-results.md#j1)
-- The early 1.43 GHz clock and 4 B/cycle port constants. [H1](negative-results.md#h1)
+| idea | outcome | why | index |
+|---|---|---|---|
+| Two block-vector pops from one FIFO in one bundle | void (E7') | a FIFO pops once per bundle, so B over two banks with one FIFO cannot work | [A14](negative-results.md#a14) <!-- nr: A14 --> |
+| Holding Q in `ex0-7` beside x constants | the loop computed garbage | `ex_n` aliases `x_n` | [D9](negative-results.md#d9) <!-- nr: D9 --> |
+| A "biased base" form of `vldb.4x64` | does not exist | LUT loads take an index vector only | [D10](negative-results.md#d10) <!-- nr: D10 --> |
+| Lock conditions as flag × counter | the KTL hang | `acq.cond` tests bit 0, which skipped every even acquire | [K1](negative-results.md#k1) <!-- nr: K1 --> |
+| "Scalar results need an extra cycle in a ZOL body" | wrong | the .td latencies hold (mul 2, add 1) | [K2](negative-results.md#k2) <!-- nr: K2 --> |
+| The residual add in the GEMM epilogue | impossible | there is no third core input port | [J1](negative-results.md#j1) |
+| The early 1.43 GHz clock and 4 B/cycle port constants | mispriced early models | a stalled spin loop read as a clock | [H1](negative-results.md#h1) |
 
 ## Lessons
 
-- Read MACHINE's tag ([DOC] / [MEAS] / [INF]) before you build on a fact. An [INF] number has misled us more than once
-  (the CP's 0.10 µs per BD write was really 0.55 µs, [C8](negative-results.md#c8)).
+- Read MACHINE's tag ([DOC] / [MEAS] / [INF]) before you build on a fact. An [INF] number has misled us more than once (the CP's 0.10 µs per BD write was really 0.55 µs, [C8](negative-results.md#c8)).
 - Do the arithmetic in bf16 and keep fp32 in the accumulator. Price loops by max(slots, ports, registers), not by op count.
 - When the core stalls, check banks first: one bundle with two accesses in one bank costs a cycle, every time.
 
